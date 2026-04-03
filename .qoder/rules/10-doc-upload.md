@@ -2,7 +2,9 @@
 trigger: glob
 glob: app/api/upload*.py, app/api/documents*.py, app/domain/ingestion*.py, app/storage/**/*.py, app/templates/**/*.html, app/static/**/*.js, scripts/ingest*.py
 ---
-# Document Upload — UI/UX, API, and Storage
+# Document Upload — API and Storage
+
+Frontend stack (HTMX, Alpine.js, Jinja2, general patterns) → see `11-frontend.md`.
 
 ***
 
@@ -19,19 +21,18 @@ Document upload uses two independent layers. Do not mix them.
 
 ## File storage — MinIO
 
-MinIO is the only file storage backend. Use it locally via Docker and in production
-via S3-compatible endpoint. The same `aiobotocore` code works in both environments —
-only `s3_endpoint_url` and credentials change via settings.
-
-The project `docker-compose.yml` already contains the MinIO service definition —
-do not duplicate it here.
+MinIO is the only file storage backend. The project `docker-compose.yml` already
+contains the MinIO service definition — do not duplicate it here.
 
 Start MinIO: `docker compose up -d minio`
+
+The same `aiobotocore` code works locally and in production —
+only `s3_endpoint_url` and credentials change via settings.
 
 ### Settings
 ```python
 class Settings(BaseSettings):
-    s3_endpoint_url: str        # http://localhost:9000 locally; blank for AWS S3
+    s3_endpoint_url: str        # http://localhost:9000 locally; empty for AWS S3
     s3_access_key: str
     s3_secret_key: str
     s3_bucket: str = "rag-documents"
@@ -150,19 +151,6 @@ Add `data/` to `.gitignore`.
 
 ***
 
-## Frontend stack
-
-- **HTMX + Alpine.js** — no build pipeline, works with FastAPI Jinja2 templates.
-- **XMLHttpRequest** (not `fetch`) for upload progress — only XHR exposes
-  `xhr.upload.onprogress`.
-- **HTMX polling** (`hx-trigger="every 2s"`) for ingestion status updates.
-
-### Supported formats
-Configurable via `settings.allowed_extensions`. Default: `.pdf`, `.docx`, `.txt`, `.md`.
-Do not hardcode in route handlers.
-
-***
-
 ## Upload flow (states per file)
 
 ```
@@ -219,9 +207,9 @@ async def list_documents():
 
 ***
 
-## Frontend patterns
+## Upload UI patterns
 
-### XHR upload with progress
+### XHR with progress (use instead of fetch)
 ```javascript
 function uploadFile(file) {
     const formData = new FormData();
@@ -246,31 +234,26 @@ function uploadFile(file) {
 }
 ```
 
-### Status polling
-```javascript
-function pollStatus(filename, jobId) {
-    setFileState(filename, 'pending');
-    const interval = setInterval(async () => {
-        const res = await fetch(`/api/documents/${jobId}/status`);
-        const data = await res.json();
-        setFileState(filename, data.status, data.error);
-        if (data.status === 'indexed' || data.status === 'failed')
-            clearInterval(interval);
-    }, 2000);
-}
+### Status polling via HTMX
+```html
+<div
+  id="job-{{ job_id }}"
+  hx-get="/api/documents/{{ job_id }}/status-partial"
+  hx-trigger="every 2s"
+  hx-swap="outerHTML">
+  <span class="badge badge--pending">Processing…</span>
+</div>
 ```
 
-***
+Stop polling by returning the partial without `hx-trigger` when status is terminal.
 
-## UX rules
-
-- Show a drag-and-drop zone with clear affordance (border, icon, label).
-- Allow both drag-and-drop and click-to-browse.
-- Show a per-file row: filename, file size, progress bar, status badge.
-- Never use a single global progress bar for multi-file uploads — track per file.
+### UX rules
+- Show a per-file row: filename, size, progress bar, status badge.
+- Never use a single global progress bar for multi-file uploads.
 - On `failed`, show the error reason and a **Retry** button.
 - On `indexed`, show a **Delete from index** action.
 - Provide an empty state: "No documents indexed yet. Upload your first file."
+- Allow both drag-and-drop and click-to-browse.
 
 ***
 
@@ -322,6 +305,7 @@ async def ingest_document(
 ***
 
 ## Do not
+- Do not duplicate MinIO service config — it lives in `docker-compose.yml`.
 - Do not read `UploadFile` inside the background task — read it in the handler first.
 - Do not store uploaded files on the local filesystem — use MinIO.
 - Do not trust client-provided MIME type as the only validation.
@@ -331,4 +315,3 @@ async def ingest_document(
 - Do not hardcode MinIO credentials — load from settings via `pydantic-settings`.
 - Do not store file binaries in SQLite — SQLite holds metadata only.
 - Do not create a new `S3Storage` instance per request — initialize once in lifespan.
-- Do not duplicate MinIO service config — it lives in `docker-compose.yml`.
