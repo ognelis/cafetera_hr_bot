@@ -17,6 +17,10 @@ trigger: always_on
 - `uv run uvicorn app.main:app --reload`
 - `uv run pytest`
 
+## Local development (polling mode, no server required)
+- `uv run python scripts/polling.py` — run Telegram bot in polling mode locally.
+- `uv run python scripts/polling_vk.py` — run VK bot in Long Poll mode locally.
+
 ## Do not
 - Do not introduce `poetry.lock`, `Pipfile`, or pip-tools workflow unless explicitly requested.
 - Do not add `requirements.txt` by default unless explicitly requested.

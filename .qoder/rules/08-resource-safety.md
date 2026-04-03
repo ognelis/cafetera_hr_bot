@@ -14,7 +14,7 @@ trigger: always_on
 - Prefer dependency injection via `app.state` or FastAPI `Depends` for shared resources.
 - Prefer `asynccontextmanager` for wrapping resource lifecycle in reusable blocks.
 
----
+***
 
 ## FastAPI lifespan
 
@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 ```
 
----
+***
 
 ## HTTP clients
 
@@ -59,7 +59,7 @@ client = httpx.AsyncClient(timeout=httpx.Timeout(10.0))
 await client.aclose()
 ```
 
----
+***
 
 ## Qdrant client
 
@@ -67,10 +67,13 @@ await client.aclose()
 - Close `QdrantClient` on shutdown with `client.close()`.
 - Do not share mutable Qdrant state between concurrent requests without isolation.
 
----
+***
 
 ## aiogram Bot
 
+- `Bot` and `Dispatcher` may be declared at module level — they are configuration
+  containers with no active connection at creation time.
+- Register webhook in lifespan via `await bot.set_webhook(...)`.
 - Always delete webhook on application shutdown via `await bot.delete_webhook()`.
 - Always close bot session on shutdown via `await bot.session.close()`.
 
@@ -81,15 +84,17 @@ await bot.delete_webhook()
 await bot.session.close()
 ```
 
----
+***
 
 ## vkbottle Bot
 
-- Initialize `BotCallback` and `Bot` once in lifespan.
+- `BotCallback` and `Bot` may be declared at module level — they are configuration
+  containers with no active connection at creation time.
+- Call `await bot.setup_webhook()` inside lifespan startup.
 - Use `background_tasks` for event processing — never block the response.
 - Do not create a new Bot instance per request.
 
----
+***
 
 ## General async rules
 
@@ -98,12 +103,12 @@ await bot.session.close()
 - Do not share non-thread-safe state between concurrent coroutines without locks.
 - Always await all coroutines — do not fire-and-forget unless explicitly intended.
 
----
+***
 
 ## Do not
 
 - Do not initialize clients at module level outside of lifespan unless they are
-  stateless and cheap to create.
+  stateless configuration containers with no active connections.
 - Do not ignore exceptions during resource teardown — log them explicitly.
 - Do not create new DB or vector store connections per request.
 - Do not skip client.close() / session.close() calls on shutdown.

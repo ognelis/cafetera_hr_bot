@@ -3,6 +3,18 @@
 ## Goal
 This repository uses agentic coding for implementation assistance, but architecture, invariants, and acceptance are human-led.
 
+## Stack
+- Python 3.11+. Package manager: `uv` only — never pip or poetry.
+- FastAPI + pydantic v2 + pydantic-settings.
+- Telegram: aiogram 3.x (not 2.x). VK: vkbottle 4.x.
+- RAG: LangChain + Qdrant.
+- Run commands via `uv run` (e.g. `uv run pytest`, `uv run uvicorn ...`).
+
+## Architecture
+Layers: `app/api` (transport) → `app/domain` (services) → `app/rag` (retrieval/prompts).
+Adapters: `app/integrations/telegram/`, `app/integrations/vk/`.
+Detailed layer rules: see `.qoder/rules/00-architecture.md`.
+
 ## Core workflow
 1. First inspect relevant files and existing patterns.
 2. Then produce a short implementation plan.
@@ -29,10 +41,11 @@ This repository uses agentic coding for implementation assistance, but architect
 
 ## Validation
 Before finishing, always:
-- run tests relevant to changed code,
-- run linters/formatters if configured,
-- check for compile errors,
-- summarize validation status.
+- `uv run pytest` — run tests relevant to changed code.
+- `uv run ruff check .` — if ruff is configured.
+- `uv run mypy app/` — if mypy is configured.
+- Check for import errors and missing dependencies.
+- Summarize: what passed, what failed, what was skipped and why.
 
 ## Final response format
 Return:

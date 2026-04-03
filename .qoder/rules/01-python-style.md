@@ -7,12 +7,10 @@ glob: app/**/*.py, scripts/**/*.py, tests/**/*.py
 ## Rules
 - Use Python 3.11+ features and modern typing syntax.
 - Use pydantic v2 for request and response schemas.
-- Use `pydantic-settings` for application settings.
 - Prefer explicit imports and small functions.
 - Prefer composition over large god classes.
 - Keep async boundaries explicit for API and I/O code.
-- Avoid files longer than 300-400 lines unless there is a strong reason.
-- Do not hardcode secrets, tokens, URLs, or credentials.
+- Avoid files longer than 300–400 lines unless there is a strong reason.
 - Keep business logic testable outside FastAPI request handlers.
 
 ## Code style
@@ -25,3 +23,6 @@ glob: app/**/*.py, scripts/**/*.py, tests/**/*.py
 - Do not introduce unnecessary abstractions for tiny modules.
 - Do not create framework-heavy patterns unless they simplify maintenance.
 - Do not hide side effects inside utility helpers.
+
+# Note
+Secret management and environment configuration rules → see `09-security.md`.

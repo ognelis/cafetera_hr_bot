@@ -17,6 +17,12 @@ glob: tests/**/*.py
 - Test API contracts for `/health` and `/api/chat`.
 - Test webhook handlers with normalized payload samples.
 
+## Security test coverage
+- Test that webhook endpoints return 403 when secret validation fails.
+- Test that invalid or missing `X-Telegram-Bot-Api-Secret-Token` is rejected.
+- Test that VK events with a wrong `secret` field are rejected.
+- Do not use real tokens or secrets in test fixtures — use placeholder strings.
+
 ## Do not
 - Do not rely on external network calls in default test runs.
 - Do not make tests depend on real model credentials.
