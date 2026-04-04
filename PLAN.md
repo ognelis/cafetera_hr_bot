@@ -15,21 +15,17 @@
 - vkbottle 4.x, long polling через `scripts/polling_vk.py`
 - `pydantic-settings`, `.env.example`
 - Структура: `app/bot/`, `app/domain/`, `scripts/`
-- Инициализация ресурсов в `scripts/polling_vk.py` перед `bot.run_forever()`
+- Инициализация ресурсов перед запуском polling
 
 **1.2 Состояния и контекст**
-- Состояния экранов → `bot.state_dispenser` (встроен в vkbottle):
-  `await bot.state_dispenser.set(peer_id, MyStates.X)`
-  `await bot.state_dispenser.delete(peer_id)` — по «🔁 Начать заново»
-- Определить enum `MyStates` для каждого многошагового сценария
-- Контекст диалога обращения в HR (S-70) → `CtxStorage` (встроен в vkbottle)
-- Состояния → `bot.state_dispenser` (in-memory, дефолтный бэкенд)
-- Контекст диалога S-70 → `CtxStorage` (in-memory)
+- Состояния экранов → `bot.state_dispenser` (in-memory, встроен в vkbottle)
+- Enum `MyStates` для каждого многошагового сценария
+- Контекст диалога S-70 → `CtxStorage` (in-memory, встроен в vkbottle)
 
 **1.3 Роутер сообщений**
-- Навигация → `@bot.on.private_message(payload={"cmd": "..."})` (встроенный payload-роутинг)
-- Состояние-зависимые хендлеры → `@bot.on.private_message(state=MyStates.X)`
-- Обработка текстового ввода (fallback → заглушка или главное меню)
+- Навигация → payload-роутинг через декораторы vkbottle
+- Состояние-зависимые хендлеры через `state=MyStates.X`
+- Fallback на текстовый ввод → заглушка или главное меню
 
 **1.4 Навигационные хелперы**
 - `send_main_menu(user_id)` — S-01
@@ -74,14 +70,12 @@
 ### Блок 3 — P0: RAG-заглушки
 
 **3.1 Сервис RAG-заглушки**
-- Единая функция `rag_stub(topic: str) -> str`
-- Возвращает: «ℹ️ [тема] — ответ формируется через базу знаний (в разработке). Обратитесь в HR или попробуйте позже.»
+- Единая функция `rag_stub(topic)` — возвращает текст-заглушку
+- Текст: «ℹ️ [тема] — ответ формируется через базу знаний (в разработке). Обратитесь в HR или попробуйте позже.»
 - Кнопки: [💬 Написать в HR] [🏠 Главное меню]
 
 **3.2 🚪 Увольнение по собственному желанию** — FR-5 (RAG stub)
-
 **3.3 🏖 Порядок оформления отпуска** — FR-7 (RAG stub)
-
 **3.4 🏆 Условия премирования** — FR-10 (RAG stub)
 
 ***
@@ -92,7 +86,6 @@
 - Меню раздела + переходы к RAG-заглушкам (FR-9, FR-10)
 
 **4.2 🏥 Больничный / ЭЛН (S-50)** — FR-13 (RAG stub)
-
 **4.3 📝 Испытательный срок (S-60)** — FR-15 (RAG stub)
 
 **4.4 ❓ Задать вопрос**
@@ -104,7 +97,7 @@
 - S-ERR-03: данные требуют интеграции → NFR-1 текст + [💬 HR]
 
 **4.6 Out-of-scope заглушки** — FR-20
-- Запрос по переводу, дисциплине → RAG-stub текст + [💬 Написать в HR]
+- Запрос по переводу, дисциплине → RAG stub + [💬 Написать в HR]
 - Запрос персональных данных → S-ERR-03
 
 ***
@@ -137,7 +130,7 @@
 ### Блок 6 — RAG-инфраструктура
 
 **6.0 FastAPI + webhook**
-- Добавить FastAPI в проект — нужен для webhook VK и эндпоинта загрузки документов
+- Добавить FastAPI — нужен для webhook VK и эндпоинта загрузки документов
 - Перенести инициализацию ресурсов в lifespan
 - Webhook-эндпоинт для VK вместо long polling (прод-деплой)
 
@@ -147,15 +140,14 @@
 
 **6.2 Пайплайн ингестиции Word-документов**
 - `scripts/ingest.py`: python-docx → чанки → эмбеддинги → Qdrant
-- Поддержка только .docx (NFR-3: PDF-сканы не используются)
+- Только .docx (NFR-3: PDF-сканы не используются)
 - Метаданные: имя файла, раздел, юрлицо (если применимо)
-- Запуск: `uv run python scripts/ingest.py`
 
 **6.3 LangChain ретривер**
 - `app/rag/retriever.py`: dense retrieval из Qdrant
 - `app/rag/prompts.py`: системный промпт — краткий, пошаговый, без персональных данных
-- `app/rag/chain.py`: chain = retriever + prompt + LLM
-- Инициализация в lifespan через `app.state.rag_chain`
+- `app/rag/chain.py`: retriever + prompt + LLM
+- Инициализация в lifespan
 
 ***
 
