@@ -4,7 +4,6 @@ Usage:
     uv run python scripts/polling_vk.py
 """
 
-import asyncio
 import logging
 import sys
 
@@ -21,12 +20,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def main() -> None:
+def main() -> None:
     settings = Settings()
     bot = create_bot(settings)
     logger.info("Starting VK bot in Long Poll mode …")
-    await bot.run_polling()
+    bot.run_forever()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

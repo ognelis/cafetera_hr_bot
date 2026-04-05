@@ -1,16 +1,18 @@
-"""Section entry-point handlers — stubs that will be replaced in Block 2+."""
+"""Section entry-point handlers — stubs for sections not yet implemented.
+
+Hire, fire, and vacation are now handled by dedicated handler modules
+(hire.py, fire.py, vacation.py).  This module keeps stubs for the
+remaining sections (Block 4+).
+"""
 
 from vkbottle.bot import BotLabeler, Message
 
 from app.integrations.vk.keyboards import (
     CMD_ASK,
-    CMD_FIRE,
-    CMD_HIRE,
     CMD_HOME,
     CMD_PAY,
     CMD_PROBATION,
     CMD_SICK,
-    CMD_VACATION,
     stub_kb,
 )
 
@@ -22,30 +24,6 @@ def _section_stub(title: str) -> str:
         f"{title}\n\n"
         "Раздел в разработке.\n"
         "Выберите другой пункт меню или напишите в HR."
-    )
-
-
-@bl.message(payload=CMD_HIRE)
-async def on_hire(message: Message) -> None:
-    await message.answer(
-        _section_stub("👤 Приём сотрудника"),
-        keyboard=stub_kb(back_payload=CMD_HOME).get_json(),
-    )
-
-
-@bl.message(payload=CMD_FIRE)
-async def on_fire(message: Message) -> None:
-    await message.answer(
-        _section_stub("🚪 Увольнение"),
-        keyboard=stub_kb(back_payload=CMD_HOME).get_json(),
-    )
-
-
-@bl.message(payload=CMD_VACATION)
-async def on_vacation(message: Message) -> None:
-    await message.answer(
-        _section_stub("🏖 Отпуск"),
-        keyboard=stub_kb(back_payload=CMD_HOME).get_json(),
     )
 
 

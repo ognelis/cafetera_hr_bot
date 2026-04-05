@@ -1,12 +1,12 @@
 """Start, main menu, and home navigation handlers."""
 
+from __future__ import annotations
+
 from vkbottle.bot import BotLabeler, Message
 
 from app.integrations.vk.keyboards import (
-    CMD_CONTACT_HR,
     CMD_HOME,
     main_menu_kb,
-    stub_kb,
 )
 
 bl = BotLabeler()
@@ -30,6 +30,10 @@ async def send_main_menu(message: Message, *, text: str = MAIN_MENU_TEXT) -> Non
 
 @bl.message(text=["/start", "Начать", "начать", "Start", "start"])
 async def on_start(message: Message) -> None:
+    # Clear any lingering dialog state
+    from app.integrations.vk.handlers.hr_request import _clear_state
+
+    await _clear_state(message.peer_id)
     await message.answer(GREETING, keyboard=main_menu_kb().get_json())
 
 
@@ -38,17 +42,8 @@ async def on_start(message: Message) -> None:
 
 @bl.message(payload=CMD_HOME)
 async def on_home(message: Message) -> None:
+    # Clear any lingering dialog state
+    from app.integrations.vk.handlers.hr_request import _clear_state
+
+    await _clear_state(message.peer_id)
     await send_main_menu(message)
-
-
-# ── 💬 Contact HR placeholder ─────────────────────────────────────
-
-
-@bl.message(payload=CMD_CONTACT_HR)
-async def on_contact_hr(message: Message) -> None:
-    text = (
-        "💬 Написать в HR\n\n"
-        "Этот раздел позволит сформировать обращение в HR-отдел.\n"
-        "Функция в разработке — скоро здесь появится пошаговый диалог."
-    )
-    await message.answer(text, keyboard=stub_kb().get_json())

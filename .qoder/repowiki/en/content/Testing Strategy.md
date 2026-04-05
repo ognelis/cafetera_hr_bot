@@ -3,8 +3,8 @@
 <cite>
 **Referenced Files in This Document**
 - [pyproject.toml](file://pyproject.toml)
-- [tests/test_bot_factory.py](file://tests/test_bot_factory.py)
 - [tests/test_config.py](file://tests/test_config.py)
+- [tests/test_bot_factory.py](file://tests/test_bot_factory.py)
 - [tests/test_keyboards.py](file://tests/test_keyboards.py)
 - [tests/test_states.py](file://tests/test_states.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
@@ -15,6 +15,12 @@
 - [app/integrations/vk/handlers/fallback.py](file://app/integrations/vk/handlers/fallback.py)
 - [app/config.py](file://app/config.py)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated Configuration Testing section to reflect the explicit `_env_file=None` parameter usage
+- Enhanced test isolation and reliability documentation for Settings class initialization
+- Added guidance on environment file handling in test configurations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -31,9 +37,11 @@
 ## Introduction
 This document describes the testing strategy and approach used in cafetera_hr_bot with a focus on unit testing, configuration and setup, handler testing patterns, keyboard testing strategies, and state management testing. It explains how pytest is configured and used, how to test asynchronous bot components, and how to validate behavior without relying on live external services. Practical examples are provided via file references to the actual test suite and implementation.
 
+**Updated** Enhanced with improved test configuration isolation using explicit `_env_file=None` parameter for better reliability and test independence.
+
 ## Project Structure
 The testing effort is organized under the tests/ directory and targets core components of the VK integration:
-- Configuration loading and defaults
+- Configuration loading and defaults with explicit environment file control
 - Bot factory and handler registration order
 - Keyboard builders and payload constants
 - State machine definitions
@@ -65,7 +73,6 @@ APP --> STATES
 APP --> HANDLERS
 HANDLERS --> START
 HANDLERS --> SECTIONS
-HANDLERS --> FALLBACK
 APP --> CFG
 ```
 
@@ -90,7 +97,7 @@ APP --> CFG
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 
 ## Core Components
-- Configuration tests validate default values and environment overrides.
+- Configuration tests validate default values and environment overrides with explicit environment file control.
 - Bot factory tests verify handler registration order and token forwarding.
 - Keyboard tests validate structure, payloads, and service-row behavior.
 - States tests validate the state machine definition and uniqueness.
@@ -99,8 +106,11 @@ APP --> CFG
 Key testing characteristics:
 - Uses pytest with asyncio_mode set to auto for async-friendly tests.
 - Tests are structured around class-per-subject for readability and isolation.
-- Environment variables are mocked using pytest’s monkeypatch fixture.
+- Environment variables are mocked using pytest's monkeypatch fixture.
 - Keyboard assertions rely on parsing JSON and inspecting button arrays and payloads.
+- Configuration tests explicitly control environment file loading with `_env_file=None`.
+
+**Updated** Configuration tests now demonstrate explicit environment file control for better test isolation and reliability.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -142,19 +152,22 @@ Test-->>Test : "Assert ordering and counts"
 
 ### Configuration Testing
 Purpose:
-- Verify default values for settings.
+- Verify default values for settings with explicit environment file control.
 - Verify environment variable overrides using monkeypatch.
-- Ensure environment file integration works as configured.
+- Ensure environment file integration works as configured while maintaining test isolation.
 
 Methodology:
-- Instantiate Settings with explicit overrides to test defaults.
+- Instantiate Settings with explicit overrides and `_env_file=None` to test defaults without environment file interference.
 - Use monkeypatch to set environment variables and assert resulting values.
-- Confirm that environment file is used for loading settings.
+- Confirm that environment file is used for loading settings when `_env_file` is not explicitly set.
 
 Best practices:
 - Keep environment variable names explicit and documented.
-- Isolate environment-dependent tests using fixtures.
-- Prefer explicit Settings construction for deterministic tests.
+- Isolate environment-dependent tests using fixtures and explicit `_env_file=None` parameter.
+- Prefer explicit Settings construction with `_env_file=None` for deterministic tests that don't rely on external environment files.
+- Use monkeypatch for environment variable testing to avoid modifying system-wide environment.
+
+**Updated** Enhanced with explicit `_env_file=None` parameter usage for improved test isolation and reliability. This prevents tests from accidentally loading environment files from the project directory, ensuring consistent and predictable test behavior.
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
@@ -169,7 +182,7 @@ Purpose:
 Methodology:
 - Assert the last labeler is the fallback handler and the first is the start handler.
 - Build a bot and count the number of registered message handlers.
-- Assert that the bot’s token equals the provided Settings token.
+- Assert that the bot's token equals the provided Settings token.
 
 Asynchronous considerations:
 - The tests themselves are synchronous; they do not await async handlers.
@@ -197,7 +210,7 @@ Methodology:
 
 Testing patterns:
 - Helper functions encapsulate JSON parsing and button extraction.
-- Assertions target specific UI semantics (e.g., “Contact HR” in last row).
+- Assertions target specific UI semantics (e.g., "Contact HR" in last row).
 - Unique value checks prevent regressions in command dispatch.
 
 **Section sources**
@@ -248,7 +261,7 @@ Validation tips:
 The test suite depends on:
 - pytest and pytest-asyncio for async-friendly test execution.
 - vkbottle Keyboard and BotLabeler for constructing and validating UI and handler wiring.
-- pydantic-settings for configuration loading.
+- pydantic-settings for configuration loading with explicit environment file control.
 
 ```mermaid
 graph TB
@@ -274,6 +287,9 @@ PY --> PS
 - Use small, isolated fixtures to reduce setup overhead.
 - Prefer deterministic structures (e.g., Keyboard instances) over dynamic generation in tests.
 - Group related assertions per test class to minimize repeated work.
+- Use explicit `_env_file=None` in Settings initialization to prevent unnecessary environment file loading during tests.
+
+**Updated** Added guidance on using explicit `_env_file=None` parameter to prevent unnecessary environment file loading during tests, improving performance and reliability.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -281,10 +297,14 @@ Common issues and resolutions:
 - Environment variable mismatches: Use monkeypatch in tests to override environment variables deterministically.
 - Keyboard layout regressions: Add new assertions for row/button counts and payload presence.
 - State duplicates: Add uniqueness checks to catch accidental duplication early.
+- Configuration test failures: Ensure Settings are initialized with `_env_file=None` to prevent environment file interference.
 
 Debugging tips:
 - Print or log parsed keyboard JSON during development to validate structure.
 - Temporarily disable specific handler registrations to isolate failing tests.
+- Use explicit `_env_file=None` in Settings constructor for configuration tests to ensure isolation from system environment.
+
+**Updated** Added troubleshooting guidance for configuration test failures related to environment file loading and emphasized the importance of explicit `_env_file=None` parameter usage.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -293,7 +313,7 @@ Debugging tips:
 
 ## Conclusion
 The current testing strategy emphasizes structural and wiring correctness for the VK bot:
-- Configuration defaults and environment overrides are verified.
+- Configuration defaults and environment overrides are verified with explicit environment file control.
 - Bot factory enforces handler registration order and validates handler counts.
 - Keyboard builders are validated for layout, payloads, and service-row behavior.
 - State machine definitions are validated for completeness and uniqueness.
@@ -303,6 +323,9 @@ To evolve the test suite:
 - Mock external VK API calls to improve reliability and speed.
 - Expand parameterized tests for keyboard layouts and payloads.
 - Add property-based tests for keyboard JSON structure where appropriate.
+- Continue using explicit `_env_file=None` parameter in Settings initialization for improved test isolation and reliability.
+
+**Updated** Enhanced conclusion to emphasize the improved test isolation and reliability achieved through explicit environment file control in Settings class initialization.
 
 ## Appendices
 
@@ -318,5 +341,8 @@ To evolve the test suite:
 - Use helpers to parse and assert on keyboard JSON.
 - Validate handler counts and ordering to prevent routing errors.
 - Keep environment-dependent tests isolated with fixtures.
+- Use explicit `_env_file=None` parameter in Settings initialization for configuration tests to ensure environment file isolation.
+
+**Updated** Added guidance on using explicit `_env_file=None` parameter in Settings initialization for configuration tests to ensure environment file isolation and improved test reliability.
 
 [No sources needed since this section provides general guidance]

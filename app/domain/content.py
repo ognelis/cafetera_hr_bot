@@ -1,0 +1,142 @@
+"""Static content: checklists, disclaimers, and HR-request topics.
+
+All long texts live here so that handlers stay thin (00-architecture).
+"""
+
+from __future__ import annotations
+
+from app.domain.entities import LegalEntity
+
+# ── FR-17 disclaimer (shown before any document template) ─────────
+
+TEMPLATE_DISCLAIMER = (
+    "⚠️ Дисклеймер\n"
+    "Документ носит информационный характер и не является юридически обязывающим.\n"
+    "Перед использованием уточните актуальность формы у сотрудника HR-отдела."
+)
+
+TEMPLATE_FILE_STUB = (
+    "📄 Файл шаблона будет доступен после подключения хранилища документов.\n"
+    "Обратитесь в HR для получения шаблона."
+)
+
+
+# ── 👤 Hire: document checklists (FR-2, FR-3) ────────────────────
+
+_HIRE_CHECKLIST_COMMON = (
+    "✅ Чек-лист документов для оформления:\n\n"
+    "1. Паспорт РФ (оригинал + копия)\n"
+    "2. СНИЛС\n"
+    "3. ИНН\n"
+    "4. Трудовая книжка или сведения о трудовой деятельности (СТД-Р)\n"
+    "5. Документ об образовании (при необходимости)\n"
+    "6. Военный билет (для военнообязанных)\n"
+    "7. Фотография 3×4 — 2 шт.\n"
+    "8. Справка об отсутствии судимости (для отдельных должностей)\n"
+    "9. Медицинская книжка (для работы в общепите)"
+)
+
+
+def hire_checklist(entity: LegalEntity) -> str:
+    """Return document checklist text for the given entity."""
+    return f"📋 Оформление в {entity.full_name}\n\n{_HIRE_CHECKLIST_COMMON}"
+
+
+# ── 👤 Hire: onboarding checklist (FR-14) ─────────────────────────
+
+_ONBOARDING_CHECKLIST = (
+    "🗒️ Онбординг-чек-лист нового сотрудника:\n\n"
+    "1. Подписание трудового договора и приказа о приёме\n"
+    "2. Ознакомление с правилами внутреннего трудового распорядка\n"
+    "3. Инструктаж по охране труда и пожарной безопасности\n"
+    "4. Получение пропуска / доступа к рабочему месту\n"
+    "5. Знакомство с командой и наставником\n"
+    "6. Настройка рабочих инструментов и доступов\n"
+    "7. Ознакомление с графиком работы и сменами\n"
+    "8. Прохождение вводного обучения (стандарты обслуживания)"
+)
+
+
+def onboarding_checklist(entity: LegalEntity) -> str:
+    return f"🗒️ Онбординг в {entity.full_name}\n\n{_ONBOARDING_CHECKLIST}"
+
+
+# ── 👤 Hire: contract template (FR-4) ─────────────────────────────
+
+
+def hire_contract_text(entity: LegalEntity) -> str:
+    return (
+        f"📄 Шаблон трудового договора — {entity.full_name}\n\n"
+        f"{TEMPLATE_DISCLAIMER}\n\n"
+        f"{TEMPLATE_FILE_STUB}"
+    )
+
+
+# ── 🚪 Fire: last-day checklist (FR-6) ────────────────────────────
+
+FIRE_LAST_DAY_CHECKLIST = (
+    "✅ Чек-лист последнего рабочего дня:\n\n"
+    "1. Подписать обходной лист\n"
+    "2. Сдать рабочее оборудование и инвентарь\n"
+    "3. Сдать пропуск / ключи\n"
+    "4. Передать текущие задачи и документы\n"
+    "5. Получить трудовую книжку или СТД-Р\n"
+    "6. Получить справку 2-НДФЛ и расчётный лист\n"
+    "7. Получить расчёт (зарплата + компенсация неиспользованного отпуска)"
+)
+
+# ── 🚪 Fire: bypass sheet (S-21b) ─────────────────────────────────
+
+FIRE_BYPASS_SHEET_TEXT = (
+    "📥 Обходной лист\n\n"
+    f"{TEMPLATE_DISCLAIMER}\n\n"
+    f"{TEMPLATE_FILE_STUB}"
+)
+
+# ── 🏖 Vacation: leave application template (FR-8) ────────────────
+
+
+def vacation_template_text(entity: LegalEntity) -> str:
+    return (
+        f"📄 Шаблон заявления на отпуск — {entity.full_name}\n\n"
+        f"{TEMPLATE_DISCLAIMER}\n\n"
+        f"{TEMPLATE_FILE_STUB}"
+    )
+
+
+# ── 💬 HR-request topics (S-70 step 2) ────────────────────────────
+
+HR_REQUEST_TOPICS: tuple[str, ...] = (
+    "Оформление документов",
+    "Отпуск",
+    "Увольнение",
+    "Оплата труда",
+    "Больничный",
+    "Другое",
+)
+
+HR_REQUEST_URGENCY_OPTIONS: tuple[str, ...] = (
+    "🔴 Срочно",
+    "⚪ Обычная",
+)
+
+
+def format_hr_request(
+    name: str,
+    topic: str,
+    details: str,
+    entity: LegalEntity,
+    urgency: str,
+) -> str:
+    """Build the final structured HR-request text (FR-16)."""
+    return (
+        "📋 Обращение в HR-отдел\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 Сотрудник: {name}\n"
+        f"🏢 Юрлицо: {entity.full_name}\n"
+        f"📌 Тема: {topic}\n"
+        f"⚡ Срочность: {urgency}\n\n"
+        f"📝 Суть обращения:\n{details}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "Скопируйте текст обращения и отправьте его в HR-отдел."
+    )

@@ -2,7 +2,7 @@
 
 from app.config import Settings
 from app.integrations.vk.bot import _HANDLER_LABELERS, create_bot
-from app.integrations.vk.handlers import fallback, sections, start
+from app.integrations.vk.handlers import fallback, fire, hire, hr_request, sections, start, vacation
 
 
 class TestHandlerLabelerOrder:
@@ -19,6 +19,16 @@ class TestHandlerLabelerOrder:
         idx_fallback = _HANDLER_LABELERS.index(fallback.bl)
         assert idx_sections < idx_fallback
 
+    def test_hr_request_before_sections(self):
+        idx_hr = _HANDLER_LABELERS.index(hr_request.bl)
+        idx_sections = _HANDLER_LABELERS.index(sections.bl)
+        assert idx_hr < idx_sections
+
+    def test_hire_fire_vacation_registered(self):
+        assert hire.bl in _HANDLER_LABELERS
+        assert fire.bl in _HANDLER_LABELERS
+        assert vacation.bl in _HANDLER_LABELERS
+
 
 class TestCreateBot:
     def test_returns_bot_instance(self):
@@ -31,10 +41,14 @@ class TestCreateBot:
         settings = Settings(vk_access_token="test_token_placeholder")
         bot = create_bot(settings)
         handler_count = len(bot.labeler.message_view.handlers)
-        # start: 3 handlers (on_start, on_home, on_contact_hr)
-        # sections: 7 handlers (hire, fire, vacation, pay, sick, probation, ask)
-        # fallback: 1 handler (on_fallback)
-        assert handler_count == 11
+        # start: 2 (on_start, on_home)
+        # hr_request: 9 (contact_hr, back, restart, 5 state handlers, confirm)
+        # hire: 5 (hire, hire_entity, checklist, contract, onboarding)
+        # fire: 4 (fire, checklist, bypass, rag)
+        # vacation: 4 (vacation, select, template, rag)
+        # sections: 4 (pay, sick, probation, ask)
+        # fallback: 1 (on_fallback)
+        assert handler_count == 29
 
     def test_token_forwarded_to_bot(self):
         """Verify test placeholder token is used, not a real one (09-security)."""
@@ -42,3 +56,8 @@ class TestCreateBot:
         settings = Settings(vk_access_token=token)
         bot = create_bot(settings)
         assert bot.api.token_generator.token == token
+
+    def test_state_dispenser_shared(self):
+        settings = Settings(vk_access_token="test_token_placeholder")
+        bot = create_bot(settings)
+        assert bot.state_dispenser is hr_request.state_dispenser
