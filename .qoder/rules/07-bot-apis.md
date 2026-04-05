@@ -17,17 +17,17 @@ glob: app/integrations/telegram/**/*.py, app/api/telegram_webhook.py, app/integr
 - Use `DefaultBotProperties` for global bot configuration (parse_mode, etc.).
 - Register message handlers on Dispatcher using `@dp.message(...)` decorators.
 - Respond to users via `await message.answer(...)` inside handlers.
-- Do not put RAG or domain service logic directly inside aiogram handlers.
 
 ### Production: webhook mode
 - Register webhook in FastAPI lifespan using `bot.set_webhook()`.
-- Delete webhook and close bot session in lifespan teardown.
+- Delete webhook and close bot session in lifespan teardown — see `08-resource-safety.md`.
 - Parse incoming payload with `Update.model_validate(data, context={"bot": bot})`.
 - Feed parsed update to dispatcher with `await dp.feed_update(bot, update)`.
 - Use `dp.resolve_used_update_types()` when calling `set_webhook` to limit update types.
 
 #### Canonical webhook pattern
 ```python
+import secrets
 from contextlib import asynccontextmanager
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -57,7 +57,11 @@ async def telegram_webhook(
     request: Request,
     x_telegram_bot_api_secret_token: str | None = Header(default=None),
 ):
-    if x_telegram_bot_api_secret_token != settings.telegram_secret_token:
+    # Use secrets.compare_digest to prevent timing attacks (see 09-security.md)
+    if not secrets.compare_digest(
+        x_telegram_bot_api_secret_token or "",
+        settings.telegram_secret_token,
+    ):
         raise HTTPException(status_code=403)
     update = Update.model_validate(
         await request.json(), context={"bot": bot}
@@ -66,8 +70,7 @@ async def telegram_webhook(
 ```
 
 ### Local development: polling mode
-Polling mode is acceptable for local development and testing without deploying a server.
-Do not use polling in production.
+Run with: `uv run python scripts/polling.py`
 
 #### Canonical polling pattern
 ```python
@@ -91,14 +94,11 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-Run with: `uv run python scripts/polling.py`
-
 ### Do not
 - Do not use aiogram 2.x patterns: executor, on_startup, on_shutdown.
 - Do not parse Update manually without `Update.model_validate`.
 - Do not block the event loop inside aiogram handlers.
-- Do not use polling mode in production.
-- Do not skip `await bot.session.close()` on shutdown in webhook mode.
+- Do not compare secret tokens with `!=` — use `secrets.compare_digest` (timing-safe).
 
 ***
 
@@ -111,7 +111,6 @@ Run with: `uv run python scripts/polling.py`
 ### Rules
 - Use vkbottle 4.x.
 - Register event handlers on Bot using `@bot.on.message(...)` decorators.
-- Do not put RAG or domain service logic directly inside vkbottle handlers.
 
 ### Production: Callback API mode
 - Use Callback API mode via `BotCallback` from `vkbottle.callback`.
@@ -141,6 +140,8 @@ bot = Bot(token=settings.vk_access_token, callback=callback)
 async def lifespan(app: FastAPI):
     await bot.setup_webhook()
     yield
+    # vkbottle Bot has no explicit close method.
+    # Webhook deregistration is handled via VK admin panel or re-registration on next deploy.
 
 @app.post("/api/webhooks/vk")
 async def vk_webhook(request: Request, background_tasks: BackgroundTasks):
@@ -154,8 +155,7 @@ async def vk_webhook(request: Request, background_tasks: BackgroundTasks):
 ```
 
 ### Local development: Long Poll mode
-Long Poll mode is acceptable for local development and testing without deploying a server.
-Do not use Long Poll in production.
+Run with: `uv run python scripts/polling_vk.py`
 
 #### Canonical polling pattern
 ```python
@@ -173,34 +173,20 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-Run with: `uv run python scripts/polling_vk.py`
-
 ### Do not
-- Do not use Long Poll API in production.
 - Do not block the response with heavy handler logic in Callback mode — use background tasks.
 - Do not skip `secret` validation on incoming events in Callback mode.
 
 ***
 
-## Module-level vs lifespan (both adapters)
-
-`Bot`, `Dispatcher`, and `BotCallback` are configuration containers with no active connection
-at creation time. They may be declared at module level. All lifecycle operations
-(set_webhook, delete_webhook, session.close) must happen inside `lifespan` or `main()`.
-Do not create new Bot instances per request.
-
-***
-
 ## General rules (both adapters)
 
+- **Use webhook in production, polling only for local development** — see `09-security.md`.
+- Resource lifecycle (Bot init, teardown, session.close) → see `08-resource-safety.md`.
+- Do not create new Bot instances per request.
+- Do not put RAG or domain service logic directly inside bot handlers — pass normalized DTOs to domain services.
 - Telegram and VK handlers must normalize incoming events into shared domain DTOs.
-- Pass normalized DTOs to shared domain services — never call RAG logic directly
-  from bot handlers.
-- Keep adapter-specific code strictly inside:
-  - `app/integrations/telegram/`
-  - `app/integrations/vk/`
-- Do not duplicate answer formatting logic — it belongs in the adapter layer,
-  not in RAG or domain services.
-- When in doubt about library API signatures or behavior, refer to the
-  documentation links listed above before generating code.
+- Keep adapter-specific code strictly inside `app/integrations/telegram/` and `app/integrations/vk/`.
+- Do not duplicate answer formatting logic — it belongs in the adapter layer, not in RAG or domain services.
+- When in doubt about library API signatures, refer to the documentation links above before generating code.
 - Do not invent undocumented API fields or response shapes.

@@ -127,14 +127,19 @@ async def init_db() -> None:
         await db.commit()
 
 async def upsert_job(job_id: str, **fields) -> None:
-    set_clause = ", ".join(f"{k} = :{k}" for k in fields)
+    # aiosqlite.execute() runs a single statement — use two separate calls.
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            f"INSERT OR IGNORE INTO documents (job_id) VALUES (:job_id); "
-            f"UPDATE documents SET {set_clause}, updated_at = datetime('now') "
-            f"WHERE job_id = :job_id",
-            {"job_id": job_id, **fields},
+            "INSERT OR IGNORE INTO documents (job_id) VALUES (:job_id)",
+            {"job_id": job_id},
         )
+        if fields:
+            set_clause = ", ".join(f"{k} = :{k}" for k in fields)
+            await db.execute(
+                f"UPDATE documents SET {set_clause}, updated_at = datetime('now') "
+                f"WHERE job_id = :job_id",
+                {"job_id": job_id, **fields},
+            )
         await db.commit()
 
 async def get_job(job_id: str) -> dict | None:
@@ -196,6 +201,20 @@ async def get_document_status(job_id: str):
     if not job:
         raise HTTPException(404, "Job not found")
     return StatusResponse(**job)
+```
+
+### Status partial endpoint (for HTMX polling)
+```python
+@router.get("/documents/{job_id}/status-partial")
+async def get_document_status_partial(job_id: str, request: Request):
+    """Returns an HTML fragment for HTMX polling. Different from /status (JSON)."""
+    job = await get_job(job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    return templates.TemplateResponse(
+        "partials/job_status.html",
+        {"request": request, "job": job},
+    )
 ```
 
 ### List endpoint
@@ -282,7 +301,6 @@ Security details → see `09-security.md` (Files and uploads section).
 ***
 
 ## Ingestion task
-
 ```python
 async def ingest_document(
     job_id: str,
@@ -315,3 +333,4 @@ async def ingest_document(
 - Do not hardcode MinIO credentials — load from settings via `pydantic-settings`.
 - Do not store file binaries in SQLite — SQLite holds metadata only.
 - Do not create a new `S3Storage` instance per request — initialize once in lifespan.
+- Do not pass multiple SQL statements to a single `aiosqlite.execute()` call — only the first runs.

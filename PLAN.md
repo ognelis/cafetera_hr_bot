@@ -14,7 +14,7 @@
 **1.1 Скаффолдинг проекта**
 - vkbottle 4.x, long polling через `scripts/polling_vk.py`
 - `pydantic-settings`, `.env.example`
-- Структура: `app/bot/`, `app/domain/`, `scripts/`
+- Структура: `app/integrations/vk/`, `app/domain/`, `scripts/`
 - Инициализация ресурсов перед запуском polling
 
 **1.2 Состояния и контекст**

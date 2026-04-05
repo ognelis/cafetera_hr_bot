@@ -19,6 +19,7 @@ Keep the codebase modular, testable, and easy for agentic development.
 - `app/domain` — business use cases and service logic.
 - `app/rag` — retrieval, prompts, chains, citation helpers, and vector search.
 - `app/integrations` — provider-specific adapters and clients.
+- `app/storage` — file storage client (S3/MinIO) and DB access for job metadata.
 - `scripts` — ingestion, reindex, and maintenance scripts.
 - `tests` — unit, integration, and e2e tests.
 

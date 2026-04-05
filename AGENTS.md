@@ -6,12 +6,16 @@ This repository uses agentic coding for implementation assistance, but architect
 ## Stack
 - Python 3.11+. Package manager: `uv` only — never pip or poetry.
 - FastAPI + pydantic v2 + pydantic-settings.
-- Telegram: aiogram 3.x (not 2.x). VK: vkbottle 4.x.
+- **Primary channel: VK** — vkbottle 4.x. Telegram (aiogram 3.x) is Post-MVP.
 - RAG: LangChain + Qdrant.
+- Frontend (admin UI): HTMX + Alpine.js + Jinja2. No build pipeline (no npm/webpack/Vite).
+- Storage: MinIO via `aiobotocore` (file storage); `aiosqlite` / SQLite → PostgreSQL in prod (job metadata).
+- HTTP client: `httpx.AsyncClient` only — never `requests` or bare `aiohttp`.
 - Run commands via `uv run` (e.g. `uv run pytest`, `uv run uvicorn ...`).
 
 ## Architecture
 Layers: `app/api` (transport) → `app/domain` (services) → `app/rag` (retrieval/prompts).
+Storage: `app/storage` — S3/MinIO client and DB access (separate from domain logic).
 Adapters: `app/integrations/telegram/`, `app/integrations/vk/`.
 Detailed layer rules: see `.qoder/rules/00-architecture.md`.
 
