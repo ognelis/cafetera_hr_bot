@@ -8,10 +8,12 @@ from vkbottle import Bot
 
 from app.config import Settings
 from app.integrations.vk.handlers import (
+    ask,
     fallback,
     fire,
     hire,
     hr_request,
+    pay,
     sections,
     start,
     vacation,
@@ -22,15 +24,18 @@ logger = logging.getLogger(__name__)
 # Order matters: vkbottle checks handlers top-to-bottom.
 # 1. start — /start, home (clears dialog state)
 # 2. hr_request — contact_hr entry + back/restart payloads + state handlers
-# 3. hire / fire / vacation — dedicated clickable flows
-# 4. sections — remaining section stubs
-# 5. fallback — must be last — it matches everything
+# 3. ask — free-text question (state-based, must precede fallback)
+# 4. hire / fire / vacation / pay — dedicated clickable flows
+# 5. sections — remaining section stubs (sick, probation)
+# 6. fallback — must be last — it matches everything
 _HANDLER_LABELERS = [
     start.bl,
     hr_request.bl,
+    ask.bl,
     hire.bl,
     fire.bl,
     vacation.bl,
+    pay.bl,
     sections.bl,
     fallback.bl,  # must be last — it matches everything
 ]

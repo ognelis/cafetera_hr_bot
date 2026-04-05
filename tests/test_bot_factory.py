@@ -2,7 +2,17 @@
 
 from app.config import Settings
 from app.integrations.vk.bot import _HANDLER_LABELERS, create_bot
-from app.integrations.vk.handlers import fallback, fire, hire, hr_request, sections, start, vacation
+from app.integrations.vk.handlers import (
+    ask,
+    fallback,
+    fire,
+    hire,
+    hr_request,
+    pay,
+    sections,
+    start,
+    vacation,
+)
 
 
 class TestHandlerLabelerOrder:
@@ -29,6 +39,15 @@ class TestHandlerLabelerOrder:
         assert fire.bl in _HANDLER_LABELERS
         assert vacation.bl in _HANDLER_LABELERS
 
+    def test_pay_ask_registered(self):
+        assert pay.bl in _HANDLER_LABELERS
+        assert ask.bl in _HANDLER_LABELERS
+
+    def test_ask_before_fallback(self):
+        idx_ask = _HANDLER_LABELERS.index(ask.bl)
+        idx_fallback = _HANDLER_LABELERS.index(fallback.bl)
+        assert idx_ask < idx_fallback
+
 
 class TestCreateBot:
     def test_returns_bot_instance(self):
@@ -43,12 +62,14 @@ class TestCreateBot:
         handler_count = len(bot.labeler.message_view.handlers)
         # start: 2 (on_start, on_home)
         # hr_request: 9 (contact_hr, back, restart, 5 state handlers, confirm)
+        # ask: 2 (on_ask, on_ask_text)
         # hire: 5 (hire, hire_entity, checklist, contract, onboarding)
         # fire: 4 (fire, checklist, bypass, rag)
         # vacation: 4 (vacation, select, template, rag)
-        # sections: 4 (pay, sick, probation, ask)
+        # pay: 3 (on_pay, on_pay_overtime, on_pay_bonus)
+        # sections: 2 (sick, probation)
         # fallback: 1 (on_fallback)
-        assert handler_count == 29
+        assert handler_count == 32
 
     def test_token_forwarded_to_bot(self):
         """Verify test placeholder token is used, not a real one (09-security)."""

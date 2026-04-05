@@ -11,3 +11,6 @@ class BotStates(BaseStateGroup):
     HR_REQUEST_ENTITY = "hr_entity"
     HR_REQUEST_URGENCY = "hr_urgency"
     HR_REQUEST_CONFIRM = "hr_confirm"
+
+    # S-ASK: free-text question (Block 4, section 4.4)
+    ASK_QUESTION = "ask_question"

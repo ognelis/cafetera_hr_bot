@@ -30,6 +30,11 @@ CMD_HIRE_CHECKLIST = "hire_checklist"
 CMD_HIRE_CONTRACT = "hire_contract"
 CMD_HIRE_ONBOARDING = "hire_onboarding"
 
+# ── pay sub-action payloads ─────────────────────────────────────────
+
+CMD_PAY_OVERTIME = {"cmd": "pay_overtime"}   # FR-9: overtime & weekend pay
+CMD_PAY_BONUS = {"cmd": "pay_bonus"}         # FR-10: bonus conditions
+
 # ── fire sub-action payloads ───────────────────────────────────────
 
 CMD_FIRE_CHECKLIST = {"cmd": "fire_checklist"}
@@ -195,6 +200,27 @@ def vacation_menu_kb() -> Keyboard:
     kb.add(Text("📄 Заявление на отпуск", payload=CMD_VACATION_SELECT))
     kb.row()
     kb.add(Text("🏖 Порядок оформления отпуска", payload=CMD_VACATION_RAG))
+    return with_service_row(kb, back_payload=CMD_HOME)
+
+
+# ── pay menu ──────────────────────────────────────────────────────
+
+
+def pay_menu_kb() -> Keyboard:
+    """S-40 pay section menu (FR-9, FR-10)."""
+    kb = Keyboard(one_time=False, inline=False)
+    kb.add(Text("💵 Оплата сверхурочных и выходных", payload=CMD_PAY_OVERTIME))
+    kb.row()
+    kb.add(Text("🏆 Условия премирования", payload=CMD_PAY_BONUS))
+    return with_service_row(kb, back_payload=CMD_HOME)
+
+
+# ── ask question keyboard ─────────────────────────────────────────
+
+
+def ask_input_kb() -> Keyboard:
+    """Keyboard shown while user is typing a free-text question."""
+    kb = Keyboard(one_time=False, inline=False)
     return with_service_row(kb, back_payload=CMD_HOME)
 
 
