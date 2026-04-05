@@ -35,6 +35,20 @@ def build_embeddings(settings: Settings) -> Embeddings:
             openai_api_base=settings.llm_base_url or None,
         )
 
+    if settings.llm_provider == "llamacpp":
+        try:
+            from langchain_openai import OpenAIEmbeddings
+        except ImportError as exc:
+            raise ImportError(
+                "Install the 'openai_compatible' extra: "
+                "uv sync --extra openai_compatible"
+            ) from exc
+        return OpenAIEmbeddings(
+            model=settings.embedding_model,
+            openai_api_key=settings.llm_api_key or "no-key",
+            openai_api_base=settings.llm_base_url or "http://localhost:8080/v1",
+        )
+
     # Default: Ollama
     try:
         from langchain_ollama import OllamaEmbeddings

@@ -55,4 +55,6 @@ exec llama-server \
   --port "$PORT" \
   --ctx-size "$CTX_SIZE" \
   --threads "$THREADS" \
-  --n-gpu-layers "$N_GPU_LAYERS"
+  --n-gpu-layers "$N_GPU_LAYERS" \
+  --embedding \
+  --pooling mean

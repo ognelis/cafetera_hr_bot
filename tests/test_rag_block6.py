@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+import types
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
@@ -69,6 +71,15 @@ class TestRagSettings:
         assert s.llm_provider == "openai"
         assert s.llm_model == "gpt-4o-mini"
         assert s.llm_api_key == "sk-xxx"
+
+    def test_llamacpp_provider_from_env(self, monkeypatch):
+        monkeypatch.setenv("VK_ACCESS_TOKEN", "t")
+        monkeypatch.setenv("LLM_PROVIDER", "llamacpp")
+        monkeypatch.setenv("LLM_BASE_URL", "http://localhost:8080/v1")
+        monkeypatch.setenv("LLM_API_KEY", "")
+        s = Settings()
+        assert s.llm_provider == "llamacpp"
+        assert s.llm_base_url == "http://localhost:8080/v1"
 
 
 # ── 6.1 — Ingestion: docx parsing ─────────────────────────────────
@@ -248,3 +259,154 @@ class TestBuildRagChain:
         chain = build_rag_chain(mock_retriever, mock_llm)
         # The chain should be a LangChain Runnable (has invoke method)
         assert hasattr(chain, "invoke")
+
+
+# ── 6.3 — Llama.cpp provider dispatch ─────────────────────────────
+
+
+class TestBuildLlmLlamaCpp:
+    def _settings(self, **overrides):
+        defaults = dict(
+            vk_access_token="t",
+            llm_provider="llamacpp",
+            llm_model="test-model",
+            llm_base_url="",
+            llm_api_key="",
+            _env_file=None,
+        )
+        defaults.update(overrides)
+        return Settings(**defaults)
+
+    def _fake_langchain_openai(self):
+        mod = types.ModuleType("langchain_openai")
+        mod.ChatOpenAI = MagicMock()
+        mod.OpenAIEmbeddings = MagicMock()
+        return mod
+
+    def test_uses_chat_openai_with_defaults(self):
+        from app.rag.chain import build_llm
+
+        fake = self._fake_langchain_openai()
+        s = self._settings()
+        with patch.dict(sys.modules, {"langchain_openai": fake}):
+            build_llm(s)
+            fake.ChatOpenAI.assert_called_once_with(
+                model="test-model",
+                api_key="no-key",
+                base_url="http://localhost:8080/v1",
+                temperature=0.1,
+            )
+
+    def test_passes_real_api_key_when_set(self):
+        from app.rag.chain import build_llm
+
+        fake = self._fake_langchain_openai()
+        s = self._settings(llm_api_key="real-key")
+        with patch.dict(sys.modules, {"langchain_openai": fake}):
+            build_llm(s)
+            fake.ChatOpenAI.assert_called_once_with(
+                model="test-model",
+                api_key="real-key",
+                base_url="http://localhost:8080/v1",
+                temperature=0.1,
+            )
+
+    def test_passes_custom_base_url(self):
+        from app.rag.chain import build_llm
+
+        fake = self._fake_langchain_openai()
+        s = self._settings(llm_base_url="http://gpu-box:9090/v1")
+        with patch.dict(sys.modules, {"langchain_openai": fake}):
+            build_llm(s)
+            fake.ChatOpenAI.assert_called_once_with(
+                model="test-model",
+                api_key="no-key",
+                base_url="http://gpu-box:9090/v1",
+                temperature=0.1,
+            )
+
+    def test_import_error_message(self):
+        import builtins
+
+        from app.rag.chain import build_llm
+
+        real_import = builtins.__import__
+
+        def _block_openai(name, *args, **kwargs):
+            if name == "langchain_openai":
+                raise ImportError("no module")
+            return real_import(name, *args, **kwargs)
+
+        s = self._settings()
+        with patch("builtins.__import__", side_effect=_block_openai):
+            try:
+                build_llm(s)
+                raise AssertionError("Expected ImportError")  # noqa: TRY301
+            except ImportError as exc:
+                assert "openai_compatible" in str(exc)
+
+
+class TestBuildEmbeddingsLlamaCpp:
+    def _settings(self, **overrides):
+        defaults = dict(
+            vk_access_token="t",
+            llm_provider="llamacpp",
+            embedding_model="test-embed",
+            llm_base_url="",
+            llm_api_key="",
+            _env_file=None,
+        )
+        defaults.update(overrides)
+        return Settings(**defaults)
+
+    def _fake_langchain_openai(self):
+        mod = types.ModuleType("langchain_openai")
+        mod.ChatOpenAI = MagicMock()
+        mod.OpenAIEmbeddings = MagicMock()
+        return mod
+
+    def test_uses_openai_embeddings_with_defaults(self):
+        from app.rag.retriever import build_embeddings
+
+        fake = self._fake_langchain_openai()
+        s = self._settings()
+        with patch.dict(sys.modules, {"langchain_openai": fake}):
+            build_embeddings(s)
+            fake.OpenAIEmbeddings.assert_called_once_with(
+                model="test-embed",
+                openai_api_key="no-key",
+                openai_api_base="http://localhost:8080/v1",
+            )
+
+    def test_passes_real_api_key_when_set(self):
+        from app.rag.retriever import build_embeddings
+
+        fake = self._fake_langchain_openai()
+        s = self._settings(llm_api_key="real-key")
+        with patch.dict(sys.modules, {"langchain_openai": fake}):
+            build_embeddings(s)
+            fake.OpenAIEmbeddings.assert_called_once_with(
+                model="test-embed",
+                openai_api_key="real-key",
+                openai_api_base="http://localhost:8080/v1",
+            )
+
+    def test_import_error_message(self):
+        import builtins
+
+        from app.rag.retriever import build_embeddings
+
+        real_import = builtins.__import__
+
+        def _block_openai(name, *args, **kwargs):
+            if name == "langchain_openai":
+                raise ImportError("no module")
+            return real_import(name, *args, **kwargs)
+
+        s = self._settings()
+        with patch("builtins.__import__", side_effect=_block_openai):
+            try:
+                build_embeddings(s)
+                raise AssertionError("Expected ImportError")  # noqa: TRY301
+            except ImportError as exc:
+                assert "openai_compatible" in str(exc)

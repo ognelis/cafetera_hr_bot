@@ -44,6 +44,21 @@ def build_llm(settings: Settings) -> BaseChatModel:
             temperature=0.1,
         )
 
+    if settings.llm_provider == "llamacpp":
+        try:
+            from langchain_openai import ChatOpenAI
+        except ImportError as exc:
+            raise ImportError(
+                "Install the 'openai_compatible' extra: "
+                "uv sync --extra openai_compatible"
+            ) from exc
+        return ChatOpenAI(
+            model=settings.llm_model,
+            api_key=settings.llm_api_key or "no-key",
+            base_url=settings.llm_base_url or "http://localhost:8080/v1",
+            temperature=0.1,
+        )
+
     # Default: Ollama
     try:
         from langchain_ollama import ChatOllama

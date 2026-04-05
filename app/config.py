@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     qdrant_collection: str = "hr_documents"
 
     # LLM
-    llm_provider: str = "ollama"  # "ollama" | "openai"
+    llm_provider: str = "ollama"  # "ollama" | "openai" | "llamacpp"
     llm_model: str = "qwen3.5:4b-q4_K_M"
     llm_base_url: str = "http://localhost:11434"
     llm_api_key: str = ""
