@@ -5,11 +5,11 @@ from app.config import Settings
 
 class TestSettingsDefaults:
     def test_default_token_is_empty(self):
-        settings = Settings(vk_access_token="")
+        settings = Settings(vk_access_token="", _env_file=None)
         assert settings.vk_access_token == ""
 
     def test_default_group_id_is_zero(self):
-        settings = Settings(vk_access_token="tok")
+        settings = Settings(vk_access_token="tok", _env_file=None)
         assert settings.vk_group_id == 0
 
 
