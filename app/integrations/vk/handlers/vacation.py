@@ -1,4 +1,4 @@
-"""Vacation flow handlers — S-30 partial (FR-7, FR-8).
+"""Vacation flow handlers — S-30 partial (FR-7, FR-8, FR-11).
 
 Flow: CMD_VACATION → vacation menu → entity selection → disclaimer + template.
 """
@@ -12,6 +12,7 @@ from app.domain.entities import ENTITY_BY_ID
 from app.integrations.vk.keyboards import (
     CMD_VACATION,
     CMD_VACATION_RAG,
+    CMD_VACATION_SCHEDULE,
     CMD_VACATION_SELECT,
     CMD_VACATION_TEMPLATE,
     entity_select_kb,
@@ -71,5 +72,16 @@ async def on_vacation_template(message: Message, payload_data: dict) -> None:
 async def on_vacation_rag(message: Message) -> None:
     await message.answer(
         rag_stub("Порядок оформления отпуска"),
+        keyboard=stub_kb(back_payload=CMD_VACATION).get_json(),
+    )
+
+
+# ── FR-11: vacation schedule navigator — RAG stub (Block 5) ────────
+
+
+@bl.message(payload=CMD_VACATION_SCHEDULE)
+async def on_vacation_schedule(message: Message) -> None:
+    await message.answer(
+        rag_stub("Навигатор по графику отпусков"),
         keyboard=stub_kb(back_payload=CMD_VACATION).get_json(),
     )

@@ -64,12 +64,12 @@ class TestCreateBot:
         # hr_request: 9 (contact_hr, back, restart, 5 state handlers, confirm)
         # ask: 2 (on_ask, on_ask_text)
         # hire: 5 (hire, hire_entity, checklist, contract, onboarding)
-        # fire: 4 (fire, checklist, bypass, rag)
-        # vacation: 4 (vacation, select, template, rag)
+        # fire: 5 (fire, checklist, bypass, rag, grounds)
+        # vacation: 5 (vacation, select, template, rag, schedule)
         # pay: 3 (on_pay, on_pay_overtime, on_pay_bonus)
         # sections: 2 (sick, probation)
         # fallback: 1 (on_fallback)
-        assert handler_count == 32
+        assert handler_count == 34
 
     def test_token_forwarded_to_bot(self):
         """Verify test placeholder token is used, not a real one (09-security)."""

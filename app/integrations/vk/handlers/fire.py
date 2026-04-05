@@ -1,4 +1,4 @@
-"""Fire flow handlers — S-20, S-21b (FR-5, FR-6).
+"""Fire flow handlers — S-20, S-21b (FR-5, FR-6, FR-12).
 
 Flow: CMD_FIRE → fire menu → checklist / bypass sheet / RAG stub.
 """
@@ -12,6 +12,7 @@ from app.integrations.vk.keyboards import (
     CMD_FIRE,
     CMD_FIRE_BYPASS,
     CMD_FIRE_CHECKLIST,
+    CMD_FIRE_GROUNDS,
     CMD_FIRE_RAG,
     fire_menu_kb,
     stub_kb,
@@ -60,5 +61,16 @@ async def on_fire_bypass(message: Message) -> None:
 async def on_fire_rag(message: Message) -> None:
     await message.answer(
         rag_stub("Увольнение по собственному желанию"),
+        keyboard=stub_kb(back_payload=CMD_FIRE).get_json(),
+    )
+
+
+# ── FR-12: dismissal grounds — RAG stub (Block 5) ─────────────────
+
+
+@bl.message(payload=CMD_FIRE_GROUNDS)
+async def on_fire_grounds(message: Message) -> None:
+    await message.answer(
+        rag_stub("Основания увольнения"),
         keyboard=stub_kb(back_payload=CMD_FIRE).get_json(),
     )

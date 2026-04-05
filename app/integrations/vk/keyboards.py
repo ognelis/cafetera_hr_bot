@@ -40,12 +40,14 @@ CMD_PAY_BONUS = {"cmd": "pay_bonus"}         # FR-10: bonus conditions
 CMD_FIRE_CHECKLIST = {"cmd": "fire_checklist"}
 CMD_FIRE_BYPASS = {"cmd": "fire_bypass"}
 CMD_FIRE_RAG = {"cmd": "fire_rag"}  # stub → Block 3
+CMD_FIRE_GROUNDS = {"cmd": "fire_grounds"}  # FR-12: dismissal grounds (Block 5)
 
 # ── vacation sub-action payloads ───────────────────────────────────
 
 CMD_VACATION_SELECT = {"cmd": "vacation_select"}  # opens entity selection
 CMD_VACATION_TEMPLATE = "vacation_template"  # cmd value for PayloadCmdRule
 CMD_VACATION_RAG = {"cmd": "vacation_rag"}  # stub → Block 3
+CMD_VACATION_SCHEDULE = {"cmd": "vacation_schedule"}  # FR-11: schedule navigator (Block 5)
 
 # ── HR-request dialog payloads ─────────────────────────────────────
 
@@ -181,13 +183,15 @@ def hire_actions_kb(entity_id: int) -> Keyboard:
 
 
 def fire_menu_kb() -> Keyboard:
-    """S-20 fire section menu (FR-5, FR-6)."""
+    """S-20 fire section menu (FR-5, FR-6, FR-12)."""
     kb = Keyboard(one_time=False, inline=False)
     kb.add(Text("✅ Чек-лист последнего дня", payload=CMD_FIRE_CHECKLIST))
     kb.row()
     kb.add(Text("📥 Обходной лист", payload=CMD_FIRE_BYPASS))
     kb.row()
     kb.add(Text("🚪 Увольнение по собственному", payload=CMD_FIRE_RAG))
+    kb.row()
+    kb.add(Text("📖 Основания увольнения", payload=CMD_FIRE_GROUNDS))
     return with_service_row(kb, back_payload=CMD_HOME)
 
 
@@ -195,11 +199,13 @@ def fire_menu_kb() -> Keyboard:
 
 
 def vacation_menu_kb() -> Keyboard:
-    """S-30 vacation section menu (FR-7, FR-8)."""
+    """S-30 vacation section menu (FR-7, FR-8, FR-11)."""
     kb = Keyboard(one_time=False, inline=False)
     kb.add(Text("📄 Заявление на отпуск", payload=CMD_VACATION_SELECT))
     kb.row()
     kb.add(Text("🏖 Порядок оформления отпуска", payload=CMD_VACATION_RAG))
+    kb.row()
+    kb.add(Text("🗓️ Навигатор по графику отпусков", payload=CMD_VACATION_SCHEDULE))
     return with_service_row(kb, back_payload=CMD_HOME)
 
 

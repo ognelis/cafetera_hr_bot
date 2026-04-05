@@ -66,3 +66,32 @@ class TestPaySectionUsesRagStub:
         from app.integrations.vk.handlers import sections
 
         assert hasattr(sections, "rag_stub") or "rag_stub" in dir(sections)
+
+
+# ── Block 5 — remaining RAG stubs ─────────────────────────────────
+
+
+class TestVacationScheduleStub:
+    """5.1 — vacation schedule navigator uses rag_stub (FR-11)."""
+
+    def test_rag_stub_for_schedule(self):
+        result = rag_stub("Навигатор по графику отпусков")
+        assert "Навигатор по графику отпусков" in result
+
+    def test_vacation_handler_has_schedule_handler(self):
+        from app.integrations.vk.handlers import vacation
+
+        assert hasattr(vacation, "on_vacation_schedule")
+
+
+class TestFireGroundsStub:
+    """5.3 — dismissal grounds uses rag_stub (FR-12)."""
+
+    def test_rag_stub_for_grounds(self):
+        result = rag_stub("Основания увольнения")
+        assert "Основания увольнения" in result
+
+    def test_fire_handler_has_grounds_handler(self):
+        from app.integrations.vk.handlers import fire
+
+        assert hasattr(fire, "on_fire_grounds")

@@ -8,12 +8,14 @@ from app.domain.entities import ENTITIES
 from app.integrations.vk.keyboards import (
     CMD_FIRE_BYPASS,
     CMD_FIRE_CHECKLIST,
+    CMD_FIRE_GROUNDS,
     CMD_FIRE_RAG,
     CMD_HIRE,
     CMD_HOME,
     CMD_HR_CONFIRM,
     CMD_HR_RESTART,
     CMD_VACATION_RAG,
+    CMD_VACATION_SCHEDULE,
     CMD_VACATION_SELECT,
     entity_select_kb,
     fire_menu_kb,
@@ -122,12 +124,13 @@ class TestHireActionsKb:
 
 
 class TestFireMenuKb:
-    def test_has_three_action_buttons(self):
+    def test_has_four_action_buttons(self):
         data = _parse(fire_menu_kb())
         labels = _labels(data)
         assert _has_label(labels, "Чек-лист последнего дня")
         assert _has_label(labels, "Обходной лист")
         assert _has_label(labels, "Увольнение по собственному")
+        assert _has_label(labels, "Основания увольнения")
 
     def test_checklist_payload(self):
         data = _parse(fire_menu_kb())
@@ -140,6 +143,10 @@ class TestFireMenuKb:
     def test_rag_payload(self):
         data = _parse(fire_menu_kb())
         assert CMD_FIRE_RAG in _payloads(data)
+
+    def test_grounds_payload(self):
+        data = _parse(fire_menu_kb())
+        assert CMD_FIRE_GROUNDS in _payloads(data)
 
     def test_back_goes_home(self):
         data = _parse(fire_menu_kb())
@@ -155,11 +162,12 @@ class TestFireMenuKb:
 
 
 class TestVacationMenuKb:
-    def test_has_two_action_buttons(self):
+    def test_has_three_action_buttons(self):
         data = _parse(vacation_menu_kb())
         labels = _labels(data)
         assert _has_label(labels, "Заявление на отпуск")
         assert _has_label(labels, "Порядок оформления")
+        assert _has_label(labels, "Навигатор по графику отпусков")
 
     def test_template_goes_to_select(self):
         data = _parse(vacation_menu_kb())
@@ -168,6 +176,10 @@ class TestVacationMenuKb:
     def test_rag_payload(self):
         data = _parse(vacation_menu_kb())
         assert CMD_VACATION_RAG in _payloads(data)
+
+    def test_schedule_payload(self):
+        data = _parse(vacation_menu_kb())
+        assert CMD_VACATION_SCHEDULE in _payloads(data)
 
 
 # ── hr_topic_kb ────────────────────────────────────────────────────
