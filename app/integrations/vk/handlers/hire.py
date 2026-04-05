@@ -14,6 +14,7 @@ from app.integrations.vk.keyboards import (
     CMD_HIRE_CHECKLIST,
     CMD_HIRE_CONTRACT,
     CMD_HIRE_ONBOARDING,
+    CMD_HOME,
     entity_select_kb,
     hire_actions_kb,
     stub_kb,
@@ -32,7 +33,7 @@ HIRE_ENTITY_CMD = "hire_entity"
 async def on_hire(message: Message) -> None:
     await message.answer(
         "👤 Приём сотрудника\n\nВыберите юридическое лицо:",
-        keyboard=entity_select_kb(HIRE_ENTITY_CMD, back_payload=CMD_HIRE).get_json(),
+        keyboard=entity_select_kb(HIRE_ENTITY_CMD, back_payload=CMD_HOME).get_json(),
     )
 
 
@@ -46,7 +47,7 @@ async def on_hire_entity(message: Message, payload_data: dict) -> None:
     if entity is None:
         await message.answer(
             "Юрлицо не найдено. Попробуйте ещё раз.",
-            keyboard=entity_select_kb(HIRE_ENTITY_CMD, back_payload=CMD_HIRE).get_json(),
+            keyboard=entity_select_kb(HIRE_ENTITY_CMD, back_payload=CMD_HOME).get_json(),
         )
         return
     await message.answer(
