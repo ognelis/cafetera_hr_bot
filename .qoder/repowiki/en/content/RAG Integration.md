@@ -3,7 +3,6 @@
 <cite>
 **Referenced Files in This Document**
 - [app/config.py](file://app/config.py)
-- [app/rag/__init__.py](file://app/rag/__init__.py)
 - [app/rag/chain.py](file://app/rag/chain.py)
 - [app/rag/prompts.py](file://app/rag/prompts.py)
 - [app/rag/retriever.py](file://app/rag/retriever.py)
@@ -12,7 +11,9 @@
 - [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
 - [app/domain/content.py](file://app/domain/content.py)
 - [scripts/ingest.py](file://scripts/ingest.py)
+- [scripts/polling_vk.py](file://scripts/polling_vk.py)
 - [pyproject.toml](file://pyproject.toml)
+- [tests/test_qa_service.py](file://tests/test_qa_service.py)
 - [tests/test_rag_block6.py](file://tests/test_rag_block6.py)
 </cite>
 
@@ -23,8 +24,9 @@
 - Implemented document ingestion pipeline with Word document processing and chunking
 - Integrated specialized HR prompts with Russian-language system instructions
 - Enhanced configuration management with RAG-specific settings and provider options
+- Added comprehensive QA service module with singleton pattern, error handling, and text truncation capabilities
 - Expanded development dependencies for LangChain, Qdrant, and optional adapters
-- Added comprehensive test coverage for RAG block 6 functionality
+- Added comprehensive test coverage for RAG block 6 and QA service functionality
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -33,21 +35,22 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [RAG Infrastructure Implementation](#rag-infrastructure-implementation)
-7. [Configuration Management](#configuration-management)
-8. [Document Ingestion Pipeline](#document-ingestion-pipeline)
-9. [LangChain Integration](#langchain-integration)
-10. [Testing Framework](#testing-framework)
-11. [Performance Considerations](#performance-considerations)
-12. [Troubleshooting Guide](#troubleshooting-guide)
-13. [Conclusion](#conclusion)
+7. [QA Service Implementation](#qa-service-implementation)
+8. [Configuration Management](#configuration-management)
+9. [Document Ingestion Pipeline](#document-ingestion-pipeline)
+10. [LangChain Integration](#langchain-integration)
+11. [Testing Framework](#testing-framework)
+12. [Performance Considerations](#performance-considerations)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+14. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the comprehensive Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. The implementation includes a complete LangChain-based processing pipeline, Qdrant vector database integration, document ingestion capabilities, and specialized HR prompts. The system enhances the bot's HR assistance capabilities by providing contextual, reliable answers drawn from HR documents while maintaining seamless integration with the existing VK bot architecture.
 
-**Updated** The RAG implementation now includes a fully functional infrastructure with LangChain integration, Qdrant vector store, document processing workflows, and comprehensive testing coverage.
+**Updated** The RAG implementation now includes a fully functional infrastructure with LangChain integration, Qdrant vector store, document processing workflows, comprehensive QA service with singleton pattern, and extensive testing coverage.
 
 ## Project Structure
-The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, and document ingestion capabilities.
+The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, document ingestion capabilities, and a comprehensive QA service layer.
 
 ```mermaid
 graph TB
@@ -56,7 +59,7 @@ Config["Settings Configuration<br/>app/config.py"]
 Chain["RAG Chain<br/>app/rag/chain.py"]
 Prompts["System Prompts<br/>app/rag/prompts.py"]
 Retriever["Vector Store & Retriever<br/>app/rag/retriever.py"]
-QAService["QA Service Integration<br/>app/domain/qa_service.py"]
+QAService["QA Service Layer<br/>app/domain/qa_service.py"]
 end
 subgraph "Document Processing"
 Ingest["Ingestion Script<br/>scripts/ingest.py"]
@@ -72,6 +75,7 @@ subgraph "Integration"
 VKBot["VK Bot Integration<br/>app/integrations/vk/bot.py"]
 AskHandler["Ask Handler<br/>app/integrations/vk/handlers/ask.py"]
 Content["Content Module<br/>app/domain/content.py"]
+Polling["Polling Script<br/>scripts/polling_vk.py"]
 end
 Config --> Chain
 Chain --> QAService
@@ -86,6 +90,7 @@ Qdrant --> Retriever
 VKBot --> AskHandler
 AskHandler --> Content
 QAService --> AskHandler
+Polling --> QAService
 ```
 
 **Diagram sources**
@@ -93,23 +98,24 @@ QAService --> AskHandler
 - [app/rag/chain.py:30-80](file://app/rag/chain.py#L30-L80)
 - [app/rag/prompts.py:5-19](file://app/rag/prompts.py#L5-L19)
 - [app/rag/retriever.py:22-74](file://app/rag/retriever.py#L22-L74)
-- [app/domain/qa_service.py:62-76](file://app/domain/qa_service.py#L62-L76)
+- [app/domain/qa_service.py:51-120](file://app/domain/qa_service.py#L51-L120)
 - [scripts/ingest.py:44-166](file://scripts/ingest.py#L44-L166)
 - [app/integrations/vk/bot.py:44-56](file://app/integrations/vk/bot.py#L44-L56)
 - [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
 - [app/domain/content.py:127-136](file://app/domain/content.py#L127-L136)
+- [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
 
 **Section sources**
 - [app/config.py:4-23](file://app/config.py#L4-L23)
-- [app/rag/__init__.py:1-2](file://app/rag/__init__.py#L1-L2)
 - [app/rag/chain.py:1-80](file://app/rag/chain.py#L1-L80)
 - [app/rag/prompts.py:1-19](file://app/rag/prompts.py#L1-L19)
 - [app/rag/retriever.py:1-74](file://app/rag/retriever.py#L1-L74)
-- [app/domain/qa_service.py:62-76](file://app/domain/qa_service.py#L62-L76)
+- [app/domain/qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
 - [scripts/ingest.py:1-192](file://scripts/ingest.py#L1-L192)
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [app/integrations/vk/handlers/ask.py:1-63](file://app/integrations/vk/handlers/ask.py#L1-L63)
+- [app/integrations/vk/handlers/ask.py:1-86](file://app/integrations/vk/handlers/ask.py#L1-L86)
 - [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
+- [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
 
 ## Core Components
 The RAG infrastructure consists of several interconnected components that work together to provide intelligent document retrieval and response generation:
@@ -120,19 +126,20 @@ The RAG infrastructure consists of several interconnected components that work t
 - **Document Processing**: Word document ingestion with section extraction and chunking
 - **Embedding Models**: Support for both local Ollama embeddings and OpenAI-compatible embeddings
 - **System Prompts**: Specialized HR-focused prompts with Russian language instructions
-- **QA Service Integration**: Seamless integration with the existing QA service architecture
+- **QA Service Layer**: Singleton pattern implementation with error handling and text truncation
+- **Application Integration**: Seamless integration with VK bot handlers and state management
 
-**Updated** The RAG infrastructure now provides a complete, production-ready solution with comprehensive LangChain integration and Qdrant vector store capabilities.
+**Updated** The RAG infrastructure now provides a complete, production-ready solution with comprehensive LangChain integration, Qdrant vector store capabilities, and robust QA service layer.
 
 **Section sources**
 - [app/config.py:10-23](file://app/config.py#L10-L23)
 - [app/rag/chain.py:30-80](file://app/rag/chain.py#L30-L80)
 - [app/rag/retriever.py:22-74](file://app/rag/retriever.py#L22-L74)
 - [app/rag/prompts.py:5-19](file://app/rag/prompts.py#L5-L19)
-- [app/domain/qa_service.py:62-76](file://app/domain/qa_service.py#L62-L76)
+- [app/domain/qa_service.py:51-120](file://app/domain/qa_service.py#L51-L120)
 
 ## Architecture Overview
-The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant and generates contextualized responses.
+The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant and generates contextualized responses, all managed through a centralized QA service layer.
 
 ```mermaid
 sequenceDiagram
@@ -149,29 +156,31 @@ AskHandler->>AskHandler : Set ASK_QUESTION state
 AskHandler-->>User : Prompt + ask_input_kb
 User->>VKBot : Free-text question
 VKBot->>AskHandler : ASK_QUESTION state
-AskHandler->>QAService : Process question
-QAService->>RAGChain : build_rag_chain()
+AskHandler->>QAService : ask(question)
+QAService->>QAService : Check chain availability
+QAService->>RAGChain : chain.ainvoke(question)
 RAGChain->>Qdrant : Similarity search (k=4)
 Qdrant-->>RAGChain : Retrieved documents
 RAGChain->>LLM : System prompt + context
 LLM-->>RAGChain : Generated response
 RAGChain-->>QAService : Formatted answer
+QAService->>QAService : Truncate to VK limit
 QAService-->>AskHandler : Response
 AskHandler-->>User : Answer + service buttons
 ```
 
 **Diagram sources**
-- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
-- [app/domain/qa_service.py:62-76](file://app/domain/qa_service.py#L62-L76)
+- [app/integrations/vk/handlers/ask.py:49-86](file://app/integrations/vk/handlers/ask.py#L49-L86)
+- [app/domain/qa_service.py:86-105](file://app/domain/qa_service.py#L86-L105)
 - [app/rag/chain.py:61-80](file://app/rag/chain.py#L61-L80)
 - [app/rag/retriever.py:64-74](file://app/rag/retriever.py#L64-L74)
 
 ## Detailed Component Analysis
 
 ### VK Bot Integration
-The VK bot maintains its existing handler structure while integrating the new RAG capabilities. The ask handler now serves as the entry point for free-form questions and coordinates with the QA service for RAG processing.
+The VK bot maintains its existing handler structure while integrating the new RAG capabilities through the QA service layer. The ask handler now serves as the entry point for free-form questions and coordinates with the QA service for RAG processing.
 
-**Updated** The ask handler provides a sophisticated multi-step dialog flow with proper state management and seamless integration with the RAG infrastructure.
+**Updated** The ask handler provides a sophisticated multi-step dialog flow with proper state management and seamless integration with the RAG infrastructure through the QA service.
 
 ```mermaid
 flowchart TD
@@ -189,15 +198,14 @@ ShowResponse --> End(["Dialog complete"])
 ```
 
 **Diagram sources**
-- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
-- [app/domain/qa_service.py:62-76](file://app/domain/qa_service.py#L62-L76)
+- [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
 
 **Section sources**
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
-- [app/integrations/vk/handlers/ask.py:1-63](file://app/integrations/vk/handlers/ask.py#L1-L63)
+- [app/integrations/vk/handlers/ask.py:1-86](file://app/integrations/vk/handlers/ask.py#L1-L86)
 
 ### Ask Handler - Multi-Step Dialog Flow
-The ask handler implements a sophisticated two-step dialog flow that captures user questions and processes them through the RAG pipeline:
+The ask handler implements a sophisticated two-step dialog flow that captures user questions and processes them through the RAG pipeline via the QA service:
 
 **Step 1: Entry Point (CMD_ASK)**
 - Sets the ASK_QUESTION state using the shared state dispenser
@@ -212,7 +220,7 @@ The ask handler implements a sophisticated two-step dialog flow that captures us
 - Returns formatted response with service buttons
 
 **Section sources**
-- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
+- [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
 
 ## RAG Infrastructure Implementation
 
@@ -324,6 +332,80 @@ VectorStoreRetriever --> QdrantVectorStore : "created from"
 
 **Section sources**
 - [app/rag/retriever.py:1-74](file://app/rag/retriever.py#L1-L74)
+
+## QA Service Implementation
+
+### Singleton Pattern Architecture
+The QA service implements a singleton pattern with module-level state management, providing a centralized interface for RAG chain operations:
+
+- **Module-Level State**: Global chain and Qdrant client instances
+- **Initialization**: One-time setup during application startup
+- **Resource Management**: Proper cleanup and error handling
+- **Thread Safety**: Safe concurrent access to the RAG chain
+
+**Updated** Complete implementation of the QA service with singleton pattern, comprehensive error handling, and text truncation capabilities.
+
+```mermaid
+classDiagram
+class QASingleton {
++_chain : Runnable | None
++_qdrant_client : QdrantClient | None
++VK_MSG_LIMIT : int
++_TRUNCATION_SUFFIX : str
++_CUT_AT : int
++init_qa(settings)
++ask(question) : str
++close_qa()
+}
+class QAService {
++init_qa(settings)
++ask(question) : str
++close_qa()
+}
+QASingleton --> QAService : "singleton implementation"
+```
+
+**Diagram sources**
+- [app/domain/qa_service.py:23-120](file://app/domain/qa_service.py#L23-L120)
+
+### Text Truncation and Error Handling
+The QA service provides sophisticated text processing capabilities:
+
+- **Message Limit Enforcement**: VK message length limit (4096 characters)
+- **Word Boundary Preservation**: Truncation at word boundaries to avoid partial words
+- **Fallback Messages**: Contextual error messages for unavailable documents
+- **Graceful Degradation**: Fallback responses when RAG chain is unavailable
+
+**Updated** Comprehensive text truncation with Russian language suffix and robust error handling for production scenarios.
+
+```mermaid
+flowchart TD
+Answer["RAG Response"] --> CheckLimit{"Length <= 4096?"}
+CheckLimit --> |Yes| ReturnAnswer["Return as-is"]
+CheckLimit --> |No| Truncate["Truncate at word boundary"]
+Truncate --> AddSuffix["Add HR department suffix"]
+AddSuffix --> ReturnAnswer
+```
+
+**Diagram sources**
+- [app/domain/qa_service.py:36-45](file://app/domain/qa_service.py#L36-L45)
+
+**Section sources**
+- [app/domain/qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
+
+### Application Lifecycle Integration
+The QA service integrates with the application lifecycle through initialization and shutdown:
+
+- **Startup Initialization**: RAG chain creation during bot startup
+- **Graceful Shutdown**: Resource cleanup and connection closure
+- **Error Resilience**: Graceful degradation when services are unavailable
+- **State Management**: Persistent module-level state across handler calls
+
+**Updated** Complete lifecycle management with proper resource cleanup and error resilience.
+
+**Section sources**
+- [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
+- [app/domain/qa_service.py:51-120](file://app/domain/qa_service.py#L51-L120)
 
 ## Configuration Management
 
@@ -440,23 +522,26 @@ The system prompts provide specialized instructions for HR-focused RAG:
 ## Testing Framework
 
 ### Comprehensive Test Coverage
-The test suite provides extensive coverage for the RAG infrastructure:
+The test suite provides extensive coverage for the RAG infrastructure and QA service:
 
 - **Configuration Testing**: Validates settings loading and environment variable support
 - **Document Processing**: Tests Word document parsing and section extraction
 - **Chunking Validation**: Ensures proper text splitting and metadata preservation
 - **Chain Building**: Verifies RAG chain construction and execution
 - **Vector Store Integration**: Tests Qdrant integration and retrieval capabilities
+- **QA Service Testing**: Comprehensive testing of singleton pattern and error handling
+- **Text Truncation**: Validates message length limits and word boundary preservation
 
-**Updated** Complete test coverage for all RAG infrastructure components with comprehensive validation scenarios.
+**Updated** Complete test coverage for all RAG infrastructure components and QA service functionality with comprehensive validation scenarios.
 
 ```mermaid
 graph TB
-TestSuite["RAG Block 6 Tests"] --> ConfigTests["Configuration Tests"]
+TestSuite["RAG + QA Service Tests"] --> ConfigTests["Configuration Tests"]
 TestSuite --> DocxTests["Document Processing Tests"]
 TestSuite --> PromptTests["System Prompt Tests"]
 TestSuite --> ChainTests["RAG Chain Tests"]
 TestSuite --> VectorTests["Vector Store Tests"]
+TestSuite --> QATests["QA Service Tests"]
 ConfigTests --> SettingsValidation["Settings Validation"]
 DocxTests --> SectionExtraction["Section Extraction"]
 DocxTests --> ChunkingValidation["Chunking Validation"]
@@ -464,17 +549,17 @@ ChainTests --> ChainBuilding["Chain Building"]
 ChainTests --> FormatDocs["Format Docs Function"]
 VectorTests --> CollectionName["Collection Name"]
 VectorTests --> VectorStoreCreation["Vector Store Creation"]
+QATests --> AskFunctionality["Ask Functionality"]
+QATests --> TruncationLogic["Truncation Logic"]
+QATests --> InitCloseLifecycle["Init/Close Lifecycle"]
 ```
 
 **Diagram sources**
-- [tests/test_rag_block6.py:34-73](file://tests/test_rag_block6.py#L34-L73)
-- [tests/test_rag_block6.py:77-176](file://tests/test_rag_block6.py#L77-L176)
-- [tests/test_rag_block6.py:181-197](file://tests/test_rag_block6.py#L181-L197)
-- [tests/test_rag_block6.py:202-216](file://tests/test_rag_block6.py#L202-L216)
-- [tests/test_rag_block6.py:221-238](file://tests/test_rag_block6.py#L221-L238)
-- [tests/test_rag_block6.py:243-251](file://tests/test_rag_block6.py#L243-L251)
+- [tests/test_qa_service.py:28-197](file://tests/test_qa_service.py#L28-L197)
+- [tests/test_rag_block6.py:34-251](file://tests/test_rag_block6.py#L34-L251)
 
 **Section sources**
+- [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
 - [tests/test_rag_block6.py:1-251](file://tests/test_rag_block6.py#L1-L251)
 
 ## Performance Considerations
@@ -487,8 +572,9 @@ The RAG infrastructure includes several performance optimization strategies:
 - **Memory Management**: Proper cleanup of Qdrant clients and embedding models
 - **Connection Pooling**: Efficient management of database connections
 - **Caching Strategies**: Potential for caching frequently accessed documents
+- **Response Truncation**: VK message limit enforcement to prevent oversized responses
 
-**Updated** Comprehensive performance considerations for production deployment with optimization strategies.
+**Updated** Comprehensive performance considerations for production deployment with optimization strategies and memory management.
 
 ### Scalability Planning
 The architecture supports horizontal scaling through:
@@ -497,6 +583,7 @@ The architecture supports horizontal scaling through:
 - **Load Balancing**: Multiple LLM instances for high-throughput scenarios
 - **Caching Layers**: Redis or similar caching for frequently accessed results
 - **Asynchronous Processing**: Non-blocking operations for better throughput
+- **Resource Pooling**: Efficient management of QA service resources
 
 ## Troubleshooting Guide
 
@@ -508,8 +595,10 @@ The RAG infrastructure includes comprehensive error handling and debugging capab
 - **Vector Store Connectivity**: Qdrant connection problems or collection issues
 - **Document Processing**: Word document parsing errors or unsupported formats
 - **Memory Issues**: Insufficient RAM for embedding generation or vector storage
+- **QA Service Failures**: Chain initialization failures or runtime exceptions
+- **Text Truncation Errors**: Incorrect message length calculations
 
-**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure.
+**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure and QA service.
 
 ### Debugging Tools
 Available debugging and monitoring capabilities:
@@ -518,13 +607,15 @@ Available debugging and monitoring capabilities:
 - **Health Checks**: Qdrant health verification and connection testing
 - **Performance Metrics**: Timing and throughput measurements
 - **Error Reporting**: Detailed error messages with context information
+- **QA Service Monitoring**: Chain availability and resource status tracking
 
 **Section sources**
 - [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
 - [app/rag/retriever.py:22-48](file://app/rag/retriever.py#L22-L48)
 - [scripts/ingest.py:137-166](file://scripts/ingest.py#L137-L166)
+- [app/domain/qa_service.py:82-83](file://app/domain/qa_service.py#L82-L83)
 
 ## Conclusion
-The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities. The implementation includes complete LangChain integration, Qdrant vector store setup, document ingestion pipelines, and comprehensive testing frameworks. The system seamlessly integrates with the existing VK bot architecture while providing powerful contextual response generation capabilities that significantly enhance HR assistance functionality.
+The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities. The implementation includes complete LangChain integration, Qdrant vector store setup, document ingestion pipelines, comprehensive QA service with singleton pattern, and extensive testing frameworks. The system seamlessly integrates with the existing VK bot architecture while providing powerful contextual response generation capabilities that significantly enhance HR assistance functionality.
 
-**Updated** The implementation now provides a complete, tested RAG infrastructure that serves as the foundation for future enhancements and production deployment.
+**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer that serves as the foundation for future enhancements and production deployment. The singleton pattern ensures efficient resource utilization, while comprehensive error handling and text truncation provide reliability and user experience improvements.

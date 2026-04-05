@@ -223,11 +223,34 @@ def pay_menu_kb() -> Keyboard:
 
 # ── ask question keyboard ─────────────────────────────────────────
 
+# scenario_id → (label, payload) for ask-result suggestion buttons (Block 9)
+_SCENARIO_BUTTONS: dict[str, tuple[str, dict]] = {
+    "hire": ("👤 Приём сотрудника", CMD_HIRE),
+    "fire": ("🚪 Увольнение", CMD_FIRE),
+    "vacation": ("🏖 Отпуск", CMD_VACATION),
+    "pay": ("💰 Оплата и премии", CMD_PAY),
+    "sick": ("🏥 Больничный / ЭЛН", CMD_SICK),
+    "probation": ("📝 Испытательный срок", CMD_PROBATION),
+}
+
 
 def ask_input_kb() -> Keyboard:
     """Keyboard shown while user is typing a free-text question."""
     kb = Keyboard(one_time=False, inline=False)
     return with_service_row(kb, back_payload=CMD_HOME)
+
+
+def ask_result_kb(*, scenario_id: str | None = None) -> Keyboard:
+    """Keyboard shown after a free-text RAG answer (Block 9).
+
+    If *scenario_id* matches a clickable scenario, an extra navigation
+    button is added so the user can jump to the dedicated section.
+    """
+    kb = Keyboard(one_time=False, inline=False)
+    if scenario_id and scenario_id in _SCENARIO_BUTTONS:
+        label, payload = _SCENARIO_BUTTONS[scenario_id]
+        kb.add(Text(label, payload=payload))
+    return with_service_row(kb, back_payload=CMD_ASK)
 
 
 # ── HR-request keyboards ──────────────────────────────────────────

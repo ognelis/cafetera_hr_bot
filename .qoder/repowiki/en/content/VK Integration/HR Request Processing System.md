@@ -14,7 +14,10 @@
 - [sections.py](file://app/integrations/vk/handlers/sections.py)
 - [hire.py](file://app/integrations/vk/handlers/hire.py)
 - [fire.py](file://app/integrations/vk/handlers/fire.py)
+- [pay.py](file://app/integrations/vk/handlers/pay.py)
 - [vacation.py](file://app/integrations/vk/handlers/vacation.py)
+- [ask.py](file://app/integrations/vk/handlers/ask.py)
+- [qa_service.py](file://app/domain/qa_service.py)
 - [polling_vk.py](file://scripts/polling_vk.py)
 - [config.py](file://app/config.py)
 - [docker-compose.yml](file://docker-compose.yml)
@@ -23,11 +26,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added documentation for new FR-11 'Vacation schedule navigator' feature with on_vacation_schedule handler
-- Added documentation for new FR-12 'Dismissal grounds' feature with on_fire_grounds handler
-- Updated keyboard navigation system to include new command payloads CMD_VACATION_SCHEDULE and CMD_FIRE_GROUNDS
-- Enhanced handler registration flow to accommodate new RAG stub features
-- Updated state management diagrams to reflect new multi-step workflows
+- Updated HR request handlers to integrate with the new QA service instead of rag_stub implementations
+- Enhanced handler flows to use the centralized QA service for RAG processing
+- Updated keyboard navigation system to include new command payloads for QA-enabled features
+- Revised content management to reflect QA service integration
+- Updated error handling to leverage QA service fallback mechanisms
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -52,7 +55,7 @@ The HR Request Processing System is a comprehensive VKontakte (VK) bot designed 
 
 The bot supports multiple legal entities ( ООО «Кофейни Кафетера», ООО «Кафетера Рус», ИП Кафетера, ООО «Кафетера Групп») and offers structured workflows for various HR scenarios. Built with modern Python frameworks and designed for scalability, the system integrates seamlessly with VK's messaging platform while maintaining clean separation of concerns across domain logic, presentation, and integration layers.
 
-**Updated** Added support for new vacation schedule navigator (FR-11) and dismissal grounds (FR-12) RAG stub features, enhancing the system's capability to handle complex HR workflows with intelligent navigation and contextual assistance.
+**Updated** The system now integrates with a centralized QA service for RAG processing, replacing the previous rag_stub implementations. This enhancement provides intelligent, contextual assistance powered by a knowledge base while maintaining the system's commitment to clean separation of concerns and user experience excellence.
 
 ## System Architecture
 
@@ -67,9 +70,10 @@ Handlers[Handler Modules]
 end
 subgraph "Business Logic Layer"
 Domain[Domain Entities]
-Content[RAG Stub Service]
+QAService[QA Service]
 States[State Management]
 Rules[Custom Rules]
+TopicHints[Topic Hint Detection]
 end
 subgraph "Integration Layer"
 VKAPI[VK API]
@@ -79,14 +83,17 @@ subgraph "Infrastructure"
 Config[Configuration]
 Logger[Logging]
 ErrorHandling[Error Handling]
+RAGChain[RAG Chain]
+QdrantDB[Qdrant Vector Database]
 end
 VKBot --> Handlers
 Handlers --> Keyboards
 Handlers --> Domain
-Handlers --> Content
+Handlers --> QAService
 Handlers --> States
 Keyboards --> Domain
-Content --> Domain
+QAService --> RAGChain
+RAGChain --> QdrantDB
 States --> Domain
 VKBot --> VKAPI
 ExternalServices --> VKAPI
@@ -100,8 +107,9 @@ ErrorHandling --> Handlers
 - [hr_request.py:1-305](file://app/integrations/vk/handlers/hr_request.py#L1-L305)
 - [entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [content.py:127-136](file://app/domain/content.py#L127-L136)
+- [qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
 
-The architecture emphasizes modularity through separate handler modules for different HR functions, shared state management for multi-step dialogs, and reusable keyboard builders for consistent user experience. The addition of RAG stub features enhances the system's ability to provide contextual assistance while maintaining clean separation of concerns.
+The architecture emphasizes modularity through separate handler modules for different HR functions, shared state management for multi-step dialogs, and reusable keyboard builders for consistent user experience. The integration with the centralized QA service enhances the system's ability to provide intelligent contextual assistance through a knowledge base while maintaining clean separation of concerns.
 
 ## Core Components
 
@@ -184,7 +192,7 @@ sequenceDiagram
 participant User as Employee
 participant Bot as HR Bot
 participant State as State Dispenser
-participant Content as Content Manager
+participant QAService as QA Service
 participant Entity as Legal Entity
 User->>Bot : /start or "Contact HR"
 Bot->>State : Set HR_REQUEST_NAME state
@@ -211,8 +219,8 @@ Bot->>User : Show urgency options
 User->>Bot : Select urgency level
 Bot->>State : Validate urgency selection
 State-->>Bot : Urgency valid
-Bot->>Content : Generate formatted request
-Content-->>Bot : Formatted request text
+Bot->>QAService : Generate formatted request
+QAService-->>Bot : Formatted request text
 Bot->>State : Set HR_REQUEST_CONFIRM state
 Bot->>User : Show preview with confirmation
 User->>Bot : Confirm request
@@ -290,15 +298,22 @@ class EntityRepository {
 +get_by_id(id) LegalEntity
 +get_short_names() set
 }
+class QAService {
++init_qa(settings) void
++ask(question) string
++close_qa() void
+}
 LegalEntity <|-- EntityRepository : manages
 HRRequestTopics --> StaticContent : uses
 EntityRepository --> StaticContent : provides
+QAService --> StaticContent : provides fallback
 ```
 
 **Diagram sources**
 - [entities.py:8-24](file://app/domain/entities.py#L8-L24)
 - [content.py:109-137](file://app/domain/content.py#L109-L137)
 - [content.py:127-136](file://app/domain/content.py#L127-L136)
+- [qa_service.py:51-120](file://app/domain/qa_service.py#L51-L120)
 
 ### Legal Entity Management
 
@@ -341,6 +356,9 @@ HRHandler[HR Request Handler]
 HireHandler[Hire Handler]
 FireHandler[Fire Handler]
 VacationHandler[Vacation Handler]
+PayHandler[Pay Handler]
+SectionsHandler[Sections Handler]
+AskHandler[Ask Handler]
 FallbackHandler[Fallback Handler]
 end
 Messages --> BotInstance
@@ -349,9 +367,12 @@ Keyboards --> BotInstance
 BotInstance --> Labeler
 Labeler --> StartHandler
 Labeler --> HRHandler
+Labeler --> AskHandler
 Labeler --> HireHandler
 Labeler --> FireHandler
 Labeler --> VacationHandler
+Labeler --> PayHandler
+Labeler --> SectionsHandler
 Labeler --> FallbackHandler
 BotInstance --> StateDispenser
 BotInstance --> ErrorHandler
@@ -363,7 +384,7 @@ BotInstance --> ErrorHandler
 
 ### Handler Priority and Registration
 
-The system maintains strict handler registration order to ensure proper message routing and conflict resolution. The new RAG stub features integrate seamlessly with the existing handler architecture.
+The system maintains strict handler registration order to ensure proper message routing and conflict resolution. The QA service integration ensures seamless operation across all handler modules.
 
 **Section sources**
 - [bot.py:24-41](file://app/integrations/vk/bot.py#L24-L41)
@@ -472,8 +493,10 @@ The system provides specialized keyboard builders for different interaction cont
 | `hr_urgency_kb()` | Priority selection | Binary urgency options |
 | `hr_confirm_kb()` | Final confirmation | Dual-action buttons |
 | `entity_select_kb()` | Context-specific selection | Dynamic payload handling |
-| `fire_menu_kb()` | **Updated** Fire section actions | Includes dismissal grounds RAG (FR-12) |
-| `vacation_menu_kb()` | **Updated** Vacation section actions | Includes schedule navigator RAG (FR-11) |
+| `fire_menu_kb()` | Fire section actions | QA-enabled RAG features |
+| `vacation_menu_kb()` | Vacation section actions | QA-enabled RAG features |
+| `pay_menu_kb()` | Pay section actions | QA-enabled RAG features |
+| `sections_menu_kb()` | Sections actions | QA-enabled RAG features |
 
 **Section sources**
 - [keyboards.py:1-295](file://app/integrations/vk/keyboards.py#L1-L295)
@@ -484,16 +507,17 @@ The system uses standardized command payloads for consistent navigation across a
 
 | Feature Category | Command Payload | Description | FR Reference |
 |------------------|----------------|-------------|--------------|
-| Fire Actions | `CMD_FIRE_GROUNDS` | **New** Dismissal grounds RAG stub | FR-12 |
-| Fire Actions | `CMD_FIRE_RAG` | Voluntary dismissal RAG stub | FR-5 |
+| Fire Actions | `CMD_FIRE_GROUNDS` | **Updated** Dismissal grounds RAG via QA service | FR-12 |
+| Fire Actions | `CMD_FIRE_RAG` | **Updated** Voluntary dismissal RAG via QA service | FR-5 |
 | Fire Actions | `CMD_FIRE_CHECKLIST` | Last day checklist | FR-6 |
 | Fire Actions | `CMD_FIRE_BYPASS` | Bypass sheet | S-21b |
-| Vacation Actions | `CMD_VACATION_SCHEDULE` | **New** Schedule navigator RAG stub | FR-11 |
-| Vacation Actions | `CMD_VACATION_RAG` | Leave procedure RAG stub | FR-7 |
+| Vacation Actions | `CMD_VACATION_SCHEDULE` | **Updated** Schedule navigator RAG via QA service | FR-11 |
+| Vacation Actions | `CMD_VACATION_RAG` | **Updated** Leave procedure RAG via QA service | FR-7 |
 | Vacation Actions | `CMD_VACATION_SELECT` | Entity selection for templates | FR-8 |
 | Vacation Actions | `CMD_VACATION_TEMPLATE` | Template generation | FR-8 |
-| Pay Actions | `CMD_PAY_OVERTIME` | Overtime payment conditions | FR-9 |
-| Pay Actions | `CMD_PAY_BONUS` | Bonus conditions | FR-10 |
+| Pay Actions | `CMD_PAY_OVERTIME` | **Updated** Overtime payment conditions via QA service | FR-9 |
+| Pay Actions | `CMD_PAY_BONUS` | **Updated** Bonus conditions via QA service | FR-10 |
+| Ask Actions | `CMD_ASK` | **Updated** Free text question via QA service | FR-13 |
 
 **Section sources**
 - [keyboards.py:35-59](file://app/integrations/vk/keyboards.py#L35-L59)
@@ -511,9 +535,9 @@ StaticText[Static Text Content]
 DynamicTemplates[Dynamic Templates]
 ErrorMessages[Error Messages]
 Disclaimers[Legal Disclaimers]
-RAGStubs[RAG Stub Service]
+QAFallbacks[QA Service Fallbacks]
 end
-subgraph "Static Content"
+subsubgraph "Static Content"
 HireChecklist[Hire Checklists]
 OnboardingChecklist[Onboarding Lists]
 FireChecklist[Fire Checklists]
@@ -525,19 +549,9 @@ HRRequestFormat[HR Request Formatter]
 EntitySpecific[Entity-Specific Content]
 ValidationMessages[Validation Responses]
 end
-subgraph "RAG Stubs"
-VoluntaryDismissal[Voluntary Dismissal]
-DismissalGrounds[Dismissal Grounds]
-LeaveProcedure[Leave Procedure]
-VacationSchedule[Vacation Schedule]
-OvertimePayment[Overtime Payment]
-BonusConditions[Bonus Conditions]
-SickLeave[Sick Leave]
-Probation[Probation]
-end
-subgraph "Error Handling"
-DocumentUnavailable[Document Unavailable]
-NoAnswerFound[No Answer Found]
+subgraph "QA Fallbacks"
+NoAnswer[No Answer Fallback]
+Unavailable[Document Unavailable]
 IntegrationRequired[Integration Required]
 end
 StaticText --> HireChecklist
@@ -548,22 +562,15 @@ StaticText --> ContractTemplate
 DynamicTemplates --> HRRequestFormat
 DynamicTemplates --> EntitySpecific
 DynamicTemplates --> ValidationMessages
-RAGStubs --> VoluntaryDismissal
-RAGStubs --> DismissalGrounds
-RAGStubs --> LeaveProcedure
-RAGStubs --> VacationSchedule
-RAGStubs --> OvertimePayment
-RAGStubs --> BonusConditions
-RAGStubs --> SickLeave
-RAGStubs --> Probation
-ErrorMessages --> DocumentUnavailable
-ErrorMessages --> NoAnswerFound
-ErrorMessages --> IntegrationRequired
+QA Fallbacks --> NoAnswer
+QA Fallbacks --> Unavailable
+QA Fallbacks --> IntegrationRequired
 ```
 
 **Diagram sources**
 - [content.py:12-177](file://app/domain/content.py#L12-L177)
 - [content.py:127-136](file://app/domain/content.py#L127-L136)
+- [qa_service.py:86-105](file://app/domain/qa_service.py#L86-L105)
 
 ### Content Formatting Standards
 
@@ -578,15 +585,17 @@ The system implements standardized formatting for all generated content:
 - Detailed request description
 - Copy-ready formatting
 
-**RAG Stub Standard (FR-3)**:
-- Standardized placeholder message format
+**QA Service Fallbacks (FR-3)**:
+- Standardized fallback message format
 - Topic-specific content insertion
 - Knowledge base status indicator
 - HR fallback guidance
 - Emoji-based visual cues
+- Truncated responses for VK message limits
 
 **Section sources**
 - [content.py:1-177](file://app/domain/content.py#L1-177)
+- [qa_service.py:86-105](file://app/domain/qa_service.py#L86-L105)
 
 ## Error Handling and Validation
 
@@ -619,7 +628,8 @@ Success --> Process[Process Validated Input]
 | Entity Validation | Not in entity list | Select from buttons |
 | Session Timeout | State expiration | Start over |
 | System Error | Internal failures | Contact support |
-| RAG Stub Access | Knowledge base unavailable | Contact HR fallback |
+| QA Service Unavailable | Knowledge base unavailable | Contact HR fallback |
+| RAG Chain Failure | QA service error | Fallback response |
 
 **Section sources**
 - [hr_request.py:140-142](file://app/integrations/vk/handlers/hr_request.py#L140-L142)
@@ -637,26 +647,35 @@ graph TB
 subgraph "Container Services"
 Qdrant[Qdrant Vector Database]
 MinIO[S3-Compatible Storage]
-end
-subgraph "Environment Variables"
-VKToken[VK_ACCESS_TOKEN]
-VKGroupID[VK_GROUP_ID]
-EnvFile[.env Configuration]
-end
-subgraph "Application Dependencies"
 FastAPI[FastAPI Backend]
 LangChain[LangChain AI]
 VKBottle[VK Integration]
 Pydantic[Data Validation]
 end
+subgraph "Environment Variables"
+VKToken[VK_ACCESS_TOKEN]
+VKGroupID[VK_GROUP_ID]
+QdrantURL[QDRANT_URL]
+QdrantAPIKey[QDRANT_API_KEY]
+QdrantCollection[QDRANT_COLLECTION]
+end
+subgraph "Application Dependencies"
+Application[Main Application]
+QAService[QA Service]
+RAGChain[RAG Chain]
+end
 Qdrant --> LangChain
 MinIO --> Application
 VKToken --> VKBottle
-EnvFile --> Application
+QdrantURL --> QAService
+QdrantAPIKey --> QAService
+QdrantCollection --> QAService
 Application --> FastAPI
 Application --> LangChain
 Application --> VKBottle
 Application --> Pydantic
+QAService --> RAGChain
+RAGChain --> Qdrant
 ```
 
 **Diagram sources**
@@ -696,18 +715,20 @@ ConfigTest[Configuration Tests]
 EntityTests[Entity Validation Tests]
 StateTests[State Management Tests]
 KeyboardTests[Keyboard Generation Tests]
-RAGStubTests[RAG Stub Functionality Tests]
+QATests[QA Service Tests]
+HandlerTests[Handler Functionality Tests]
 end
 subgraph "Integration Tests"
-HandlerTests[Handler Functionality Tests]
 FlowTests[Multi-step Flow Tests]
 ErrorTests[Error Handling Tests]
 FeatureTests[New Feature Tests]
+QAIntegrationTests[QA Service Integration Tests]
 end
 subgraph "Component Tests"
 BotFactoryTests[Bot Factory Tests]
 ContentTests[Content Management Tests]
 RuleTests[Custom Rule Tests]
+TopicHintTests[Topic Hint Tests]
 end
 subgraph "End-to-End Tests"
 CompleteFlows[Complete User Flows]
@@ -718,12 +739,13 @@ ConfigTest --> HandlerTests
 EntityTests --> HandlerTests
 StateTests --> HandlerTests
 KeyboardTests --> HandlerTests
-RAGStubTests --> HandlerTests
+QATests --> HandlerTests
 HandlerTests --> FlowTests
 FlowTests --> CompleteFlows
 ComponentTests --> CompleteFlows
 CompleteFlows --> PerformanceTests
 FeatureTests --> CompleteFlows
+QAIntegrationTests --> CompleteFlows
 ```
 
 ### Test Execution Configuration
@@ -734,7 +756,7 @@ The testing framework supports:
 - State isolation between test runs
 - Comprehensive coverage reporting
 
-**Updated** Added comprehensive testing for new RAG stub features including FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds).
+**Updated** Enhanced testing for QA service integration including handler imports, RAG chain initialization, and fallback mechanisms.
 
 **Section sources**
 - [polling_vk.py:1-32](file://scripts/polling_vk.py#L1-L32)
@@ -749,7 +771,7 @@ The system is designed with performance optimization in mind, implementing sever
 - Lazy loading of keyboard builders
 - Efficient entity lookup through dictionary indexing
 - Minimal memory footprint for static content
-- **Updated** Optimized RAG stub function caching
+- **Updated** Optimized QA service resource management
 
 ### Network Optimization
 
@@ -757,6 +779,7 @@ The system is designed with performance optimization in mind, implementing sever
 - Optimized API call sequences
 - Caching strategies for frequently accessed data
 - Connection pooling for external services
+- **Updated** Efficient QA service connection management
 
 ### Scalability Features
 
@@ -764,6 +787,7 @@ The system is designed with performance optimization in mind, implementing sever
 - Centralized configuration management
 - Modular architecture enables selective scaling
 - Containerized deployment supports auto-scaling
+- **Updated** QA service resource pooling for multiple handlers
 
 ## Troubleshooting Guide
 
@@ -801,13 +825,19 @@ Common issues and their resolutions:
 **Problem**: Performance degradation under load
 **Solution**: Add connection pooling and response caching
 
-### **New Feature Troubleshooting**
+### **QA Service Troubleshooting**
 
-**Problem**: RAG stub features not responding
-**Solution**: Verify rag_stub function import and command payload registration
+**Problem**: QA service not responding
+**Solution**: Verify QA service initialization and RAG chain configuration
 
-**Problem**: New command handlers not triggering
-**Solution**: Check handler registration order and payload matching rules
+**Problem**: QA service errors in handlers
+**Solution**: Check handler imports and verify qa_service availability
+
+**Problem**: RAG chain failures
+**Solution**: Review Qdrant connection settings and fallback mechanisms
+
+**Problem**: Handler registration with QA service
+**Solution**: Verify handler imports and payload matching rules
 
 **Section sources**
 - [bot.py:44-56](file://app/integrations/vk/bot.py#L44-L56)
@@ -817,7 +847,7 @@ Common issues and their resolutions:
 
 The HR Request Processing System represents a comprehensive solution for automating HR processes in cafetera environments. Through its modular architecture, robust state management, and user-friendly interface, the system effectively streamlines employee interactions while maintaining flexibility for future enhancements.
 
-**Updated** The recent addition of FR-11 'Vacation schedule navigator' and FR-12 'Dismissal grounds' RAG stub features significantly enhances the system's capability to provide intelligent, contextual assistance for complex HR workflows. These new features integrate seamlessly with the existing architecture while maintaining the system's commitment to clean separation of concerns and user experience excellence.
+**Updated** The recent integration with the centralized QA service significantly enhances the system's capability to provide intelligent, contextual assistance for complex HR workflows. The QA service replaces the previous rag_stub implementations, offering a robust knowledge base integration that supports features like vacation schedule navigation, dismissal grounds information, and comprehensive HR assistance.
 
 Key strengths include:
 - **Modular Design**: Clean separation of concerns enabling easy maintenance and extension
@@ -825,7 +855,8 @@ Key strengths include:
 - **Scalability**: Containerized deployment supporting growth and load distribution
 - **Reliability**: Comprehensive error handling and validation ensuring robust operation
 - **Extensibility**: Well-defined interfaces for adding new HR workflows and integrations
-- **Intelligent Assistance**: RAG stub features providing contextual help while knowledge bases are being developed
-- **Comprehensive Coverage**: Support for complex HR scenarios including vacation scheduling and dismissal procedures
+- **Intelligent Assistance**: QA service providing contextual help through a knowledge base
+- **Centralized Processing**: Unified QA service architecture supporting multiple handler modules
+- **Robust Fallbacks**: Comprehensive error handling with graceful degradation
 
-The system successfully addresses the identified requirements for HR document processing, multi-entity support, and conversational automation, providing a solid foundation for continued development and enhancement with the latest RAG stub capabilities.
+The system successfully addresses the identified requirements for HR document processing, multi-entity support, and conversational automation, providing a solid foundation for continued development and enhancement with the latest QA service capabilities.

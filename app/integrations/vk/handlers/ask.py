@@ -1,6 +1,13 @@
-"""Ask-a-question handler — Block 4, section 4.4.
+"""Ask-a-question handler — Block 9.
 
-Flow: CMD_ASK -> set ASK_QUESTION state -> user types text -> RAG stub answer.
+Flow: CMD_ASK -> set ASK_QUESTION state -> user types text -> RAG answer.
+
+9.1  Free text -> RAG chain -> answer.
+     If answer relates to a clickable scenario -> suggest navigation.
+     If RAG found nothing -> S-ERR-02 + [Contact HR].
+9.2  Background topics (transfer, discipline, absenteeism) ->
+     RAG answer + topic-specific disclaimer.
+
 The state is needed so the fallback handler does not swallow the free-text input.
 Uses the shared state_dispenser from hr_request module.
 """
@@ -9,11 +16,12 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain.content import rag_stub
+from app.domain import qa_service
+from app.domain.topic_hints import detect_topic_hint
 from app.integrations.vk.keyboards import (
     CMD_ASK,
     ask_input_kb,
-    stub_kb,
+    ask_result_kb,
 )
 from app.integrations.vk.states import BotStates
 
@@ -35,7 +43,7 @@ async def on_ask(message: Message) -> None:
     )
 
 
-# -- state handler: receive free text -> RAG stub ---------------------
+# -- state handler: receive free text -> RAG answer -------------------
 
 
 @bl.message(state=BotStates.ASK_QUESTION)
@@ -56,7 +64,22 @@ async def on_ask_text(message: Message) -> None:
     except Exception:
         pass
 
+    # Show typing indicator while RAG processes
+    await message.ctx_api.messages.set_activity(
+        type="typing", peer_id=message.peer_id,
+    )
+
+    # Detect topic hints (9.1 scenario link, 9.2 disclaimer)
+    hint = detect_topic_hint(question)
+
+    # Query the RAG chain
+    answer = await qa_service.ask(question)
+
+    # Append background-topic disclaimer if detected (9.2)
+    if hint.disclaimer:
+        answer = f"{answer}\n\n{hint.disclaimer}"
+
     await message.answer(
-        rag_stub(question),
-        keyboard=stub_kb(back_payload=CMD_ASK).get_json(),
+        answer,
+        keyboard=ask_result_kb(scenario_id=hint.scenario_id).get_json(),
     )

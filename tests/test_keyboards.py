@@ -15,6 +15,7 @@ from app.integrations.vk.keyboards import (
     CMD_PROBATION,
     CMD_SICK,
     CMD_VACATION,
+    ask_result_kb,
     main_menu_kb,
     stub_kb,
     with_service_row,
@@ -189,3 +190,46 @@ class TestPayloadConstants:
         ]
         values = [p["cmd"] for p in all_cmds]
         assert len(values) == len(set(values)), "Duplicate cmd values found"
+
+
+# ── ask_result_kb (Block 9) ────────────────────────────────────────
+
+
+class TestAskResultKb:
+    def test_without_scenario_has_service_row(self):
+        data = _parse(ask_result_kb())
+        labels = _labels(data)
+        assert _has_label(labels, "Главное меню")
+        assert _has_label(labels, "Написать в HR")
+        assert _has_label(labels, "Назад")
+
+    def test_back_points_to_ask(self):
+        data = _parse(ask_result_kb())
+        back_btn = [
+            btn for btn in _all_buttons(data)
+            if "Назад" in btn["action"]["label"]
+        ]
+        assert len(back_btn) == 1
+        assert back_btn[0]["action"]["payload"] == CMD_ASK
+
+    def test_with_fire_scenario_adds_button(self):
+        data = _parse(ask_result_kb(scenario_id="fire"))
+        labels = _labels(data)
+        assert _has_label(labels, "Увольнение")
+
+    def test_with_vacation_scenario_adds_button(self):
+        data = _parse(ask_result_kb(scenario_id="vacation"))
+        labels = _labels(data)
+        assert _has_label(labels, "Отпуск")
+
+    def test_unknown_scenario_no_extra_button(self):
+        data = _parse(ask_result_kb(scenario_id="nonexistent"))
+        # Only service row buttons
+        labels = _labels(data)
+        assert not _has_label(labels, "Приём")
+        assert not _has_label(labels, "Увольнение")
+
+    def test_none_scenario_same_as_no_arg(self):
+        a = _parse(ask_result_kb(scenario_id=None))
+        b = _parse(ask_result_kb())
+        assert a == b
