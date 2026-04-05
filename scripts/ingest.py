@@ -6,14 +6,19 @@ Usage:
 
 Reads all .docx files from the given directory, splits them into chunks,
 generates embeddings, and stores them in the Qdrant ``hr_documents`` collection.
+Each file is tracked as a ``DocumentRecord`` in SQLite with chunk count and
+indexing timestamp.
 
 Only .docx files are processed (NFR-3: PDF scans are not used).
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import sys
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 from docx import Document as DocxDocument
@@ -26,7 +31,11 @@ from qdrant_client import QdrantClient
 sys.path.insert(0, ".")
 
 from app.config import Settings
+from app.rag.indexer import prepare_chunks
 from app.rag.retriever import build_embeddings
+from app.storage.database import init_db
+from app.storage.document_repo import DocumentRepository
+from app.storage.models import DocumentRecord, DocumentStatus
 
 logging.basicConfig(
     level=logging.INFO,
@@ -105,11 +114,18 @@ def load_docx(path: Path) -> list[LCDocument]:
     return documents
 
 
+DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
 # ── Main ingestion logic ──────────────────────────────────────────
 
 
-def ingest(docs_dir: Path, settings: Settings) -> int:
+async def ingest(docs_dir: Path, settings: Settings) -> int:
     """Ingest all .docx files from *docs_dir* into Qdrant.
+
+    Creates a ``DocumentRecord`` in SQLite for every file and enriches
+    each chunk with ``document_id``, ``chunk_id``, ``filename``, ``s3_key``,
+    and ``is_search_enabled`` metadata.
 
     Returns the total number of stored chunks.
     """
@@ -120,13 +136,42 @@ def ingest(docs_dir: Path, settings: Settings) -> int:
 
     logger.info("Found %d .docx file(s) to ingest", len(docx_files))
 
-    # Load and chunk all documents
+    # Initialise SQLite
+    await init_db(settings.db_path)
+    repo = DocumentRepository(settings.db_path)
+
+    # Load, chunk, and register each document
     all_docs: list[LCDocument] = []
+    file_chunks: dict[str, list[LCDocument]] = {}
+
     for path in docx_files:
-        logger.info("Processing %s …", path.name)
-        docs = load_docx(path)
-        all_docs.extend(docs)
-        logger.info("  -> %d chunk(s)", len(docs))
+        logger.info("Processing %s ...", path.name)
+        raw_chunks = load_docx(path)
+        logger.info("  -> %d chunk(s)", len(raw_chunks))
+
+        doc_id = uuid.uuid4().hex
+        now = datetime.now(UTC)
+        record = DocumentRecord(
+            document_id=doc_id,
+            filename=path.name,
+            title=path.stem,
+            s3_key=f"documents/{path.name}",
+            mime_type=DOCX_MIME,
+            size_bytes=path.stat().st_size,
+            status=DocumentStatus.processing,
+            created_at=now,
+            updated_at=now,
+        )
+        await repo.create(record)
+
+        enriched = prepare_chunks(
+            raw_chunks,
+            document_id=doc_id,
+            filename=path.name,
+            s3_key=f"documents/{path.name}",
+        )
+        all_docs.extend(enriched)
+        file_chunks[doc_id] = enriched
 
     if not all_docs:
         logger.warning("No text extracted from any document")
@@ -160,6 +205,24 @@ def ingest(docs_dir: Path, settings: Settings) -> int:
             len(all_docs),
             collection,
         )
+
+        # Update document records with results
+        now = datetime.now(UTC)
+        for doc_id, chunks in file_chunks.items():
+            await repo.update(
+                doc_id,
+                status=DocumentStatus.completed,
+                chunk_count=len(chunks),
+                indexed_at=now,
+            )
+    except Exception:
+        for doc_id in file_chunks:
+            await repo.update(
+                doc_id,
+                status=DocumentStatus.failed,
+                error="Bulk ingestion failed",
+            )
+        raise
     finally:
         client.close()
 
@@ -180,7 +243,7 @@ def main() -> None:
         sys.exit(1)
 
     settings = Settings()
-    total = ingest(docs_dir, settings)
+    total = asyncio.run(ingest(docs_dir, settings))
     if total:
         logger.info("Done — %d chunk(s) indexed.", total)
     else:

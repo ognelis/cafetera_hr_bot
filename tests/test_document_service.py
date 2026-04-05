@@ -1,0 +1,340 @@
+"""Tests for app.domain.document_service — document lifecycle orchestration."""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
+
+import pytest
+from langchain_core.documents import Document as LCDocument
+
+from app.domain.document_service import DocumentService
+from app.storage.database import init_db
+from app.storage.document_repo import DocumentRepository
+from app.storage.models import DocumentRecord, DocumentStatus
+
+# ── helpers ───────────────────────────────────────────────────────
+
+
+def _make_record(**overrides) -> DocumentRecord:
+    now = datetime.now(UTC)
+    defaults = {
+        "document_id": uuid.uuid4().hex,
+        "filename": "test.docx",
+        "title": "Test document",
+        "s3_key": "documents/test.docx",
+        "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "size_bytes": 12345,
+        "status": DocumentStatus.pending,
+        "is_search_enabled": True,
+        "error": None,
+        "created_at": now,
+        "updated_at": now,
+        "indexed_at": None,
+        "chunk_count": 0,
+    }
+    defaults.update(overrides)
+    return DocumentRecord(**defaults)
+
+
+def _make_chunks(n: int = 3) -> list[LCDocument]:
+    return [
+        LCDocument(
+            page_content=f"chunk {i}",
+            metadata={"source": "test.docx", "section": f"Heading {i}"},
+        )
+        for i in range(n)
+    ]
+
+
+@pytest.fixture()
+async def repo(tmp_path):
+    db_path = str(tmp_path / "test.db")
+    await init_db(db_path)
+    return DocumentRepository(db_path)
+
+
+@pytest.fixture()
+def mock_qdrant():
+    client = MagicMock()
+    client.delete = MagicMock()
+    client.set_payload = MagicMock()
+    client.count = MagicMock(return_value=MagicMock(count=0))
+    return client
+
+
+@pytest.fixture()
+def mock_embeddings():
+    return MagicMock()
+
+
+@pytest.fixture()
+def service(repo, mock_qdrant, mock_embeddings):
+    return DocumentService(
+        repo=repo,
+        qdrant_client=mock_qdrant,
+        embeddings=mock_embeddings,
+        collection_name="test_collection",
+    )
+
+
+# ── create_document ──────────────────────────────────────────────
+
+
+class TestCreateDocument:
+    async def test_creates_record(self, service, repo):
+        record = await service.create_document(
+            filename="doc.docx",
+            title="My Document",
+            s3_key="documents/doc.docx",
+            mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            size_bytes=9999,
+        )
+        assert record.filename == "doc.docx"
+        assert record.title == "My Document"
+        assert record.status == DocumentStatus.pending
+        assert record.is_search_enabled is True
+        assert record.chunk_count == 0
+
+        fetched = await repo.get(record.document_id)
+        assert fetched is not None
+        assert fetched.document_id == record.document_id
+
+    async def test_generates_unique_ids(self, service):
+        r1 = await service.create_document(
+            filename="a.docx",
+            title="A",
+            s3_key="documents/a.docx",
+            mime_type="text/plain",
+            size_bytes=100,
+        )
+        r2 = await service.create_document(
+            filename="b.docx",
+            title="B",
+            s3_key="documents/b.docx",
+            mime_type="text/plain",
+            size_bytes=200,
+        )
+        assert r1.document_id != r2.document_id
+
+
+# ── index_document ───────────────────────────────────────────────
+
+
+class TestIndexDocument:
+    @patch("app.domain.document_service.index_chunks", return_value=3)
+    async def test_indexes_and_updates_metadata(self, mock_index, service, repo):
+        rec = _make_record()
+        await repo.create(rec)
+
+        result = await service.index_document(rec.document_id, _make_chunks(3))
+
+        assert result is not None
+        assert result.status == DocumentStatus.completed
+        assert result.chunk_count == 3
+        assert result.indexed_at is not None
+        assert result.error is None
+        mock_index.assert_called_once()
+
+    @patch("app.domain.document_service.index_chunks", side_effect=RuntimeError("Qdrant down"))
+    async def test_marks_failed_on_error(self, mock_index, service, repo):
+        rec = _make_record()
+        await repo.create(rec)
+
+        result = await service.index_document(rec.document_id, _make_chunks())
+
+        assert result is not None
+        assert result.status == DocumentStatus.failed
+        assert "Qdrant down" in result.error
+
+    async def test_nonexistent_returns_none(self, service):
+        result = await service.index_document("nonexistent", _make_chunks())
+        assert result is None
+
+    @patch("app.domain.document_service.index_chunks", return_value=2)
+    async def test_passes_is_search_enabled_to_chunks(self, mock_index, service, repo):
+        rec = _make_record(is_search_enabled=False)
+        await repo.create(rec)
+
+        await service.index_document(rec.document_id, _make_chunks(2))
+
+        call_args = mock_index.call_args
+        chunks = call_args[0][3]  # fourth positional arg
+        for chunk in chunks:
+            assert chunk.metadata["is_search_enabled"] is False
+
+
+# ── update_metadata ──────────────────────────────────────────────
+
+
+class TestUpdateMetadata:
+    async def test_updates_title(self, service, repo):
+        rec = _make_record()
+        await repo.create(rec)
+
+        result = await service.update_metadata(rec.document_id, title="New Title")
+
+        assert result is not None
+        assert result.title == "New Title"
+
+    async def test_nonexistent_returns_none(self, service):
+        result = await service.update_metadata("nonexistent", title="x")
+        assert result is None
+
+
+# ── toggle_search ─────────────────────────────────────────────────
+
+
+class TestToggleSearch:
+    async def test_disables_search(self, service, repo, mock_qdrant):
+        rec = _make_record(is_search_enabled=True)
+        await repo.create(rec)
+
+        result = await service.toggle_search(rec.document_id, enabled=False)
+
+        assert result is not None
+        assert result.is_search_enabled is False
+        mock_qdrant.set_payload.assert_called_once()
+
+    async def test_enables_search(self, service, repo, mock_qdrant):
+        rec = _make_record(is_search_enabled=False)
+        await repo.create(rec)
+
+        result = await service.toggle_search(rec.document_id, enabled=True)
+
+        assert result is not None
+        assert result.is_search_enabled is True
+        mock_qdrant.set_payload.assert_called_once()
+
+    async def test_does_not_change_status(self, service, repo):
+        rec = _make_record(status=DocumentStatus.completed)
+        await repo.create(rec)
+
+        result = await service.toggle_search(rec.document_id, enabled=False)
+
+        assert result is not None
+        assert result.status == DocumentStatus.completed
+
+    async def test_qdrant_failure_still_updates_sqlite(self, service, repo, mock_qdrant):
+        mock_qdrant.set_payload.side_effect = RuntimeError("Qdrant unreachable")
+        rec = _make_record(is_search_enabled=True)
+        await repo.create(rec)
+
+        result = await service.toggle_search(rec.document_id, enabled=False)
+
+        assert result is not None
+        assert result.is_search_enabled is False
+
+    async def test_nonexistent_returns_none(self, service):
+        result = await service.toggle_search("nonexistent", enabled=False)
+        assert result is None
+
+
+# ── reindex_document ──────────────────────────────────────────────
+
+
+class TestReindexDocument:
+    @patch("app.domain.document_service.index_chunks", return_value=5)
+    @patch("app.domain.document_service.delete_document_chunks")
+    async def test_reindexes_successfully(
+        self, mock_delete, mock_index, service, repo
+    ):
+        rec = _make_record(
+            status=DocumentStatus.completed,
+            chunk_count=3,
+            indexed_at=datetime.now(UTC),
+        )
+        await repo.create(rec)
+
+        result = await service.reindex_document(rec.document_id, _make_chunks(5))
+
+        assert result is not None
+        assert result.status == DocumentStatus.completed
+        assert result.chunk_count == 5
+        assert result.indexed_at is not None
+        mock_delete.assert_called_once()
+        mock_index.assert_called_once()
+
+    @patch("app.domain.document_service.index_chunks", side_effect=RuntimeError("fail"))
+    @patch("app.domain.document_service.delete_document_chunks")
+    async def test_marks_failed_on_error(
+        self, mock_delete, mock_index, service, repo
+    ):
+        rec = _make_record(status=DocumentStatus.completed)
+        await repo.create(rec)
+
+        result = await service.reindex_document(rec.document_id, _make_chunks())
+
+        assert result is not None
+        assert result.status == DocumentStatus.failed
+        assert result.error is not None
+
+    async def test_nonexistent_returns_none(self, service):
+        result = await service.reindex_document("nonexistent", _make_chunks())
+        assert result is None
+
+
+# ── delete_document ───────────────────────────────────────────────
+
+
+class TestDeleteDocument:
+    async def test_deletes_metadata_and_chunks(self, service, repo, mock_qdrant):
+        rec = _make_record()
+        await repo.create(rec)
+
+        deleted = await service.delete_document(rec.document_id)
+
+        assert deleted is True
+        assert await repo.get(rec.document_id) is None
+        mock_qdrant.delete.assert_called_once()
+
+    async def test_calls_file_deleter(self, service, repo):
+        rec = _make_record(s3_key="documents/important.docx")
+        await repo.create(rec)
+
+        deleted_keys: list[str] = []
+
+        async def fake_deleter(key: str) -> None:
+            deleted_keys.append(key)
+
+        await service.delete_document(rec.document_id, file_deleter=fake_deleter)
+
+        assert deleted_keys == ["documents/important.docx"]
+
+    async def test_qdrant_failure_still_deletes_metadata(self, service, repo, mock_qdrant):
+        mock_qdrant.delete.side_effect = RuntimeError("Qdrant down")
+        rec = _make_record()
+        await repo.create(rec)
+
+        deleted = await service.delete_document(rec.document_id)
+
+        assert deleted is True
+        assert await repo.get(rec.document_id) is None
+
+    async def test_file_deleter_failure_still_deletes_metadata(self, service, repo):
+        rec = _make_record()
+        await repo.create(rec)
+
+        async def bad_deleter(key: str) -> None:
+            raise OSError("S3 unreachable")
+
+        deleted = await service.delete_document(rec.document_id, file_deleter=bad_deleter)
+
+        assert deleted is True
+        assert await repo.get(rec.document_id) is None
+
+    async def test_nonexistent_returns_false(self, service):
+        deleted = await service.delete_document("nonexistent")
+        assert deleted is False
+
+    async def test_does_not_affect_other_documents(self, service, repo):
+        r1 = _make_record(document_id="keep")
+        r2 = _make_record(document_id="remove")
+        await repo.create(r1)
+        await repo.create(r2)
+
+        await service.delete_document("remove")
+
+        assert await repo.get("keep") is not None
+        assert await repo.get("remove") is None

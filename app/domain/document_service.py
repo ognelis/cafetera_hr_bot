@@ -1,0 +1,279 @@
+"""Document lifecycle service — orchestrates metadata, vector chunks, and file storage.
+
+This is the central domain service for document management.  It coordinates
+between the SQLite metadata repository, the Qdrant vector store, and
+(optionally) file storage.  Route handlers and scripts delegate here instead
+of implementing business logic themselves.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from app.rag.indexer import (
+    delete_document_chunks,
+    index_chunks,
+    prepare_chunks,
+    set_search_enabled,
+)
+from app.storage.models import DocumentRecord, DocumentStatus
+
+if TYPE_CHECKING:
+    from langchain_core.documents import Document as LCDocument
+    from langchain_core.embeddings import Embeddings
+    from qdrant_client import QdrantClient
+
+    from app.storage.document_repo import DocumentRepository
+
+logger = logging.getLogger(__name__)
+
+
+class DocumentService:
+    """Manages the full lifecycle of a document in the knowledge base.
+
+    Dependencies are injected via the constructor so the service is testable
+    and independent of any particular transport layer.
+    """
+
+    def __init__(
+        self,
+        repo: DocumentRepository,
+        qdrant_client: QdrantClient,
+        embeddings: Embeddings,
+        collection_name: str = "hr_documents",
+    ) -> None:
+        self._repo = repo
+        self._qdrant = qdrant_client
+        self._embeddings = embeddings
+        self._collection = collection_name
+
+    # ── create ────────────────────────────────────────────────────
+
+    async def create_document(
+        self,
+        *,
+        filename: str,
+        title: str,
+        s3_key: str,
+        mime_type: str,
+        size_bytes: int,
+    ) -> DocumentRecord:
+        """Register a new document in the metadata store (status=pending)."""
+        now = datetime.now(UTC)
+        record = DocumentRecord(
+            document_id=uuid.uuid4().hex,
+            filename=filename,
+            title=title,
+            s3_key=s3_key,
+            mime_type=mime_type,
+            size_bytes=size_bytes,
+            status=DocumentStatus.pending,
+            is_search_enabled=True,
+            created_at=now,
+            updated_at=now,
+        )
+        return await self._repo.create(record)
+
+    # ── index ─────────────────────────────────────────────────────
+
+    async def index_document(
+        self,
+        document_id: str,
+        chunks: list[LCDocument],
+    ) -> DocumentRecord | None:
+        """Index parsed chunks for a document in Qdrant and update metadata.
+
+        Transitions the document through ``processing`` → ``completed``
+        (or ``failed`` on error).  Returns the updated record.
+        """
+        record = await self._repo.get(document_id)
+        if record is None:
+            return None
+
+        await self._repo.update(
+            document_id, status=DocumentStatus.processing, error=None
+        )
+
+        try:
+            enriched = prepare_chunks(
+                chunks,
+                document_id=document_id,
+                filename=record.filename,
+                s3_key=record.s3_key,
+                is_search_enabled=record.is_search_enabled,
+            )
+            count = index_chunks(
+                self._qdrant,
+                self._embeddings,
+                self._collection,
+                enriched,
+            )
+            return await self._repo.update(
+                document_id,
+                status=DocumentStatus.completed,
+                chunk_count=count,
+                indexed_at=datetime.now(UTC),
+                error=None,
+            )
+        except Exception as exc:
+            logger.error(
+                "Indexing failed for document %s", document_id, exc_info=True
+            )
+            await self._repo.update(
+                document_id,
+                status=DocumentStatus.failed,
+                error=str(exc),
+            )
+            return await self._repo.get(document_id)
+
+    # ── update metadata ───────────────────────────────────────────
+
+    async def update_metadata(
+        self,
+        document_id: str,
+        *,
+        title: str | None = None,
+    ) -> DocumentRecord | None:
+        """Update editable document metadata fields."""
+        return await self._repo.update(document_id, title=title)
+
+    # ── toggle search ─────────────────────────────────────────────
+
+    async def toggle_search(
+        self,
+        document_id: str,
+        *,
+        enabled: bool,
+    ) -> DocumentRecord | None:
+        """Toggle document participation in RAG retrieval.
+
+        Updates both SQLite metadata (source of truth) and Qdrant chunk
+        payloads.  The file and metadata are preserved regardless.
+        """
+        record = await self._repo.get(document_id)
+        if record is None:
+            return None
+
+        # Update Qdrant chunks (best-effort — SQLite is the source of truth)
+        try:
+            set_search_enabled(
+                self._qdrant,
+                self._collection,
+                document_id,
+                enabled=enabled,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to update Qdrant chunks for document %s",
+                document_id,
+                exc_info=True,
+            )
+
+        # Update SQLite
+        return await self._repo.toggle_search(document_id, enabled)
+
+    # ── reindex ───────────────────────────────────────────────────
+
+    async def reindex_document(
+        self,
+        document_id: str,
+        chunks: list[LCDocument],
+    ) -> DocumentRecord | None:
+        """Re-index a document: delete old chunks, then index fresh ones.
+
+        The caller is responsible for parsing the file into *chunks*
+        (e.g. by downloading from MinIO and running the docx splitter).
+        """
+        record = await self._repo.get(document_id)
+        if record is None:
+            return None
+
+        await self._repo.update(
+            document_id, status=DocumentStatus.processing, error=None
+        )
+
+        try:
+            delete_document_chunks(self._qdrant, self._collection, document_id)
+
+            enriched = prepare_chunks(
+                chunks,
+                document_id=document_id,
+                filename=record.filename,
+                s3_key=record.s3_key,
+                is_search_enabled=record.is_search_enabled,
+            )
+            count = index_chunks(
+                self._qdrant,
+                self._embeddings,
+                self._collection,
+                enriched,
+            )
+            return await self._repo.update(
+                document_id,
+                status=DocumentStatus.completed,
+                chunk_count=count,
+                indexed_at=datetime.now(UTC),
+                error=None,
+            )
+        except Exception as exc:
+            logger.error(
+                "Reindexing failed for document %s", document_id, exc_info=True
+            )
+            await self._repo.update(
+                document_id,
+                status=DocumentStatus.failed,
+                error=str(exc),
+            )
+            return await self._repo.get(document_id)
+
+    # ── delete ────────────────────────────────────────────────────
+
+    async def delete_document(
+        self,
+        document_id: str,
+        *,
+        file_deleter: Callable[[str], Awaitable[None]] | None = None,
+    ) -> bool:
+        """Fully delete a document: metadata, Qdrant chunks, and optionally the file.
+
+        Args:
+            document_id: The document to delete.
+            file_deleter: Optional async callable that removes the file by
+                ``s3_key``.  Pass ``storage.delete`` when S3Storage is
+                available.
+
+        Returns:
+            ``True`` if the document existed and was deleted.
+        """
+        record = await self._repo.get(document_id)
+        if record is None:
+            return False
+
+        # Delete Qdrant chunks
+        try:
+            delete_document_chunks(self._qdrant, self._collection, document_id)
+        except Exception:
+            logger.warning(
+                "Failed to delete Qdrant chunks for document %s",
+                document_id,
+                exc_info=True,
+            )
+
+        # Delete file from storage (if deleter provided)
+        if file_deleter is not None:
+            try:
+                await file_deleter(record.s3_key)
+            except Exception:
+                logger.warning(
+                    "Failed to delete file %s for document %s",
+                    record.s3_key,
+                    document_id,
+                    exc_info=True,
+                )
+
+        # Delete metadata (last step — source of truth)
+        return await self._repo.delete(document_id)

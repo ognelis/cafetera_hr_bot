@@ -7,6 +7,10 @@
 - [app/rag/prompts.py](file://app/rag/prompts.py)
 - [app/rag/retriever.py](file://app/rag/retriever.py)
 - [app/domain/qa_service.py](file://app/domain/qa_service.py)
+- [app/domain/document_service.py](file://app/domain/document_service.py)
+- [app/storage/database.py](file://app/storage/database.py)
+- [app/storage/models.py](file://app/storage/models.py)
+- [app/storage/document_repo.py](file://app/storage/document_repo.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
 - [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
 - [app/domain/content.py](file://app/domain/content.py)
@@ -21,19 +25,18 @@
 - [tests/test_qa_service.py](file://tests/test_qa_service.py)
 - [tests/test_rag_block6.py](file://tests/test_rag_block6.py)
 - [tests/test_ask_block9.py](file://tests/test_ask_block9.py)
+- [tests/test_storage.py](file://tests/test_storage.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced Block 9 ask handler implementation with comprehensive RAG integration
-- Added llama.cpp support as new LLM provider option alongside existing Ollama and OpenAI providers
-- Enhanced provider selection logic with comprehensive error handling for all three providers
-- Added llama.cpp configuration system with OpenAI-compatible API interface support
-- Implemented dedicated llama.cpp deployment scripts for local model serving
-- Enhanced configuration management with llama.cpp provider flexibility
-- Updated LangChain integration to support llama.cpp through OpenAI-compatible adapter
-- Expanded testing framework with comprehensive llama.cpp provider validation
-- Enhanced embedding model support for llama.cpp through OpenAI-compatible embeddings
+- Enhanced with comprehensive document storage system for RAG functionality
+- Added SQLite database integration with DocumentRepository CRUD operations
+- Implemented complete test coverage for document metadata management
+- Integrated DocumentService for full document lifecycle management
+- Added DocumentRecord model with comprehensive metadata fields
+- Enhanced ingestion pipeline with SQLite metadata tracking
+- Completed Block 10 of Phase 3 for document storage infrastructure
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -44,23 +47,25 @@
 6. [Enhanced Ask Handler Implementation](#enhanced-ask-handler-implementation)
 7. [Topic Hints Detection System](#topic-hints-detection-system)
 8. [RAG Infrastructure Implementation](#rag-infrastructure-implementation)
-9. [QA Service Implementation](#qa-service-implementation)
-10. [Configuration Management](#configuration-management)
-11. [Document Ingestion Pipeline](#document-ingestion-pipeline)
-12. [LangChain Integration](#langchain-integration)
-13. [Local LLM Deployment Support](#local-llm-deployment-support)
-14. [Testing Framework](#testing-framework)
-15. [Performance Considerations](#performance-considerations)
-16. [Troubleshooting Guide](#troubleshooting-guide)
-17. [Conclusion](#conclusion)
+9. [Document Storage System](#document-storage-system)
+10. [Document Lifecycle Management](#document-lifecycle-management)
+11. [QA Service Implementation](#qa-service-implementation)
+12. [Configuration Management](#configuration-management)
+13. [Document Ingestion Pipeline](#document-ingestion-pipeline)
+14. [LangChain Integration](#langchain-integration)
+15. [Local LLM Deployment Support](#local-llm-deployment-support)
+16. [Testing Framework](#testing-framework)
+17. [Performance Considerations](#performance-considerations)
+18. [Troubleshooting Guide](#troubleshooting-guide)
+19. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the comprehensive Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. The implementation includes a complete LangChain-based processing pipeline, Qdrant vector database integration, document ingestion capabilities, and specialized HR prompts. The system enhances the bot's HR assistance capabilities by providing contextual, reliable answers drawn from HR documents while maintaining seamless integration with the existing VK bot architecture.
 
-**Updated** The RAG implementation now includes a fully functional infrastructure with LangChain integration, Qdrant vector store, document processing workflows, comprehensive QA service with singleton pattern, topic hints detection system, extensive testing coverage, and enhanced user experience features. The system now supports three LLM providers: Ollama, OpenAI-compatible, and llama.cpp, providing maximum flexibility for local and cloud deployments.
+**Updated** The RAG implementation now includes a fully functional infrastructure with LangChain integration, Qdrant vector store, document processing workflows, comprehensive QA service with singleton pattern, topic hints detection system, extensive testing coverage, SQLite-based document storage system, and enhanced user experience features. The system now supports three LLM providers: Ollama, OpenAI-compatible, and llama.cpp, providing maximum flexibility for local and cloud deployments.
 
 ## Project Structure
-The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, document ingestion capabilities, comprehensive QA service layer with enhanced ask handler implementation, and dedicated deployment scripts for local LLM serving.
+The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, document ingestion capabilities, comprehensive QA service layer with enhanced ask handler implementation, SQLite-based document storage system, and dedicated deployment scripts for local LLM serving.
 
 ```mermaid
 graph TB
@@ -70,6 +75,12 @@ Chain["RAG Chain<br/>app/rag/chain.py"]
 Prompts["System Prompts<br/>app/rag/prompts.py"]
 Retriever["Vector Store & Retriever<br/>app/rag/retriever.py"]
 QAService["QA Service Layer<br/>app/domain/qa_service.py"]
+end
+subgraph "Document Storage System"
+DBInit["Database Initialisation<br/>app/storage/database.py"]
+Models["Document Models<br/>app/storage/models.py"]
+Repo["Document Repository<br/>app/storage/document_repo.py"]
+DocService["Document Service<br/>app/domain/document_service.py"]
 end
 subgraph "Enhanced Ask Handler"
 AskHandler["Enhanced Ask Handler<br/>app/integrations/vk/handlers/ask.py"]
@@ -106,9 +117,14 @@ AskHandler --> Keyboards
 AskHandler --> States
 TopicHints --> Keyboards
 QAService --> Qdrant
+DocService --> Repo
+DocService --> Qdrant
+DBInit --> Repo
+Models --> Repo
 Docx --> Ingest
 Chunking --> Ingest
 Embeddings --> Ingest
+Ingest --> DocService
 Ingest --> Qdrant
 Qdrant --> Retriever
 VKBot --> AskHandler
@@ -125,11 +141,15 @@ OllamaScript --> QAService
 - [app/rag/prompts.py:5-19](file://app/rag/prompts.py#L5-L19)
 - [app/rag/retriever.py:22-74](file://app/rag/retriever.py#L22-L74)
 - [app/domain/qa_service.py:51-120](file://app/domain/qa_service.py#L51-L120)
+- [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
+- [app/storage/models.py:11-36](file://app/storage/models.py#L11-L36)
+- [app/storage/document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
+- [app/domain/document_service.py:34-279](file://app/domain/document_service.py#L34-L279)
 - [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
 - [app/domain/topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
 - [app/integrations/vk/keyboards.py:224-254](file://app/integrations/vk/keyboards.py#L224-254)
 - [app/integrations/vk/states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- [scripts/ingest.py:44-166](file://scripts/ingest.py#L44-L166)
+- [scripts/ingest.py:130-254](file://scripts/ingest.py#L130-L254)
 - [app/integrations/vk/bot.py:44-56](file://app/integrations/vk/bot.py#L44-L56)
 - [app/domain/content.py:127-136](file://app/domain/content.py#L127-L136)
 - [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
@@ -142,11 +162,15 @@ OllamaScript --> QAService
 - [app/rag/prompts.py:1-19](file://app/rag/prompts.py#L1-L19)
 - [app/rag/retriever.py:1-74](file://app/rag/retriever.py#L1-L74)
 - [app/domain/qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
+- [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
+- [app/storage/models.py:1-36](file://app/storage/models.py#L1-L36)
+- [app/storage/document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
+- [app/domain/document_service.py:1-279](file://app/domain/document_service.py#L1-L279)
 - [app/integrations/vk/handlers/ask.py:1-86](file://app/integrations/vk/handlers/ask.py#L1-L86)
 - [app/domain/topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
 - [app/integrations/vk/keyboards.py:1-322](file://app/integrations/vk/keyboards.py#L1-L322)
 - [app/integrations/vk/states.py:1-17](file://app/integrations/vk/states.py#L1-L17)
-- [scripts/ingest.py:1-192](file://scripts/ingest.py#L1-L192)
+- [scripts/ingest.py:1-254](file://scripts/ingest.py#L1-L254)
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 - [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
 - [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
@@ -159,6 +183,7 @@ The RAG infrastructure consists of several interconnected components that work t
 - **Configuration Management**: Centralized settings for Qdrant connection, LLM providers (Ollama, OpenAI-compatible, llama.cpp), and embedding models
 - **RAG Chain Builder**: LangChain pipeline that orchestrates retrieval, prompting, and LLM generation with provider-specific configuration
 - **Vector Store Integration**: Qdrant-backed vector store with dense retrieval capabilities and embedding model support
+- **Document Storage System**: SQLite-based metadata storage with comprehensive CRUD operations and document lifecycle management
 - **Document Processing**: Word document ingestion with section extraction and chunking
 - **Embedding Models**: Support for local Ollama embeddings, OpenAI-compatible embeddings, and llama.cpp embeddings
 - **System Prompts**: Specialized HR-focused prompts with Russian language instructions
@@ -168,7 +193,7 @@ The RAG infrastructure consists of several interconnected components that work t
 - **Local LLM Deployment**: Dedicated scripts for llama.cpp and Ollama server deployment
 - **Application Integration**: Seamless integration with VK bot handlers and state management
 
-**Updated** The RAG infrastructure now provides a complete, production-ready solution with comprehensive LangChain integration, Qdrant vector store capabilities, robust QA service layer, topic hints detection system, enhanced user experience features, and support for three LLM providers including the new llama.cpp option.
+**Updated** The RAG infrastructure now provides a complete, production-ready solution with comprehensive LangChain integration, Qdrant vector store capabilities, robust document storage system with SQLite, comprehensive QA service layer, topic hints detection system, enhanced user experience features, and support for three LLM providers including the new llama.cpp option.
 
 **Section sources**
 - [app/config.py:10-23](file://app/config.py#L10-L23)
@@ -178,11 +203,15 @@ The RAG infrastructure consists of several interconnected components that work t
 - [app/domain/qa_service.py:51-120](file://app/domain/qa_service.py#L51-L120)
 - [app/domain/topic_hints.py:14-26](file://app/domain/topic_hints.py#L14-L26)
 - [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
+- [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
+- [app/storage/models.py:11-36](file://app/storage/models.py#L11-L36)
+- [app/storage/document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
+- [app/domain/document_service.py:34-279](file://app/domain/document_service.py#L34-L279)
 - [scripts/run_llama_qwen.sh:1-61](file://scripts/run_llama_qwen.sh#L1-L61)
 - [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
 
 ## Architecture Overview
-The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience and comprehensive LLM provider support. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant, generates contextualized responses using the selected LLM provider, detects topic scenarios for navigation, and provides typing indicators for improved UX, all managed through a centralized QA service layer.
+The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience and comprehensive LLM provider support. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant, generates contextualized responses using the selected LLM provider, detects topic scenarios for navigation, and provides typing indicators for improved UX, all managed through a centralized QA service layer with integrated document storage.
 
 ```mermaid
 sequenceDiagram
@@ -191,6 +220,8 @@ participant VKBot as "VK Bot"
 participant AskHandler as "Enhanced Ask Handler"
 participant TopicHints as "Topic Hints"
 participant QAService as "QA Service"
+participant DocumentService as "Document Service"
+participant SQLite as "SQLite Database"
 participant RAGChain as "RAG Chain"
 participant Qdrant as "Qdrant Vector Store"
 participant LLM as "Language Model"
@@ -205,6 +236,10 @@ AskHandler->>TopicHints : detect_topic_hint(question)
 TopicHints-->>AskHandler : TopicHint(scenario_id, disclaimer)
 AskHandler->>QAService : ask(question)
 QAService->>QAService : Check chain availability
+QAService->>DocumentService : Get document metadata
+DocumentService->>SQLite : Query document status
+SQLite-->>DocumentService : Document metadata
+DocumentService-->>QAService : Document metadata
 QAService->>RAGChain : chain.ainvoke(question)
 RAGChain->>Qdrant : Similarity search (k=4)
 Qdrant-->>RAGChain : Retrieved documents
@@ -223,6 +258,7 @@ AskHandler-->>User : Answer + contextual navigation buttons
 - [app/rag/chain.py:61-80](file://app/rag/chain.py#L61-L80)
 - [app/rag/retriever.py:64-74](file://app/rag/retriever.py#L64-L74)
 - [app/domain/topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [app/domain/document_service.py:92-130](file://app/domain/document_service.py#L92-L130)
 
 ## Detailed Component Analysis
 
@@ -444,6 +480,191 @@ VectorStoreRetriever --> QdrantVectorStore : "created from"
 **Section sources**
 - [app/rag/retriever.py:1-74](file://app/rag/retriever.py#L1-L74)
 
+## Document Storage System
+
+### SQLite Database Integration
+The document storage system provides comprehensive metadata management through SQLite database integration with automatic table creation and initialization:
+
+- **Database Initialization**: Automatic creation of documents table with proper schema and constraints
+- **Directory Management**: Ensures database directory exists before connection
+- **Idempotent Operations**: Safe repeated initialization without errors
+- **Logging**: Comprehensive logging for database operations and initialization status
+
+**Updated** Complete SQLite database integration with automatic table creation, directory management, idempotent initialization, and comprehensive logging for all database operations.
+
+```mermaid
+classDiagram
+class DatabaseInit {
++init_db(db_path) async
++_CREATE_DOCUMENTS_TABLE : str
+}
+class DocumentsTable {
++document_id : TEXT PRIMARY KEY
++filename : TEXT NOT NULL
++title : TEXT NOT NULL
++status : TEXT NOT NULL DEFAULT 'pending'
++is_search_enabled : INTEGER NOT NULL DEFAULT 1
++created_at : TEXT NOT NULL
++updated_at : TEXT NOT NULL
++indexed_at : TEXT
++chunk_count : INTEGER NOT NULL DEFAULT 0
+}
+DatabaseInit --> DocumentsTable : "creates"
+```
+
+**Diagram sources**
+- [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
+- [app/storage/database.py:12-28](file://app/storage/database.py#L12-L28)
+
+**Section sources**
+- [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
+
+### Document Record Model
+The DocumentRecord model provides comprehensive metadata representation for document storage with Pydantic validation and type safety:
+
+- **Status Enum**: DocumentStatus with pending, processing, completed, failed states
+- **Search Control**: is_search_enabled flag for RAG retrieval participation
+- **Timestamp Management**: created_at, updated_at, indexed_at with timezone-aware datetime
+- **Chunk Tracking**: chunk_count for indexing statistics
+- **Error Handling**: error field for processing failure details
+- **Pydantic Validation**: Automatic validation and serialization
+
+**Updated** Comprehensive DocumentRecord model with Pydantic validation, status enumeration, search control, timestamp management, chunk tracking, and error handling for complete document metadata management.
+
+```mermaid
+classDiagram
+class DocumentStatus {
+<<enumeration>>
++pending : str
++processing : str
++completed : str
++failed : str
+}
+class DocumentRecord {
++document_id : str
++filename : str
++title : str
++s3_key : str
++mime_type : str
++size_bytes : int
++status : DocumentStatus
++is_search_enabled : bool
++error : str | None
++created_at : datetime
++updated_at : datetime
++indexed_at : datetime | None
++chunk_count : int
+}
+DocumentRecord --> DocumentStatus : "uses"
+```
+
+**Diagram sources**
+- [app/storage/models.py:11-36](file://app/storage/models.py#L11-L36)
+
+**Section sources**
+- [app/storage/models.py:1-36](file://app/storage/models.py#L1-L36)
+
+### Document Repository - CRUD Operations
+The DocumentRepository provides comprehensive asynchronous CRUD operations for document metadata with SQLite backend:
+
+- **Create Operations**: Insert new document records with automatic timestamp management
+- **Read Operations**: Get single records by ID and list all records ordered by creation date
+- **Update Operations**: Partial updates with selective field updates and timestamp bumping
+- **Search Toggle**: Toggle is_search_enabled flag without affecting processing status
+- **Delete Operations**: Remove document records with proper row count validation
+- **Async Operations**: Full aiosqlite integration for non-blocking database operations
+- **Type Safety**: Strict type checking and validation for all operations
+
+**Updated** Complete DocumentRepository implementation with comprehensive CRUD operations, async SQLite integration, type safety, timestamp management, selective updates, and comprehensive error handling for all document metadata operations.
+
+```mermaid
+classDiagram
+class DocumentRepository {
++db_path : str
++create(record) async -> DocumentRecord
++get(document_id) async -> DocumentRecord | None
++list_all() async -> list[DocumentRecord]
++update(document_id, ...) async -> DocumentRecord | None
++toggle_search(document_id, enabled) async -> DocumentRecord | None
++delete(document_id) async -> bool
+}
+class DocumentRecord {
++document_id : str
++filename : str
++title : str
++status : DocumentStatus
++is_search_enabled : bool
++created_at : datetime
++updated_at : datetime
++chunk_count : int
+}
+DocumentRepository --> DocumentRecord : "manages"
+```
+
+**Diagram sources**
+- [app/storage/document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
+- [app/storage/models.py:20-36](file://app/storage/models.py#L20-L36)
+
+**Section sources**
+- [app/storage/document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
+
+## Document Lifecycle Management
+
+### Document Service Orchestration
+The DocumentService provides comprehensive document lifecycle management coordinating between SQLite metadata, Qdrant vector storage, and optional file storage:
+
+- **Document Registration**: Create document records with pending status and metadata
+- **Indexing Pipeline**: Process document chunks through preparation, enrichment, and indexing
+- **Status Management**: Automatic status transitions from pending to processing to completed/failed
+- **Search Control**: Toggle document participation in RAG retrieval with synchronized updates
+- **Reindexing**: Delete old chunks and create new ones for updated documents
+- **Deletion**: Complete cleanup including metadata, vectors, and optional file removal
+- **Error Handling**: Comprehensive error handling with detailed logging and status updates
+
+**Updated** Complete DocumentService implementation with full document lifecycle management, status transitions, search control synchronization, error handling, and comprehensive cleanup procedures for all document operations.
+
+```mermaid
+flowchart TD
+CreateDoc["create_document()"] --> PendingStatus["Status: pending"]
+PendingStatus --> IndexDoc["index_document()"]
+IndexDoc --> ProcessingStatus["Status: processing"]
+ProcessingStatus --> PrepareChunks["prepare_chunks()"]
+PrepareChunks --> EnrichChunks["enrich chunks with metadata"]
+EnrichChunks --> IndexChunks["index_chunks()"]
+IndexChunks --> CompletedStatus["Status: completed"]
+CompletedStatus --> UpdateMetadata["Update metadata with counts"]
+UpdateMetadata --> SearchEnabled["Search enabled: True"]
+SearchEnabled --> ReadyForRAG["Ready for RAG retrieval"]
+ErrorPath["Exception occurs"] --> FailedStatus["Status: failed"]
+FailedStatus --> LogError["Log error details"]
+LogError --> UpdateError["Update error field"]
+UpdateError --> ReadyForRAG
+```
+
+**Diagram sources**
+- [app/domain/document_service.py:55-130](file://app/domain/document_service.py#L55-L130)
+- [app/domain/document_service.py:145-176](file://app/domain/document_service.py#L145-L176)
+
+**Section sources**
+- [app/domain/document_service.py:1-279](file://app/domain/document_service.py#L1-L279)
+
+### Status Management and Processing Flow
+The document processing pipeline implements a robust status management system with automatic transitions and comprehensive error handling:
+
+- **Pending State**: Initial registration with metadata and pending status
+- **Processing State**: Active indexing with error clearing
+- **Completed State**: Successful indexing with chunk count and timestamp
+- **Failed State**: Error recording with exception details
+- **Search Control**: Separate toggle for RAG participation independent of processing status
+- **Timestamp Management**: Automatic creation and update timestamps
+- **Chunk Tracking**: Accurate counting of indexed document chunks
+
+**Updated** Comprehensive status management system with automatic state transitions, error handling, search control independence, timestamp management, and chunk tracking for complete document lifecycle visibility.
+
+**Section sources**
+- [app/domain/document_service.py:82-130](file://app/domain/document_service.py#L82-L130)
+- [app/domain/document_service.py:145-176](file://app/domain/document_service.py#L145-L176)
+
 ## QA Service Implementation
 
 ### Singleton Pattern Architecture
@@ -557,24 +778,27 @@ The ingestion script provides comprehensive document processing capabilities:
 - **Chunking Strategy**: Uses recursive character splitting with configurable chunk size and overlap
 - **Metadata Preservation**: Maintains source filename and section information
 - **Collection Management**: Handles collection recreation and cleanup
+- **SQLite Integration**: Automatic document registration and status updates
 
-**Updated** Complete implementation of document ingestion with comprehensive error handling, metadata preservation, and flexible chunking strategy compatible with all embedding providers.
+**Updated** Complete implementation of document ingestion with comprehensive error handling, metadata preservation, SQLite integration, and flexible chunking strategy compatible with all embedding providers.
 
 ```mermaid
 flowchart TD
 DocxFile[".docx File"] --> ExtractSections["_extract_sections()"]
 ExtractSections --> SplitText["RecursiveCharacterTextSplitter"]
 SplitText --> CreateDocuments["Create LangChain Documents"]
-CreateDocuments --> BuildEmbeddings["build_embeddings()"]
+CreateDocuments --> RegisterDocument["Register in SQLite"]
+RegisterDocument --> BuildEmbeddings["build_embeddings()"]
 BuildEmbeddings --> StoreQdrant["QdrantVectorStore.from_documents()"]
-StoreQdrant --> Success["Ingestion Complete"]
+StoreQdrant --> UpdateStatus["Update document status to completed"]
+UpdateStatus --> Success["Ingestion Complete"]
 ```
 
 **Diagram sources**
-- [scripts/ingest.py:44-166](file://scripts/ingest.py#L44-L166)
+- [scripts/ingest.py:130-254](file://scripts/ingest.py#L130-L254)
 
 **Section sources**
-- [scripts/ingest.py:1-192](file://scripts/ingest.py#L1-L192)
+- [scripts/ingest.py:1-254](file://scripts/ingest.py#L1-L254)
 
 ### Ingestion Workflow
 The ingestion process follows a systematic approach to prepare documents for RAG:
@@ -585,11 +809,13 @@ The ingestion process follows a systematic approach to prepare documents for RAG
 4. **Metadata Assignment**: Adds source and section information
 5. **Vector Generation**: Creates embeddings for each chunk using provider-specific embedding models
 6. **Storage**: Stores vectors in Qdrant collection
+7. **Status Update**: Updates SQLite metadata with completion status and chunk counts
+8. **Error Handling**: Comprehensive error handling with status updates for failed documents
 
-**Updated** Comprehensive ingestion workflow with error handling, progress reporting, flexible chunking parameters, and provider-specific embedding model support.
+**Updated** Comprehensive ingestion workflow with error handling, progress reporting, SQLite metadata updates, flexible chunking parameters, and provider-specific embedding model support.
 
 **Section sources**
-- [scripts/ingest.py:111-166](file://scripts/ingest.py#L111-L166)
+- [scripts/ingest.py:130-254](file://scripts/ingest.py#L130-L254)
 
 ## LangChain Integration
 
@@ -684,7 +910,7 @@ The system maintains comprehensive Ollama support for local LLM deployments:
 ## Testing Framework
 
 ### Comprehensive Test Coverage
-The test suite provides extensive coverage for the RAG infrastructure, QA service, enhanced ask handler, and llama.cpp provider support:
+The test suite provides extensive coverage for the RAG infrastructure, QA service, enhanced ask handler, document storage system, and llama.cpp provider support:
 
 - **Configuration Testing**: Validates settings loading and environment variable support for all providers
 - **Document Processing**: Tests Word document parsing and section extraction
@@ -695,13 +921,14 @@ The test suite provides extensive coverage for the RAG infrastructure, QA servic
 - **Text Truncation**: Validates message length limits and word boundary preservation
 - **Topic Hints Detection**: Tests keyword-based scenario detection and disclaimers
 - **Ask Handler Integration**: Validates enhanced ask handler functionality and user experience features
+- **Document Storage Testing**: Comprehensive testing of SQLite database, models, repository operations, and lifecycle management
 - **llama.cpp Provider Testing**: Comprehensive testing of llama.cpp provider configuration and error handling
 
-**Updated** Complete test coverage for all RAG infrastructure components, QA service functionality, topic hints detection, enhanced ask handler implementation, and comprehensive llama.cpp provider validation with provider-specific configuration testing.
+**Updated** Complete test coverage for all RAG infrastructure components, QA service functionality, topic hints detection, enhanced ask handler implementation, document storage system, and comprehensive llama.cpp provider validation with provider-specific configuration testing.
 
 ```mermaid
 graph TB
-TestSuite["RAG + QA + Ask Handler + llama.cpp Tests"] --> ConfigTests["Configuration Tests"]
+TestSuite["RAG + QA + Ask Handler + Storage + llama.cpp Tests"] --> ConfigTests["Configuration Tests"]
 TestSuite --> DocxTests["Document Processing Tests"]
 TestSuite --> PromptTests["System Prompt Tests"]
 TestSuite --> ChainTests["RAG Chain Tests"]
@@ -709,6 +936,7 @@ TestSuite --> VectorTests["Vector Store Tests"]
 TestSuite --> QATests["QA Service Tests"]
 TestSuite --> TopicHintTests["Topic Hints Tests"]
 TestSuite --> AskHandlerTests["Enhanced Ask Handler Tests"]
+TestSuite --> StorageTests["Document Storage Tests"]
 TestSuite --> LlamaCPPTests["llama.cpp Provider Tests"]
 ConfigTests --> SettingsValidation["Settings Validation"]
 ConfigTests --> ProviderSelection["Provider Selection Logic"]
@@ -727,6 +955,10 @@ TopicHintTests --> DisclaimerLogic["Disclaimer Logic"]
 AskHandlerTests --> TypingIndicator["Typing Indicator"]
 AskHandlerTests --> ContextualNavigation["Contextual Navigation"]
 AskHandlerTests --> ErrorHandler["Error Handling"]
+StorageTests --> DatabaseInit["Database Initialization"]
+StorageTests --> ModelValidation["Model Validation"]
+StorageTests --> CRUDOperations["CRUD Operations"]
+StorageTests --> LifecycleManagement["Lifecycle Management"]
 LlamaCPPTests --> LlamaCPPConfig["llama.cpp Configuration"]
 LlamaCPPTests --> LlamaCPPEmbeddings["llama.cpp Embeddings"]
 LlamaCPPTests --> LlamaCPPErrorHandling["llama.cpp Error Handling"]
@@ -737,11 +969,23 @@ LlamaCPPTests --> LlamaCPPErrorHandling["llama.cpp Error Handling"]
 - [tests/test_rag_block6.py:34-251](file://tests/test_rag_block6.py#L34-L251)
 - [tests/test_rag_block6.py:264-413](file://tests/test_rag_block6.py#L264-L413)
 - [tests/test_ask_block9.py:8-112](file://tests/test_ask_block9.py#L8-L112)
+- [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
+
+### Document Storage Test Coverage
+The storage system includes comprehensive test coverage for all CRUD operations and lifecycle management:
+
+- **Model Tests**: Validates DocumentRecord defaults, status enum values, and field types
+- **Database Initialization**: Tests SQLite table creation and idempotent initialization
+- **Create Operations**: Tests document creation with timestamp management and field preservation
+- **Read Operations**: Tests get and list_all operations with ordering and missing records
+- **Update Operations**: Tests selective field updates, status transitions, and timestamp bumping
+- **Search Toggle**: Tests is_search_enabled flag toggling without affecting status
+- **Delete Operations**: Tests document deletion and cascade effects on other records
+
+**Updated** Complete test coverage for document storage system including model validation, database initialization, CRUD operations, search control, and lifecycle management with comprehensive edge case handling.
 
 **Section sources**
-- [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
-- [tests/test_rag_block6.py:1-413](file://tests/test_rag_block6.py#L1-L413)
-- [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
+- [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 
 ## Performance Considerations
 
@@ -757,8 +1001,9 @@ The RAG infrastructure includes several performance optimization strategies for 
 - **Typing Indicators**: Asynchronous processing with user feedback during RAG computation
 - **State Management**: Efficient state handling to prevent memory leaks
 - **Provider Optimization**: Optimized configuration for each LLM provider type
+- **SQLite Optimization**: Efficient CRUD operations with proper indexing and transaction management
 
-**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, efficient state handling, and provider-specific optimizations for Ollama, OpenAI-compatible, and llama.cpp deployments.
+**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, efficient state handling, provider-specific optimizations for Ollama, OpenAI-compatible, and llama.cpp deployments, and SQLite database optimization techniques.
 
 ### Scalability Planning
 The architecture supports horizontal scaling through:
@@ -770,6 +1015,7 @@ The architecture supports horizontal scaling through:
 - **Resource Pooling**: Efficient management of QA service resources
 - **Provider Scaling**: Support for multiple LLM providers for load distribution
 - **Model Parallelization**: Support for distributed llama.cpp deployments
+- **Database Scaling**: SQLite optimization for concurrent access patterns
 
 ## Troubleshooting Guide
 
@@ -788,8 +1034,10 @@ The RAG infrastructure includes comprehensive error handling and debugging capab
 - **State Management**: Memory leaks or state conflicts between handlers
 - **llama.cpp Issues**: Server startup failures, model loading errors, or API connectivity problems
 - **Ollama Issues**: Server connectivity, model availability, or base URL configuration problems
+- **SQLite Issues**: Database connection problems, table creation failures, or constraint violations
+- **Document Lifecycle Errors**: Status transitions failing or metadata inconsistencies
 
-**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, enhanced ask handler, and all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features.
+**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, enhanced ask handler, document storage system, and all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features.
 
 ### Debugging Tools
 Available debugging and monitoring capabilities:
@@ -801,6 +1049,8 @@ Available debugging and monitoring capabilities:
 - **QA Service Monitoring**: Chain availability and resource status tracking
 - **User Experience Monitoring**: Typing indicator functionality and navigation button rendering
 - **Provider Health Checks**: Specific monitoring for llama.cpp server, Ollama server, and OpenAI-compatible endpoints
+- **Database Monitoring**: SQLite connection status, query performance, and transaction logging
+- **Document Lifecycle Monitoring**: Status transitions, metadata consistency, and error tracking
 
 **Section sources**
 - [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
@@ -810,8 +1060,10 @@ Available debugging and monitoring capabilities:
 - [app/integrations/vk/handlers/ask.py:67-70](file://app/integrations/vk/handlers/ask.py#L67-L70)
 - [scripts/run_llama_qwen.sh:32-41](file://scripts/run_llama_qwen.sh#L32-L41)
 - [scripts/run_ollama_qwen.sh:36-52](file://scripts/run_ollama_qwen.sh#L36-L52)
+- [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
+- [app/storage/document_repo.py:69-99](file://app/storage/document_repo.py#L69-L99)
 
 ## Conclusion
-The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities and enhanced user experience. The implementation includes complete LangChain integration, Qdrant vector store setup, document ingestion pipelines, comprehensive QA service with singleton pattern, topic hints detection system, contextual navigation features, extensive testing frameworks, and support for three LLM providers including the new llama.cpp option. The system seamlessly integrates with the existing VK bot architecture while providing powerful contextual response generation capabilities that significantly enhance HR assistance functionality.
+The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities and enhanced user experience. The implementation includes complete LangChain integration, Qdrant vector store setup, document ingestion pipelines, comprehensive QA service with singleton pattern, topic hints detection system, contextual navigation features, extensive testing frameworks, SQLite-based document storage system, and support for three LLM providers including the new llama.cpp option. The system seamlessly integrates with the existing VK bot architecture while providing powerful contextual response generation capabilities that significantly enhance HR assistance functionality.
 
-**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer, topic hints detection system, enhanced ask handler with typing indicators and contextual navigation, comprehensive user experience improvements, and support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment. The singleton pattern ensures efficient resource utilization, while comprehensive error handling, text truncation, user experience features, and llama.cpp integration provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of llama.cpp support through OpenAI-compatible API interface enables seamless local model serving with GPU acceleration, making the system suitable for enterprise environments with strict data privacy requirements.
+**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer, topic hints detection system, enhanced ask handler with typing indicators and contextual navigation, comprehensive user experience improvements, SQLite-based document storage system with comprehensive CRUD operations, document lifecycle management, and support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment. The singleton pattern ensures efficient resource utilization, while comprehensive error handling, text truncation, user experience features, SQLite database integration, and llama.cpp integration provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of llama.cpp support through OpenAI-compatible API interface enables seamless local model serving with GPU acceleration, making the system suitable for enterprise environments with strict data privacy requirements. The comprehensive document storage system with SQLite provides reliable metadata management, complete test coverage, and efficient CRUD operations that form the backbone of the document lifecycle management system.

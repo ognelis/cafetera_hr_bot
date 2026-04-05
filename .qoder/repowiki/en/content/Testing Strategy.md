@@ -15,6 +15,7 @@
 - [tests/test_rules.py](file://tests/test_rules.py)
 - [tests/test_states.py](file://tests/test_states.py)
 - [tests/test_ask_block9.py](file://tests/test_ask_block9.py)
+- [tests/test_storage.py](file://tests/test_storage.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
 - [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
 - [app/integrations/vk/rules.py](file://app/integrations/vk/rules.py)
@@ -29,9 +30,13 @@
 - [app/domain/entities.py](file://app/domain/entities.py)
 - [app/domain/qa_service.py](file://app/domain/qa_service.py)
 - [app/domain/topic_hints.py](file://app/domain/topic_hints.py)
+- [app/domain/document_service.py](file://app/domain/document_service.py)
 - [app/config.py](file://app/config.py)
 - [app/rag/chain.py](file://app/rag/chain.py)
 - [app/rag/retriever.py](file://app/rag/retriever.py)
+- [app/storage/models.py](file://app/storage/models.py)
+- [app/storage/database.py](file://app/storage/database.py)
+- [app/storage/document_repo.py](file://app/storage/document_repo.py)
 - [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
 </cite>
 
@@ -42,9 +47,9 @@
 - Integrated QA service testing with RAG chain wrapper functionality
 - Expanded keyboard testing to include ask-specific keyboard builders and scenario navigation
 - Updated handler testing patterns to include Block 9 ask handler with state management and topic hint integration
-- **Added extensive test coverage for llama.cpp provider functionality with 160+ lines of new test code in test_rag_block6.py**
-- **Enhanced RAG infrastructure testing with comprehensive provider selection, configuration parameter validation, and error handling scenarios**
-- **Expanded testing to include llama.cpp provider dispatch logic, configuration parameter validation, and integration with existing RAG components**
+- **Added comprehensive test coverage for the new document storage system with 278 lines of new test code**
+- **Enhanced RAG infrastructure testing with llama.cpp provider dispatch logic, configuration parameter validation, and integration with existing RAG components**
+- **Expanded testing to include database initialization, CRUD operations, status transitions, and search enablement functionality**
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -61,10 +66,10 @@
 ## Introduction
 This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly expanded to cover new domain content, entity definitions, keyboard builders, RAG stub functionality, custom rules, enhanced handler registration testing, and the comprehensive Block 9 functionality including scenario detection, background-topic disclaimer handling, and QA service integration. It explains how pytest is configured and used, how to test asynchronous bot components, and how to validate behavior without relying on live external services. Practical examples are provided via file references to the actual test suite and implementation.
 
-**Updated** Enhanced with comprehensive test coverage for new RAG stub features, including dedicated test classes for FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) functionality, expanded handler registration verification with detailed count breakdown, comprehensive Block 9 testing infrastructure for scenario detection and QA service integration, and extensive llama.cpp provider testing infrastructure.
+**Updated** Enhanced with comprehensive test coverage for new RAG stub features, including dedicated test classes for FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) functionality, expanded handler registration verification with detailed count breakdown, comprehensive Block 9 testing infrastructure for scenario detection and QA service integration, extensive llama.cpp provider testing infrastructure, and **comprehensive document storage system testing with 278 lines of new test coverage**.
 
 ## Project Structure
-The testing effort is organized under the tests/ directory and targets all major components of the VK integration:
+The testing effort is organized under the tests/ directory and targets all major components of the VK integration and the new document storage system:
 - Configuration loading and defaults with explicit environment file control
 - Bot factory and handler registration order with detailed handler counting
 - Keyboard builders and payload constants (including Block 2 and Block 9 functionality)
@@ -76,6 +81,7 @@ The testing effort is organized under the tests/ directory and targets all major
 - State machine definitions
 - Handler modules (start, sections, fallback, fire, vacation, ask)
 - Topic hints detection for scenario linking and disclaimer handling
+- **Document storage system testing with comprehensive database initialization, CRUD operations, status transitions, and search enablement functionality**
 - **Extensive RAG infrastructure testing with llama.cpp provider support and comprehensive configuration validation**
 
 ```mermaid
@@ -93,6 +99,7 @@ T_QA["test_qa_service.py"]
 T_RULES["test_rules.py"]
 T_STATES["test_states.py"]
 T_ASK["test_ask_block9.py"]
+T_STORAGE["test_storage.py"]
 APP["app/integrations/vk/"]
 BOT["bot.py"]
 KB["keyboards.py"]
@@ -103,6 +110,11 @@ CONTENT["content.py"]
 ENTITIES["entities.py"]
 QA["qa_service.py"]
 TOPIC_HINTS["topic_hints.py"]
+DOCUMENT_SERVICE["document_service.py"]
+STORAGE["app/storage/"]
+MODELS["models.py"]
+DATABASE["database.py"]
+REPO["document_repo.py"]
 HANDLERS["handlers/"]
 START["start.py"]
 SECTIONS["sections.py"]
@@ -128,6 +140,7 @@ T --> T_QA
 T --> T_RULES
 T --> T_STATES
 T --> T_ASK
+T --> T_STORAGE
 APP --> BOT
 APP --> KB
 APP --> RULES
@@ -137,6 +150,10 @@ DOMAIN --> CONTENT
 DOMAIN --> ENTITIES
 DOMAIN --> QA
 DOMAIN --> TOPIC_HINTS
+DOMAIN --> DOCUMENT_SERVICE
+STORAGE --> MODELS
+STORAGE --> DATABASE
+STORAGE --> REPO
 APP --> CFG
 RAG --> CHAIN
 RAG --> RETRIEVER
@@ -156,6 +173,7 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
+- [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
 - [app/integrations/vk/keyboards.py:1-322](file://app/integrations/vk/keyboards.py#L1-L322)
 - [app/integrations/vk/rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
@@ -170,6 +188,10 @@ SCRIPTS --> RUN_LLAMA
 - [app/domain/entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [app/domain/qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
 - [app/domain/topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
+- [app/domain/document_service.py:1-279](file://app/domain/document_service.py#L1-L279)
+- [app/storage/models.py:1-36](file://app/storage/models.py#L1-L36)
+- [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
+- [app/storage/document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
 - [app/config.py:1-23](file://app/config.py#L1-L23)
 - [app/rag/chain.py:1-95](file://app/rag/chain.py#L1-L95)
 - [app/rag/retriever.py:1-88](file://app/rag/retriever.py#L1-L88)
@@ -189,6 +211,7 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
+- [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 
 ## Core Components
 - Configuration tests validate default values and environment overrides with explicit environment file control.
@@ -203,6 +226,7 @@ SCRIPTS --> RUN_LLAMA
 - Enhanced RAG stub testing covers specialized features with dedicated test classes for different functionality blocks.
 - Topic hints tests validate scenario detection and background-topic disclaimer handling.
 - Ask handler tests validate state management, QA service integration, and scenario navigation.
+- **Document storage system tests validate database initialization, CRUD operations, status transitions, and search enablement functionality with comprehensive test coverage.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter validation, and error handling scenarios.**
 
 Key testing characteristics:
@@ -219,9 +243,10 @@ Key testing characteristics:
 - Handler registration testing provides detailed breakdown of handler counts by functional area.
 - Topic hints testing validates keyword-based scenario detection with background-topic priority.
 - Ask handler testing validates state management and integration with QA service and topic hints.
+- **Document storage system testing validates comprehensive database operations including timestamp management, status transitions, and search enablement toggling.**
 - **Llama.cpp provider testing validates provider selection logic, configuration parameter handling, import error scenarios, and integration with existing RAG components.**
 
-**Updated** Enhanced with comprehensive testing coverage for domain content, entity definitions, keyboard builders, RAG stub functionality, QA service integration, custom payload matching rules, topic hints detection, ask handler validation, and extensive llama.cpp provider testing infrastructure.
+**Updated** Enhanced with comprehensive testing coverage for domain content, entity definitions, keyboard builders, RAG stub functionality, QA service integration, custom payload matching rules, topic hints detection, ask handler validation, document storage system testing, and extensive llama.cpp provider testing infrastructure.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -237,9 +262,10 @@ Key testing characteristics:
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
+- [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 
 ## Architecture Overview
-The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with detailed breakdown by functional area. The expanded testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, and extensive RAG infrastructure testing with llama.cpp provider support.
+The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with detailed breakdown by functional area. The expanded testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, and extensive RAG infrastructure testing with llama.cpp provider support.
 
 ```mermaid
 sequenceDiagram
@@ -506,6 +532,42 @@ Methodology:
 - [tests/test_states.py:8-31](file://tests/test_states.py#L8-L31)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
 
+### Document Storage System Testing
+**New Section** - Comprehensive testing coverage for the document storage system
+
+Purpose:
+- Validate DocumentRecord model with proper default values and status enumeration.
+- Test database initialization with table creation and idempotent behavior.
+- Validate CRUD operations including create, read, update, and delete functionality.
+- Test status transitions and error handling in document processing.
+- Validate search enablement toggling without affecting document status.
+- Test timestamp management and data persistence across operations.
+
+Methodology:
+- Test DocumentRecord default values including status (pending), search enablement (True), and chunk count (0).
+- Validate DocumentStatus enum values match expected string representations.
+- Test database initialization creates documents table and handles idempotent operations.
+- Validate create operation preserves all record fields and sets timestamps.
+- Test read operations including get by ID, list_all ordering, and missing record handling.
+- Validate update operations including selective field updates, status transitions, and timestamp bumping.
+- Test search enablement toggling maintains document status while updating search flag.
+- Validate delete operations and their effects on other records.
+
+Testing patterns:
+- Use temporary SQLite databases with pytest fixtures for isolation.
+- Test timestamp precision using UTC timezone for consistent comparisons.
+- Validate data type conversions including boolean to integer conversion for search flag.
+- Test error handling scenarios including non-existent records and empty lists.
+- Use comprehensive assertion patterns to validate data integrity across operations.
+
+**Updated** Added comprehensive document storage system testing with 278 lines of new test coverage validating database initialization, CRUD operations, status transitions, search enablement functionality, and timestamp management.
+
+**Section sources**
+- [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
+- [app/storage/models.py:1-36](file://app/storage/models.py#L1-L36)
+- [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
+- [app/storage/document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
+
 ### Handler Testing Patterns
 Current coverage:
 - Handlers are validated indirectly via bot wiring and keyboard payloads.
@@ -517,6 +579,7 @@ Current coverage:
 - QA service testing validates RAG chain integration across handlers.
 - Topic hints testing validates scenario detection and navigation.
 - Ask handler testing validates state management and integration with QA service.
+- **Document storage system testing validates comprehensive database operations and lifecycle management.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter handling, and error scenarios.**
 
 Testing approach:
@@ -527,6 +590,7 @@ Testing approach:
 - QA service testing validates proper module imports and error handling.
 - Topic hints testing validates keyword-based detection and integration with ask handler.
 - Ask handler testing validates state management and scenario navigation.
+- **Document storage system testing validates repository operations and data integrity.**
 - **Llama.cpp provider testing validates provider selection logic, configuration parameter handling, import error scenarios, and integration with existing RAG components.**
 
 Mocking external dependencies:
@@ -534,6 +598,7 @@ Mocking external dependencies:
 - For unit tests, avoid network calls by isolating logic that does not require VK.
 - Use mock message objects for rule testing and handler simulation.
 - Use AsyncMock for QA service testing to simulate RAG chain responses.
+- **Use temporary SQLite databases for document storage system testing.**
 - **Use patch.dict for mocking module imports in llama.cpp provider testing.**
 
 Validation tips:
@@ -546,11 +611,15 @@ Validation tips:
 - Test QA service error handling and resource management.
 - Validate topic hints detection with comprehensive keyword coverage.
 - Test ask handler state management and scenario navigation.
+- **Validate document storage operations including timestamp management and status transitions.**
+- **Test search enablement toggling and its effects on retrieval functionality.**
+- **Validate database initialization and table creation.**
+- **Validate CRUD operations and data persistence across operations.**
 - **Validate llama.cpp provider selection logic and configuration parameter handling.**
 - **Test import error scenarios and fallback mechanisms.**
 - **Validate integration with existing RAG components (chain.py, retriever.py).**
 
-**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation, and extensive llama.cpp provider testing infrastructure.
+**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation, document storage system testing for comprehensive database operations, and extensive llama.cpp provider testing infrastructure.
 
 **Section sources**
 - [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
@@ -561,6 +630,7 @@ Validation tips:
 - [app/integrations/vk/handlers/fire.py:68-77](file://app/integrations/vk/handlers/fire.py#L68-L77)
 - [app/integrations/vk/handlers/vacation.py:79-88](file://app/integrations/vk/handlers/vacation.py#L79-L88)
 - [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
+- [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 
 ### Llama.cpp Provider Testing Infrastructure
 **New Section** - Extensive testing coverage for llama.cpp provider functionality
@@ -606,6 +676,7 @@ The test suite depends on:
 - Specialized RAG stub testing infrastructure for feature-specific validation.
 - AsyncMock for QA service testing and RAG chain simulation.
 - unittest.mock for comprehensive mocking and patching scenarios.
+- **Temporary SQLite databases for document storage system testing.**
 - **Extended mocking infrastructure for module imports in llama.cpp provider testing.**
 
 ```mermaid
@@ -622,6 +693,7 @@ AM["AsyncMock"]
 UM["unittest.mock"]
 QA["QA Service Testing"]
 TH["Topic Hints Testing"]
+DS["Document Storage Testing"]
 LP["Llama.cpp Provider Testing"]
 PY --> P
 PY --> PA
@@ -634,6 +706,7 @@ PY --> AM
 PY --> UM
 PY --> QA
 PY --> TH
+PY --> DS
 PY --> LP
 ```
 
@@ -657,10 +730,12 @@ PY --> LP
 - QA service testing should use lightweight mocks to avoid heavy initialization overhead.
 - Topic hints testing should validate keyword matching performance with comprehensive test coverage.
 - Ask handler testing should focus on state management and integration rather than heavy computation.
+- **Document storage system testing should use temporary SQLite databases for efficient isolation.**
+- **Document storage testing should validate timestamp precision and data type conversions.**
 - **Llama.cpp provider testing should use lightweight mocking to avoid heavy initialization overhead.**
 - **Import error testing should use minimal mock setup to validate error scenarios efficiently.**
 
-**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, and llama.cpp provider testing optimization.
+**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with temporary databases, and llama.cpp provider testing optimization.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -680,6 +755,10 @@ Common issues and resolutions:
 - Topic hints failures: Validate keyword matching logic and priority handling.
 - Ask handler failures: Test state management, QA service integration, and scenario navigation.
 - Keyboard validation failures: Ensure proper scenario button generation and service row consistency.
+- **Document storage failures: Validate database initialization, CRUD operations, and timestamp management.**
+- **Document storage CRUD failures: Test create, read, update, and delete operations with proper error handling.**
+- **Document storage status transition failures: Validate processing, completed, and failed status handling.**
+- **Document storage search enablement failures: Test toggle functionality without affecting document status.**
 - **Llama.cpp provider failures: Validate provider selection logic and configuration parameter handling.**
 - **Import error scenarios: Test ImportError handling and fallback mechanisms.**
 - **Integration failures: Verify llama.cpp provider integration with existing RAG components.**
@@ -695,11 +774,13 @@ Debugging tips:
 - Use AsyncMock for QA service testing to simulate chain responses without network dependencies.
 - Validate topic hints detection with comprehensive keyword coverage and priority testing.
 - Test ask handler state management with proper cleanup and error handling.
+- **Use temporary SQLite databases for document storage system debugging.**
+- **Validate timestamp precision and data type conversions in storage tests.**
 - **Use patch.dict for mocking module imports in llama.cpp provider testing.**
 - **Test environment variable configuration for llama.cpp provider selection.**
 - **Validate provider-specific parameter defaults and overrides.**
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation, keyboard validation failures, and comprehensive llama.cpp provider testing scenarios.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation, keyboard validation failures, document storage system testing with comprehensive debugging strategies, and comprehensive llama.cpp provider testing scenarios.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -711,6 +792,7 @@ Debugging tips:
 - [tests/test_rules.py:17-70](file://tests/test_rules.py#L17-L70)
 - [tests/test_qa_service.py:15-23](file://tests/test_qa_service.py#L15-L23)
 - [tests/test_ask_block9.py:8-87](file://tests/test_ask_block9.py#L8-L87)
+- [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [tests/test_rag_block6.py:75-83](file://tests/test_rag_block6.py#L75-L83)
 
 ## Conclusion
@@ -727,6 +809,7 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - Handler testing validates both general functionality and specialized feature implementations.
 - Topic hints testing validates scenario detection and background-topic disclaimer handling.
 - Ask handler testing validates state management, QA service integration, and scenario navigation.
+- **Document storage system testing validates comprehensive database operations including timestamp management, status transitions, and search enablement functionality.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter handling, and error scenarios.**
 
 To evolve the test suite:
@@ -744,11 +827,16 @@ To evolve the test suite:
 - Expand topic hints testing with performance validation and edge case coverage.
 - Implement ask handler testing with state management and integration validation.
 - Add keyboard validation testing for scenario navigation and service row consistency.
+- **Add comprehensive document storage system testing for lifecycle management and data integrity.**
+- **Validate database initialization and table creation with proper error handling.**
+- **Test CRUD operations with comprehensive error scenarios and data validation.**
+- **Validate status transitions and their effects on processing workflows.**
+- **Test search enablement toggling and its integration with retrieval systems.**
 - **Expand llama.cpp provider testing to cover additional configuration scenarios.**
 - **Add integration tests for llama.cpp provider with existing RAG components.**
 - **Implement comprehensive error scenario testing for provider selection failures.**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation, specialized feature testing for FR-11 and FR-12 functionality, and extensive llama.cpp provider testing infrastructure.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, and extensive llama.cpp provider testing infrastructure.
 
 ## Appendices
 
@@ -759,6 +847,7 @@ To evolve the test suite:
 - Run specialized RAG stub tests for feature-specific validation (e.g., `pytest tests/test_rag_stub_block3.py`).
 - Run QA service tests for RAG chain integration validation (e.g., `pytest tests/test_qa_service.py`).
 - Run topic hints tests for scenario detection validation (e.g., `pytest tests/test_ask_block9.py`).
+- **Run document storage tests for comprehensive database validation (e.g., `pytest tests/test_storage.py`).**
 - **Run llama.cpp provider tests for comprehensive provider validation (e.g., `pytest tests/test_rag_block6.py::TestBuildLlmLlamaCpp`).**
 
 **Section sources**
@@ -782,10 +871,12 @@ To evolve the test suite:
 - Validate topic hints detection with keyword-based matching and priority handling.
 - Test ask handler state management and integration with QA service and topic hints.
 - Implement keyboard validation testing for scenario navigation and service row consistency.
+- **Use temporary SQLite databases for document storage system testing.**
+- **Validate timestamp precision and data type conversions in storage tests.**
 - **Use monkeypatch for environment variable testing in llama.cpp provider scenarios.**
 - **Use patch.dict for mocking module imports in provider-specific testing.**
 - **Validate provider selection logic and configuration parameter handling.**
 - **Test error scenarios including ImportError simulation.**
 - **Validate integration with existing RAG components (chain.py, retriever.py).**
 
-**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, comprehensive feature testing strategies, QA service testing, topic hints detection validation, ask handler testing, keyboard validation testing, and comprehensive llama.cpp provider testing strategies.
+**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, comprehensive feature testing strategies, QA service testing, topic hints detection validation, ask handler testing, keyboard validation testing, document storage system testing with temporary databases, and comprehensive llama.cpp provider testing strategies.

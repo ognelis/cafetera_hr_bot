@@ -82,6 +82,21 @@ def build_retriever(
     *,
     k: int = 4,
 ) -> VectorStoreRetriever:
-    """Build a dense retriever over the given Qdrant collection."""
+    """Build a dense retriever over the given Qdrant collection.
+
+    Only chunks where ``is_search_enabled`` is not explicitly ``False``
+    are returned.  Chunks that predate the metadata enrichment (no field)
+    are still included for backward compatibility.
+    """
+    from qdrant_client import models
+
     vs = build_vectorstore(client, embeddings, collection_name)
-    return vs.as_retriever(search_kwargs={"k": k})
+    search_filter = models.Filter(
+        must_not=[
+            models.FieldCondition(
+                key="metadata.is_search_enabled",
+                match=models.MatchValue(value=False),
+            )
+        ]
+    )
+    return vs.as_retriever(search_kwargs={"k": k, "filter": search_filter})
