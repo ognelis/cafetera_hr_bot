@@ -15,6 +15,7 @@
 - [pay.py](file://app/integrations/vk/handlers/pay.py)
 - [ask.py](file://app/integrations/vk/handlers/ask.py)
 - [test_keyboards.py](file://tests/test_keyboards.py)
+- [test_keyboards_block2.py](file://tests/test_keyboards_block2.py)
 - [test_states.py](file://tests/test_states.py)
 - [polling_vk.py](file://scripts/polling_vk.py)
 - [config.py](file://app/config.py)
@@ -22,12 +23,10 @@
 
 ## Update Summary
 **Changes Made**
-- Expanded keyboard system with over 185 new lines of keyboard builders and payload constants
-- Added comprehensive multi-step dialog support for HR requests with 6-step flow
-- Enhanced navigation patterns with entity selection and back navigation capabilities
-- Introduced specialized keyboards for hire, fire, vacation, and pay workflows
-- Added HR-request specific keyboards with topic selection, entity selection, urgency options, and confirmation steps
-- Implemented complex payload-based routing with contextual navigation
+- Added new keyboard buttons: '📖 Основания увольнения' for fire section and '🗓️ Навигатор по графику отпусков' for vacation section
+- Enhanced navigation flow with improved back button logic in hire section
+- Updated keyboard builders to support new payload-based navigation patterns
+- Expanded specialized workflow keyboards with additional functionality
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -63,12 +62,13 @@ SECTIONS["handlers/sections.py"]
 FALLBACK["handlers/fallback.py"]
 HR_REQ["handlers/hr_request.py<br/>6-step HR dialog"]
 HIRE["handlers/hire.py<br/>Entity selection + actions"]
-FIRE["handlers/fire.py<br/>Checklist + bypass"]
-VACATION["handlers/vacation.py<br/>Leave templates"]
+FIRE["handlers/fire.py<br/>Checklist + bypass + grounds"]
+VACATION["handlers/vacation.py<br/>Leave templates + schedule"]
 PAY["handlers/pay.py<br/>Overtime + bonuses"]
 ASK["handlers/ask.py<br/>Free-text questions"]
 end
 TEST_KB["tests/test_keyboards.py"]
+TEST_BLOCK2["tests/test_keyboards_block2.py"]
 TEST_STATES["tests/test_states.py"]
 BOT --> START
 BOT --> HR_REQ
@@ -88,6 +88,7 @@ VACATION --> KB
 PAY --> KB
 FALLBACK --> KB
 TEST_KB --> KB
+TEST_BLOCK2 --> KB
 TEST_STATES --> ST
 ```
 
@@ -95,16 +96,16 @@ TEST_STATES --> ST
 - [bot.py:24-41](file://app/integrations/vk/bot.py#L24-L41)
 - [hr_request.py:1-305](file://app/integrations/vk/handlers/hr_request.py#L1-L305)
 - [hire.py:1-108](file://app/integrations/vk/handlers/hire.py#L1-L108)
-- [fire.py:1-65](file://app/integrations/vk/handlers/fire.py#L1-L65)
-- [vacation.py:1-76](file://app/integrations/vk/handlers/vacation.py#L1-L76)
+- [fire.py:1-77](file://app/integrations/vk/handlers/fire.py#L1-L77)
+- [vacation.py:1-88](file://app/integrations/vk/handlers/vacation.py#L1-L88)
 - [pay.py:1-53](file://app/integrations/vk/handlers/pay.py#L1-L53)
 - [ask.py:1-63](file://app/integrations/vk/handlers/ask.py#L1-L63)
-- [keyboards.py:1-293](file://app/integrations/vk/keyboards.py#L1-L293)
+- [keyboards.py:1-299](file://app/integrations/vk/keyboards.py#L1-L299)
 - [states.py:1-17](file://app/integrations/vk/states.py#L1-L17)
 
 **Section sources**
 - [bot.py:24-41](file://app/integrations/vk/bot.py#L24-L41)
-- [keyboards.py:1-293](file://app/integrations/vk/keyboards.py#L1-L293)
+- [keyboards.py:1-299](file://app/integrations/vk/keyboards.py#L1-L299)
 - [states.py:1-17](file://app/integrations/vk/states.py#L1-L17)
 
 ## Core Components
@@ -116,12 +117,12 @@ The expanded keyboard system now includes comprehensive payload constants, speci
 - **Entity Selection**: Context-aware entity selection with proper back navigation
 - **Multi-Step Dialogs**: Complete HR request workflow with six distinct steps
 - **Workflow-Specific Keyboards**: Hire, fire, vacation, and pay action menus
-- **HR-Request Specific Keyboards**: Topic selection, entity selection, urgency options, and confirmation screens
+- **HR-Request Specific Keyboards**: Topic selection, entity selection, urgency options, and confirmation steps
 
 **Section sources**
 - [keyboards.py:13-55](file://app/integrations/vk/keyboards.py#L13-L55)
 - [keyboards.py:57-139](file://app/integrations/vk/keyboards.py#L57-L139)
-- [keyboards.py:141-293](file://app/integrations/vk/keyboards.py#L141-L293)
+- [keyboards.py:141-299](file://app/integrations/vk/keyboards.py#L141-L299)
 
 ## Architecture Overview
 The keyboard system integrates with specialized handlers via payload-based routing. Each workflow handler manages its own keyboard builders and state transitions. The system now supports complex multi-step dialogs with proper entity context preservation and back navigation capabilities.
@@ -181,10 +182,10 @@ class KeyboardBuilder {
 
 **Diagram sources**
 - [keyboards.py:13-55](file://app/integrations/vk/keyboards.py#L13-L55)
-- [keyboards.py:57-293](file://app/integrations/vk/keyboards.py#L57-L293)
+- [keyboards.py:57-299](file://app/integrations/vk/keyboards.py#L57-L299)
 
 **Section sources**
-- [keyboards.py:13-293](file://app/integrations/vk/keyboards.py#L13-L293)
+- [keyboards.py:13-299](file://app/integrations/vk/keyboards.py#L13-L299)
 
 ### Service Buttons: Back, Home, Contact HR
 The service row system has been enhanced with configurable button visibility and proper payload handling:
@@ -278,15 +279,17 @@ H --> |No| J["Show Error + Re-prompt"]
 Each major workflow has dedicated keyboard builders:
 
 - **Hire Actions**: Checklist, contract template, onboarding checklist
-- **Fire Menu**: Last day checklist, bypass sheet, voluntary dismissal
-- **Vacation Menu**: Leave application template, leave procedure
+- **Fire Menu**: Last day checklist, bypass sheet, voluntary dismissal, **dismissal grounds**
+- **Vacation Menu**: Leave application template, leave procedure, **vacation schedule navigator**
 - **Pay Menu**: Overtime payment, bonus conditions
+
+**Updated** Added new buttons: '📖 Основания увольнения' for fire section and '🗓️ Навигатор по графику отпусков' for vacation section
 
 **Section sources**
 - [keyboards.py:162-215](file://app/integrations/vk/keyboards.py#L162-L215)
 - [hire.py:62-107](file://app/integrations/vk/handlers/hire.py#L62-L107)
-- [fire.py:37-64](file://app/integrations/vk/handlers/fire.py#L37-L64)
-- [vacation.py:51-64](file://app/integrations/vk/handlers/vacation.py#L51-L64)
+- [fire.py:37-77](file://app/integrations/vk/handlers/fire.py#L37-L77)
+- [vacation.py:51-88](file://app/integrations/vk/handlers/vacation.py#L51-L88)
 - [pay.py:36-52](file://app/integrations/vk/handlers/pay.py#L36-L52)
 
 ## Multi-Step Dialog System
@@ -329,6 +332,8 @@ The system provides sophisticated back navigation within multi-step dialogs:
 - **Payload-Based Navigation**: Uses structured payloads for navigation control
 - **Step-Specific Logic**: Different back behavior based on current step
 
+**Updated** Enhanced back button logic in hire section with improved navigation flow
+
 **Section sources**
 - [hr_request.py:83-120](file://app/integrations/vk/handlers/hr_request.py#L83-L120)
 - [keyboards.py:52](file://app/integrations/vk/keyboards.py#L52)
@@ -343,9 +348,11 @@ The hire workflow provides comprehensive onboarding support:
 - **Resource Delivery**: Direct access to templates and checklists
 - **Context Preservation**: Entity context maintained throughout workflow
 
+**Updated** Improved back button logic with better navigation flow
+
 **Section sources**
 - [hire.py:32-107](file://app/integrations/vk/handlers/hire.py#L32-L107)
-- [keyboards.py:162-177](file://app/integrations/vk/keyboards.py#L162-L177)
+- [keyboards.py:162-179](file://app/integrations/vk/keyboards.py#L162-L179)
 
 ### Vacation Template System
 The vacation system provides leave application templates:
@@ -355,9 +362,11 @@ The vacation system provides leave application templates:
 - **RAG Integration**: Knowledge base integration for leave procedures
 - **Back Navigation**: Contextual navigation to previous screens
 
+**Updated** Added new '🗓️ Навигатор по графику отпусков' button for vacation schedule navigation
+
 **Section sources**
-- [vacation.py:40-75](file://app/integrations/vk/handlers/vacation.py#L40-L75)
-- [keyboards.py:197-203](file://app/integrations/vk/keyboards.py#L197-L203)
+- [vacation.py:40-88](file://app/integrations/vk/handlers/vacation.py#L40-L88)
+- [keyboards.py:197-209](file://app/integrations/vk/keyboards.py#L197-L209)
 
 ### Payment Information System
 The payment system provides access to compensation information:
@@ -431,9 +440,9 @@ The expanded keyboard system creates comprehensive dependencies across modules:
 ```mermaid
 graph LR
 KB["keyboards.py<br/>185+ lines"] --> HR_REQ["hr_request.py<br/>6-step dialog"]
-KB --> HIRE["hire.py<br/>Entity selection"]
-KB --> FIRE["fire.py<br/>Checklist + bypass"]
-KB --> VACATION["vacation.py<br/>Leave templates"]
+KB --> HIRE["hire.py<br/>Entity selection + back nav"]
+KB --> FIRE["fire.py<br/>Checklist + bypass + grounds"]
+KB --> VACATION["vacation.py<br/>Leave templates + schedule"]
 KB --> PAY["pay.py<br/>Payment info"]
 KB --> ASK["ask.py<br/>Free-text questions"]
 HR_REQ --> STATES["states.py<br/>6-step states"]
@@ -444,11 +453,12 @@ BOT --> VACATION
 BOT --> PAY
 BOT --> ASK
 TEST_KB["tests/test_keyboards.py"] --> KB
+TEST_BLOCK2["tests/test_keyboards_block2.py"] --> KB
 TEST_STATES["tests/test_states.py"] --> STATES
 ```
 
 **Diagram sources**
-- [keyboards.py:13-293](file://app/integrations/vk/keyboards.py#L13-L293)
+- [keyboards.py:13-299](file://app/integrations/vk/keyboards.py#L13-L299)
 - [hr_request.py:20-34](file://app/integrations/vk/handlers/hr_request.py#L20-L34)
 - [hire.py:12-21](file://app/integrations/vk/handlers/hire.py#L12-L21)
 - [fire.py:10-18](file://app/integrations/vk/handlers/fire.py#L10-L18)
@@ -458,7 +468,7 @@ TEST_STATES["tests/test_states.py"] --> STATES
 - [bot.py:31-41](file://app/integrations/vk/bot.py#L31-L41)
 
 **Section sources**
-- [keyboards.py:13-293](file://app/integrations/vk/keyboards.py#L13-L293)
+- [keyboards.py:13-299](file://app/integrations/vk/keyboards.py#L13-L299)
 - [bot.py:31-41](file://app/integrations/vk/bot.py#L31-L41)
 
 ## Performance Considerations
@@ -520,6 +530,12 @@ Common issues and resolutions for the expanded keyboard system:
   - Verify state transitions follow proper sequence
   - Reference: [states.py:8-13](file://app/integrations/vk/states.py#L8-L13)
 
+- **New Button Issues**:
+  - Verify new buttons '📖 Основания увольнения' and '🗓️ Навигатор по графику отпусков' are properly implemented
+  - Check payload constants for new buttons are correctly defined
+  - Reference: [fire.py:71-77](file://app/integrations/vk/handlers/fire.py#L71-L77)
+  - Reference: [vacation.py:82-87](file://app/integrations/vk/handlers/vacation.py#L82-L87)
+
 **Section sources**
 - [keyboards.py:60-81](file://app/integrations/vk/keyboards.py#L60-L81)
 - [hire.py:45-52](file://app/integrations/vk/handlers/hire.py#L45-L52)
@@ -527,9 +543,13 @@ Common issues and resolutions for the expanded keyboard system:
 - [bot.py:31-41](file://app/integrations/vk/bot.py#L31-L41)
 - [test_keyboards.py:49-92](file://tests/test_keyboards.py#L49-L92)
 - [states.py:8-13](file://app/integrations/vk/states.py#L8-L13)
+- [fire.py:71-77](file://app/integrations/vk/handlers/fire.py#L71-L77)
+- [vacation.py:82-87](file://app/integrations/vk/handlers/vacation.py#L82-L87)
 
 ## Conclusion
 The expanded VK bot keyboard system provides a comprehensive, payload-driven navigation framework supporting complex multi-step workflows. The system now includes over 185 lines of enhanced keyboard builders, sophisticated entity selection, and complete HR request dialog management. Standardized builders ensure uniformity across all workflows, while service buttons offer reliable navigation. The integration of state management enables complex business processes with proper context preservation and back navigation capabilities.
+
+**Updated** Recent enhancements include new specialized buttons for dismissal grounds and vacation schedule navigation, along with improved back button logic in the hire workflow, providing users with more comprehensive HR support and better navigation experiences.
 
 ## Appendices
 

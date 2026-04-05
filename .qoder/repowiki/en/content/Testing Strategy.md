@@ -10,6 +10,7 @@
 - [tests/test_content.py](file://tests/test_content.py)
 - [tests/test_entities.py](file://tests/test_entities.py)
 - [tests/test_rag_stub_block3.py](file://tests/test_rag_stub_block3.py)
+- [tests/test_rag_block6.py](file://tests/test_rag_block6.py)
 - [tests/test_rules.py](file://tests/test_rules.py)
 - [tests/test_states.py](file://tests/test_states.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
@@ -19,6 +20,8 @@
 - [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
 - [app/integrations/vk/handlers/sections.py](file://app/integrations/vk/handlers/sections.py)
 - [app/integrations/vk/handlers/fallback.py](file://app/integrations/vk/handlers/fallback.py)
+- [app/integrations/vk/handlers/fire.py](file://app/integrations/vk/handlers/fire.py)
+- [app/integrations/vk/handlers/vacation.py](file://app/integrations/vk/handlers/vacation.py)
 - [app/domain/content.py](file://app/domain/content.py)
 - [app/domain/entities.py](file://app/domain/entities.py)
 - [app/config.py](file://app/config.py)
@@ -26,12 +29,11 @@
 
 ## Update Summary
 **Changes Made**
-- Expanded testing strategy to cover new domain content testing (test_content.py)
-- Added comprehensive keyboard builder testing for Block 2 functionality (test_keyboards_block2.py)
-- Integrated entity definitions testing (test_entities.py) for legal entity validation
-- Added RAG stub service testing (test_rag_stub_block3.py) for knowledge base integration
-- Included custom payload matching rule testing (test_rules.py) for advanced routing
-- Enhanced test coverage for static content, entity management, and payload validation
+- Enhanced test coverage for new RAG stub features with dedicated test classes
+- Updated bot factory test to reflect 34 total handlers (5 in fire, 5 in vacation, 34 total)
+- Added comprehensive testing for FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) features
+- Expanded RAG stub testing infrastructure with specialized test classes for different feature blocks
+- Improved handler registration verification with detailed handler count breakdown
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -46,21 +48,21 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly expanded to cover new domain content, entity definitions, keyboard builders, RAG stub functionality, and custom rules. It explains how pytest is configured and used, how to test asynchronous bot components, and how to validate behavior without relying on live external services. Practical examples are provided via file references to the actual test suite and implementation.
+This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly expanded to cover new domain content, entity definitions, keyboard builders, RAG stub functionality, custom rules, and enhanced handler registration testing. It explains how pytest is configured and used, how to test asynchronous bot components, and how to validate behavior without relying on live external services. Practical examples are provided via file references to the actual test suite and implementation.
 
-**Updated** Enhanced with comprehensive test coverage for new domain content, entity definitions, keyboard builders, RAG stub functionality, and custom payload matching rules.
+**Updated** Enhanced with comprehensive test coverage for new RAG stub features, including dedicated test classes for FR-11 and FR-12 functionality, and expanded handler registration verification with detailed count breakdown.
 
 ## Project Structure
 The testing effort is organized under the tests/ directory and targets all major components of the VK integration:
 - Configuration loading and defaults with explicit environment file control
-- Bot factory and handler registration order
+- Bot factory and handler registration order with detailed handler counting
 - Keyboard builders and payload constants (including Block 2 functionality)
 - Domain content validation (static content and formatters)
 - Entity definitions and legal entity management
-- RAG stub service and knowledge base integration
+- RAG stub service and knowledge base integration with specialized test classes
 - Custom payload matching rules
 - State machine definitions
-- Handler modules (start, sections, fallback)
+- Handler modules (start, sections, fallback, fire, vacation)
 
 ```mermaid
 graph TB
@@ -71,7 +73,8 @@ T_KB["test_keyboards.py"]
 T_KB2["test_keyboards_block2.py"]
 T_CONTENT["test_content.py"]
 T_ENTITIES["test_entities.py"]
-T_RAG["test_rag_stub_block3.py"]
+T_RAG3["test_rag_stub_block3.py"]
+T_RAG6["test_rag_block6.py"]
 T_RULES["test_rules.py"]
 T_STATES["test_states.py"]
 APP["app/integrations/vk/"]
@@ -86,6 +89,8 @@ HANDLERS["handlers/"]
 START["start.py"]
 SECTIONS["sections.py"]
 FALLBACK["fallback.py"]
+FIRE["fire.py"]
+VACATION["vacation.py"]
 CFG["config.py"]
 T --> T_CFG
 T --> T_BOT
@@ -93,7 +98,8 @@ T --> T_KB
 T --> T_KB2
 T --> T_CONTENT
 T --> T_ENTITIES
-T --> T_RAG
+T --> T_RAG3
+T --> T_RAG6
 T --> T_RULES
 T --> T_STATES
 APP --> BOT
@@ -108,12 +114,13 @@ APP --> CFG
 
 **Diagram sources**
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
-- [tests/test_bot_factory.py:1-45](file://tests/test_bot_factory.py#L1-L45)
+- [tests/test_bot_factory.py:1-85](file://tests/test_bot_factory.py#L1-L85)
 - [tests/test_keyboards.py:1-192](file://tests/test_keyboards.py#L1-L192)
 - [tests/test_keyboards_block2.py:1-254](file://tests/test_keyboards_block2.py#L1-L254)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
-- [tests/test_rag_stub_block3.py:1-69](file://tests/test_rag_stub_block3.py#L1-L69)
+- [tests/test_rag_stub_block3.py:1-98](file://tests/test_rag_stub_block3.py#L1-L98)
+- [tests/test_rag_block6.py:1-251](file://tests/test_rag_block6.py#L1-L251)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 - [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
@@ -123,6 +130,8 @@ APP --> CFG
 - [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
 - [app/integrations/vk/handlers/sections.py:1-82](file://app/integrations/vk/handlers/sections.py#L1-L82)
 - [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
+- [app/integrations/vk/handlers/fire.py:1-77](file://app/integrations/vk/handlers/fire.py#L1-L77)
+- [app/integrations/vk/handlers/vacation.py:1-88](file://app/integrations/vk/handlers/vacation.py#L1-L88)
 - [app/domain/content.py:1-177](file://app/domain/content.py#L1-L177)
 - [app/domain/entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [app/config.py:1-9](file://app/config.py#L1-L9)
@@ -130,24 +139,26 @@ APP --> CFG
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
-- [tests/test_bot_factory.py:1-45](file://tests/test_bot_factory.py#L1-L45)
+- [tests/test_bot_factory.py:1-85](file://tests/test_bot_factory.py#L1-L85)
 - [tests/test_keyboards.py:1-192](file://tests/test_keyboards.py#L1-L192)
 - [tests/test_keyboards_block2.py:1-254](file://tests/test_keyboards_block2.py#L1-L254)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
-- [tests/test_rag_stub_block3.py:1-69](file://tests/test_rag_stub_block3.py#L1-L69)
+- [tests/test_rag_stub_block3.py:1-98](file://tests/test_rag_stub_block3.py#L1-L98)
+- [tests/test_rag_block6.py:1-251](file://tests/test_rag_block6.py#L1-L251)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 
 ## Core Components
 - Configuration tests validate default values and environment overrides with explicit environment file control.
-- Bot factory tests verify handler registration order and token forwarding.
+- Bot factory tests verify handler registration order and token forwarding, with detailed handler count breakdown.
 - Keyboard tests validate structure, payloads, and service-row behavior (including Block 2 functionality).
 - Domain content tests validate static content, formatters, and RAG stub functionality.
 - Entity tests validate legal entity definitions and management.
 - Custom rule tests validate payload matching and routing logic.
 - State machine tests validate the state machine definition and uniqueness.
-- Handlers are tested indirectly via bot wiring and keyboard payloads.
+- Handler modules are tested indirectly via bot wiring and keyboard payloads.
+- Enhanced RAG stub testing covers specialized features with dedicated test classes for different functionality blocks.
 
 Key testing characteristics:
 - Uses pytest with asyncio_mode set to auto for async-friendly tests.
@@ -157,25 +168,27 @@ Key testing characteristics:
 - Configuration tests explicitly control environment file loading with `_env_file=None`.
 - Comprehensive domain content validation ensures content integrity and formatting.
 - Entity validation ensures legal entity consistency across the application.
-- RAG stub testing validates knowledge base integration placeholders.
+- RAG stub testing validates knowledge base integration placeholders with specialized test classes.
 - Custom rule testing validates advanced payload matching functionality.
+- Handler registration testing provides detailed breakdown of handler counts by functional area.
 
-**Updated** Enhanced with comprehensive testing coverage for domain content, entity definitions, keyboard builders, RAG stub functionality, and custom payload matching rules.
+**Updated** Enhanced with comprehensive testing coverage for domain content, entity definitions, keyboard builders, RAG stub functionality, custom payload matching rules, and detailed handler registration verification.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
-- [tests/test_bot_factory.py:1-45](file://tests/test_bot_factory.py#L1-L45)
+- [tests/test_bot_factory.py:1-85](file://tests/test_bot_factory.py#L1-L85)
 - [tests/test_keyboards.py:1-192](file://tests/test_keyboards.py#L1-L192)
 - [tests/test_keyboards_block2.py:1-254](file://tests/test_keyboards_block2.py#L1-L254)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
-- [tests/test_rag_stub_block3.py:1-69](file://tests/test_rag_stub_block3.py#L1-L69)
+- [tests/test_rag_stub_block3.py:1-98](file://tests/test_rag_stub_block3.py#L1-L98)
+- [tests/test_rag_block6.py:1-251](file://tests/test_rag_block6.py#L1-L251)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 
 ## Architecture Overview
-The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered. The expanded testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, and custom rules.
+The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with detailed breakdown by functional area. The expanded testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, and custom rules.
 
 ```mermaid
 sequenceDiagram
@@ -231,13 +244,14 @@ Best practices:
 ### Bot Factory and Handler Registration Testing
 Purpose:
 - Enforce handler registration order.
-- Verify the number of registered handlers.
+- Verify the number of registered handlers with detailed breakdown by functional area.
 - Ensure the token is forwarded to the underlying VK API client.
 
 Methodology:
 - Assert the last labeler is the fallback handler and the first is the start handler.
 - Build a bot and count the number of registered message handlers.
 - Assert that the bot's token equals the provided Settings token.
+- Verify detailed handler counts: start (2), hr_request (9), ask (2), hire (5), fire (5), vacation (5), pay (3), sections (2), fallback (1) = 34 total.
 
 Asynchronous considerations:
 - The tests themselves are synchronous; they do not await async handlers.
@@ -246,8 +260,10 @@ Asynchronous considerations:
 Security note:
 - Tests use a placeholder token to avoid exposing secrets.
 
+**Updated** Enhanced with detailed handler count breakdown reflecting 34 total handlers distributed across functional areas: start (2), hr_request (9), ask (2), hire (5), fire (5), vacation (5), pay (3), sections (2), fallback (1).
+
 **Section sources**
-- [tests/test_bot_factory.py:8-44](file://tests/test_bot_factory.py#L8-L44)
+- [tests/test_bot_factory.py:8-85](file://tests/test_bot_factory.py#L8-L85)
 - [app/integrations/vk/bot.py:14-31](file://app/integrations/vk/bot.py#L14-L31)
 
 ### Keyboard Builders and Payload Constants Testing
@@ -335,6 +351,7 @@ Purpose:
 - Ensure standardized placeholder responses.
 - Test handler integration with RAG stub service.
 - Validate topic-based response generation.
+- Test specialized RAG stub features for FR-11 and FR-12 functionality.
 
 Methodology:
 - Test RAG stub function returns standardized placeholder text.
@@ -344,16 +361,22 @@ Methodology:
 - Validate emoji prefix in responses.
 - Test handler modules import and use rag_stub correctly.
 - Validate handlers don't use local stub constants.
+- Test FR-11 vacation schedule navigator integration.
+- Test FR-12 dismissal grounds integration.
+- Validate specialized test classes for different feature blocks.
 
 Testing patterns:
 - Response validation focuses on standardized text format.
 - Topic-based testing ensures different topics produce different responses.
 - Handler integration testing validates proper module imports.
+- Specialized test classes target specific feature implementations.
+- Feature-specific testing validates both functionality and handler availability.
 
-**Updated** Added comprehensive RAG stub service testing for knowledge base integration and handler validation.
+**Updated** Enhanced with comprehensive RAG stub service testing including specialized test classes for FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) functionality, with detailed validation of handler integration and feature-specific responses.
 
 **Section sources**
-- [tests/test_rag_stub_block3.py:6-69](file://tests/test_rag_stub_block3.py#L6-L69)
+- [tests/test_rag_stub_block3.py:6-98](file://tests/test_rag_stub_block3.py#L6-L98)
+- [tests/test_rag_block6.py:1-251](file://tests/test_rag_block6.py#L1-L251)
 - [app/domain/content.py:127-136](file://app/domain/content.py#L127-L136)
 
 ### Custom Payload Matching Rules Testing
@@ -405,11 +428,13 @@ Current coverage:
 - Section handlers register stub responses with back payloads.
 - Fallback handler ensures unmatched messages route to the main menu.
 - Custom rules enable advanced payload-based routing.
+- Enhanced RAG stub testing validates specialized feature implementations.
 
 Testing approach:
 - Since handlers are async and depend on message events, tests focus on wiring and keyboard payloads.
 - To test handler execution, introduce event-driven tests that simulate message events and assert outcomes.
 - Custom rules testing validates payload matching logic and async evaluation.
+- Specialized RAG stub testing validates feature-specific handler implementations.
 
 Mocking external dependencies:
 - Replace VK API calls with mocks or fakes in higher-level integration tests.
@@ -421,8 +446,10 @@ Validation tips:
 - Validate handler counts and ordering to ensure no unintended matches.
 - Test custom rules with various payload scenarios.
 - Validate domain content generation with different entity contexts.
+- Test specialized RAG stub features with dedicated test classes.
+- Validate handler availability for new feature implementations.
 
-**Updated** Enhanced with custom rule testing and expanded handler validation patterns.
+**Updated** Enhanced with custom rule testing, expanded handler validation patterns, and specialized RAG stub testing for FR-11 and FR-12 functionality.
 
 **Section sources**
 - [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
@@ -430,6 +457,8 @@ Validation tips:
 - [app/integrations/vk/handlers/fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
 - [app/integrations/vk/keyboards.py:104-108](file://app/integrations/vk/keyboards.py#L104-L108)
 - [app/integrations/vk/rules.py:21-30](file://app/integrations/vk/rules.py#L21-L30)
+- [app/integrations/vk/handlers/fire.py:68-77](file://app/integrations/vk/handlers/fire.py#L68-L77)
+- [app/integrations/vk/handlers/vacation.py:79-88](file://app/integrations/vk/handlers/vacation.py#L79-L88)
 
 ## Dependency Analysis
 The test suite depends on:
@@ -438,6 +467,7 @@ The test suite depends on:
 - pydantic-settings for configuration loading with explicit environment file control.
 - dataclasses for entity definitions and frozen constraints.
 - json for payload parsing and validation in rule testing.
+- Specialized RAG stub testing infrastructure for feature-specific validation.
 
 ```mermaid
 graph TB
@@ -448,12 +478,14 @@ VK["vkbottle"]
 PS["pydantic-settings"]
 DC["dataclasses"]
 JSON["json"]
+RS["RAG Stub Infrastructure"]
 PY --> P
 PY --> PA
 PY --> VK
 PY --> PS
 PY --> DC
 PY --> JSON
+PY --> RS
 ```
 
 **Diagram sources**
@@ -471,8 +503,10 @@ PY --> JSON
 - Leverage parameterized tests for repetitive validation scenarios.
 - Use helper functions for common validation patterns across keyboard builders.
 - Test domain content generation with minimal entity context to reduce complexity.
+- Specialized RAG stub testing should focus on functionality validation rather than performance.
+- Handler registration testing should verify counts efficiently without excessive computation.
 
-**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite.
+**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -485,6 +519,9 @@ Common issues and resolutions:
 - Entity validation failures: Verify entity count, ID uniqueness, and name properties.
 - RAG stub failures: Ensure standardized placeholder format and topic inclusion.
 - Custom rule failures: Test various payload scenarios and error cases comprehensively.
+- Handler registration failures: Verify detailed handler counts and ordering.
+- Specialized RAG stub feature failures: Check handler availability and feature-specific integration.
+- FR-11/FR-12 feature validation failures: Ensure dedicated test classes are properly targeting new functionality.
 
 Debugging tips:
 - Print or log parsed keyboard JSON during development to validate structure.
@@ -492,8 +529,10 @@ Debugging tips:
 - Use explicit `_env_file=None` in Settings constructor for configuration tests to ensure isolation from system environment.
 - Test domain content generation with different entity contexts for debugging.
 - Use mock message objects with various payload scenarios for rule testing.
+- Validate specialized RAG stub features with dedicated test classes for targeted debugging.
+- Check handler availability and integration for new feature implementations.
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, and custom rule testing scenarios.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, and specialized RAG stub feature testing for FR-11 and FR-12 functionality.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -501,19 +540,20 @@ Debugging tips:
 - [tests/test_states.py:16-18](file://tests/test_states.py#L16-L18)
 - [tests/test_content.py:18-93](file://tests/test_content.py#L18-L93)
 - [tests/test_entities.py:6-29](file://tests/test_entities.py#L6-L29)
-- [tests/test_rag_stub_block3.py:6-69](file://tests/test_rag_stub_block3.py#L6-L69)
+- [tests/test_rag_stub_block3.py:6-98](file://tests/test_rag_stub_block3.py#L6-L98)
 - [tests/test_rules.py:17-70](file://tests/test_rules.py#L17-L70)
 
 ## Conclusion
 The current testing strategy emphasizes comprehensive structural and wiring correctness for the expanded VK bot:
 - Configuration defaults and environment overrides are verified with explicit environment file control.
-- Bot factory enforces handler registration order and validates handler counts.
+- Bot factory enforces handler registration order and validates handler counts with detailed breakdown.
 - Keyboard builders are validated for layout, payloads, and service-row behavior (including Block 2 functionality).
 - Domain content is validated for static content integrity and proper formatting.
 - Entity definitions are validated for consistency and uniqueness.
-- RAG stub functionality is tested for knowledge base integration.
+- RAG stub functionality is tested for knowledge base integration with specialized test classes.
 - Custom payload matching rules are validated for advanced routing.
 - State machine definitions are validated for completeness and uniqueness.
+- Handler testing validates both general functionality and specialized feature implementations.
 
 To evolve the test suite:
 - Introduce event-driven tests for handlers to validate async behavior.
@@ -524,8 +564,10 @@ To evolve the test suite:
 - Implement comprehensive handler execution tests with mock message objects.
 - Add integration tests for domain content generation with various entity contexts.
 - Expand custom rule testing to cover edge cases and error scenarios.
+- Enhance specialized RAG stub testing for new feature implementations.
+- Continue expanding handler registration testing with detailed functional area breakdown.
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, and custom rules.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, custom rules, and specialized feature testing for FR-11 and FR-12 functionality.
 
 ## Appendices
 
@@ -533,6 +575,7 @@ To evolve the test suite:
 - Install dev dependencies and run pytest with the configured asyncio_mode.
 - Use the testpaths setting to run only the tests directory.
 - Run specific test modules for focused validation (e.g., `pytest tests/test_content.py`).
+- Run specialized RAG stub tests for feature-specific validation (e.g., `pytest tests/test_rag_stub_block3.py`).
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -548,5 +591,8 @@ To evolve the test suite:
 - Test domain content generation with minimal entity context to reduce complexity.
 - Implement comprehensive custom rule testing with various payload scenarios.
 - Validate entity management with proper ID uniqueness and name validation.
+- Test specialized RAG stub features with dedicated test classes for targeted validation.
+- Validate handler availability and integration for new feature implementations.
+- Use detailed handler count breakdown to ensure comprehensive coverage.
 
-**Updated** Enhanced guidance covering expanded testing infrastructure and new testing patterns for domain content, entity validation, RAG stub functionality, and custom rules.
+**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, and comprehensive feature testing strategies.

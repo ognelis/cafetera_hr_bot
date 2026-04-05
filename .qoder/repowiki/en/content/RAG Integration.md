@@ -9,6 +9,9 @@
 - [app/integrations/vk/handlers/fallback.py](file://app/integrations/vk/handlers/fallback.py)
 - [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
 - [app/integrations/vk/handlers/hr_request.py](file://app/integrations/vk/handlers/hr_request.py)
+- [app/integrations/vk/handlers/vacation.py](file://app/integrations/vk/handlers/vacation.py)
+- [app/integrations/vk/handlers/fire.py](file://app/integrations/vk/handlers/fire.py)
+- [app/integrations/vk/handlers/pay.py](file://app/integrations/vk/handlers/pay.py)
 - [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
 - [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
 - [app/domain/content.py](file://app/domain/content.py)
@@ -25,11 +28,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive documentation for the new RAG (Retrieval-Augmented Generation) ask.py handler module
-- Updated multi-step dialog flow documentation with proper state management
-- Enhanced keyboard navigation and service button integration
-- Added detailed coverage of the RAG stub service implementation
-- Updated handler registration order and dependencies
+- Enhanced documentation for comprehensive RAG stub functionality covering vacation schedule navigator and dismissal grounds
+- Updated standardized response patterns across all HR-related topics including vacation, fire, pay, and sick leave
+- Documented centralized rag_stub utility usage across multiple handler modules
+- Added detailed coverage of new FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) implementations
+- Enhanced testing framework documentation for RAG stub functionality validation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -37,16 +40,17 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+6. [Enhanced RAG Stub Implementation](#enhanced-rag-stub-implementation)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
 This document describes the planned Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. It explains the RAG architecture, LangChain integration patterns, Qdrant vector database setup, and the document ingestion pipeline. It also documents the free-form question processing system, retrieval mechanisms, and how RAG will enhance the bot's HR assistance capabilities. Practical examples cover setting up the RAG pipeline, configuring vector databases, implementing document processing workflows, and integrating RAG responses with the existing VK bot architecture. Finally, it addresses performance considerations, scaling challenges, and best practices for production RAG deployments.
 
-**Updated** The RAG implementation now includes a fully functional ask.py handler module that provides a multi-step dialog flow for question-answering with proper state management and keyboard navigation, serving as a placeholder for the upcoming LangChain integration.
+**Updated** The RAG implementation now includes comprehensive stub functionality for vacation schedule navigator (FR-11) and dismissal grounds (FR-12), with enhanced standardized response patterns across all HR-related topics. The rag_stub utility is centrally managed and consistently used across multiple handler modules.
 
 ## Project Structure
 The repository is organized around a VK bot integration with modular handlers and keyboards, plus supporting infrastructure for RAG. The RAG stack is anchored by LangChain and Qdrant, with optional OpenAI-compatible and Ollama integrations. Vector storage is provided by Qdrant, while document storage is handled by MinIO. The FastAPI service will host the webhook and document ingestion endpoint, and the VK bot routes user intents to handlers.
@@ -61,10 +65,6 @@ States["States<br/>app/integrations/vk/states.py"]
 EndHandler["End Handler<br/>app/integrations/vk/handlers/hr_request.py"]
 EndHandler --> States
 end
-subgraph "FastAPI Service"
-FastAPI["FastAPI App<br/>(to be implemented)"]
-Lifespan["Lifespan Init<br/>(to be implemented)"]
-end
 subgraph "RAG Infrastructure"
 Qdrant["Qdrant Vector DB<br/>docker-compose.yml"]
 MinIO["MinIO Storage<br/>docker-compose.yml"]
@@ -75,17 +75,29 @@ LC["LangChain Core<br/>pyproject.toml"]
 LCOAI["OpenAI-Compatible Adapter<br/>pyproject.toml"]
 LCOla["Ollama Adapter<br/>pyproject.toml"]
 end
+subgraph "RAG Stub Services"
+VacationStub["Vacation RAG Stub<br/>FR-7, FR-11"]
+FireStub["Fire RAG Stub<br/>FR-5, FR-12"]
+PayStub["Pay RAG Stub<br/>FR-9, FR-10"]
+SickStub["Sick Leave RAG Stub<br/>FR-13"]
+ProbationStub["Probation RAG Stub<br/>FR-15"]
+AskStub["Ask RAG Stub<br/>Free-form Questions"]
+end
 VKBot --> Handlers
 VKBot --> Keyboards
 VKBot --> States
-VKBot --> FastAPI
-FastAPI --> Lifespan
-Lifespan --> Qdrant
-Lifespan --> MinIO
-Lifespan --> LC
-LC --> LCOAI
-LC --> LCOla
-Scripts --> LC
+Handlers --> VacationStub
+Handlers --> FireStub
+Handlers --> PayStub
+Handlers --> SickStub
+Handlers --> ProbationStub
+Handlers --> AskStub
+VacationStub --> Qdrant
+FireStub --> Qdrant
+PayStub --> Qdrant
+SickStub --> Qdrant
+ProbationStub --> Qdrant
+AskStub --> Qdrant
 ```
 
 **Diagram sources**
@@ -124,9 +136,9 @@ Scripts --> LC
 - RAG Dependencies: LangChain, Qdrant client, optional adapters for OpenAI-compatible and Ollama.
 - Vector DB: Qdrant service configured via docker-compose with persistent volume and health checks.
 - Model Runners: Scripts to run local LLM servers (llama.cpp) and Ollama with smoke tests.
-- RAG Stub Service: Centralized rag_stub function providing standardized placeholder responses.
+- RAG Stub Service: Centralized rag_stub function providing standardized placeholder responses across all HR topics.
 
-**Updated** The Ask handler now provides a sophisticated multi-step dialog flow with proper state management, enabling users to ask free-form questions through a structured interface.
+**Updated** The RAG stub service now provides comprehensive coverage for all HR-related topics including vacation schedule navigator (FR-11), dismissal grounds (FR-12), and enhanced standardized response patterns.
 
 **Section sources**
 - [app/integrations/vk/bot.py:24-31](file://app/integrations/vk/bot.py#L24-L31)
@@ -152,16 +164,17 @@ VK["VK Bot<br/>app/integrations/vk/bot.py"]
 Handlers["Handlers<br/>start.py / sections.py / ask.py / hr_request.py / fallback.py"]
 KB["Keyboards<br/>keyboards.py"]
 States["States<br/>states.py"]
-subgraph "FastAPI"
-Lifespan["Lifespan Init<br/>(to be implemented)"]
-Webhook["Webhook Endpoint<br/>(to be implemented)"]
-Ingest["Ingestion Endpoint<br/>(to be implemented)"]
-end
 subgraph "RAG Layer"
 Retriever["Retriever<br/>(to be implemented)"]
 Prompt["Prompt Template<br/>(to be implemented)"]
 Chain["RAG Chain<br/>(to be implemented)"]
 Stub["RAG Stub Service<br/>content.rag_stub()"]
+VacationStub["Vacation RAG Stubs<br/>FR-7, FR-11"]
+FireStub["Fire RAG Stubs<br/>FR-5, FR-12"]
+PayStub["Pay RAG Stubs<br/>FR-9, FR-10"]
+SickStub["Sick Leave RAG Stubs<br/>FR-13"]
+ProbationStub["Probation RAG Stubs<br/>FR-15"]
+AskStub["Ask RAG Stubs<br/>Free-form Questions"]
 end
 subgraph "Infra"
 Qdrant["Qdrant<br/>docker-compose.yml"]
@@ -172,17 +185,29 @@ User --> VK
 VK --> Handlers
 Handlers --> KB
 Handlers --> States
-VK --> Webhook
-Webhook --> Lifespan
-Ingest --> MinIO
-Lifespan --> Qdrant
-Lifespan --> LLM
 Handlers --> |Ask section| Retriever
-Handlers --> |Ask section| Stub
+Handlers --> |Vacation section| VacationStub
+Handlers --> |Fire section| FireStub
+Handlers --> |Pay section| PayStub
+Handlers --> |Sick section| SickStub
+Handlers --> |Probation section| ProbationStub
+Handlers --> |Sections section| Stub
+VacationStub --> Qdrant
+FireStub --> Qdrant
+PayStub --> Qdrant
+SickStub --> Qdrant
+ProbationStub --> Qdrant
+AskStub --> Qdrant
 Retriever --> Prompt
 Prompt --> Chain
 Chain --> VK
 Stub --> VK
+VacationStub --> VK
+FireStub --> VK
+PayStub --> VK
+SickStub --> VK
+ProbationStub --> VK
+AskStub --> VK
 VK --> User
 ```
 
@@ -307,7 +332,7 @@ Render --> End(["Menu Ready"])
 - Chain: The RAG chain composes retriever + prompt + LLM, initialized during FastAPI lifespan.
 - Stub Service: The centralized rag_stub function provides standardized placeholder responses while the real RAG system is being implemented.
 
-**Updated** The rag_stub function serves as a placeholder that will be replaced with actual LangChain integration once the RAG pipeline is complete.
+**Updated** The rag_stub function serves as a placeholder that will be replaced with actual LangChain integration once the RAG pipeline is complete, providing consistent responses across all HR-related topics.
 
 ```mermaid
 flowchart TD
@@ -499,19 +524,96 @@ AskHandler --> RagStub["RAG Stub Service"]
 - [app/integrations/vk/states.py:15-17](file://app/integrations/vk/states.py#L15-L17)
 - [PLAN.md:132-135](file://PLAN.md#L132-L135)
 
-### RAG Stub Service Implementation
-The rag_stub function provides standardized placeholder responses for RAG functionality:
+## Enhanced RAG Stub Implementation
+
+### Centralized RAG Stub Service
+The rag_stub function provides standardized placeholder responses for all RAG functionality:
 
 - **Standardized Format**: All responses start with an info emoji and mention knowledge base integration
 - **Contextual Content**: Incorporates the user's question/topic into the response
 - **Fallback Guidance**: Directs users to contact HR for unavailable information
 - **Consistent Messaging**: Maintains uniform tone and structure across all RAG responses
 
-**Updated** The rag_stub function serves as a centralized service that will be replaced with actual LangChain integration.
+**Updated** The rag_stub function now serves as a centralized service that provides consistent responses across all HR-related topics, including new implementations for vacation schedule navigator and dismissal grounds.
+
+### Comprehensive Topic Coverage
+
+#### Vacation Schedule Navigator (FR-11)
+The vacation schedule navigator provides specialized responses for employee scheduling questions:
+
+- **Topic**: "Навигатор по графику отпусков"
+- **Implementation**: Dedicated handler in vacation.py module
+- **Usage Pattern**: Standardized rag_stub response with service keyboard
+- **Integration**: Part of the vacation section menu flow
+
+#### Dismissal Grounds (FR-12)
+The dismissal grounds handler provides information about termination policies:
+
+- **Topic**: "Основания увольнения"
+- **Implementation**: Dedicated handler in fire.py module
+- **Usage Pattern**: Standardized rag_stub response with service keyboard
+- **Integration**: Part of the fire section menu flow
+
+#### Enhanced Standardization Across Topics
+The RAG stub service now provides consistent patterns across all HR-related topics:
+
+- **Vacation Procedures**: "Порядок оформления отпуска"
+- **Voluntary Dismissal**: "Увольнение по собственному желанию"
+- **Overtime Payments**: "Оплата сверхурочных и выходных"
+- **Bonus Conditions**: "Условия премирования"
+- **Sick Leave/Employment Leave Notes**: "Больничный / ЭЛН"
+- **Probation Period**: "Испытательный срок"
+
+**Updated** All handler modules now consistently use the centralized rag_stub function, eliminating duplicated implementations and ensuring uniform response patterns.
+
+```mermaid
+flowchart TD
+CentralStub["Centralized rag_stub()<br/>app/domain/content.py"] --> Vacation["Vacation Handlers<br/>vacation.py"]
+CentralStub --> Fire["Fire Handlers<br/>fire.py"]
+CentralStub --> Pay["Pay Handlers<br/>pay.py"]
+CentralStub --> Sections["Sections Handlers<br/>sections.py"]
+CentralStub --> Ask["Ask Handler<br/>ask.py"]
+Vacation --> VacationRAG["Vacation RAG<br/>FR-7, FR-11"]
+Fire --> FireRAG["Fire RAG<br/>FR-5, FR-12"]
+Pay --> PayRAG["Pay RAG<br/>FR-9, FR-10"]
+Sections --> OtherRAG["Other RAG<br/>FR-13, FR-15"]
+Ask --> FreeFormRAG["Free-form RAG"]
+VacationRAG --> Qdrant["Qdrant Retrieval"]
+FireRAG --> Qdrant
+PayRAG --> Qdrant
+OtherRAG --> Qdrant
+FreeFormRAG --> Qdrant
+```
+
+**Diagram sources**
+- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
+- [app/integrations/vk/handlers/vacation.py:71-87](file://app/integrations/vk/handlers/vacation.py#L71-L87)
+- [app/integrations/vk/handlers/fire.py:60-76](file://app/integrations/vk/handlers/fire.py#L60-L76)
+- [app/integrations/vk/handlers/pay.py:36-52](file://app/integrations/vk/handlers/pay.py#L36-L52)
+- [app/integrations/vk/handlers/sections.py:25-41](file://app/integrations/vk/handlers/sections.py#L25-L41)
+- [app/integrations/vk/handlers/ask.py:41-62](file://app/integrations/vk/handlers/ask.py#L41-L62)
 
 **Section sources**
 - [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
+- [app/integrations/vk/handlers/vacation.py:71-87](file://app/integrations/vk/handlers/vacation.py#L71-L87)
+- [app/integrations/vk/handlers/fire.py:60-76](file://app/integrations/vk/handlers/fire.py#L60-L76)
+- [app/integrations/vk/handlers/pay.py:36-52](file://app/integrations/vk/handlers/pay.py#L36-L52)
+- [app/integrations/vk/handlers/sections.py:25-41](file://app/integrations/vk/handlers/sections.py#L25-L41)
+- [app/integrations/vk/handlers/ask.py:41-62](file://app/integrations/vk/handlers/ask.py#L41-L62)
+
+### Testing Framework for RAG Stub Functionality
+The testing framework validates the enhanced RAG stub implementation:
+
+- **Standardized Response Validation**: Tests ensure rag_stub returns consistent format with info emoji, KB marker, and HR fallback guidance
+- **Topic-Specific Coverage**: Tests validate specific topics including vacation schedule navigator and dismissal grounds
+- **Handler Integration Verification**: Tests ensure all handler modules import and use the centralized rag_stub function
+- **Pattern Consistency**: Tests verify different topics produce different responses while maintaining consistent structure
+
+**Updated** The testing framework now includes comprehensive validation for the new FR-11 and FR-12 implementations, ensuring proper integration across all handler modules.
+
+**Section sources**
 - [tests/test_rag_stub_block3.py:6-31](file://tests/test_rag_stub_block3.py#L6-L31)
+- [tests/test_rag_stub_block3.py:74-98](file://tests/test_rag_stub_block3.py#L74-L98)
 
 ## Dependency Analysis
 - VK bot depends on vkbottle and handler modules.
@@ -519,8 +621,9 @@ The rag_stub function provides standardized placeholder responses for RAG functi
 - Infra dependencies include Qdrant and MinIO services.
 - Model runtimes support local inference via llama.cpp and Ollama.
 - Ask handler depends on shared state dispenser and rag_stub service.
+- All handler modules depend on the centralized rag_stub function.
 
-**Updated** The ask handler introduces new dependencies on the shared state dispenser and rag_stub service, creating a centralized approach to RAG functionality.
+**Updated** The ask handler introduces new dependencies on the shared state dispenser and rag_stub service, while all other handler modules now consistently depend on the centralized rag_stub function for standardized responses.
 
 ```mermaid
 graph LR
@@ -530,8 +633,16 @@ Bot --> Keyboards["Keyboards"]
 Bot --> States["States"]
 Handlers --> AskHandler["Ask Handler"]
 Handlers --> HRRequest["HR Request Handler"]
+Handlers --> VacationHandler["Vacation Handler"]
+Handlers --> FireHandler["Fire Handler"]
+Handlers --> PayHandler["Pay Handler"]
+Handlers --> SectionsHandler["Sections Handler"]
 AskHandler --> StateDispenser["Shared State Dispenser"]
 AskHandler --> RagStub["RAG Stub Service"]
+VacationHandler --> RagStub
+FireHandler --> RagStub
+PayHandler --> RagStub
+SectionsHandler --> RagStub
 HRRequest --> StateDispenser
 LC["LangChain"] --> Qdrant["Qdrant Client"]
 LC --> OA["OpenAI Adapter"]
@@ -566,8 +677,9 @@ Scripts["Model Runners"] --> LC
 - Caching: Cache frequent queries and precompute embeddings for static HR documents.
 - Monitoring: Track p95 latencies for retrieval and generation; alert on Qdrant health and Ollama/llama-server readiness.
 - State Management: Proper state handling prevents memory leaks and ensures clean dialog termination.
+- **Centralized Service**: The centralized rag_stub function reduces memory overhead by eliminating duplicated implementations across handler modules.
 
-**Updated** The ask handler's state management helps prevent memory leaks and ensures clean dialog termination, contributing to overall bot performance.
+**Updated** The centralized rag_stub service reduces memory overhead and improves performance by eliminating duplicated implementations across multiple handler modules.
 
 ## Troubleshooting Guide
 - VK bot initialization:
@@ -587,8 +699,13 @@ Scripts["Model Runners"] --> LC
   - Verify ASK_QUESTION state is properly set and cleared.
   - Check that rag_stub function is imported correctly.
   - Ensure state dispenser is shared between handlers.
+- **RAG Stub Issues**:
+  - Verify all handler modules import rag_stub from app.domain.content.
+  - Check that rag_stub function returns consistent format with info emoji and KB marker.
+  - Ensure topic-specific implementations (FR-11, FR-12) are properly integrated.
+  - Validate that tests pass for all RAG stub functionality.
 
-**Updated** Added troubleshooting guidance for the new ask handler and state management issues.
+**Updated** Added troubleshooting guidance for the new RAG stub functionality and centralized service integration.
 
 **Section sources**
 - [tests/test_bot_factory.py:8-21](file://tests/test_bot_factory.py#L8-L21)
@@ -601,9 +718,9 @@ Scripts["Model Runners"] --> LC
 - [scripts/run_ollama_qwen.sh:36-52](file://scripts/run_ollama_qwen.sh#L36-L52)
 
 ## Conclusion
-The RAG integration extends the VK bot with contextual, reliable answers drawn from HR documents. By leveraging LangChain, Qdrant, and optional OpenAI-compatible or Ollama adapters, the system supports scalable retrieval and generation. The ingestion pipeline, infrastructure setup, and integration points outlined here provide a clear roadmap to production-ready RAG capabilities that enhance HR assistance without disrupting existing user flows.
+The RAG integration extends the VK bot with contextual, reliable answers drawn from HR documents. By leveraging LangChain, Qdrant, and optional OpenAI-compatible or Ollama adapters, the system supports scalable retrieval and generation. The enhanced ingestion pipeline, infrastructure setup, and integration points outlined here provide a clear roadmap to production-ready RAG capabilities that enhance HR assistance without disrupting existing user flows.
 
-**Updated** The implementation now includes a robust ask handler with multi-step dialog flow and proper state management, serving as a solid foundation for the upcoming LangChain integration.
+**Updated** The implementation now includes comprehensive RAG stub functionality for vacation schedule navigator and dismissal grounds, with centralized service management that ensures consistent responses across all HR-related topics. The standardized response patterns improve user experience while providing a solid foundation for the upcoming LangChain integration.
 
 ## Appendices
 
@@ -618,8 +735,12 @@ The RAG integration extends the VK bot with contextual, reliable answers drawn f
   - Implement the ingestion pipeline per the plan, targeting the hr_documents collection.
 - Test RAG Stub:
   - Use the test suite to verify rag_stub function behavior and handler integration.
+- **Validate Enhanced Functionality**:
+  - Test vacation schedule navigator (FR-11) and dismissal grounds (FR-12) implementations.
+  - Verify centralized rag_stub service integration across all handler modules.
+  - Ensure consistent response patterns and standardized messaging.
 
-**Updated** Added testing guidance for the new RAG stub functionality.
+**Updated** Added testing guidance for the new RAG stub functionality and centralized service validation.
 
 **Section sources**
 - [docker-compose.yml:2-28](file://docker-compose.yml#L2-L28)
@@ -628,3 +749,4 @@ The RAG integration extends the VK bot with contextual, reliable answers drawn f
 - [scripts/run_ollama_qwen.sh:68-73](file://scripts/run_ollama_qwen.sh#L68-L73)
 - [PLAN.md:141-149](file://PLAN.md#L141-L149)
 - [tests/test_rag_stub_block3.py:6-31](file://tests/test_rag_stub_block3.py#L6-L31)
+- [tests/test_rag_stub_block3.py:74-98](file://tests/test_rag_stub_block3.py#L74-L98)

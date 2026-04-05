@@ -21,6 +21,14 @@
 - [pyproject.toml](file://pyproject.toml)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Added documentation for new FR-11 'Vacation schedule navigator' feature with on_vacation_schedule handler
+- Added documentation for new FR-12 'Dismissal grounds' feature with on_fire_grounds handler
+- Updated keyboard navigation system to include new command payloads CMD_VACATION_SCHEDULE and CMD_FIRE_GROUNDS
+- Enhanced handler registration flow to accommodate new RAG stub features
+- Updated state management diagrams to reflect new multi-step workflows
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [System Architecture](#system-architecture)
@@ -44,6 +52,8 @@ The HR Request Processing System is a comprehensive VKontakte (VK) bot designed 
 
 The bot supports multiple legal entities ( ООО «Кофейни Кафетера», ООО «Кафетера Рус», ИП Кафетера, ООО «Кафетера Групп») and offers structured workflows for various HR scenarios. Built with modern Python frameworks and designed for scalability, the system integrates seamlessly with VK's messaging platform while maintaining clean separation of concerns across domain logic, presentation, and integration layers.
 
+**Updated** Added support for new vacation schedule navigator (FR-11) and dismissal grounds (FR-12) RAG stub features, enhancing the system's capability to handle complex HR workflows with intelligent navigation and contextual assistance.
+
 ## System Architecture
 
 The HR Request Processing System follows a layered architecture pattern with clear separation between presentation, business logic, and data management:
@@ -57,7 +67,7 @@ Handlers[Handler Modules]
 end
 subgraph "Business Logic Layer"
 Domain[Domain Entities]
-Content[Static Content]
+Content[RAG Stub Service]
 States[State Management]
 Rules[Custom Rules]
 end
@@ -89,8 +99,9 @@ ErrorHandling --> Handlers
 - [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 - [hr_request.py:1-305](file://app/integrations/vk/handlers/hr_request.py#L1-L305)
 - [entities.py:1-24](file://app/domain/entities.py#L1-L24)
+- [content.py:127-136](file://app/domain/content.py#L127-L136)
 
-The architecture emphasizes modularity through separate handler modules for different HR functions, shared state management for multi-step dialogs, and reusable keyboard builders for consistent user experience.
+The architecture emphasizes modularity through separate handler modules for different HR functions, shared state management for multi-step dialogs, and reusable keyboard builders for consistent user experience. The addition of RAG stub features enhances the system's ability to provide contextual assistance while maintaining clean separation of concerns.
 
 ## Core Components
 
@@ -287,6 +298,7 @@ EntityRepository --> StaticContent : provides
 **Diagram sources**
 - [entities.py:8-24](file://app/domain/entities.py#L8-L24)
 - [content.py:109-137](file://app/domain/content.py#L109-L137)
+- [content.py:127-136](file://app/domain/content.py#L127-L136)
 
 ### Legal Entity Management
 
@@ -351,7 +363,7 @@ BotInstance --> ErrorHandler
 
 ### Handler Priority and Registration
 
-The system maintains strict handler registration order to ensure proper message routing and conflict resolution.
+The system maintains strict handler registration order to ensure proper message routing and conflict resolution. The new RAG stub features integrate seamlessly with the existing handler architecture.
 
 **Section sources**
 - [bot.py:24-41](file://app/integrations/vk/bot.py#L24-L41)
@@ -384,9 +396,16 @@ Hire_Action_Menu --> Contract_Template : contract
 Hire_Action_Menu --> Onboarding_Checklist : onboarding
 Fire_Menu --> Last_Day_Checklist : checklist
 Fire_Menu --> Bypass_Sheet : bypass
-Fire_Menu --> Dismissal_RAG : rag
+Fire_Menu --> Voluntary_Dismissal_RAG : rag
+Fire_Menu --> Dismissal_Grounds_RAG : rag
 Vacation_Menu --> Template_Selection : template
 Vacation_Menu --> Leave_Procedure_RAG : rag
+Vacation_Menu --> Schedule_Navigator_RAG : rag
+Pay_Menu --> Overtime_Payment_RAG : rag
+Pay_Menu --> Bonus_Conditions_RAG : rag
+Sick_Probation_Menu --> Sick_Leave_RAG : rag
+Sick_Probation_Menu --> Probation_RAG : rag
+Ask_Question --> Free_Text_Input : ask
 ```
 
 **Diagram sources**
@@ -453,9 +472,31 @@ The system provides specialized keyboard builders for different interaction cont
 | `hr_urgency_kb()` | Priority selection | Binary urgency options |
 | `hr_confirm_kb()` | Final confirmation | Dual-action buttons |
 | `entity_select_kb()` | Context-specific selection | Dynamic payload handling |
+| `fire_menu_kb()` | **Updated** Fire section actions | Includes dismissal grounds RAG (FR-12) |
+| `vacation_menu_kb()` | **Updated** Vacation section actions | Includes schedule navigator RAG (FR-11) |
 
 **Section sources**
 - [keyboards.py:1-295](file://app/integrations/vk/keyboards.py#L1-L295)
+
+### Command Payload Definitions
+
+The system uses standardized command payloads for consistent navigation across all features:
+
+| Feature Category | Command Payload | Description | FR Reference |
+|------------------|----------------|-------------|--------------|
+| Fire Actions | `CMD_FIRE_GROUNDS` | **New** Dismissal grounds RAG stub | FR-12 |
+| Fire Actions | `CMD_FIRE_RAG` | Voluntary dismissal RAG stub | FR-5 |
+| Fire Actions | `CMD_FIRE_CHECKLIST` | Last day checklist | FR-6 |
+| Fire Actions | `CMD_FIRE_BYPASS` | Bypass sheet | S-21b |
+| Vacation Actions | `CMD_VACATION_SCHEDULE` | **New** Schedule navigator RAG stub | FR-11 |
+| Vacation Actions | `CMD_VACATION_RAG` | Leave procedure RAG stub | FR-7 |
+| Vacation Actions | `CMD_VACATION_SELECT` | Entity selection for templates | FR-8 |
+| Vacation Actions | `CMD_VACATION_TEMPLATE` | Template generation | FR-8 |
+| Pay Actions | `CMD_PAY_OVERTIME` | Overtime payment conditions | FR-9 |
+| Pay Actions | `CMD_PAY_BONUS` | Bonus conditions | FR-10 |
+
+**Section sources**
+- [keyboards.py:35-59](file://app/integrations/vk/keyboards.py#L35-L59)
 
 ## Content Management
 
@@ -470,6 +511,7 @@ StaticText[Static Text Content]
 DynamicTemplates[Dynamic Templates]
 ErrorMessages[Error Messages]
 Disclaimers[Legal Disclaimers]
+RAGStubs[RAG Stub Service]
 end
 subgraph "Static Content"
 HireChecklist[Hire Checklists]
@@ -482,6 +524,16 @@ subgraph "Dynamic Content"
 HRRequestFormat[HR Request Formatter]
 EntitySpecific[Entity-Specific Content]
 ValidationMessages[Validation Responses]
+end
+subgraph "RAG Stubs"
+VoluntaryDismissal[Voluntary Dismissal]
+DismissalGrounds[Dismissal Grounds]
+LeaveProcedure[Leave Procedure]
+VacationSchedule[Vacation Schedule]
+OvertimePayment[Overtime Payment]
+BonusConditions[Bonus Conditions]
+SickLeave[Sick Leave]
+Probation[Probation]
 end
 subgraph "Error Handling"
 DocumentUnavailable[Document Unavailable]
@@ -496,6 +548,14 @@ StaticText --> ContractTemplate
 DynamicTemplates --> HRRequestFormat
 DynamicTemplates --> EntitySpecific
 DynamicTemplates --> ValidationMessages
+RAGStubs --> VoluntaryDismissal
+RAGStubs --> DismissalGrounds
+RAGStubs --> LeaveProcedure
+RAGStubs --> VacationSchedule
+RAGStubs --> OvertimePayment
+RAGStubs --> BonusConditions
+RAGStubs --> SickLeave
+RAGStubs --> Probation
 ErrorMessages --> DocumentUnavailable
 ErrorMessages --> NoAnswerFound
 ErrorMessages --> IntegrationRequired
@@ -503,6 +563,7 @@ ErrorMessages --> IntegrationRequired
 
 **Diagram sources**
 - [content.py:12-177](file://app/domain/content.py#L12-L177)
+- [content.py:127-136](file://app/domain/content.py#L127-L136)
 
 ### Content Formatting Standards
 
@@ -516,6 +577,13 @@ The system implements standardized formatting for all generated content:
 - Urgency indication
 - Detailed request description
 - Copy-ready formatting
+
+**RAG Stub Standard (FR-3)**:
+- Standardized placeholder message format
+- Topic-specific content insertion
+- Knowledge base status indicator
+- HR fallback guidance
+- Emoji-based visual cues
 
 **Section sources**
 - [content.py:1-177](file://app/domain/content.py#L1-177)
@@ -551,6 +619,7 @@ Success --> Process[Process Validated Input]
 | Entity Validation | Not in entity list | Select from buttons |
 | Session Timeout | State expiration | Start over |
 | System Error | Internal failures | Contact support |
+| RAG Stub Access | Knowledge base unavailable | Contact HR fallback |
 
 **Section sources**
 - [hr_request.py:140-142](file://app/integrations/vk/handlers/hr_request.py#L140-L142)
@@ -627,11 +696,13 @@ ConfigTest[Configuration Tests]
 EntityTests[Entity Validation Tests]
 StateTests[State Management Tests]
 KeyboardTests[Keyboard Generation Tests]
+RAGStubTests[RAG Stub Functionality Tests]
 end
 subgraph "Integration Tests"
 HandlerTests[Handler Functionality Tests]
 FlowTests[Multi-step Flow Tests]
 ErrorTests[Error Handling Tests]
+FeatureTests[New Feature Tests]
 end
 subgraph "Component Tests"
 BotFactoryTests[Bot Factory Tests]
@@ -647,10 +718,12 @@ ConfigTest --> HandlerTests
 EntityTests --> HandlerTests
 StateTests --> HandlerTests
 KeyboardTests --> HandlerTests
+RAGStubTests --> HandlerTests
 HandlerTests --> FlowTests
 FlowTests --> CompleteFlows
 ComponentTests --> CompleteFlows
 CompleteFlows --> PerformanceTests
+FeatureTests --> CompleteFlows
 ```
 
 ### Test Execution Configuration
@@ -660,6 +733,8 @@ The testing framework supports:
 - Mock-based integration testing
 - State isolation between test runs
 - Comprehensive coverage reporting
+
+**Updated** Added comprehensive testing for new RAG stub features including FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds).
 
 **Section sources**
 - [polling_vk.py:1-32](file://scripts/polling_vk.py#L1-L32)
@@ -674,6 +749,7 @@ The system is designed with performance optimization in mind, implementing sever
 - Lazy loading of keyboard builders
 - Efficient entity lookup through dictionary indexing
 - Minimal memory footprint for static content
+- **Updated** Optimized RAG stub function caching
 
 ### Network Optimization
 
@@ -725,6 +801,14 @@ Common issues and their resolutions:
 **Problem**: Performance degradation under load
 **Solution**: Add connection pooling and response caching
 
+### **New Feature Troubleshooting**
+
+**Problem**: RAG stub features not responding
+**Solution**: Verify rag_stub function import and command payload registration
+
+**Problem**: New command handlers not triggering
+**Solution**: Check handler registration order and payload matching rules
+
 **Section sources**
 - [bot.py:44-56](file://app/integrations/vk/bot.py#L44-L56)
 - [hr_request.py:59-64](file://app/integrations/vk/handlers/hr_request.py#L59-L64)
@@ -733,11 +817,15 @@ Common issues and their resolutions:
 
 The HR Request Processing System represents a comprehensive solution for automating HR processes in cafetera environments. Through its modular architecture, robust state management, and user-friendly interface, the system effectively streamlines employee interactions while maintaining flexibility for future enhancements.
 
+**Updated** The recent addition of FR-11 'Vacation schedule navigator' and FR-12 'Dismissal grounds' RAG stub features significantly enhances the system's capability to provide intelligent, contextual assistance for complex HR workflows. These new features integrate seamlessly with the existing architecture while maintaining the system's commitment to clean separation of concerns and user experience excellence.
+
 Key strengths include:
 - **Modular Design**: Clean separation of concerns enabling easy maintenance and extension
 - **User Experience**: Intuitive conversational flows with consistent navigation patterns
 - **Scalability**: Containerized deployment supporting growth and load distribution
 - **Reliability**: Comprehensive error handling and validation ensuring robust operation
 - **Extensibility**: Well-defined interfaces for adding new HR workflows and integrations
+- **Intelligent Assistance**: RAG stub features providing contextual help while knowledge bases are being developed
+- **Comprehensive Coverage**: Support for complex HR scenarios including vacation scheduling and dismissal procedures
 
-The system successfully addresses the identified requirements for HR document processing, multi-entity support, and conversational automation, providing a solid foundation for continued development and enhancement.
+The system successfully addresses the identified requirements for HR document processing, multi-entity support, and conversational automation, providing a solid foundation for continued development and enhancement with the latest RAG stub capabilities.
