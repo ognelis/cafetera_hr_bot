@@ -187,9 +187,102 @@
 - [ ] Если RAG не нашёл ответ → корректная эскалация (S-ERR-02)
 - [ ] ❓ «Задать вопрос» работает end-to-end
 
+## Фаза 3 — Админка документов для RAG
+
+**Цель:** добавить админку для CRUD документов knowledge base и управление участием документов в поиске без их удаления.
+Существующий upload flow сохраняется. Retrieval начинает учитывать флаг включения документа в поиск.
+
 ***
 
-## Сценарии за рамками обеих фаз (Post-MVP)
+### Блок 10 — Модель документа и storage
+
+**10.1 Metadata-модель документа**
+- Расширить metadata документа: `document_id`, `filename`, `title`, `s3_key`, `mime_type`, `size_bytes`, `status`, `is_search_enabled`, `error`, `created_at`, `updated_at`, `indexed_at`, `chunk_count`
+- `is_search_enabled` хранить отдельным флагом, не смешивать со `status`
+- Изменения схемы делать минимально, без широкого рефакторинга
+
+**10.2 Storage-операции**
+- Добавить CRUD-операции для metadata документа в `app/storage`
+- Оставить разделение: бинарные файлы — MinIO, metadata и job status — SQLite
+- Подготовить list/get/update/toggle-search/delete операции для админки
+
+***
+
+### Блок 11 — Domain и RAG-интеграция
+
+**11.1 Сервис управления документами**
+- Вынести lifecycle документа в `app/domain`: create, update metadata, toggle search, reindex, delete
+- Не переносить бизнес-логику в route handlers
+- Сохранить совместимость с текущим ingestion flow
+
+**11.2 Metadata в Qdrant**
+- Индексировать chunk’и с `document_id`, `chunk_id`, `filename`, `s3_key/source`, `is_search_enabled`
+- Использовать `document_id` как основной ключ для операций над документом
+- Сохранять source metadata для трассировки и дебага
+
+**11.3 Выключение документа из поиска**
+- Реализовать toggle `is_search_enabled` без удаления файла и metadata
+- После выключения документ должен исключаться из retrieval
+- После повторного включения документ должен снова участвовать в retrieval
+
+**11.4 Reindex и full delete**
+- Reindex должен использовать сохранённый файл из MinIO
+- Full delete должен удалять metadata, файл из MinIO и chunk’и из Qdrant по `document_id`
+- Не смешивать delete и disable semantics
+
+***
+
+### Блок 12 — API и frontend админки
+
+**12.1 Backend endpoints**
+- Страница `/documents`
+- API для list/detail/update/toggle-search/reindex/delete
+- Сохранить `/upload`, `/status`, `/status-partial` совместимыми с текущим UI
+
+**12.2 UI страницы “Документы”**
+- Upload zone: drag-and-drop, click-to-browse, multi-file upload, per-file progress
+- Таблица документов: файл, размер, даты, статус, участие в поиске, действия
+- Действия в строке: открыть, переименовать title, включить/выключить из поиска, переиндексировать, удалить
+
+**12.3 HTMX и UX-состояния**
+- Обновлять только нужные partials, без full page reload
+- Использовать HTMX polling для статусов ingestion
+- Сделать empty state, loading state, skeleton rows, toast notifications, confirm dialogs
+
+**12.4 Семантика действий**
+- В UI явно разделить:
+  - “Выключить из поиска”
+  - “Удалить документ”
+- Пояснить, что выключение из поиска сохраняет файл и metadata, но исключает документ из ответов RAG
+
+***
+
+### Блок 13 — Безопасность и проверки
+
+**13.1 Security**
+- Защитить admin, reindex и ingestion-related endpoints явной аутентификацией
+- Валидировать extension, MIME type и size
+- Не раскрывать внутренние ошибки и не логировать секреты
+
+**13.2 Тесты**
+- Тесты на metadata CRUD
+- Тесты на toggle-search и исключение документа из retrieval
+- Тесты на reindex, delete, upload validation и partial endpoints
+
+***
+
+### Критерий готовности Фазы 3
+- [ ] Документ можно загрузить и увидеть в админке
+- [ ] Документ можно выключить из поиска без удаления файла и metadata
+- [ ] Disabled-документ не участвует в retrieval
+- [ ] Документ можно снова включить в поиск
+- [ ] Full delete удаляет metadata, файл и vector chunks
+- [ ] UI обновляет только нужные фрагменты через HTMX
+- [ ] Реализация соответствует правилам репозитория по архитектуре, frontend, security и validation
+
+***
+
+## Сценарии за рамками фаз (Post-MVP)
 
 | Сценарий | Причина | Когда |
 |---|---|---|

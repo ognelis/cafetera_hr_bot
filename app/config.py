@@ -20,3 +20,6 @@ class Settings(BaseSettings):
 
     # Embeddings
     embedding_model: str = "nomic-embed-text"
+
+    # Storage
+    db_path: str = "data/cafetera.db"

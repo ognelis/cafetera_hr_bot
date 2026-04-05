@@ -15,6 +15,8 @@
 - [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
 - [scripts/ingest.py](file://scripts/ingest.py)
 - [scripts/polling_vk.py](file://scripts/polling_vk.py)
+- [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
+- [scripts/run_ollama_qwen.sh](file://scripts/run_ollama_qwen.sh)
 - [pyproject.toml](file://pyproject.toml)
 - [tests/test_qa_service.py](file://tests/test_qa_service.py)
 - [tests/test_rag_block6.py](file://tests/test_rag_block6.py)
@@ -24,12 +26,14 @@
 ## Update Summary
 **Changes Made**
 - Enhanced Block 9 ask handler implementation with comprehensive RAG integration
-- Added topic hints detection system for contextual navigation and disclaimers
-- Implemented typing indicators for improved user experience during RAG processing
-- Integrated QA service with singleton pattern for efficient resource management
-- Added contextual navigation buttons based on detected topic scenarios
-- Enhanced error handling with proper fallback messages for unavailable documents
-- Improved user experience with background topic disclaimers and scenario suggestions
+- Added llama.cpp support as new LLM provider option alongside existing Ollama and OpenAI providers
+- Enhanced provider selection logic with comprehensive error handling for all three providers
+- Added llama.cpp configuration system with OpenAI-compatible API interface support
+- Implemented dedicated llama.cpp deployment scripts for local model serving
+- Enhanced configuration management with llama.cpp provider flexibility
+- Updated LangChain integration to support llama.cpp through OpenAI-compatible adapter
+- Expanded testing framework with comprehensive llama.cpp provider validation
+- Enhanced embedding model support for llama.cpp through OpenAI-compatible embeddings
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -44,18 +48,19 @@
 10. [Configuration Management](#configuration-management)
 11. [Document Ingestion Pipeline](#document-ingestion-pipeline)
 12. [LangChain Integration](#langchain-integration)
-13. [Testing Framework](#testing-framework)
-14. [Performance Considerations](#performance-considerations)
-15. [Troubleshooting Guide](#troubleshooting-guide)
-16. [Conclusion](#conclusion)
+13. [Local LLM Deployment Support](#local-llm-deployment-support)
+14. [Testing Framework](#testing-framework)
+15. [Performance Considerations](#performance-considerations)
+16. [Troubleshooting Guide](#troubleshooting-guide)
+17. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the comprehensive Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. The implementation includes a complete LangChain-based processing pipeline, Qdrant vector database integration, document ingestion capabilities, and specialized HR prompts. The system enhances the bot's HR assistance capabilities by providing contextual, reliable answers drawn from HR documents while maintaining seamless integration with the existing VK bot architecture.
 
-**Updated** The RAG implementation now includes a fully functional infrastructure with LangChain integration, Qdrant vector store, document processing workflows, comprehensive QA service with singleton pattern, topic hints detection system, and extensive testing coverage with enhanced user experience features.
+**Updated** The RAG implementation now includes a fully functional infrastructure with LangChain integration, Qdrant vector store, document processing workflows, comprehensive QA service with singleton pattern, topic hints detection system, extensive testing coverage, and enhanced user experience features. The system now supports three LLM providers: Ollama, OpenAI-compatible, and llama.cpp, providing maximum flexibility for local and cloud deployments.
 
 ## Project Structure
-The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, document ingestion capabilities, and a comprehensive QA service layer with enhanced ask handler implementation.
+The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, document ingestion capabilities, comprehensive QA service layer with enhanced ask handler implementation, and dedicated deployment scripts for local LLM serving.
 
 ```mermaid
 graph TB
@@ -76,7 +81,7 @@ subgraph "Document Processing"
 Ingest["Ingestion Script<br/>scripts/ingest.py"]
 Docx["Word Document Processing<br/>.docx files"]
 Chunking["Recursive Character Chunking<br/>1000 chars + 200 overlap"]
-Embeddings["Embedding Generation<br/>nomic-embed-text / OpenAI"]
+Embeddings["Embedding Generation<br/>nomic-embed-text / OpenAI / Ollama"]
 end
 subgraph "Vector Database"
 Qdrant["Qdrant Vector Store<br/>hr_documents collection"]
@@ -86,6 +91,10 @@ subgraph "Integration"
 VKBot["VK Bot Integration<br/>app/integrations/vk/bot.py"]
 Content["Content Module<br/>app/domain/content.py"]
 Polling["Polling Script<br/>scripts/polling_vk.py"]
+end
+subgraph "Local LLM Deployment"
+LlamaScript["llama.cpp Server Script<br/>scripts/run_llama_qwen.sh"]
+OllamaScript["Ollama Server Script<br/>scripts/run_ollama_qwen.sh"]
 end
 Config --> Chain
 Chain --> QAService
@@ -106,6 +115,8 @@ VKBot --> AskHandler
 AskHandler --> Content
 QAService --> AskHandler
 Polling --> QAService
+LlamaScript --> QAService
+OllamaScript --> QAService
 ```
 
 **Diagram sources**
@@ -122,6 +133,8 @@ Polling --> QAService
 - [app/integrations/vk/bot.py:44-56](file://app/integrations/vk/bot.py#L44-L56)
 - [app/domain/content.py:127-136](file://app/domain/content.py#L127-L136)
 - [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
+- [scripts/run_llama_qwen.sh:1-61](file://scripts/run_llama_qwen.sh#L1-L61)
+- [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
 
 **Section sources**
 - [app/config.py:4-23](file://app/config.py#L4-L23)
@@ -137,22 +150,25 @@ Polling --> QAService
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 - [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
 - [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
+- [scripts/run_llama_qwen.sh:1-61](file://scripts/run_llama_qwen.sh#L1-L61)
+- [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
 
 ## Core Components
-The RAG infrastructure consists of several interconnected components that work together to provide intelligent document retrieval and response generation with enhanced user experience:
+The RAG infrastructure consists of several interconnected components that work together to provide intelligent document retrieval and response generation with enhanced user experience and comprehensive LLM provider support:
 
-- **Configuration Management**: Centralized settings for Qdrant connection, LLM providers, and embedding models
-- **RAG Chain Builder**: LangChain pipeline that orchestrates retrieval, prompting, and LLM generation
-- **Vector Store Integration**: Qdrant-backed vector store with dense retrieval capabilities
+- **Configuration Management**: Centralized settings for Qdrant connection, LLM providers (Ollama, OpenAI-compatible, llama.cpp), and embedding models
+- **RAG Chain Builder**: LangChain pipeline that orchestrates retrieval, prompting, and LLM generation with provider-specific configuration
+- **Vector Store Integration**: Qdrant-backed vector store with dense retrieval capabilities and embedding model support
 - **Document Processing**: Word document ingestion with section extraction and chunking
-- **Embedding Models**: Support for both local Ollama embeddings and OpenAI-compatible embeddings
+- **Embedding Models**: Support for local Ollama embeddings, OpenAI-compatible embeddings, and llama.cpp embeddings
 - **System Prompts**: Specialized HR-focused prompts with Russian language instructions
-- **QA Service Layer**: Singleton pattern implementation with error handling and text truncation
+- **QA Service Layer**: Singleton pattern implementation with error handling, text truncation, and comprehensive provider support
 - **Topic Hints Detection**: Keyword-based detection system for contextual navigation and disclaimers
 - **Enhanced Ask Handler**: Multi-step dialog flow with typing indicators and contextual navigation
+- **Local LLM Deployment**: Dedicated scripts for llama.cpp and Ollama server deployment
 - **Application Integration**: Seamless integration with VK bot handlers and state management
 
-**Updated** The RAG infrastructure now provides a complete, production-ready solution with comprehensive LangChain integration, Qdrant vector store capabilities, robust QA service layer, topic hints detection system, and enhanced user experience features.
+**Updated** The RAG infrastructure now provides a complete, production-ready solution with comprehensive LangChain integration, Qdrant vector store capabilities, robust QA service layer, topic hints detection system, enhanced user experience features, and support for three LLM providers including the new llama.cpp option.
 
 **Section sources**
 - [app/config.py:10-23](file://app/config.py#L10-L23)
@@ -162,9 +178,11 @@ The RAG infrastructure consists of several interconnected components that work t
 - [app/domain/qa_service.py:51-120](file://app/domain/qa_service.py#L51-L120)
 - [app/domain/topic_hints.py:14-26](file://app/domain/topic_hints.py#L14-L26)
 - [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
+- [scripts/run_llama_qwen.sh:1-61](file://scripts/run_llama_qwen.sh#L1-L61)
+- [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
 
 ## Architecture Overview
-The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant, generates contextualized responses, detects topic scenarios for navigation, and provides typing indicators for improved UX, all managed through a centralized QA service layer.
+The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience and comprehensive LLM provider support. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant, generates contextualized responses using the selected LLM provider, detects topic scenarios for navigation, and provides typing indicators for improved UX, all managed through a centralized QA service layer.
 
 ```mermaid
 sequenceDiagram
@@ -190,7 +208,7 @@ QAService->>QAService : Check chain availability
 QAService->>RAGChain : chain.ainvoke(question)
 RAGChain->>Qdrant : Similarity search (k=4)
 Qdrant-->>RAGChain : Retrieved documents
-RAGChain->>LLM : System prompt + context
+RAGChain->>LLM : System prompt + context (provider-specific)
 LLM-->>RAGChain : Generated response
 RAGChain-->>QAService : Formatted answer
 QAService->>QAService : Truncate to VK limit
@@ -209,9 +227,9 @@ AskHandler-->>User : Answer + contextual navigation buttons
 ## Detailed Component Analysis
 
 ### Enhanced VK Bot Integration
-The VK bot maintains its existing handler structure while integrating the new RAG capabilities through the enhanced ask handler and QA service layer. The ask handler now serves as the sophisticated entry point for free-form questions with comprehensive state management, user experience enhancements, and seamless integration with the RAG infrastructure.
+The VK bot maintains its existing handler structure while integrating the new RAG capabilities through the enhanced ask handler and QA service layer. The ask handler now serves as the sophisticated entry point for free-form questions with comprehensive state management, user experience enhancements, and seamless integration with the RAG infrastructure supporting multiple LLM providers.
 
-**Updated** The ask handler provides a sophisticated multi-step dialog flow with proper state management, typing indicators, topic hints detection, and contextual navigation through enhanced user experience features.
+**Updated** The ask handler provides a sophisticated multi-step dialog flow with proper state management, typing indicators, topic hints detection, contextual navigation, and enhanced user experience features across all supported LLM providers.
 
 ```mermaid
 flowchart TD
@@ -239,7 +257,7 @@ ShowResponse --> End(["Dialog complete"])
 - [app/integrations/vk/handlers/ask.py:1-86](file://app/integrations/vk/handlers/ask.py#L1-L86)
 
 ### Enhanced Ask Handler - Multi-Step Dialog Flow
-The ask handler implements a sophisticated two-step dialog flow that captures user questions, processes them through the RAG pipeline via the QA service, and provides enhanced user experience features:
+The ask handler implements a sophisticated two-step dialog flow that captures user questions, processes them through the RAG pipeline via the QA service, and provides enhanced user experience features across all supported LLM providers:
 
 **Step 1: Entry Point (CMD_ASK)**
 - Sets the ASK_QUESTION state using the shared state dispenser
@@ -251,12 +269,12 @@ The ask handler implements a sophisticated two-step dialog flow that captures us
 - Validates non-empty input
 - Shows typing indicator using VK API set_activity
 - Detects topic hints for contextual navigation and disclaimers
-- Processes question through QA service and RAG chain
+- Processes question through QA service and RAG chain with provider-specific configuration
 - Appends background-topic disclaimer if detected
 - Clears state after processing
 - Returns formatted response with contextual navigation buttons
 
-**Updated** Enhanced with typing indicators, topic hints detection, background-topic disclaimers, and contextual navigation buttons for improved user experience.
+**Updated** Enhanced with typing indicators, topic hints detection, background-topic disclaimers, contextual navigation buttons, and comprehensive LLM provider support for improved user experience.
 
 **Section sources**
 - [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
@@ -264,7 +282,7 @@ The ask handler implements a sophisticated two-step dialog flow that captures us
 ## Topic Hints Detection System
 The topic hints system provides intelligent keyword-based detection for contextual navigation and background-topic disclaimers, enhancing the RAG response with relevant navigation options and appropriate disclaimers.
 
-**Updated** Comprehensive topic hints detection system with scenario-based navigation and background-topic disclaimers for enhanced user experience.
+**Updated** Comprehensive topic hints detection system with scenario-based navigation and background-topic disclaimers for enhanced user experience across all LLM providers.
 
 ```mermaid
 classDiagram
@@ -314,10 +332,10 @@ The Settings class provides comprehensive configuration for the RAG infrastructu
 
 - **Qdrant Configuration**: URL, API key, and collection name for vector storage
 - **LLM Provider Options**: Support for Ollama, OpenAI-compatible, and llama.cpp providers
-- **Model Specifications**: Configurable model names and base URLs
-- **Embedding Models**: Flexible embedding model selection
+- **Model Specifications**: Configurable model names and base URLs for flexible deployment
+- **Embedding Models**: Flexible embedding model selection compatible with all providers
 
-**Updated** Enhanced configuration management with comprehensive RAG-specific settings and provider flexibility including llama.cpp support.
+**Updated** Enhanced configuration management with comprehensive RAG-specific settings, provider flexibility including llama.cpp support, and comprehensive environment variable support for all three LLM providers.
 
 ```mermaid
 classDiagram
@@ -351,14 +369,15 @@ Settings --> RAGConfig : "provides configuration"
 - [app/config.py:4-23](file://app/config.py#L4-L23)
 
 ### RAG Chain Construction
-The build_rag_chain function creates a complete LangChain pipeline that orchestrates the entire RAG process:
+The build_rag_chain function creates a complete LangChain pipeline that orchestrates the entire RAG process with comprehensive provider support:
 
 - **Document Formatting**: Combines retrieved documents with custom separator formatting
 - **Prompt Composition**: Uses system prompt with dynamic context injection
-- **LLM Integration**: Supports Ollama, OpenAI-compatible, and llama.cpp providers
+- **LLM Integration**: Supports Ollama, OpenAI-compatible, and llama.cpp providers with provider-specific configuration
 - **Output Parsing**: Converts LLM output to clean text response
+- **Provider Detection**: Automatic provider selection based on configuration with comprehensive error handling
 
-**Updated** Complete implementation of the RAG chain with comprehensive error handling, logging, and provider flexibility including llama.cpp support.
+**Updated** Complete implementation of the RAG chain with comprehensive error handling, logging, provider flexibility including llama.cpp support, and OpenAI-compatible API interface for local llama.cpp deployments.
 
 ```mermaid
 flowchart TD
@@ -372,23 +391,30 @@ FormatDocs --> Prompt
 Prompt --> LLM
 LLM --> Parser
 end
+subgraph "Provider Support"
+Ollama["ChatOllama"] --> LLM
+OpenAI["ChatOpenAI"] --> LLM
+LlamaCPP["ChatOpenAI (localhost)"] --> LLM
+end
 ```
 
 **Diagram sources**
 - [app/rag/chain.py:25-80](file://app/rag/chain.py#L25-L80)
+- [app/rag/chain.py:30-73](file://app/rag/chain.py#L30-L73)
 
 **Section sources**
 - [app/rag/chain.py:1-80](file://app/rag/chain.py#L1-L80)
 
 ### Vector Store and Retrieval
-The retriever module provides comprehensive vector store integration with Qdrant:
+The retriever module provides comprehensive vector store integration with Qdrant and embedding model support for all LLM providers:
 
-- **Embedding Models**: Support for OpenAI embeddings, Ollama embeddings, and llama.cpp embeddings
+- **Embedding Models**: Support for OpenAI embeddings, Ollama embeddings, and llama.cpp embeddings through OpenAI-compatible interface
 - **Vector Store Creation**: Wraps Qdrant collection into LangChain vector store
 - **Retrieval Configuration**: Configurable similarity search parameters
 - **Collection Management**: Automatic collection creation and management
+- **Provider Flexibility**: Embedding model selection based on LLM provider configuration
 
-**Updated** Full implementation of vector store integration with comprehensive error handling, provider flexibility, and llama.cpp support.
+**Updated** Full implementation of vector store integration with comprehensive error handling, provider flexibility, llama.cpp support through OpenAI-compatible embeddings, and automatic embedding model selection.
 
 ```mermaid
 classDiagram
@@ -421,14 +447,15 @@ VectorStoreRetriever --> QdrantVectorStore : "created from"
 ## QA Service Implementation
 
 ### Singleton Pattern Architecture
-The QA service implements a singleton pattern with module-level state management, providing a centralized interface for RAG chain operations:
+The QA service implements a singleton pattern with module-level state management, providing a centralized interface for RAG chain operations with comprehensive provider support:
 
 - **Module-Level State**: Global chain and Qdrant client instances
-- **Initialization**: One-time setup during application startup
-- **Resource Management**: Proper cleanup and error handling
+- **Initialization**: One-time setup during application startup with provider-specific configuration
+- **Resource Management**: Proper cleanup and error handling across all LLM providers
 - **Thread Safety**: Safe concurrent access to the RAG chain
+- **Provider Flexibility**: Support for all three LLM providers through unified interface
 
-**Updated** Complete implementation of the QA service with singleton pattern, comprehensive error handling, text truncation capabilities, and proper resource cleanup.
+**Updated** Complete implementation of the QA service with singleton pattern, comprehensive error handling, text truncation capabilities, provider flexibility, and proper resource cleanup for all supported LLM providers.
 
 ```mermaid
 classDiagram
@@ -460,8 +487,9 @@ The QA service provides sophisticated text processing capabilities:
 - **Word Boundary Preservation**: Truncation at word boundaries to avoid partial words
 - **Fallback Messages**: Contextual error messages for unavailable documents
 - **Graceful Degradation**: Fallback responses when RAG chain is unavailable
+- **Provider Error Handling**: Comprehensive error handling for all LLM providers
 
-**Updated** Comprehensive text truncation with Russian language suffix and robust error handling for production scenarios.
+**Updated** Comprehensive text truncation with Russian language suffix and robust error handling for production scenarios across all supported LLM providers.
 
 ```mermaid
 flowchart TD
@@ -481,12 +509,13 @@ AddSuffix --> ReturnAnswer
 ### Application Lifecycle Integration
 The QA service integrates with the application lifecycle through initialization and shutdown:
 
-- **Startup Initialization**: RAG chain creation during bot startup
+- **Startup Initialization**: RAG chain creation during bot startup with provider-specific configuration
 - **Graceful Shutdown**: Resource cleanup and connection closure
 - **Error Resilience**: Graceful degradation when services are unavailable
 - **State Management**: Persistent module-level state across handler calls
+- **Provider Support**: Comprehensive integration with all three LLM providers
 
-**Updated** Complete lifecycle management with proper resource cleanup, error resilience, and graceful degradation.
+**Updated** Complete lifecycle management with proper resource cleanup, error resilience, graceful degradation, and comprehensive provider support for all LLM providers.
 
 **Section sources**
 - [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
@@ -498,11 +527,11 @@ The QA service integrates with the application lifecycle through initialization 
 The Settings class provides comprehensive configuration management for the RAG infrastructure:
 
 - **Qdrant Settings**: URL, API key, and collection name with sensible defaults
-- **LLM Provider Configuration**: Support for Ollama, OpenAI-compatible, and llama.cpp providers
-- **Model Selection**: Configurable model names and base URLs for flexible deployment
-- **Environment Variable Support**: Full configuration via environment variables
+- **LLM Provider Configuration**: Support for Ollama, OpenAI-compatible, and llama.cpp providers with provider-specific settings
+- **Model Selection**: Configurable model names and base URLs for flexible deployment across all providers
+- **Environment Variable Support**: Full configuration via environment variables for all provider types
 
-**Updated** Enhanced configuration with comprehensive RAG-specific settings, provider flexibility including llama.cpp support, and comprehensive environment variable support.
+**Updated** Enhanced configuration with comprehensive RAG-specific settings, provider flexibility including llama.cpp support, and comprehensive environment variable support for all three LLM providers.
 
 **Section sources**
 - [app/config.py:4-23](file://app/config.py#L4-L23)
@@ -514,7 +543,7 @@ The pyproject.toml file includes comprehensive dependencies for the RAG infrastr
 - **Optional Dependencies**: OpenAI-compatible, Ollama, and llama.cpp adapters for flexible deployment
 - **Development Dependencies**: Testing and linting tools for quality assurance
 
-**Updated** Expanded dependency management with comprehensive LangChain and Qdrant integration, plus llama.cpp support.
+**Updated** Expanded dependency management with comprehensive LangChain and Qdrant integration, plus llama.cpp support through OpenAI-compatible adapter.
 
 **Section sources**
 - [pyproject.toml:14-33](file://pyproject.toml#L14-L33)
@@ -529,7 +558,7 @@ The ingestion script provides comprehensive document processing capabilities:
 - **Metadata Preservation**: Maintains source filename and section information
 - **Collection Management**: Handles collection recreation and cleanup
 
-**Updated** Complete implementation of document ingestion with comprehensive error handling, metadata preservation, and flexible chunking strategy.
+**Updated** Complete implementation of document ingestion with comprehensive error handling, metadata preservation, and flexible chunking strategy compatible with all embedding providers.
 
 ```mermaid
 flowchart TD
@@ -554,10 +583,10 @@ The ingestion process follows a systematic approach to prepare documents for RAG
 2. **Section Extraction**: Identifies document sections using heading styles
 3. **Text Chunking**: Splits content into manageable chunks
 4. **Metadata Assignment**: Adds source and section information
-5. **Vector Generation**: Creates embeddings for each chunk
+5. **Vector Generation**: Creates embeddings for each chunk using provider-specific embedding models
 6. **Storage**: Stores vectors in Qdrant collection
 
-**Updated** Comprehensive ingestion workflow with error handling, progress reporting, and flexible chunking parameters.
+**Updated** Comprehensive ingestion workflow with error handling, progress reporting, flexible chunking parameters, and provider-specific embedding model support.
 
 **Section sources**
 - [scripts/ingest.py:111-166](file://scripts/ingest.py#L111-L166)
@@ -565,22 +594,22 @@ The ingestion process follows a systematic approach to prepare documents for RAG
 ## LangChain Integration
 
 ### Provider Flexibility
-The RAG infrastructure supports multiple LLM providers through a unified interface:
+The RAG infrastructure supports multiple LLM providers through a unified interface with comprehensive error handling:
 
-- **Ollama Support**: Local inference with configurable model selection
-- **OpenAI Compatibility**: Cloud-based LLMs with API key authentication
-- **llama.cpp Support**: Local inference with configurable base URL
-- **Provider Detection**: Automatic provider selection based on configuration
-- **Error Handling**: Comprehensive error handling for missing dependencies
+- **Ollama Support**: Local inference with configurable model selection and base URL
+- **OpenAI Compatibility**: Cloud-based LLMs with API key authentication and custom base URLs
+- **llama.cpp Support**: Local inference with configurable base URL pointing to llama.cpp server
+- **Provider Detection**: Automatic provider selection based on configuration with comprehensive error handling
+- **Error Handling**: Comprehensive error handling for missing dependencies and provider-specific configurations
 
-**Updated** Complete implementation of provider flexibility with comprehensive error handling and llama.cpp support.
+**Updated** Complete implementation of provider flexibility with comprehensive error handling, llama.cpp support through OpenAI-compatible adapter, and unified interface across all three providers.
 
 ```mermaid
 flowchart TD
 ProviderConfig["llm_provider setting"] --> CheckOpenAI{"Provider == 'openai'?"}
 CheckOpenAI --> |Yes| OpenAIAdapter["langchain-openai"]
 CheckOpenAI --> |No| CheckLlamaCPP{"Provider == 'llamacpp'?"}
-CheckLlamaCPP --> |Yes| LlamaCPPAdapter["langchain-openai with custom base_url"]
+CheckLlamaCPP --> |Yes| LlamaCPPAdapter["langchain-openai with localhost base_url"]
 CheckLlamaCPP --> |No| OllamaAdapter["langchain-ollama"]
 OpenAIAdapter --> ChatOpenAI["ChatOpenAI"]
 LlamaCPPAdapter --> ChatOpenAICustom["ChatOpenAI with localhost base_url"]
@@ -604,31 +633,75 @@ The system prompts provide specialized instructions for HR-focused RAG:
 - **Privacy Protection**: Emphasizes confidentiality and personal data protection
 - **Russian Language**: Provides instructions in Russian for local compliance
 
-**Updated** Comprehensive system prompts with HR-specific guidelines, privacy requirements, and Russian language support.
+**Updated** Comprehensive system prompts with HR-specific guidelines, privacy requirements, and Russian language support for all LLM providers.
 
 **Section sources**
 - [app/rag/prompts.py:5-19](file://app/rag/prompts.py#L5-L19)
 
+## Local LLM Deployment Support
+
+### llama.cpp Integration
+The RAG system now includes comprehensive support for llama.cpp as a local LLM provider through an OpenAI-compatible API interface:
+
+- **Server Script**: Dedicated deployment script for llama.cpp server with GPU acceleration support
+- **Model Configuration**: Support for GGUF model files with configurable context size and thread count
+- **API Interface**: OpenAI-compatible API endpoint for seamless integration with LangChain
+- **Environment Variables**: Flexible configuration through MODEL_PATH, HOST, PORT, CTX_SIZE, N_GPU_LAYERS, THREADS
+- **Dependency Management**: Optional installation through openai_compatible extras
+
+**Updated** Complete llama.cpp integration with dedicated deployment script, OpenAI-compatible API interface, GPU acceleration support, and comprehensive configuration options.
+
+```mermaid
+flowchart TD
+LlamaScript["run_llama_qwen.sh"] --> CheckPrerequisites["Check llama-server availability"]
+CheckPrerequisites --> VerifyModel["Verify model file exists"]
+VerifyModel --> DetectCPU["Detect CPU cores"]
+DetectCPU --> StartServer["Start llama-server with parameters"]
+StartServer --> OpenAICompat["Expose OpenAI-compatible API"]
+OpenAICompat --> LangChain["Connect via ChatOpenAI"]
+LangChain --> RAGPipeline["Complete RAG Pipeline"]
+```
+
+**Diagram sources**
+- [scripts/run_llama_qwen.sh:32-61](file://scripts/run_llama_qwen.sh#L32-L61)
+- [app/rag/chain.py:47-60](file://app/rag/chain.py#L47-L60)
+
+### Ollama Integration
+The system maintains comprehensive Ollama support for local LLM deployments:
+
+- **Server Script**: Automated Ollama server management with model pulling and validation
+- **Model Management**: Automatic model installation and version checking
+- **API Interface**: Direct integration through ChatOllama
+- **Configuration**: Flexible base URL configuration and model selection
+
+**Updated** Enhanced Ollama integration with automated server management, model validation, and smoke testing capabilities.
+
+**Section sources**
+- [scripts/run_llama_qwen.sh:1-61](file://scripts/run_llama_qwen.sh#L1-L61)
+- [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
+- [app/rag/chain.py:62-73](file://app/rag/chain.py#L62-L73)
+
 ## Testing Framework
 
 ### Comprehensive Test Coverage
-The test suite provides extensive coverage for the RAG infrastructure, QA service, and enhanced ask handler:
+The test suite provides extensive coverage for the RAG infrastructure, QA service, enhanced ask handler, and llama.cpp provider support:
 
-- **Configuration Testing**: Validates settings loading and environment variable support
+- **Configuration Testing**: Validates settings loading and environment variable support for all providers
 - **Document Processing**: Tests Word document parsing and section extraction
 - **Chunking Validation**: Ensures proper text splitting and metadata preservation
-- **Chain Building**: Verifies RAG chain construction and execution
+- **Chain Building**: Verifies RAG chain construction and execution across all providers
 - **Vector Store Integration**: Tests Qdrant integration and retrieval capabilities
 - **QA Service Testing**: Comprehensive testing of singleton pattern and error handling
 - **Text Truncation**: Validates message length limits and word boundary preservation
 - **Topic Hints Detection**: Tests keyword-based scenario detection and disclaimers
 - **Ask Handler Integration**: Validates enhanced ask handler functionality and user experience features
+- **llama.cpp Provider Testing**: Comprehensive testing of llama.cpp provider configuration and error handling
 
-**Updated** Complete test coverage for all RAG infrastructure components, QA service functionality, topic hints detection, and enhanced ask handler implementation with comprehensive validation scenarios.
+**Updated** Complete test coverage for all RAG infrastructure components, QA service functionality, topic hints detection, enhanced ask handler implementation, and comprehensive llama.cpp provider validation with provider-specific configuration testing.
 
 ```mermaid
 graph TB
-TestSuite["RAG + QA + Ask Handler Tests"] --> ConfigTests["Configuration Tests"]
+TestSuite["RAG + QA + Ask Handler + llama.cpp Tests"] --> ConfigTests["Configuration Tests"]
 TestSuite --> DocxTests["Document Processing Tests"]
 TestSuite --> PromptTests["System Prompt Tests"]
 TestSuite --> ChainTests["RAG Chain Tests"]
@@ -636,11 +709,14 @@ TestSuite --> VectorTests["Vector Store Tests"]
 TestSuite --> QATests["QA Service Tests"]
 TestSuite --> TopicHintTests["Topic Hints Tests"]
 TestSuite --> AskHandlerTests["Enhanced Ask Handler Tests"]
+TestSuite --> LlamaCPPTests["llama.cpp Provider Tests"]
 ConfigTests --> SettingsValidation["Settings Validation"]
+ConfigTests --> ProviderSelection["Provider Selection Logic"]
 DocxTests --> SectionExtraction["Section Extraction"]
 DocxTests --> ChunkingValidation["Chunking Validation"]
 ChainTests --> ChainBuilding["Chain Building"]
 ChainTests --> FormatDocs["Format Docs Function"]
+ChainTests --> ProviderDispatch["Provider Dispatch Logic"]
 VectorTests --> CollectionName["Collection Name"]
 VectorTests --> VectorStoreCreation["Vector Store Creation"]
 QATests --> AskFunctionality["Ask Functionality"]
@@ -651,33 +727,38 @@ TopicHintTests --> DisclaimerLogic["Disclaimer Logic"]
 AskHandlerTests --> TypingIndicator["Typing Indicator"]
 AskHandlerTests --> ContextualNavigation["Contextual Navigation"]
 AskHandlerTests --> ErrorHandler["Error Handling"]
+LlamaCPPTests --> LlamaCPPConfig["llama.cpp Configuration"]
+LlamaCPPTests --> LlamaCPPEmbeddings["llama.cpp Embeddings"]
+LlamaCPPTests --> LlamaCPPErrorHandling["llama.cpp Error Handling"]
 ```
 
 **Diagram sources**
 - [tests/test_qa_service.py:28-197](file://tests/test_qa_service.py#L28-L197)
 - [tests/test_rag_block6.py:34-251](file://tests/test_rag_block6.py#L34-L251)
+- [tests/test_rag_block6.py:264-413](file://tests/test_rag_block6.py#L264-L413)
 - [tests/test_ask_block9.py:8-112](file://tests/test_ask_block9.py#L8-L112)
 
 **Section sources**
 - [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
-- [tests/test_rag_block6.py:1-251](file://tests/test_rag_block6.py#L1-L251)
+- [tests/test_rag_block6.py:1-413](file://tests/test_rag_block6.py#L1-L413)
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
 
 ## Performance Considerations
 
 ### Optimization Strategies
-The RAG infrastructure includes several performance optimization strategies:
+The RAG infrastructure includes several performance optimization strategies for all LLM providers:
 
 - **Vector Search Efficiency**: Configurable k-value for balancing relevance and performance
-- **Embedding Model Selection**: Choice between local Ollama, OpenAI embeddings, and llama.cpp embeddings
-- **Memory Management**: Proper cleanup of Qdrant clients and embedding models
+- **Embedding Model Selection**: Choice between local Ollama, OpenAI embeddings, llama.cpp embeddings, and OpenAI-compatible embeddings
+- **Memory Management**: Proper cleanup of Qdrant clients and embedding models across all providers
 - **Connection Pooling**: Efficient management of database connections
 - **Caching Strategies**: Potential for caching frequently accessed documents
 - **Response Truncation**: VK message limit enforcement to prevent oversized responses
 - **Typing Indicators**: Asynchronous processing with user feedback during RAG computation
 - **State Management**: Efficient state handling to prevent memory leaks
+- **Provider Optimization**: Optimized configuration for each LLM provider type
 
-**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, and efficient state handling.
+**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, efficient state handling, and provider-specific optimizations for Ollama, OpenAI-compatible, and llama.cpp deployments.
 
 ### Scalability Planning
 The architecture supports horizontal scaling through:
@@ -688,14 +769,15 @@ The architecture supports horizontal scaling through:
 - **Asynchronous Processing**: Non-blocking operations for better throughput
 - **Resource Pooling**: Efficient management of QA service resources
 - **Provider Scaling**: Support for multiple LLM providers for load distribution
+- **Model Parallelization**: Support for distributed llama.cpp deployments
 
 ## Troubleshooting Guide
 
 ### Common Issues and Solutions
-The RAG infrastructure includes comprehensive error handling and debugging capabilities:
+The RAG infrastructure includes comprehensive error handling and debugging capabilities for all LLM providers:
 
-- **Configuration Issues**: Missing environment variables or incorrect settings
-- **Provider Setup**: Missing optional dependencies for selected LLM provider
+- **Configuration Issues**: Missing environment variables or incorrect settings for any provider
+- **Provider Setup**: Missing optional dependencies for selected LLM provider (openai_compatible, ollama)
 - **Vector Store Connectivity**: Qdrant connection problems or collection issues
 - **Document Processing**: Word document parsing errors or unsupported formats
 - **Memory Issues**: Insufficient RAM for embedding generation or vector storage
@@ -704,18 +786,21 @@ The RAG infrastructure includes comprehensive error handling and debugging capab
 - **Topic Hints Detection**: Keyword matching issues or missing scenarios
 - **Typing Indicator Errors**: VK API connectivity or permission issues
 - **State Management**: Memory leaks or state conflicts between handlers
+- **llama.cpp Issues**: Server startup failures, model loading errors, or API connectivity problems
+- **Ollama Issues**: Server connectivity, model availability, or base URL configuration problems
 
-**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, and enhanced ask handler with user experience features.
+**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, enhanced ask handler, and all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features.
 
 ### Debugging Tools
 Available debugging and monitoring capabilities:
 
-- **Logging Configuration**: Comprehensive logging throughout the RAG pipeline
+- **Logging Configuration**: Comprehensive logging throughout the RAG pipeline for all providers
 - **Health Checks**: Qdrant health verification and connection testing
 - **Performance Metrics**: Timing and throughput measurements
-- **Error Reporting**: Detailed error messages with context information
+- **Error Reporting**: Detailed error messages with context information for all providers
 - **QA Service Monitoring**: Chain availability and resource status tracking
 - **User Experience Monitoring**: Typing indicator functionality and navigation button rendering
+- **Provider Health Checks**: Specific monitoring for llama.cpp server, Ollama server, and OpenAI-compatible endpoints
 
 **Section sources**
 - [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
@@ -723,8 +808,10 @@ Available debugging and monitoring capabilities:
 - [scripts/ingest.py:137-166](file://scripts/ingest.py#L137-L166)
 - [app/domain/qa_service.py:82-83](file://app/domain/qa_service.py#L82-L83)
 - [app/integrations/vk/handlers/ask.py:67-70](file://app/integrations/vk/handlers/ask.py#L67-L70)
+- [scripts/run_llama_qwen.sh:32-41](file://scripts/run_llama_qwen.sh#L32-L41)
+- [scripts/run_ollama_qwen.sh:36-52](file://scripts/run_ollama_qwen.sh#L36-L52)
 
 ## Conclusion
-The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities and enhanced user experience. The implementation includes complete LangChain integration, Qdrant vector store setup, document ingestion pipelines, comprehensive QA service with singleton pattern, topic hints detection system, contextual navigation features, and extensive testing frameworks. The system seamlessly integrates with the existing VK bot architecture while providing powerful contextual response generation capabilities that significantly enhance HR assistance functionality.
+The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities and enhanced user experience. The implementation includes complete LangChain integration, Qdrant vector store setup, document ingestion pipelines, comprehensive QA service with singleton pattern, topic hints detection system, contextual navigation features, extensive testing frameworks, and support for three LLM providers including the new llama.cpp option. The system seamlessly integrates with the existing VK bot architecture while providing powerful contextual response generation capabilities that significantly enhance HR assistance functionality.
 
-**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer, topic hints detection system, enhanced ask handler with typing indicators and contextual navigation, and comprehensive user experience improvements that serve as the foundation for future enhancements and production deployment. The singleton pattern ensures efficient resource utilization, while comprehensive error handling, text truncation, and user experience features provide reliability and improved user satisfaction.
+**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer, topic hints detection system, enhanced ask handler with typing indicators and contextual navigation, comprehensive user experience improvements, and support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment. The singleton pattern ensures efficient resource utilization, while comprehensive error handling, text truncation, user experience features, and llama.cpp integration provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of llama.cpp support through OpenAI-compatible API interface enables seamless local model serving with GPU acceleration, making the system suitable for enterprise environments with strict data privacy requirements.
