@@ -1,6 +1,6 @@
 """Pay & bonus flow handlers — S-40 (FR-9, FR-10).
 
-Flow: CMD_PAY -> pay menu -> overtime RAG stub / bonus RAG stub.
+Flow: CMD_PAY -> pay menu -> overtime RAG / bonus RAG.
 """
 
 from __future__ import annotations
@@ -8,7 +8,6 @@ from __future__ import annotations
 from vkbottle.bot import BotLabeler, Message
 
 from app.domain import qa_service
-from app.domain.content import rag_stub
 from app.integrations.vk.keyboards import (
     CMD_PAY,
     CMD_PAY_BONUS,
@@ -31,13 +30,15 @@ async def on_pay(message: Message) -> None:
     )
 
 
-# -- FR-9: overtime & weekend pay -- RAG stub --------------------------
+# -- FR-9: overtime & weekend pay -- RAG (Block 8) ---------------------
 
 
 @bl.message(payload=CMD_PAY_OVERTIME)
 async def on_pay_overtime(message: Message) -> None:
+    await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
+    answer = await qa_service.ask("Оплата сверхурочных и выходных")
     await message.answer(
-        rag_stub("Оплата сверхурочных и выходных"),
+        answer,
         keyboard=stub_kb(back_payload=CMD_PAY).get_json(),
     )
 

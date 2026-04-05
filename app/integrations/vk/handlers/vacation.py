@@ -8,7 +8,7 @@ from __future__ import annotations
 from vkbottle.bot import BotLabeler, Message
 
 from app.domain import qa_service
-from app.domain.content import rag_stub, vacation_template_text
+from app.domain.content import vacation_template_text
 from app.domain.entities import ENTITY_BY_ID
 from app.integrations.vk.keyboards import (
     CMD_VACATION,
@@ -79,12 +79,14 @@ async def on_vacation_rag(message: Message) -> None:
     )
 
 
-# ── FR-11: vacation schedule navigator — RAG stub (Block 5) ────────
+# ── FR-11: vacation schedule navigator — RAG (Block 8) ─────────────
 
 
 @bl.message(payload=CMD_VACATION_SCHEDULE)
 async def on_vacation_schedule(message: Message) -> None:
+    await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
+    answer = await qa_service.ask("Навигатор по графику отпусков")
     await message.answer(
-        rag_stub("Навигатор по графику отпусков"),
+        answer,
         keyboard=stub_kb(back_payload=CMD_VACATION).get_json(),
     )

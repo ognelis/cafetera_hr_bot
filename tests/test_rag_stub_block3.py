@@ -30,14 +30,13 @@ class TestRagStub:
         assert "Тема B" in b
 
 
-class TestFireRagUsesStub:
-    """3.2 — fire handler must use rag_stub, not an inline string."""
+class TestFireRagUsesQaService:
+    """3.2 — fire handler uses qa_service for RAG (Block 7+8)."""
 
-    def test_fire_handler_imports_rag_stub(self):
+    def test_fire_handler_imports_qa_service(self):
         from app.integrations.vk.handlers import fire
 
-        # The handler module must reference the shared rag_stub function
-        assert hasattr(fire, "rag_stub") or "rag_stub" in dir(fire)
+        assert hasattr(fire, "qa_service")
 
     def test_fire_module_has_no_section_stub(self):
         import app.integrations.vk.handlers.fire as fire_mod
@@ -45,13 +44,13 @@ class TestFireRagUsesStub:
         assert not hasattr(fire_mod, "_SECTION_STUB")
 
 
-class TestVacationRagUsesStub:
-    """3.3 — vacation handler must use rag_stub, not an inline string."""
+class TestVacationRagUsesQaService:
+    """3.3 — vacation handler uses qa_service for RAG (Block 7+8)."""
 
-    def test_vacation_handler_imports_rag_stub(self):
+    def test_vacation_handler_imports_qa_service(self):
         from app.integrations.vk.handlers import vacation
 
-        assert hasattr(vacation, "rag_stub") or "rag_stub" in dir(vacation)
+        assert hasattr(vacation, "qa_service")
 
     def test_vacation_module_has_no_rag_stub_const(self):
         import app.integrations.vk.handlers.vacation as vac_mod
@@ -59,22 +58,31 @@ class TestVacationRagUsesStub:
         assert not hasattr(vac_mod, "_RAG_STUB")
 
 
-class TestPaySectionUsesRagStub:
-    """3.4 — pay section must use rag_stub for FR-10."""
+class TestPaySectionUsesQaService:
+    """3.4 — pay section uses qa_service for RAG (Block 7+8)."""
 
-    def test_sections_handler_imports_rag_stub(self):
+    def test_pay_handler_imports_qa_service(self):
+        from app.integrations.vk.handlers import pay
+
+        assert hasattr(pay, "qa_service")
+
+
+class TestSectionsUsesQaService:
+    """Block 8 — sections handler uses qa_service for RAG."""
+
+    def test_sections_handler_imports_qa_service(self):
         from app.integrations.vk.handlers import sections
 
-        assert hasattr(sections, "rag_stub") or "rag_stub" in dir(sections)
+        assert hasattr(sections, "qa_service")
 
 
-# ── Block 5 — remaining RAG stubs ─────────────────────────────────
+# ── Block 5/8 — handlers now RAG-powered ──────────────────────────
 
 
-class TestVacationScheduleStub:
-    """5.1 — vacation schedule navigator uses rag_stub (FR-11)."""
+class TestVacationScheduleHandler:
+    """5.1/8.1 — vacation schedule navigator handler exists (FR-11)."""
 
-    def test_rag_stub_for_schedule(self):
+    def test_rag_stub_function_still_works(self):
         result = rag_stub("Навигатор по графику отпусков")
         assert "Навигатор по графику отпусков" in result
 
@@ -84,10 +92,10 @@ class TestVacationScheduleStub:
         assert hasattr(vacation, "on_vacation_schedule")
 
 
-class TestFireGroundsStub:
-    """5.3 — dismissal grounds uses rag_stub (FR-12)."""
+class TestFireGroundsHandler:
+    """5.3/8.3 — dismissal grounds handler exists (FR-12)."""
 
-    def test_rag_stub_for_grounds(self):
+    def test_rag_stub_function_still_works(self):
         result = rag_stub("Основания увольнения")
         assert "Основания увольнения" in result
 

@@ -41,7 +41,7 @@ class TestRagSettings:
     def test_defaults_for_llm(self):
         s = Settings(vk_access_token="t", _env_file=None)
         assert s.llm_provider == "ollama"
-        assert s.llm_model == "qwen3.5:4b"
+        assert s.llm_model == "qwen3.5:4b-q4_K_M"
         assert s.llm_base_url == "http://localhost:11434"
         assert s.llm_api_key == ""
 

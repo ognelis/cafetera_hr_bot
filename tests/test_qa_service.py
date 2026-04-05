@@ -174,7 +174,7 @@ class TestCloseQa:
 
 
 class TestHandlerImports:
-    """Verify that P0 handlers now import qa_service (Block 7)."""
+    """Verify that P0+P1 handlers import qa_service (Block 7+8)."""
 
     def test_fire_handler_imports_qa_service(self):
         from app.integrations.vk.handlers import fire
@@ -190,3 +190,8 @@ class TestHandlerImports:
         from app.integrations.vk.handlers import pay
 
         assert hasattr(pay, "qa_service")
+
+    def test_sections_handler_imports_qa_service(self):
+        from app.integrations.vk.handlers import sections
+
+        assert hasattr(sections, "qa_service")

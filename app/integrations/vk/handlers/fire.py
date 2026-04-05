@@ -1,6 +1,6 @@
 """Fire flow handlers — S-20, S-21b (FR-5, FR-6, FR-12).
 
-Flow: CMD_FIRE → fire menu → checklist / bypass sheet / RAG stub.
+Flow: CMD_FIRE → fire menu → checklist / bypass sheet / RAG.
 """
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from __future__ import annotations
 from vkbottle.bot import BotLabeler, Message
 
 from app.domain import qa_service
-from app.domain.content import FIRE_BYPASS_SHEET_TEXT, FIRE_LAST_DAY_CHECKLIST, rag_stub
+from app.domain.content import FIRE_BYPASS_SHEET_TEXT, FIRE_LAST_DAY_CHECKLIST
 from app.integrations.vk.keyboards import (
     CMD_FIRE,
     CMD_FIRE_BYPASS,
@@ -68,12 +68,14 @@ async def on_fire_rag(message: Message) -> None:
     )
 
 
-# ── FR-12: dismissal grounds — RAG stub (Block 5) ─────────────────
+# ── FR-12: dismissal grounds — RAG (Block 8) ──────────────────────
 
 
 @bl.message(payload=CMD_FIRE_GROUNDS)
 async def on_fire_grounds(message: Message) -> None:
+    await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
+    answer = await qa_service.ask("Основания увольнения")
     await message.answer(
-        rag_stub("Основания увольнения"),
+        answer,
         keyboard=stub_kb(back_payload=CMD_FIRE).get_json(),
     )
