@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
+from app.domain import qa_service
 from app.domain.content import FIRE_BYPASS_SHEET_TEXT, FIRE_LAST_DAY_CHECKLIST, rag_stub
 from app.integrations.vk.keyboards import (
     CMD_FIRE,
@@ -54,13 +55,15 @@ async def on_fire_bypass(message: Message) -> None:
     )
 
 
-# ── FR-5: voluntary dismissal — RAG stub (Block 3) ────────────────
+# ── FR-5: voluntary dismissal — RAG (Block 7) ─────────────────────
 
 
 @bl.message(payload=CMD_FIRE_RAG)
 async def on_fire_rag(message: Message) -> None:
+    await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
+    answer = await qa_service.ask("Увольнение по собственному желанию")
     await message.answer(
-        rag_stub("Увольнение по собственному желанию"),
+        answer,
         keyboard=stub_kb(back_payload=CMD_FIRE).get_json(),
     )
 

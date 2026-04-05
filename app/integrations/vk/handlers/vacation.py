@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
+from app.domain import qa_service
 from app.domain.content import rag_stub, vacation_template_text
 from app.domain.entities import ENTITY_BY_ID
 from app.integrations.vk.keyboards import (
@@ -65,13 +66,15 @@ async def on_vacation_template(message: Message, payload_data: dict) -> None:
     )
 
 
-# ── FR-7: leave procedure — RAG stub (Block 3) ────────────────────
+# ── FR-7: leave procedure — RAG (Block 7) ─────────────────────────
 
 
 @bl.message(payload=CMD_VACATION_RAG)
 async def on_vacation_rag(message: Message) -> None:
+    await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
+    answer = await qa_service.ask("Порядок оформления отпуска")
     await message.answer(
-        rag_stub("Порядок оформления отпуска"),
+        answer,
         keyboard=stub_kb(back_payload=CMD_VACATION).get_json(),
     )
 

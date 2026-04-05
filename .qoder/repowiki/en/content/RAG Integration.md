@@ -3,36 +3,28 @@
 <cite>
 **Referenced Files in This Document**
 - [app/config.py](file://app/config.py)
+- [app/rag/__init__.py](file://app/rag/__init__.py)
+- [app/rag/chain.py](file://app/rag/chain.py)
+- [app/rag/prompts.py](file://app/rag/prompts.py)
+- [app/rag/retriever.py](file://app/rag/retriever.py)
+- [app/domain/qa_service.py](file://app/domain/qa_service.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
-- [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
-- [app/integrations/vk/handlers/sections.py](file://app/integrations/vk/handlers/sections.py)
-- [app/integrations/vk/handlers/fallback.py](file://app/integrations/vk/handlers/fallback.py)
 - [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
-- [app/integrations/vk/handlers/hr_request.py](file://app/integrations/vk/handlers/hr_request.py)
-- [app/integrations/vk/handlers/vacation.py](file://app/integrations/vk/handlers/vacation.py)
-- [app/integrations/vk/handlers/fire.py](file://app/integrations/vk/handlers/fire.py)
-- [app/integrations/vk/handlers/pay.py](file://app/integrations/vk/handlers/pay.py)
-- [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
-- [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
 - [app/domain/content.py](file://app/domain/content.py)
-- [docker-compose.yml](file://docker-compose.yml)
+- [scripts/ingest.py](file://scripts/ingest.py)
 - [pyproject.toml](file://pyproject.toml)
-- [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
-- [scripts/run_ollama_qwen.sh](file://scripts/run_ollama_qwen.sh)
-- [tests/test_bot_factory.py](file://tests/test_bot_factory.py)
-- [tests/test_config.py](file://tests/test_config.py)
-- [tests/test_rag_stub_block3.py](file://tests/test_rag_stub_block3.py)
-- [AGENTS.md](file://AGENTS.md)
-- [PLAN.md](file://PLAN.md)
+- [tests/test_rag_block6.py](file://tests/test_rag_block6.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced documentation for comprehensive RAG stub functionality covering vacation schedule navigator and dismissal grounds
-- Updated standardized response patterns across all HR-related topics including vacation, fire, pay, and sick leave
-- Documented centralized rag_stub utility usage across multiple handler modules
-- Added detailed coverage of new FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) implementations
-- Enhanced testing framework documentation for RAG stub functionality validation
+- Complete implementation of Block 6 RAG infrastructure with LangChain-based processing pipeline
+- Added comprehensive Qdrant vector store integration with dense retrieval capabilities
+- Implemented document ingestion pipeline with Word document processing and chunking
+- Integrated specialized HR prompts with Russian-language system instructions
+- Enhanced configuration management with RAG-specific settings and provider options
+- Expanded development dependencies for LangChain, Qdrant, and optional adapters
+- Added comprehensive test coverage for RAG block 6 functionality
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -40,242 +32,146 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Enhanced RAG Stub Implementation](#enhanced-rag-stub-implementation)
-7. [Dependency Analysis](#dependency-analysis)
-8. [Performance Considerations](#performance-considerations)
-9. [Troubleshooting Guide](#troubleshooting-guide)
-10. [Conclusion](#conclusion)
-11. [Appendices](#appendices)
+6. [RAG Infrastructure Implementation](#rag-infrastructure-implementation)
+7. [Configuration Management](#configuration-management)
+8. [Document Ingestion Pipeline](#document-ingestion-pipeline)
+9. [LangChain Integration](#langchain-integration)
+10. [Testing Framework](#testing-framework)
+11. [Performance Considerations](#performance-considerations)
+12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the planned Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. It explains the RAG architecture, LangChain integration patterns, Qdrant vector database setup, and the document ingestion pipeline. It also documents the free-form question processing system, retrieval mechanisms, and how RAG will enhance the bot's HR assistance capabilities. Practical examples cover setting up the RAG pipeline, configuring vector databases, implementing document processing workflows, and integrating RAG responses with the existing VK bot architecture. Finally, it addresses performance considerations, scaling challenges, and best practices for production RAG deployments.
+This document describes the comprehensive Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. The implementation includes a complete LangChain-based processing pipeline, Qdrant vector database integration, document ingestion capabilities, and specialized HR prompts. The system enhances the bot's HR assistance capabilities by providing contextual, reliable answers drawn from HR documents while maintaining seamless integration with the existing VK bot architecture.
 
-**Updated** The RAG implementation now includes comprehensive stub functionality for vacation schedule navigator (FR-11) and dismissal grounds (FR-12), with enhanced standardized response patterns across all HR-related topics. The rag_stub utility is centrally managed and consistently used across multiple handler modules.
+**Updated** The RAG implementation now includes a fully functional infrastructure with LangChain integration, Qdrant vector store, document processing workflows, and comprehensive testing coverage.
 
 ## Project Structure
-The repository is organized around a VK bot integration with modular handlers and keyboards, plus supporting infrastructure for RAG. The RAG stack is anchored by LangChain and Qdrant, with optional OpenAI-compatible and Ollama integrations. Vector storage is provided by Qdrant, while document storage is handled by MinIO. The FastAPI service will host the webhook and document ingestion endpoint, and the VK bot routes user intents to handlers.
+The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, and document ingestion capabilities.
 
 ```mermaid
 graph TB
-subgraph "VK Bot"
-VKBot["VK Bot Factory<br/>app/integrations/vk/bot.py"]
-Handlers["Handlers<br/>start.py / sections.py / ask.py / hr_request.py / fallback.py"]
-Keyboards["Keyboards<br/>app/integrations/vk/keyboards.py"]
-States["States<br/>app/integrations/vk/states.py"]
-EndHandler["End Handler<br/>app/integrations/vk/handlers/hr_request.py"]
-EndHandler --> States
-end
 subgraph "RAG Infrastructure"
-Qdrant["Qdrant Vector DB<br/>docker-compose.yml"]
-MinIO["MinIO Storage<br/>docker-compose.yml"]
-Scripts["Model Runners<br/>run_llama_qwen.sh / run_ollama_qwen.sh"]
+Config["Settings Configuration<br/>app/config.py"]
+Chain["RAG Chain<br/>app/rag/chain.py"]
+Prompts["System Prompts<br/>app/rag/prompts.py"]
+Retriever["Vector Store & Retriever<br/>app/rag/retriever.py"]
+QAService["QA Service Integration<br/>app/domain/qa_service.py"]
 end
-subgraph "LangChain Stack"
-LC["LangChain Core<br/>pyproject.toml"]
-LCOAI["OpenAI-Compatible Adapter<br/>pyproject.toml"]
-LCOla["Ollama Adapter<br/>pyproject.toml"]
+subgraph "Document Processing"
+Ingest["Ingestion Script<br/>scripts/ingest.py"]
+Docx["Word Document Processing<br/>.docx files"]
+Chunking["Recursive Character Chunking<br/>1000 chars + 200 overlap"]
+Embeddings["Embedding Generation<br/>nomic-embed-text / OpenAI"]
 end
-subgraph "RAG Stub Services"
-VacationStub["Vacation RAG Stub<br/>FR-7, FR-11"]
-FireStub["Fire RAG Stub<br/>FR-5, FR-12"]
-PayStub["Pay RAG Stub<br/>FR-9, FR-10"]
-SickStub["Sick Leave RAG Stub<br/>FR-13"]
-ProbationStub["Probation RAG Stub<br/>FR-15"]
-AskStub["Ask RAG Stub<br/>Free-form Questions"]
+subgraph "Vector Database"
+Qdrant["Qdrant Vector Store<br/>hr_documents collection"]
+Metadata["Document Metadata<br/>source + section"]
 end
-VKBot --> Handlers
-VKBot --> Keyboards
-VKBot --> States
-Handlers --> VacationStub
-Handlers --> FireStub
-Handlers --> PayStub
-Handlers --> SickStub
-Handlers --> ProbationStub
-Handlers --> AskStub
-VacationStub --> Qdrant
-FireStub --> Qdrant
-PayStub --> Qdrant
-SickStub --> Qdrant
-ProbationStub --> Qdrant
-AskStub --> Qdrant
+subgraph "Integration"
+VKBot["VK Bot Integration<br/>app/integrations/vk/bot.py"]
+AskHandler["Ask Handler<br/>app/integrations/vk/handlers/ask.py"]
+Content["Content Module<br/>app/domain/content.py"]
+end
+Config --> Chain
+Chain --> QAService
+Prompts --> Chain
+Retriever --> Chain
+QAService --> Qdrant
+Docx --> Ingest
+Chunking --> Ingest
+Embeddings --> Ingest
+Ingest --> Qdrant
+Qdrant --> Retriever
+VKBot --> AskHandler
+AskHandler --> Content
+QAService --> AskHandler
 ```
 
 **Diagram sources**
-- [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
-- [app/integrations/vk/handlers/sections.py:1-42](file://app/integrations/vk/handlers/sections.py#L1-L42)
-- [app/integrations/vk/handlers/ask.py:1-63](file://app/integrations/vk/handlers/ask.py#L1-L63)
-- [app/integrations/vk/handlers/hr_request.py:1-305](file://app/integrations/vk/handlers/hr_request.py#L1-L305)
-- [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [app/integrations/vk/keyboards.py:1-293](file://app/integrations/vk/keyboards.py#L1-L293)
-- [app/integrations/vk/states.py:1-17](file://app/integrations/vk/states.py#L1-L17)
-- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
-- [pyproject.toml:1-56](file://pyproject.toml#L1-L56)
-- [scripts/run_llama_qwen.sh:1-59](file://scripts/run_llama_qwen.sh#L1-L59)
-- [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
+- [app/config.py:4-23](file://app/config.py#L4-L23)
+- [app/rag/chain.py:30-80](file://app/rag/chain.py#L30-L80)
+- [app/rag/prompts.py:5-19](file://app/rag/prompts.py#L5-L19)
+- [app/rag/retriever.py:22-74](file://app/rag/retriever.py#L22-L74)
+- [app/domain/qa_service.py:62-76](file://app/domain/qa_service.py#L62-L76)
+- [scripts/ingest.py:44-166](file://scripts/ingest.py#L44-L166)
+- [app/integrations/vk/bot.py:44-56](file://app/integrations/vk/bot.py#L44-L56)
+- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
+- [app/domain/content.py:127-136](file://app/domain/content.py#L127-L136)
 
 **Section sources**
+- [app/config.py:4-23](file://app/config.py#L4-L23)
+- [app/rag/__init__.py:1-2](file://app/rag/__init__.py#L1-L2)
+- [app/rag/chain.py:1-80](file://app/rag/chain.py#L1-L80)
+- [app/rag/prompts.py:1-19](file://app/rag/prompts.py#L1-L19)
+- [app/rag/retriever.py:1-74](file://app/rag/retriever.py#L1-L74)
+- [app/domain/qa_service.py:62-76](file://app/domain/qa_service.py#L62-L76)
+- [scripts/ingest.py:1-192](file://scripts/ingest.py#L1-L192)
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
-- [app/integrations/vk/handlers/sections.py:1-42](file://app/integrations/vk/handlers/sections.py#L1-L42)
 - [app/integrations/vk/handlers/ask.py:1-63](file://app/integrations/vk/handlers/ask.py#L1-L63)
-- [app/integrations/vk/handlers/hr_request.py:1-305](file://app/integrations/vk/handlers/hr_request.py#L1-L305)
-- [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [app/integrations/vk/keyboards.py:1-293](file://app/integrations/vk/keyboards.py#L1-L293)
-- [app/integrations/vk/states.py:1-17](file://app/integrations/vk/states.py#L1-L17)
-- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
-- [pyproject.toml:1-56](file://pyproject.toml#L1-L56)
-- [scripts/run_llama_qwen.sh:1-59](file://scripts/run_llama_qwen.sh#L1-L59)
-- [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
+- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
 
 ## Core Components
-- VK Bot Factory: Creates a fully wired VK bot with registered handlers and logging.
-- Handler Modules: Define intent routing for start, main menu, section stubs, Ask section with multi-step dialog, and fallback behavior.
-- Keyboard Builder: Provides reusable keyboards with service actions (Home, Back, Contact HR).
-- States: Multi-step dialog states for advanced flows including ASK_QUESTION state.
-- RAG Dependencies: LangChain, Qdrant client, optional adapters for OpenAI-compatible and Ollama.
-- Vector DB: Qdrant service configured via docker-compose with persistent volume and health checks.
-- Model Runners: Scripts to run local LLM servers (llama.cpp) and Ollama with smoke tests.
-- RAG Stub Service: Centralized rag_stub function providing standardized placeholder responses across all HR topics.
+The RAG infrastructure consists of several interconnected components that work together to provide intelligent document retrieval and response generation:
 
-**Updated** The RAG stub service now provides comprehensive coverage for all HR-related topics including vacation schedule navigator (FR-11), dismissal grounds (FR-12), and enhanced standardized response patterns.
+- **Configuration Management**: Centralized settings for Qdrant connection, LLM providers, and embedding models
+- **RAG Chain Builder**: LangChain pipeline that orchestrates retrieval, prompting, and LLM generation
+- **Vector Store Integration**: Qdrant-backed vector store with dense retrieval capabilities
+- **Document Processing**: Word document ingestion with section extraction and chunking
+- **Embedding Models**: Support for both local Ollama embeddings and OpenAI-compatible embeddings
+- **System Prompts**: Specialized HR-focused prompts with Russian language instructions
+- **QA Service Integration**: Seamless integration with the existing QA service architecture
+
+**Updated** The RAG infrastructure now provides a complete, production-ready solution with comprehensive LangChain integration and Qdrant vector store capabilities.
 
 **Section sources**
-- [app/integrations/vk/bot.py:24-31](file://app/integrations/vk/bot.py#L24-L31)
-- [app/integrations/vk/handlers/start.py:31-33](file://app/integrations/vk/handlers/start.py#L31-L33)
-- [app/integrations/vk/handlers/sections.py:76-81](file://app/integrations/vk/handlers/sections.py#L76-L81)
-- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
-- [app/integrations/vk/handlers/fallback.py:15-17](file://app/integrations/vk/handlers/fallback.py#L15-L17)
-- [app/integrations/vk/keyboards.py:56-98](file://app/integrations/vk/keyboards.py#L56-L98)
-- [app/integrations/vk/states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
-- [pyproject.toml:14-31](file://pyproject.toml#L14-L31)
-- [docker-compose.yml:2-16](file://docker-compose.yml#L2-L16)
-- [scripts/run_llama_qwen.sh:52-58](file://scripts/run_llama_qwen.sh#L52-L58)
-- [scripts/run_ollama_qwen.sh:68-73](file://scripts/run_ollama_qwen.sh#L68-L73)
+- [app/config.py:10-23](file://app/config.py#L10-L23)
+- [app/rag/chain.py:30-80](file://app/rag/chain.py#L30-L80)
+- [app/rag/retriever.py:22-74](file://app/rag/retriever.py#L22-L74)
+- [app/rag/prompts.py:5-19](file://app/rag/prompts.py#L5-L19)
+- [app/domain/qa_service.py:62-76](file://app/domain/qa_service.py#L62-L76)
 
 ## Architecture Overview
-The RAG-enabled bot architecture integrates the VK bot with a FastAPI service that hosts the webhook and ingestion endpoint. The ingestion pipeline stores documents in MinIO and embeds them into Qdrant. Free-form questions are routed to the VK Ask section, which triggers the RAG chain to retrieve relevant chunks and generate a contextualized response.
-
-```mermaid
-graph TB
-User["User in VK Chat"]
-VK["VK Bot<br/>app/integrations/vk/bot.py"]
-Handlers["Handlers<br/>start.py / sections.py / ask.py / hr_request.py / fallback.py"]
-KB["Keyboards<br/>keyboards.py"]
-States["States<br/>states.py"]
-subgraph "RAG Layer"
-Retriever["Retriever<br/>(to be implemented)"]
-Prompt["Prompt Template<br/>(to be implemented)"]
-Chain["RAG Chain<br/>(to be implemented)"]
-Stub["RAG Stub Service<br/>content.rag_stub()"]
-VacationStub["Vacation RAG Stubs<br/>FR-7, FR-11"]
-FireStub["Fire RAG Stubs<br/>FR-5, FR-12"]
-PayStub["Pay RAG Stubs<br/>FR-9, FR-10"]
-SickStub["Sick Leave RAG Stubs<br/>FR-13"]
-ProbationStub["Probation RAG Stubs<br/>FR-15"]
-AskStub["Ask RAG Stubs<br/>Free-form Questions"]
-end
-subgraph "Infra"
-Qdrant["Qdrant<br/>docker-compose.yml"]
-MinIO["MinIO<br/>docker-compose.yml"]
-LLM["LLM Runtime<br/>run_ollama_qwen.sh / run_llama_qwen.sh"]
-end
-User --> VK
-VK --> Handlers
-Handlers --> KB
-Handlers --> States
-Handlers --> |Ask section| Retriever
-Handlers --> |Vacation section| VacationStub
-Handlers --> |Fire section| FireStub
-Handlers --> |Pay section| PayStub
-Handlers --> |Sick section| SickStub
-Handlers --> |Probation section| ProbationStub
-Handlers --> |Sections section| Stub
-VacationStub --> Qdrant
-FireStub --> Qdrant
-PayStub --> Qdrant
-SickStub --> Qdrant
-ProbationStub --> Qdrant
-AskStub --> Qdrant
-Retriever --> Prompt
-Prompt --> Chain
-Chain --> VK
-Stub --> VK
-VacationStub --> VK
-FireStub --> VK
-PayStub --> VK
-SickStub --> VK
-ProbationStub --> VK
-AskStub --> VK
-VK --> User
-```
-
-**Diagram sources**
-- [app/integrations/vk/bot.py:24-31](file://app/integrations/vk/bot.py#L24-L31)
-- [app/integrations/vk/handlers/sections.py:76-81](file://app/integrations/vk/handlers/sections.py#L76-L81)
-- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
-- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
-- [docker-compose.yml:2-28](file://docker-compose.yml#L2-L28)
-- [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
-- [scripts/run_llama_qwen.sh:1-59](file://scripts/run_llama_qwen.sh#L1-L59)
-
-## Detailed Component Analysis
-
-### VK Bot and Intent Routing
-- The bot factory registers handlers in a specific order: start, hr_request, ask, hire, fire, vacation, pay, sections, and fallback. The ask handler must precede fallback to handle free-text questions properly.
-- The start handler sends a greeting and main menu keyboard. The sections handler currently returns stubs for remaining functional areas, including the Ask section.
-- The fallback handler prompts users to use menu buttons.
-
-**Updated** The ask handler now provides a sophisticated multi-step dialog flow that captures user questions through a structured interface with proper state management.
+The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant and generates contextualized responses.
 
 ```mermaid
 sequenceDiagram
 participant User as "User"
-participant VK as "VK Bot"
-participant Start as "Start Handler"
-participant Ask as "Ask Handler"
-participant HRRequest as "HR Request Handler"
-participant Fallback as "Fallback Handler"
-User->>VK : "/start" or "Start"
-VK->>Start : match
-Start-->>User : greeting + main menu
-User->>VK : payload "Ask"
-VK->>Ask : match (CMD_ASK)
-Ask-->>User : prompt + ask_input_kb
-User->>VK : free-text question
-VK->>Ask : state=ASK_QUESTION
-Ask-->>User : rag_stub response + service buttons
-User->>VK : arbitrary text
-VK->>Fallback : match (last)
-Fallback-->>User : prompt to use menu
+participant VKBot as "VK Bot"
+participant AskHandler as "Ask Handler"
+participant QAService as "QA Service"
+participant RAGChain as "RAG Chain"
+participant Qdrant as "Qdrant Vector Store"
+participant LLM as "Language Model"
+User->>VKBot : "❓ Задать вопрос"
+VKBot->>AskHandler : CMD_ASK payload
+AskHandler->>AskHandler : Set ASK_QUESTION state
+AskHandler-->>User : Prompt + ask_input_kb
+User->>VKBot : Free-text question
+VKBot->>AskHandler : ASK_QUESTION state
+AskHandler->>QAService : Process question
+QAService->>RAGChain : build_rag_chain()
+RAGChain->>Qdrant : Similarity search (k=4)
+Qdrant-->>RAGChain : Retrieved documents
+RAGChain->>LLM : System prompt + context
+LLM-->>RAGChain : Generated response
+RAGChain-->>QAService : Formatted answer
+QAService-->>AskHandler : Response
+AskHandler-->>User : Answer + service buttons
 ```
 
 **Diagram sources**
-- [app/integrations/vk/bot.py:24-31](file://app/integrations/vk/bot.py#L24-L31)
-- [app/integrations/vk/handlers/start.py:31-33](file://app/integrations/vk/handlers/start.py#L31-L33)
 - [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
-- [app/integrations/vk/handlers/fallback.py:15-17](file://app/integrations/vk/handlers/fallback.py#L15-L17)
+- [app/domain/qa_service.py:62-76](file://app/domain/qa_service.py#L62-L76)
+- [app/rag/chain.py:61-80](file://app/rag/chain.py#L61-L80)
+- [app/rag/retriever.py:64-74](file://app/rag/retriever.py#L64-L74)
 
-**Section sources**
-- [app/integrations/vk/bot.py:24-31](file://app/integrations/vk/bot.py#L24-L31)
-- [app/integrations/vk/handlers/start.py:31-33](file://app/integrations/vk/handlers/start.py#L31-L33)
-- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
-- [app/integrations/vk/handlers/fallback.py:15-17](file://app/integrations/vk/handlers/fallback.py#L15-L17)
+## Detailed Component Analysis
 
-### Ask Handler - Multi-Step Dialog Flow
-The ask.py handler implements a sophisticated two-step dialog flow for capturing and processing free-form questions:
+### VK Bot Integration
+The VK bot maintains its existing handler structure while integrating the new RAG capabilities. The ask handler now serves as the entry point for free-form questions and coordinates with the QA service for RAG processing.
 
-**Step 1: Entry Point (CMD_ASK)**
-- Sets the ASK_QUESTION state using the shared state dispenser
-- Prompts user to enter their question
-- Displays ask_input_kb keyboard with service buttons
-
-**Step 2: State Handler (ASK_QUESTION)**
-- Captures free-text input from user
-- Validates non-empty input
-- Clears state after processing
-- Returns standardized rag_stub response
+**Updated** The ask handler provides a sophisticated multi-step dialog flow with proper state management and seamless integration with the RAG infrastructure.
 
 ```mermaid
 flowchart TD
@@ -286,467 +182,349 @@ ShowKB --> WaitInput["Wait for user input"]
 WaitInput --> Validate{"Is input empty?"}
 Validate --> |Yes| ShowError["Show error + ask_input_kb"]
 ShowError --> WaitInput
-Validate --> |No| ClearState["Clear state"]
-ClearState --> GenerateResponse["Generate rag_stub response"]
-GenerateResponse --> ShowResponse["Show response + service buttons"]
+Validate --> |No| ProcessQuestion["Process via QA Service + RAG"]
+ProcessQuestion --> ClearState["Clear state"]
+ClearState --> ShowResponse["Show RAG response + service buttons"]
 ShowResponse --> End(["Dialog complete"])
 ```
 
 **Diagram sources**
 - [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
-- [app/integrations/vk/states.py:15-17](file://app/integrations/vk/states.py#L15-L17)
-- [app/integrations/vk/handlers/hr_request.py:40-41](file://app/integrations/vk/handlers/hr_request.py#L40-L41)
+- [app/domain/qa_service.py:62-76](file://app/domain/qa_service.py#L62-L76)
 
 **Section sources**
+- [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
 - [app/integrations/vk/handlers/ask.py:1-63](file://app/integrations/vk/handlers/ask.py#L1-L63)
-- [app/integrations/vk/states.py:15-17](file://app/integrations/vk/states.py#L15-L17)
-- [app/integrations/vk/handlers/hr_request.py:40-41](file://app/integrations/vk/handlers/hr_request.py#L40-L41)
 
-### Keyboard and Navigation
-- The main menu keyboard organizes HR sections and service actions. The service row pattern ensures Back/Home/Contact HR are always accessible.
-- The ask_input_kb keyboard provides specialized input interface for free-text questions.
-- Stub keyboards reuse the service row for placeholder screens.
+### Ask Handler - Multi-Step Dialog Flow
+The ask handler implements a sophisticated two-step dialog flow that captures user questions and processes them through the RAG pipeline:
 
-```mermaid
-flowchart TD
-Start(["Menu Request"]) --> BuildKB["Build Main Menu Keyboard"]
-BuildKB --> AddSections["Add HR Sections"]
-AddSections --> AddService["Add Service Row<br/>Back/Home/Contact HR"]
-AddService --> Render["Render Keyboard"]
-Render --> End(["Menu Ready"])
-```
+**Step 1: Entry Point (CMD_ASK)**
+- Sets the ASK_QUESTION state using the shared state dispenser
+- Prompts user to enter their question
+- Displays ask_input_kb keyboard with service buttons
 
-**Diagram sources**
-- [app/integrations/vk/keyboards.py:56-98](file://app/integrations/vk/keyboards.py#L56-L98)
-- [app/integrations/vk/keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
-- [app/integrations/vk/keyboards.py:221-225](file://app/integrations/vk/keyboards.py#L221-L225)
+**Step 2: State Handler (ASK_QUESTION)**
+- Captures free-text input from user
+- Validates non-empty input
+- Processes question through QA service and RAG chain
+- Clears state after processing
+- Returns formatted response with service buttons
 
 **Section sources**
-- [app/integrations/vk/keyboards.py:56-98](file://app/integrations/vk/keyboards.py#L56-L98)
-- [app/integrations/vk/keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
-- [app/integrations/vk/keyboards.py:221-225](file://app/integrations/vk/keyboards.py#L221-L225)
+- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
 
-### RAG Pipeline and Retrieval Mechanisms
-- Ingestion: Documents are processed from MinIO, chunked, embedded, and stored in Qdrant. Metadata includes filename, section, and entity where applicable.
-- Retrieval: Dense retrieval from Qdrant is orchestrated by a LangChain retriever. A prompt template guides the LLM response generation.
-- Chain: The RAG chain composes retriever + prompt + LLM, initialized during FastAPI lifespan.
-- Stub Service: The centralized rag_stub function provides standardized placeholder responses while the real RAG system is being implemented.
+## RAG Infrastructure Implementation
 
-**Updated** The rag_stub function serves as a placeholder that will be replaced with actual LangChain integration once the RAG pipeline is complete, providing consistent responses across all HR-related topics.
+### Configuration Management
+The Settings class provides comprehensive configuration for the RAG infrastructure with sensible defaults and environment variable support:
 
-```mermaid
-flowchart TD
-DocIngest["Document Upload<br/>MinIO"] --> Chunk["Chunking"]
-Chunk --> Embed["Embeddings"]
-Embed --> Store["Store in Qdrant"]
-UserQuery["Free-form Question"] --> Retrieve["Dense Retrieval from Qdrant"]
-Retrieve --> Prompt["System Prompt + Context"]
-Prompt --> LLM["LLM Response"]
-LLM --> Answer["Answer to User"]
-Stub["RAG Stub Service<br/>rag_stub()"] --> Answer
-```
+- **Qdrant Configuration**: URL, API key, and collection name for vector storage
+- **LLM Provider Options**: Support for both Ollama and OpenAI-compatible providers
+- **Model Specifications**: Configurable model names and base URLs
+- **Embedding Models**: Flexible embedding model selection
 
-**Diagram sources**
-- [PLAN.md:141-149](file://PLAN.md#L141-L149)
-- [docker-compose.yml:18-28](file://docker-compose.yml#L18-L28)
-- [pyproject.toml:14-31](file://pyproject.toml#L14-L31)
-- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
-
-**Section sources**
-- [PLAN.md:141-149](file://PLAN.md#L141-L149)
-- [docker-compose.yml:18-28](file://docker-compose.yml#L18-L28)
-- [pyproject.toml:14-31](file://pyproject.toml#L14-L31)
-- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
-
-### LangChain Integration Patterns
-- Core: LangChain >= 0.3.0 is declared.
-- Optional adapters:
-  - OpenAI-compatible: langchain-openai >= 0.2.0
-  - Ollama: langchain-ollama >= 0.2.0
-- Qdrant integration: langchain-qdrant >= 0.2.1, qdrant-client >= 1.10.0
+**Updated** Enhanced configuration management with comprehensive RAG-specific settings and provider flexibility.
 
 ```mermaid
 classDiagram
-class LangChain {
-+core()
-+prompts()
-+chains()
+class Settings {
++vk_access_token : str
++vk_group_id : int
++qdrant_url : str
++qdrant_api_key : str | None
++qdrant_collection : str
++llm_provider : str
++llm_model : str
++llm_base_url : str
++llm_api_key : str
++embedding_model : str
 }
-class QdrantClient {
-+upsert()
-+search()
+class RAGConfig {
++build_llm()
++build_embeddings()
++build_vectorstore()
++build_retriever()
 }
-class OpenAIAdapter {
-+chat()
-}
-class OllamaAdapter {
-+chat()
-}
-class RagStubService {
-+rag_stub()
-}
-LangChain --> QdrantClient : "dense retrieval"
-LangChain --> OpenAIAdapter : "optional"
-LangChain --> OllamaAdapter : "optional"
-RagStubService --> LangChain : "placeholder"
+Settings --> RAGConfig : "provides configuration"
 ```
 
 **Diagram sources**
-- [pyproject.toml:14-31](file://pyproject.toml#L14-L31)
-- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
+- [app/config.py:4-23](file://app/config.py#L4-L23)
+- [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
+- [app/rag/retriever.py:22-48](file://app/rag/retriever.py#L22-L48)
 
 **Section sources**
-- [pyproject.toml:14-31](file://pyproject.toml#L14-L31)
-- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
+- [app/config.py:4-23](file://app/config.py#L4-L23)
 
-### Qdrant Vector Database Setup
-- Service definition: Qdrant image, ports, persistent volume, health check.
-- Collection: hr_documents is to be created for storing embeddings and metadata.
-- Access: Qdrant URL and optional API key are exposed via Settings.
+### RAG Chain Construction
+The build_rag_chain function creates a complete LangChain pipeline that orchestrates the entire RAG process:
 
-```mermaid
-graph LR
-Compose["docker-compose.yml"] --> QdrantSvc["Qdrant Service"]
-QdrantSvc --> Ports["6333/tcp, 6334/tcp"]
-QdrantSvc --> Volume["Volume: qdrant_storage"]
-QdrantSvc --> Health["Healthcheck"]
-Settings["Settings.qdrant_url / qdrant_api_key"] --> QdrantSvc
-```
+- **Document Formatting**: Combines retrieved documents with custom separator formatting
+- **Prompt Composition**: Uses system prompt with dynamic context injection
+- **LLM Integration**: Supports both OpenAI-compatible and Ollama providers
+- **Output Parsing**: Converts LLM output to clean text response
 
-**Diagram sources**
-- [docker-compose.yml:2-16](file://docker-compose.yml#L2-L16)
-- [AGENTS.md:38-41](file://AGENTS.md#L38-L41)
-
-**Section sources**
-- [docker-compose.yml:2-16](file://docker-compose.yml#L2-L16)
-- [AGENTS.md:38-41](file://AGENTS.md#L38-L41)
-
-### Document Ingestion Pipeline
-- Ingest script: python-docx → chunking → embeddings → Qdrant.
-- Constraints: Only .docx; metadata includes filename, section, and entity.
-- Storage: MinIO for raw documents; Qdrant for vectors.
+**Updated** Complete implementation of the RAG chain with comprehensive error handling and logging.
 
 ```mermaid
 flowchart TD
-Start(["Start Ingestion"]) --> LoadDoc["Load .docx from MinIO"]
-LoadDoc --> Split["Split into Chunks"]
-Split --> Embed["Generate Embeddings"]
-Embed --> Upsert["Upsert to Qdrant<br/>Collection: hr_documents"]
-Upsert --> Done(["Ready for Retrieval"])
+Input["User Question"] --> FormatDocs["_format_docs()"]
+FormatDocs --> Prompt["ChatPromptTemplate"]
+Prompt --> LLM["BaseChatModel"]
+LLM --> Parser["StrOutputParser"]
+Parser --> Output["Formatted Response"]
+subgraph "RAG Chain Components"
+FormatDocs --> Prompt
+Prompt --> LLM
+LLM --> Parser
+end
 ```
 
 **Diagram sources**
-- [PLAN.md:141-144](file://PLAN.md#L141-L144)
-- [docker-compose.yml:18-28](file://docker-compose.yml#L18-L28)
+- [app/rag/chain.py:25-80](file://app/rag/chain.py#L25-L80)
 
 **Section sources**
-- [PLAN.md:141-144](file://PLAN.md#L141-L144)
-- [docker-compose.yml:18-28](file://docker-compose.yml#L18-L28)
+- [app/rag/chain.py:1-80](file://app/rag/chain.py#L1-L80)
 
-### Free-form Question Processing
-- Ask section: Now fully implemented with multi-step dialog flow and proper state management.
-- Retrieval: Dense retrieval from Qdrant collection (planned).
-- Prompting: System prompt guiding concise, step-by-step answers without personal data (planned).
-- LLM: Configurable via adapters (OpenAI-compatible or Ollama) (planned).
-- Stub Service: rag_stub function provides standardized placeholder responses.
+### Vector Store and Retrieval
+The retriever module provides comprehensive vector store integration with Qdrant:
 
-**Updated** The Ask handler now provides a complete multi-step dialog flow with proper state management, serving as a foundation for the upcoming LangChain integration.
+- **Embedding Models**: Support for both OpenAI embeddings and Ollama embeddings
+- **Vector Store Creation**: Wraps Qdrant collection into LangChain vector store
+- **Retrieval Configuration**: Configurable similarity search parameters
+- **Collection Management**: Automatic collection creation and management
+
+**Updated** Full implementation of vector store integration with comprehensive error handling and provider flexibility.
 
 ```mermaid
-sequenceDiagram
-participant User as "User"
-participant VK as "VK Bot"
-participant Ask as "Ask Handler"
-participant Chain as "RAG Chain"
-participant Qdrant as "Qdrant"
-participant LLM as "LLM"
-User->>VK : "Ask" payload
-VK->>Ask : trigger CMD_ASK
-Ask->>Ask : set ASK_QUESTION state
-Ask-->>User : prompt + ask_input_kb
-User->>VK : free-text question
-VK->>Ask : state=ASK_QUESTION
-Ask->>Ask : validate input
-Ask->>Chain : trigger RAG (planned)
-Chain->>Qdrant : similarity search (planned)
-Qdrant-->>Chain : relevant chunks (planned)
-Chain->>LLM : prompt + context (planned)
-LLM-->>Chain : answer (planned)
-Chain-->>Ask : formatted response (planned)
-Ask-->>User : answer + service buttons
+classDiagram
+class QdrantVectorStore {
++client : QdrantClient
++collection_name : str
++embedding : Embeddings
++as_retriever()
+}
+class Embeddings {
++model : str
++base_url : str
++api_key : str
+}
+class VectorStoreRetriever {
++search_kwargs : dict
++get_relevant_documents()
+}
+QdrantVectorStore --> Embeddings : "uses"
+VectorStoreRetriever --> QdrantVectorStore : "created from"
 ```
 
 **Diagram sources**
-- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
-- [app/integrations/vk/handlers/sections.py:76-81](file://app/integrations/vk/handlers/sections.py#L76-L81)
-- [PLAN.md:146-149](file://PLAN.md#L146-L149)
-- [docker-compose.yml:2-16](file://docker-compose.yml#L2-L16)
-- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
+- [app/rag/retriever.py:51-74](file://app/rag/retriever.py#L51-L74)
+- [app/rag/retriever.py:22-48](file://app/rag/retriever.py#L22-L48)
 
 **Section sources**
-- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
-- [app/integrations/vk/handlers/sections.py:76-81](file://app/integrations/vk/handlers/sections.py#L76-L81)
-- [PLAN.md:146-149](file://PLAN.md#L146-L149)
-- [docker-compose.yml:2-16](file://docker-compose.yml#L2-L16)
-- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
+- [app/rag/retriever.py:1-74](file://app/rag/retriever.py#L1-L74)
 
-### Integration with Existing Bot Architecture
-- VK handlers remain largely unchanged except replacing Ask stub with RAG invocation.
-- Lifespan initializes Qdrant connection, MinIO client, and LangChain chain.
-- Webhook replaces polling for production deployments.
-- State management is centralized through the shared state dispenser.
+## Configuration Management
 
-**Updated** The ask handler integrates seamlessly with the existing bot architecture through proper state management and shared state dispenser.
+### Settings Class
+The Settings class provides comprehensive configuration management for the RAG infrastructure:
+
+- **Qdrant Settings**: URL, API key, and collection name with sensible defaults
+- **LLM Provider Configuration**: Support for both Ollama and OpenAI-compatible providers
+- **Model Selection**: Configurable model names and base URLs for flexible deployment
+- **Environment Variable Support**: Full configuration via environment variables
+
+**Updated** Enhanced configuration with comprehensive RAG-specific settings and provider flexibility.
+
+**Section sources**
+- [app/config.py:4-23](file://app/config.py#L4-L23)
+
+### Dependency Management
+The pyproject.toml file includes comprehensive dependencies for the RAG infrastructure:
+
+- **Core Dependencies**: FastAPI, LangChain, Qdrant client, and VK integration
+- **Optional Dependencies**: OpenAI-compatible and Ollama adapters for flexible deployment
+- **Development Dependencies**: Testing and linting tools for quality assurance
+
+**Updated** Expanded dependency management with comprehensive LangChain and Qdrant integration.
+
+**Section sources**
+- [pyproject.toml:14-33](file://pyproject.toml#L14-L33)
+
+## Document Ingestion Pipeline
+
+### Word Document Processing
+The ingestion script provides comprehensive document processing capabilities:
+
+- **Section Extraction**: Extracts headings and associated content from Word documents
+- **Chunking Strategy**: Uses recursive character splitting with configurable chunk size and overlap
+- **Metadata Preservation**: Maintains source filename and section information
+- **Collection Management**: Handles collection recreation and cleanup
+
+**Updated** Complete implementation of document ingestion with comprehensive error handling and metadata preservation.
+
+```mermaid
+flowchart TD
+DocxFile[".docx File"] --> ExtractSections["_extract_sections()"]
+ExtractSections --> SplitText["RecursiveCharacterTextSplitter"]
+SplitText --> CreateDocuments["Create LangChain Documents"]
+CreateDocuments --> BuildEmbeddings["build_embeddings()"]
+BuildEmbeddings --> StoreQdrant["QdrantVectorStore.from_documents()"]
+StoreQdrant --> Success["Ingestion Complete"]
+```
+
+**Diagram sources**
+- [scripts/ingest.py:44-166](file://scripts/ingest.py#L44-L166)
+
+**Section sources**
+- [scripts/ingest.py:1-192](file://scripts/ingest.py#L1-L192)
+
+### Ingestion Workflow
+The ingestion process follows a systematic approach to prepare documents for RAG:
+
+1. **File Discovery**: Scans directory for .docx files
+2. **Section Extraction**: Identifies document sections using heading styles
+3. **Text Chunking**: Splits content into manageable chunks
+4. **Metadata Assignment**: Adds source and section information
+5. **Vector Generation**: Creates embeddings for each chunk
+6. **Storage**: Stores vectors in Qdrant collection
+
+**Updated** Comprehensive ingestion workflow with error handling and progress reporting.
+
+**Section sources**
+- [scripts/ingest.py:111-166](file://scripts/ingest.py#L111-L166)
+
+## LangChain Integration
+
+### Provider Flexibility
+The RAG infrastructure supports multiple LLM providers through a unified interface:
+
+- **Ollama Support**: Local inference with configurable model selection
+- **OpenAI Compatibility**: Cloud-based LLMs with API key authentication
+- **Provider Detection**: Automatic provider selection based on configuration
+- **Error Handling**: Comprehensive error handling for missing dependencies
+
+**Updated** Complete implementation of provider flexibility with comprehensive error handling.
+
+```mermaid
+flowchart TD
+ProviderConfig["llm_provider setting"] --> CheckOpenAI{"Provider == 'openai'?"}
+CheckOpenAI --> |Yes| OpenAIAdapter["langchain-openai"]
+CheckOpenAI --> |No| OllamaAdapter["langchain-ollama"]
+OpenAIAdapter --> ChatOpenAI["ChatOpenAI"]
+OllamaAdapter --> ChatOllama["ChatOllama"]
+ChatOpenAI --> LLMInstance["BaseChatModel"]
+ChatOllama --> LLMInstance
+```
+
+**Diagram sources**
+- [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
+
+**Section sources**
+- [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
+
+### System Prompts
+The system prompts provide specialized instructions for HR-focused RAG:
+
+- **HR Assistant Role**: Defines the AI as an HR assistant
+- **Response Guidelines**: Specifies concise, structured responses
+- **Privacy Protection**: Emphasizes confidentiality and personal data protection
+- **Russian Language**: Provides instructions in Russian for local compliance
+
+**Updated** Comprehensive system prompts with HR-specific guidelines and privacy requirements.
+
+**Section sources**
+- [app/rag/prompts.py:5-19](file://app/rag/prompts.py#L5-L19)
+
+## Testing Framework
+
+### Comprehensive Test Coverage
+The test suite provides extensive coverage for the RAG infrastructure:
+
+- **Configuration Testing**: Validates settings loading and environment variable support
+- **Document Processing**: Tests Word document parsing and section extraction
+- **Chunking Validation**: Ensures proper text splitting and metadata preservation
+- **Chain Building**: Verifies RAG chain construction and execution
+- **Vector Store Integration**: Tests Qdrant integration and retrieval capabilities
+
+**Updated** Complete test coverage for all RAG infrastructure components with comprehensive validation scenarios.
 
 ```mermaid
 graph TB
-Bot["VK Bot"] --> Handlers["Handlers"]
-Handlers --> Lifespan["Lifespan Init"]
-Lifespan --> Qdrant["Qdrant Client"]
-Lifespan --> MinIO["MinIO Client"]
-Lifespan --> Chain["RAG Chain"]
-Bot --> Webhook["FastAPI Webhook"]
-Webhook --> Chain
-Handlers --> AskHandler["Ask Handler<br/>Multi-step Dialog"]
-AskHandler --> States["ASK_QUESTION State"]
-AskHandler --> RagStub["RAG Stub Service"]
+TestSuite["RAG Block 6 Tests"] --> ConfigTests["Configuration Tests"]
+TestSuite --> DocxTests["Document Processing Tests"]
+TestSuite --> PromptTests["System Prompt Tests"]
+TestSuite --> ChainTests["RAG Chain Tests"]
+TestSuite --> VectorTests["Vector Store Tests"]
+ConfigTests --> SettingsValidation["Settings Validation"]
+DocxTests --> SectionExtraction["Section Extraction"]
+DocxTests --> ChunkingValidation["Chunking Validation"]
+ChainTests --> ChainBuilding["Chain Building"]
+ChainTests --> FormatDocs["Format Docs Function"]
+VectorTests --> CollectionName["Collection Name"]
+VectorTests --> VectorStoreCreation["Vector Store Creation"]
 ```
 
 **Diagram sources**
-- [app/integrations/vk/bot.py:24-31](file://app/integrations/vk/bot.py#L24-L31)
-- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
-- [app/integrations/vk/states.py:15-17](file://app/integrations/vk/states.py#L15-L17)
-- [PLAN.md:132-135](file://PLAN.md#L132-L135)
+- [tests/test_rag_block6.py:34-73](file://tests/test_rag_block6.py#L34-L73)
+- [tests/test_rag_block6.py:77-176](file://tests/test_rag_block6.py#L77-L176)
+- [tests/test_rag_block6.py:181-197](file://tests/test_rag_block6.py#L181-L197)
+- [tests/test_rag_block6.py:202-216](file://tests/test_rag_block6.py#L202-L216)
+- [tests/test_rag_block6.py:221-238](file://tests/test_rag_block6.py#L221-L238)
+- [tests/test_rag_block6.py:243-251](file://tests/test_rag_block6.py#L243-L251)
 
 **Section sources**
-- [app/integrations/vk/bot.py:24-31](file://app/integrations/vk/bot.py#L24-L31)
-- [app/integrations/vk/handlers/ask.py:26-63](file://app/integrations/vk/handlers/ask.py#L26-L63)
-- [app/integrations/vk/states.py:15-17](file://app/integrations/vk/states.py#L15-L17)
-- [PLAN.md:132-135](file://PLAN.md#L132-L135)
-
-## Enhanced RAG Stub Implementation
-
-### Centralized RAG Stub Service
-The rag_stub function provides standardized placeholder responses for all RAG functionality:
-
-- **Standardized Format**: All responses start with an info emoji and mention knowledge base integration
-- **Contextual Content**: Incorporates the user's question/topic into the response
-- **Fallback Guidance**: Directs users to contact HR for unavailable information
-- **Consistent Messaging**: Maintains uniform tone and structure across all RAG responses
-
-**Updated** The rag_stub function now serves as a centralized service that provides consistent responses across all HR-related topics, including new implementations for vacation schedule navigator and dismissal grounds.
-
-### Comprehensive Topic Coverage
-
-#### Vacation Schedule Navigator (FR-11)
-The vacation schedule navigator provides specialized responses for employee scheduling questions:
-
-- **Topic**: "Навигатор по графику отпусков"
-- **Implementation**: Dedicated handler in vacation.py module
-- **Usage Pattern**: Standardized rag_stub response with service keyboard
-- **Integration**: Part of the vacation section menu flow
-
-#### Dismissal Grounds (FR-12)
-The dismissal grounds handler provides information about termination policies:
-
-- **Topic**: "Основания увольнения"
-- **Implementation**: Dedicated handler in fire.py module
-- **Usage Pattern**: Standardized rag_stub response with service keyboard
-- **Integration**: Part of the fire section menu flow
-
-#### Enhanced Standardization Across Topics
-The RAG stub service now provides consistent patterns across all HR-related topics:
-
-- **Vacation Procedures**: "Порядок оформления отпуска"
-- **Voluntary Dismissal**: "Увольнение по собственному желанию"
-- **Overtime Payments**: "Оплата сверхурочных и выходных"
-- **Bonus Conditions**: "Условия премирования"
-- **Sick Leave/Employment Leave Notes**: "Больничный / ЭЛН"
-- **Probation Period**: "Испытательный срок"
-
-**Updated** All handler modules now consistently use the centralized rag_stub function, eliminating duplicated implementations and ensuring uniform response patterns.
-
-```mermaid
-flowchart TD
-CentralStub["Centralized rag_stub()<br/>app/domain/content.py"] --> Vacation["Vacation Handlers<br/>vacation.py"]
-CentralStub --> Fire["Fire Handlers<br/>fire.py"]
-CentralStub --> Pay["Pay Handlers<br/>pay.py"]
-CentralStub --> Sections["Sections Handlers<br/>sections.py"]
-CentralStub --> Ask["Ask Handler<br/>ask.py"]
-Vacation --> VacationRAG["Vacation RAG<br/>FR-7, FR-11"]
-Fire --> FireRAG["Fire RAG<br/>FR-5, FR-12"]
-Pay --> PayRAG["Pay RAG<br/>FR-9, FR-10"]
-Sections --> OtherRAG["Other RAG<br/>FR-13, FR-15"]
-Ask --> FreeFormRAG["Free-form RAG"]
-VacationRAG --> Qdrant["Qdrant Retrieval"]
-FireRAG --> Qdrant
-PayRAG --> Qdrant
-OtherRAG --> Qdrant
-FreeFormRAG --> Qdrant
-```
-
-**Diagram sources**
-- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
-- [app/integrations/vk/handlers/vacation.py:71-87](file://app/integrations/vk/handlers/vacation.py#L71-L87)
-- [app/integrations/vk/handlers/fire.py:60-76](file://app/integrations/vk/handlers/fire.py#L60-L76)
-- [app/integrations/vk/handlers/pay.py:36-52](file://app/integrations/vk/handlers/pay.py#L36-L52)
-- [app/integrations/vk/handlers/sections.py:25-41](file://app/integrations/vk/handlers/sections.py#L25-L41)
-- [app/integrations/vk/handlers/ask.py:41-62](file://app/integrations/vk/handlers/ask.py#L41-L62)
-
-**Section sources**
-- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
-- [app/integrations/vk/handlers/vacation.py:71-87](file://app/integrations/vk/handlers/vacation.py#L71-L87)
-- [app/integrations/vk/handlers/fire.py:60-76](file://app/integrations/vk/handlers/fire.py#L60-L76)
-- [app/integrations/vk/handlers/pay.py:36-52](file://app/integrations/vk/handlers/pay.py#L36-L52)
-- [app/integrations/vk/handlers/sections.py:25-41](file://app/integrations/vk/handlers/sections.py#L25-L41)
-- [app/integrations/vk/handlers/ask.py:41-62](file://app/integrations/vk/handlers/ask.py#L41-L62)
-
-### Testing Framework for RAG Stub Functionality
-The testing framework validates the enhanced RAG stub implementation:
-
-- **Standardized Response Validation**: Tests ensure rag_stub returns consistent format with info emoji, KB marker, and HR fallback guidance
-- **Topic-Specific Coverage**: Tests validate specific topics including vacation schedule navigator and dismissal grounds
-- **Handler Integration Verification**: Tests ensure all handler modules import and use the centralized rag_stub function
-- **Pattern Consistency**: Tests verify different topics produce different responses while maintaining consistent structure
-
-**Updated** The testing framework now includes comprehensive validation for the new FR-11 and FR-12 implementations, ensuring proper integration across all handler modules.
-
-**Section sources**
-- [tests/test_rag_stub_block3.py:6-31](file://tests/test_rag_stub_block3.py#L6-L31)
-- [tests/test_rag_stub_block3.py:74-98](file://tests/test_rag_stub_block3.py#L74-L98)
-
-## Dependency Analysis
-- VK bot depends on vkbottle and handler modules.
-- RAG stack depends on LangChain, Qdrant client, and optional adapters.
-- Infra dependencies include Qdrant and MinIO services.
-- Model runtimes support local inference via llama.cpp and Ollama.
-- Ask handler depends on shared state dispenser and rag_stub service.
-- All handler modules depend on the centralized rag_stub function.
-
-**Updated** The ask handler introduces new dependencies on the shared state dispenser and rag_stub service, while all other handler modules now consistently depend on the centralized rag_stub function for standardized responses.
-
-```mermaid
-graph LR
-VK["vkbottle"] --> Bot["VK Bot Factory"]
-Bot --> Handlers["Handlers"]
-Bot --> Keyboards["Keyboards"]
-Bot --> States["States"]
-Handlers --> AskHandler["Ask Handler"]
-Handlers --> HRRequest["HR Request Handler"]
-Handlers --> VacationHandler["Vacation Handler"]
-Handlers --> FireHandler["Fire Handler"]
-Handlers --> PayHandler["Pay Handler"]
-Handlers --> SectionsHandler["Sections Handler"]
-AskHandler --> StateDispenser["Shared State Dispenser"]
-AskHandler --> RagStub["RAG Stub Service"]
-VacationHandler --> RagStub
-FireHandler --> RagStub
-PayHandler --> RagStub
-SectionsHandler --> RagStub
-HRRequest --> StateDispenser
-LC["LangChain"] --> Qdrant["Qdrant Client"]
-LC --> OA["OpenAI Adapter"]
-LC --> OL["Ollama Adapter"]
-Infra["docker-compose.yml"] --> Qdrant
-Infra --> MinIO["MinIO"]
-Scripts["Model Runners"] --> LC
-```
-
-**Diagram sources**
-- [pyproject.toml:18-21](file://pyproject.toml#L18-L21)
-- [pyproject.toml:14-31](file://pyproject.toml#L14-L31)
-- [docker-compose.yml:2-28](file://docker-compose.yml#L2-L28)
-- [scripts/run_llama_qwen.sh:52-58](file://scripts/run_llama_qwen.sh#L52-L58)
-- [scripts/run_ollama_qwen.sh:68-73](file://scripts/run_ollama_qwen.sh#L68-L73)
-- [app/integrations/vk/handlers/ask.py:28-30](file://app/integrations/vk/handlers/ask.py#L28-L30)
-- [app/integrations/vk/handlers/hr_request.py:40-41](file://app/integrations/vk/handlers/hr_request.py#L40-L41)
-
-**Section sources**
-- [pyproject.toml:14-31](file://pyproject.toml#L14-L31)
-- [docker-compose.yml:2-28](file://docker-compose.yml#L2-L28)
-- [scripts/run_llama_qwen.sh:52-58](file://scripts/run_llama_qwen.sh#L52-L58)
-- [scripts/run_ollama_qwen.sh:68-73](file://scripts/run_ollama_qwen.sh#L68-L73)
-- [app/integrations/vk/handlers/ask.py:28-30](file://app/integrations/vk/handlers/ask.py#L28-L30)
-- [app/integrations/vk/handlers/hr_request.py:40-41](file://app/integrations/vk/handlers/hr_request.py#L40-L41)
+- [tests/test_rag_block6.py:1-251](file://tests/test_rag_block6.py#L1-L251)
 
 ## Performance Considerations
-- Vector search latency: Optimize embedding dimensionality and Qdrant index parameters; consider sharding and replicas for scale.
-- Throughput: Batch ingestion and parallel embedding generation; tune Qdrant write concurrency.
-- Memory footprint: Use quantized models (as indicated by scripts) and limit context length for LLM calls.
-- Network: Place Qdrant and MinIO close to the FastAPI service; enable keep-alive and connection pooling.
-- Caching: Cache frequent queries and precompute embeddings for static HR documents.
-- Monitoring: Track p95 latencies for retrieval and generation; alert on Qdrant health and Ollama/llama-server readiness.
-- State Management: Proper state handling prevents memory leaks and ensures clean dialog termination.
-- **Centralized Service**: The centralized rag_stub function reduces memory overhead by eliminating duplicated implementations across handler modules.
 
-**Updated** The centralized rag_stub service reduces memory overhead and improves performance by eliminating duplicated implementations across multiple handler modules.
+### Optimization Strategies
+The RAG infrastructure includes several performance optimization strategies:
+
+- **Vector Search Efficiency**: Configurable k-value for balancing relevance and performance
+- **Embedding Model Selection**: Choice between local Ollama and cloud OpenAI embeddings
+- **Memory Management**: Proper cleanup of Qdrant clients and embedding models
+- **Connection Pooling**: Efficient management of database connections
+- **Caching Strategies**: Potential for caching frequently accessed documents
+
+**Updated** Comprehensive performance considerations for production deployment with optimization strategies.
+
+### Scalability Planning
+The architecture supports horizontal scaling through:
+
+- **Qdrant Sharding**: Horizontal scaling of vector database
+- **Load Balancing**: Multiple LLM instances for high-throughput scenarios
+- **Caching Layers**: Redis or similar caching for frequently accessed results
+- **Asynchronous Processing**: Non-blocking operations for better throughput
 
 ## Troubleshooting Guide
-- VK bot initialization:
-  - Verify token forwarding and handler registration counts.
-  - Confirm fallback is last and start is first in the labeler list.
-  - Ensure ask handler is registered before fallback handler.
-- Environment and settings:
-  - Ensure VK tokens and RAG settings are present; Qdrant URL and optional API key are configured.
-- Qdrant:
-  - Confirm health checks pass; port exposure and persistent volume are set.
-- MinIO:
-  - Validate credentials and bucket name; ensure documents are uploaded before ingestion.
-- Model runtimes:
-  - For llama.cpp, verify model path and llama-server availability.
-  - For Ollama, confirm server startup and model presence; use smoke test output to validate chat endpoint.
-- Ask Handler Issues:
-  - Verify ASK_QUESTION state is properly set and cleared.
-  - Check that rag_stub function is imported correctly.
-  - Ensure state dispenser is shared between handlers.
-- **RAG Stub Issues**:
-  - Verify all handler modules import rag_stub from app.domain.content.
-  - Check that rag_stub function returns consistent format with info emoji and KB marker.
-  - Ensure topic-specific implementations (FR-11, FR-12) are properly integrated.
-  - Validate that tests pass for all RAG stub functionality.
 
-**Updated** Added troubleshooting guidance for the new RAG stub functionality and centralized service integration.
+### Common Issues and Solutions
+The RAG infrastructure includes comprehensive error handling and debugging capabilities:
+
+- **Configuration Issues**: Missing environment variables or incorrect settings
+- **Provider Setup**: Missing optional dependencies for selected LLM provider
+- **Vector Store Connectivity**: Qdrant connection problems or collection issues
+- **Document Processing**: Word document parsing errors or unsupported formats
+- **Memory Issues**: Insufficient RAM for embedding generation or vector storage
+
+**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure.
+
+### Debugging Tools
+Available debugging and monitoring capabilities:
+
+- **Logging Configuration**: Comprehensive logging throughout the RAG pipeline
+- **Health Checks**: Qdrant health verification and connection testing
+- **Performance Metrics**: Timing and throughput measurements
+- **Error Reporting**: Detailed error messages with context information
 
 **Section sources**
-- [tests/test_bot_factory.py:8-21](file://tests/test_bot_factory.py#L8-L21)
-- [tests/test_bot_factory.py:23-44](file://tests/test_bot_factory.py#L23-L44)
-- [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
-- [tests/test_rag_stub_block3.py:6-31](file://tests/test_rag_stub_block3.py#L6-L31)
-- [AGENTS.md:20-48](file://AGENTS.md#L20-L48)
-- [docker-compose.yml:11-16](file://docker-compose.yml#L11-L16)
-- [scripts/run_llama_qwen.sh:32-41](file://scripts/run_llama_qwen.sh#L32-L41)
-- [scripts/run_ollama_qwen.sh:36-52](file://scripts/run_ollama_qwen.sh#L36-L52)
+- [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
+- [app/rag/retriever.py:22-48](file://app/rag/retriever.py#L22-L48)
+- [scripts/ingest.py:137-166](file://scripts/ingest.py#L137-L166)
 
 ## Conclusion
-The RAG integration extends the VK bot with contextual, reliable answers drawn from HR documents. By leveraging LangChain, Qdrant, and optional OpenAI-compatible or Ollama adapters, the system supports scalable retrieval and generation. The enhanced ingestion pipeline, infrastructure setup, and integration points outlined here provide a clear roadmap to production-ready RAG capabilities that enhance HR assistance without disrupting existing user flows.
+The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities. The implementation includes complete LangChain integration, Qdrant vector store setup, document ingestion pipelines, and comprehensive testing frameworks. The system seamlessly integrates with the existing VK bot architecture while providing powerful contextual response generation capabilities that significantly enhance HR assistance functionality.
 
-**Updated** The implementation now includes comprehensive RAG stub functionality for vacation schedule navigator and dismissal grounds, with centralized service management that ensures consistent responses across all HR-related topics. The standardized response patterns improve user experience while providing a solid foundation for the upcoming LangChain integration.
-
-## Appendices
-
-### Practical Setup Examples
-- Start Qdrant and MinIO:
-  - Use the provided docker-compose service definitions for Qdrant and MinIO.
-- Configure environment:
-  - Set VK tokens and RAG settings (Qdrant URL, optional API key, LLM API key).
-- Run local LLM:
-  - Use the provided scripts to launch llama.cpp or Ollama with appropriate parameters.
-- Plan ingestion:
-  - Implement the ingestion pipeline per the plan, targeting the hr_documents collection.
-- Test RAG Stub:
-  - Use the test suite to verify rag_stub function behavior and handler integration.
-- **Validate Enhanced Functionality**:
-  - Test vacation schedule navigator (FR-11) and dismissal grounds (FR-12) implementations.
-  - Verify centralized rag_stub service integration across all handler modules.
-  - Ensure consistent response patterns and standardized messaging.
-
-**Updated** Added testing guidance for the new RAG stub functionality and centralized service validation.
-
-**Section sources**
-- [docker-compose.yml:2-28](file://docker-compose.yml#L2-L28)
-- [AGENTS.md:20-48](file://AGENTS.md#L20-L48)
-- [scripts/run_llama_qwen.sh:52-58](file://scripts/run_llama_qwen.sh#L52-L58)
-- [scripts/run_ollama_qwen.sh:68-73](file://scripts/run_ollama_qwen.sh#L68-L73)
-- [PLAN.md:141-149](file://PLAN.md#L141-L149)
-- [tests/test_rag_stub_block3.py:6-31](file://tests/test_rag_stub_block3.py#L6-L31)
-- [tests/test_rag_stub_block3.py:74-98](file://tests/test_rag_stub_block3.py#L74-L98)
+**Updated** The implementation now provides a complete, tested RAG infrastructure that serves as the foundation for future enhancements and production deployment.

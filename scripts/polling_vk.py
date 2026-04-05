@@ -4,6 +4,7 @@ Usage:
     uv run python scripts/polling_vk.py
 """
 
+import atexit
 import logging
 import sys
 
@@ -11,6 +12,7 @@ import sys
 sys.path.insert(0, ".")
 
 from app.config import Settings
+from app.domain.qa_service import close_qa, init_qa
 from app.integrations.vk.bot import create_bot
 
 logging.basicConfig(
@@ -23,6 +25,10 @@ logger = logging.getLogger(__name__)
 def main() -> None:
     settings = Settings()
     bot = create_bot(settings)
+
+    init_qa(settings)
+    atexit.register(close_qa)
+
     logger.info("Starting VK bot in Long Poll mode …")
     bot.run_forever()
 
