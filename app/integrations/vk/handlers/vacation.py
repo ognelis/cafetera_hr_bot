@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain.content import vacation_template_text
+from app.domain.content import rag_stub, vacation_template_text
 from app.domain.entities import ENTITY_BY_ID
 from app.integrations.vk.keyboards import (
     CMD_VACATION,
@@ -21,12 +21,6 @@ from app.integrations.vk.keyboards import (
 from app.integrations.vk.rules import PayloadCmdRule
 
 bl = BotLabeler()
-
-_RAG_STUB = (
-    "🏖 Порядок оформления отпуска\n\n"
-    "Раздел в разработке.\n"
-    "Выберите другой пункт меню или напишите в HR."
-)
 
 
 # ── S-30: entry → vacation menu ────────────────────────────────────
@@ -76,6 +70,6 @@ async def on_vacation_template(message: Message, payload_data: dict) -> None:
 @bl.message(payload=CMD_VACATION_RAG)
 async def on_vacation_rag(message: Message) -> None:
     await message.answer(
-        _RAG_STUB,
+        rag_stub("Порядок оформления отпуска"),
         keyboard=stub_kb(back_payload=CMD_VACATION).get_json(),
     )

@@ -121,6 +121,21 @@ HR_REQUEST_URGENCY_OPTIONS: tuple[str, ...] = (
 )
 
 
+# ── RAG stub (Block 3) — placeholder until real RAG is wired ────
+
+
+def rag_stub(topic: str) -> str:
+    """Return a standardised RAG-stub message for *topic*.
+
+    Used while the knowledge-base pipeline is under development.
+    """
+    return (
+        f"ℹ️ {topic} — ответ формируется через базу знаний "
+        "(в разработке).\n"
+        "Обратитесь в HR или попробуйте позже."
+    )
+
+
 def format_hr_request(
     name: str,
     topic: str,

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain.content import FIRE_BYPASS_SHEET_TEXT, FIRE_LAST_DAY_CHECKLIST
+from app.domain.content import FIRE_BYPASS_SHEET_TEXT, FIRE_LAST_DAY_CHECKLIST, rag_stub
 from app.integrations.vk.keyboards import (
     CMD_FIRE,
     CMD_FIRE_BYPASS,
@@ -18,12 +18,6 @@ from app.integrations.vk.keyboards import (
 )
 
 bl = BotLabeler()
-
-_SECTION_STUB = (
-    "🚪 Увольнение по собственному желанию\n\n"
-    "Раздел в разработке.\n"
-    "Выберите другой пункт меню или напишите в HR."
-)
 
 
 # ── S-20: entry → fire section menu ───────────────────────────────
@@ -65,6 +59,6 @@ async def on_fire_bypass(message: Message) -> None:
 @bl.message(payload=CMD_FIRE_RAG)
 async def on_fire_rag(message: Message) -> None:
     await message.answer(
-        _SECTION_STUB,
+        rag_stub("Увольнение по собственному желанию"),
         keyboard=stub_kb(back_payload=CMD_FIRE).get_json(),
     )

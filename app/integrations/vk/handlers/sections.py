@@ -3,10 +3,13 @@
 Hire, fire, and vacation are now handled by dedicated handler modules
 (hire.py, fire.py, vacation.py).  This module keeps stubs for the
 remaining sections (Block 4+).
+
+Pay section shows a RAG stub for FR-10 (Условия премирования) per Block 3.
 """
 
 from vkbottle.bot import BotLabeler, Message
 
+from app.domain.content import rag_stub
 from app.integrations.vk.keyboards import (
     CMD_ASK,
     CMD_HOME,
@@ -30,7 +33,7 @@ def _section_stub(title: str) -> str:
 @bl.message(payload=CMD_PAY)
 async def on_pay(message: Message) -> None:
     await message.answer(
-        _section_stub("💰 Оплата и премии"),
+        rag_stub("Условия премирования"),
         keyboard=stub_kb(back_payload=CMD_HOME).get_json(),
     )
 
