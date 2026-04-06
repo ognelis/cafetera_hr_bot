@@ -43,6 +43,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel
 
 from app.api.deps import (
     AdminDep,
@@ -470,6 +471,168 @@ async def list_documents(
         "date_from": date_from,
         "date_to": date_to,
     }
+
+
+# ── Bulk operations (MUST be defined BEFORE any {document_id} routes) ─
+
+
+class BulkIdsRequest(BaseModel):
+    """Request body for bulk operations on document IDs."""
+
+    ids: list[str]
+
+
+class BulkSearchToggleRequest(BaseModel):
+    """Request body for bulk search toggle operation."""
+
+    ids: list[str]
+    enabled: bool
+
+
+@router.post("/api/documents/bulk/delete")
+async def bulk_delete_documents(
+    request: Request,
+    _auth: AdminDep,
+    s3: S3Dep,
+    service: ServiceDep,
+    repo: RepoDep,
+    templates: TemplatesDep,
+    body: BulkIdsRequest,
+):
+    """Delete multiple documents by ID. Returns refreshed document table partial."""
+    errors = []
+
+    for document_id in body.ids:
+        try:
+            record = await repo.get(document_id)
+            if record is None:
+                errors.append(f"Document {document_id}: not found")
+                continue
+
+            deleted = await service.delete_document(
+                document_id, file_deleter=s3.delete
+            )
+            if not deleted:
+                errors.append(f"Document {document_id}: delete failed")
+        except Exception as exc:
+            logger.error("Bulk delete failed for %s", document_id, exc_info=True)
+            errors.append(f"Document {document_id}: {exc}")
+
+    # Return refreshed table partial (HTMX pattern)
+    documents, total = await repo.list_page(page=1, per_page=10)
+    pages = math.ceil(total / 10) if 10 > 0 else 0
+    return templates.TemplateResponse(
+        request,
+        "partials/document_table.html",
+        {
+            "documents": documents,
+            "human_size": _human_size,
+            "page": 1,
+            "per_page": 10,
+            "pages": pages,
+            "total": total,
+            "search": None,
+            "date_from": None,
+            "date_to": None,
+        },
+    )
+
+
+@router.post("/api/documents/bulk/reindex")
+async def bulk_reindex_documents(
+    request: Request,
+    _auth: AdminDep,
+    s3: S3Dep,
+    service: ServiceDep,
+    repo: RepoDep,
+    templates: TemplatesDep,
+    background_tasks: BackgroundTasks,
+    body: BulkIdsRequest,
+):
+    """Reindex multiple documents by ID. Returns refreshed document table partial."""
+    errors = []
+
+    for document_id in body.ids:
+        try:
+            record = await repo.get(document_id)
+            if record is None:
+                errors.append(f"Document {document_id}: not found")
+                continue
+
+            # Verify file exists in S3
+            if not await s3.exists(record.s3_key):
+                errors.append(f"Document {document_id}: file not found in storage")
+                continue
+
+            # Mark as processing immediately
+            await repo.update(document_id, status=DocumentStatus.processing, error=None)
+
+            background_tasks.add_task(
+                _reindex_in_background, service, s3, document_id, record.s3_key
+            )
+        except Exception as exc:
+            logger.error("Bulk reindex failed for %s", document_id, exc_info=True)
+            errors.append(f"Document {document_id}: {exc}")
+
+    # Return refreshed table partial (HTMX pattern)
+    documents, total = await repo.list_page(page=1, per_page=10)
+    pages = math.ceil(total / 10) if 10 > 0 else 0
+    return templates.TemplateResponse(
+        request,
+        "partials/document_table.html",
+        {
+            "documents": documents,
+            "human_size": _human_size,
+            "page": 1,
+            "per_page": 10,
+            "pages": pages,
+            "total": total,
+            "search": None,
+            "date_from": None,
+            "date_to": None,
+        },
+    )
+
+
+@router.patch("/api/documents/bulk/search")
+async def bulk_toggle_search(
+    request: Request,
+    _auth: AdminDep,
+    service: ServiceDep,
+    repo: RepoDep,
+    templates: TemplatesDep,
+    body: BulkSearchToggleRequest,
+):
+    """Toggle search enabled for multiple documents. Returns refreshed document table partial."""
+    errors = []
+
+    for document_id in body.ids:
+        try:
+            record = await service.toggle_search(document_id, enabled=body.enabled)
+            if record is None:
+                errors.append(f"Document {document_id}: not found")
+        except Exception as exc:
+            logger.error("Bulk toggle search failed for %s", document_id, exc_info=True)
+            errors.append(f"Document {document_id}: {exc}")
+
+    # Return refreshed table partial (HTMX pattern)
+    documents, total = await repo.list_page(page=1, per_page=10)
+    pages = math.ceil(total / 10) if 10 > 0 else 0
+    return templates.TemplateResponse(
+        request,
+        "partials/document_table.html",
+        {
+            "documents": documents,
+            "human_size": _human_size,
+            "page": 1,
+            "per_page": 10,
+            "pages": pages,
+            "total": total,
+            "search": None,
+            "date_from": None,
+            "date_to": None,
+        },
+    )
 
 
 @router.get("/api/documents/{document_id}")

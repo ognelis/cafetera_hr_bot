@@ -132,6 +132,59 @@
 
   </div>
 
+  {# ── Bulk actions toolbar ─────────────────────────────────── #}
+  <div x-show="selectedIds.length > 0" x-transition class="bg-primary/10 rounded-lg p-3 mb-4 flex items-center gap-3 flex-wrap">
+    <span class="badge badge-primary badge-sm">Выбрано: <span x-text="selectedIds.length"></span></span>
+
+    <button
+      class="btn btn-sm btn-error"
+      @click="if(confirm('Удалить выбранные документы? Это действие нельзя отменить.')) { executeBulkDelete(); }"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      </svg>
+      Удалить
+    </button>
+
+    <button
+      class="btn btn-sm btn-warning"
+      @click="if(confirm('Переиндексировать выбранные документы? Текущие чанки будут заменены.')) { executeBulkReindex(); }"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      Переиндексировать
+    </button>
+
+    <button
+      class="btn btn-sm btn-success"
+      @click="executeBulkSearch(true)"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+      </svg>
+      Вкл. в ответы
+    </button>
+
+    <button
+      class="btn btn-sm btn-neutral"
+      @click="executeBulkSearch(false)"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+      </svg>
+      Выкл. из ответов
+    </button>
+
+    <button
+      class="btn btn-sm btn-ghost ml-auto"
+      @click="selectedIds = []"
+    >
+      Снять выделение
+    </button>
+  </div>
+
   {# ── Document count ───────────────────────────────────────── #}
   <div class="text-sm font-semibold text-base-content/60 mb-3">
     Всего <span x-text="total"></span> документов
@@ -455,6 +508,8 @@
             if (totalEl) {
               this.total = parseInt(totalEl.dataset.total) || 0;
             }
+            // Clear selection when table is refreshed via HTMX (pagination, search, etc.)
+            this.selectedIds = [];
             // Re-apply filters and sort after pagination
             this.$nextTick(() => {
               this.applyFilters();
@@ -462,6 +517,97 @@
             });
           }
         });
+      },
+
+      // Helper to build table URL with current filters
+      buildTableUrl() {
+        let url = '/partials/document-table?page=' + this.currentPage + '&per_page=' + this.perPage;
+        if (this.searchQuery) {
+          url += '&search=' + encodeURIComponent(this.searchQuery);
+        }
+        if (this.dateFrom) {
+          url += '&date_from=' + encodeURIComponent(this.dateFrom);
+        }
+        if (this.dateTo) {
+          url += '&date_to=' + encodeURIComponent(this.dateTo);
+        }
+        return url;
+      },
+
+      // Bulk action methods
+      async executeBulkDelete() {
+        try {
+          const response = await fetch('/api/documents/bulk/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: this.selectedIds })
+          });
+          if (response.ok) {
+            this.selectedIds = [];
+            htmx.ajax('GET', this.buildTableUrl(), {target: '#document-table-container', swap: 'innerHTML'});
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: { message: 'Документы удалены', type: 'success' }
+            }));
+          } else {
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: { message: 'Ошибка при удалении', type: 'error' }
+            }));
+          }
+        } catch (err) {
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: { message: 'Ошибка при удалении', type: 'error' }
+          }));
+        }
+      },
+
+      async executeBulkReindex() {
+        try {
+          const response = await fetch('/api/documents/bulk/reindex', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: this.selectedIds })
+          });
+          if (response.ok) {
+            this.selectedIds = [];
+            htmx.ajax('GET', this.buildTableUrl(), {target: '#document-table-container', swap: 'innerHTML'});
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: { message: 'Переиндексация запущена', type: 'success' }
+            }));
+          } else {
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: { message: 'Ошибка при переиндексации', type: 'error' }
+            }));
+          }
+        } catch (err) {
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: { message: 'Ошибка при переиндексации', type: 'error' }
+          }));
+        }
+      },
+
+      async executeBulkSearch(enabled) {
+        try {
+          const response = await fetch('/api/documents/bulk/search', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: this.selectedIds, enabled: enabled })
+          });
+          if (response.ok) {
+            this.selectedIds = [];
+            htmx.ajax('GET', this.buildTableUrl(), {target: '#document-table-container', swap: 'innerHTML'});
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: { message: enabled ? 'Документы включены в поиск' : 'Документы исключены из поиска', type: 'success' }
+            }));
+          } else {
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: { message: 'Ошибка при обновлении', type: 'error' }
+            }));
+          }
+        } catch (err) {
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: { message: 'Ошибка при обновлении', type: 'error' }
+          }));
+        }
       },
 
       // Date filter methods

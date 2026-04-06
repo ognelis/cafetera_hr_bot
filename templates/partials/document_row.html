@@ -13,7 +13,10 @@
 >
   {# Checkbox #}
   <td class="px-3 py-3">
-    <input type="checkbox" class="checkbox checkbox-sm" value="{{ doc.document_id }}" />
+    <input type="checkbox" class="checkbox checkbox-sm"
+           :value="'{{ doc.document_id }}'"
+           :checked="selectedIds.includes('{{ doc.document_id }}')"
+           @change="$event.target.checked ? selectedIds.push('{{ doc.document_id }}') : selectedIds = selectedIds.filter(id => id !== '{{ doc.document_id }}')" />
   </td>
 
   {# Status badge column #}
