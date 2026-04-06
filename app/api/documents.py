@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _COOKIE_NAME = "admin_session"
-_MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+_MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 _ALLOWED_EXTENSIONS = {".docx"}
 _ALLOWED_MIMES = {
     DOCX_MIME,
@@ -295,7 +295,7 @@ async def upload_documents(
         if len(content) > _MAX_FILE_SIZE:
             errors.append({
                 "filename": safe_name,
-                "error": f"File too large ({_human_size(len(content))}). Max 50 MB.",
+                "error": f"File too large ({_human_size(len(content))}). Max 10 MB.",
             })
             continue
 

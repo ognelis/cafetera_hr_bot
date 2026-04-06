@@ -67,17 +67,6 @@
       </ul>
     </div>
 
-    {# Language filter (placeholder) #}
-    <div class="dropdown">
-      <button tabindex="0" class="inline-flex items-center gap-1.5 h-7 px-3.5 text-xs rounded-full border border-base-300 bg-base-100 hover:bg-base-200 transition-colors cursor-pointer">
-        <span class="text-base-content/55">Язык:</span>
-        <span class="font-semibold text-primary">Все</span>
-      </button>
-      <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-lg border border-base-300 shadow-sm z-10 w-40 p-1 mt-1">
-        <li><a class="active">Все</a></li>
-      </ul>
-    </div>
-
     {# Date filter (placeholder) #}
     <div class="dropdown">
       <button tabindex="0" class="inline-flex items-center gap-1.5 h-7 px-3.5 text-xs rounded-full border border-base-300 bg-base-100 hover:bg-base-200 transition-colors cursor-pointer">
@@ -171,7 +160,7 @@
           <p class="text-sm text-base-content/50">
             Перетащите файлы сюда или <span class="text-primary font-medium">выберите</span>
           </p>
-          <p class="text-xs text-base-content/35">DOCX, PDF, XLSX до 50 МБ</p>
+          <p class="text-xs text-base-content/35">DOCX, PDF, XLSX до 10 МБ</p>
         </div>
       </div>
 
@@ -424,6 +413,16 @@
       },
 
       async uploadFile(file) {
+        const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+        if (file.size > MAX_SIZE) {
+          const id = this.nextUploadId++;
+          this.uploads.push({ id, name: file.name, progress: 0, status: 'error', error: 'Файл превышает 10 МБ' });
+          setTimeout(() => {
+            this.uploads = this.uploads.filter(u => u.id !== id);
+          }, 5000);
+          return;
+        }
+
         const id = this.nextUploadId++;
         const entry = { id, name: file.name, progress: 0, status: 'uploading', error: null };
         this.uploads.push(entry);
