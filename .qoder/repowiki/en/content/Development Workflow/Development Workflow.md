@@ -7,17 +7,28 @@
 - [PLAN.md](file://PLAN.md)
 - [AGENTS.md](file://AGENTS.md)
 - [app/config.py](file://app/config.py)
+- [app/main.py](file://app/main.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
 - [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
 - [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
 - [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
 - [app/integrations/vk/handlers/fallback.py](file://app/integrations/vk/handlers/fallback.py)
+- [app/api/documents.py](file://app/api/documents.py)
+- [scripts/admin_server.py](file://scripts/admin_server.py)
 - [scripts/polling_vk.py](file://scripts/polling_vk.py)
 - [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
 - [tests/test_config.py](file://tests/test_config.py)
 - [tests/test_keyboards.py](file://tests/test_keyboards.py)
 - [tests/test_states.py](file://tests/test_states.py)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added new section for Admin Server Development Environment
+- Updated Development Environment Setup to include admin server option
+- Enhanced local development workflow with hot reloading capabilities
+- Added comprehensive logging and authentication for admin interface
+- Updated architecture overview to include FastAPI application factory pattern
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -34,11 +45,15 @@
 ## Introduction
 This document describes the development workflow and best practices for cafetera_hr_bot. It covers environment setup, code quality tools (Ruff, MyPy), testing procedures, validation commands, and code review guidelines. It also documents development standards, commit conventions, and contribution workflow, with practical examples for local development, running checks, executing tests, and preparing changes for review. Debugging techniques, performance profiling, and maintaining code quality throughout the lifecycle are addressed.
 
+**Updated** Added comprehensive documentation for the new admin server development environment with hot reloading and authentication capabilities.
+
 ## Project Structure
 The repository follows a layered structure:
 - app/: Application code organized by domain and integrations
 - app/config.py: Pydantic settings loader
+- app/main.py: FastAPI application factory with lifespan management
 - app/integrations/vk/: VK bot implementation (handlers, keyboards, states, bot factory)
+- app/api/documents.py: Admin interface routes and document management
 - scripts/: Local development and auxiliary scripts
 - tests/: Unit tests for configuration, keyboards, states, and bot factory
 - pyproject.toml: Project metadata, dependencies, dev tool configuration
@@ -50,13 +65,16 @@ The repository follows a layered structure:
 graph TB
 subgraph "Application"
 CFG["app/config.py"]
+MAIN["app/main.py<br/>FastAPI app factory"]
 VKBOT["app/integrations/vk/bot.py"]
 VKKEY["app/integrations/vk/keyboards.py"]
 VKSTAT["app/integrations/vk/states.py"]
 VKSTART["app/integrations/vk/handlers/start.py"]
 VKFB["app/integrations/vk/handlers/fallback.py"]
+DOCSAPI["app/api/documents.py<br/>Admin routes & endpoints"]
 end
 subgraph "Scripts"
+ADMINSRV["scripts/admin_server.py<br/>Hot reload admin server"]
 POLL["scripts/polling_vk.py"]
 LLM["scripts/run_llama_qwen.sh"]
 end
@@ -71,6 +89,8 @@ DCMP["docker-compose.yml"]
 PLAN["PLAN.md"]
 AG["AGENTS.md"]
 end
+ADMINSRV --> MAIN
+MAIN --> DOCSAPI
 POLL --> CFG
 POLL --> VKBOT
 VKBOT --> VKSTART
@@ -89,83 +109,155 @@ PYTOML -. config .-> LLM
 
 **Diagram sources**
 - [app/config.py:1-9](file://app/config.py#L1-L9)
+- [app/main.py:1-124](file://app/main.py#L1-L124)
 - [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
 - [app/integrations/vk/keyboards.py:1-108](file://app/integrations/vk/keyboards.py#L1-L108)
 - [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
 - [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
 - [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [scripts/polling_vk.py:1-33](file://scripts/polling_vk.py#L1-L33)
+- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
+- [scripts/admin_server.py:1-63](file://scripts/admin_server.py#L1-L63)
+- [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
 - [scripts/run_llama_qwen.sh:1-59](file://scripts/run_llama_qwen.sh#L1-L59)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_keyboards.py:1-192](file://tests/test_keyboards.py#L1-L192)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
-- [pyproject.toml:1-56](file://pyproject.toml#L1-L56)
+- [pyproject.toml:1-61](file://pyproject.toml#L1-L61)
 - [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
 
 **Section sources**
-- [pyproject.toml:1-56](file://pyproject.toml#L1-L56)
+- [pyproject.toml:1-61](file://pyproject.toml#L1-L61)
 - [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
-- [PLAN.md:1-207](file://PLAN.md#L1-L207)
+- [PLAN.md:1-295](file://PLAN.md#L1-L295)
 - [AGENTS.md:1-95](file://AGENTS.md#L1-L95)
 
 ## Core Components
 - Settings loader: Loads environment variables into a typed Settings model for VK and related integrations.
+- FastAPI application factory: Creates a configurable FastAPI app with lifespan resource management for admin interface.
 - VK bot factory: Creates a vkbottle Bot, registers labelers in order, and prepares it for long polling or callbacks.
+- Admin server: Provides hot-reloading development server with comprehensive logging and authentication for document management.
 - Keyboard builders: Provide standardized keyboards and service buttons (Back/Home/Contact HR) used across screens.
 - States: Multi-step dialog states for HR request flow.
 - Handlers: Start/home navigation and fallback for unmatched text.
 - Scripts: Local VK long polling entrypoint and optional local LLM server runner.
 - Tests: Configuration defaults/env, keyboard layout and payload correctness, and state enumeration.
 
+**Updated** Added FastAPI application factory pattern and admin server with hot reloading capabilities.
+
 **Section sources**
 - [app/config.py:1-9](file://app/config.py#L1-L9)
+- [app/main.py:1-124](file://app/main.py#L1-L124)
 - [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
 - [app/integrations/vk/keyboards.py:1-108](file://app/integrations/vk/keyboards.py#L1-L108)
 - [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
 - [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
 - [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [scripts/polling_vk.py:1-33](file://scripts/polling_vk.py#L1-L33)
+- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
+- [scripts/admin_server.py:1-63](file://scripts/admin_server.py#L1-L63)
+- [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
 - [scripts/run_llama_qwen.sh:1-59](file://scripts/run_llama_qwen.sh#L1-L59)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_keyboards.py:1-192](file://tests/test_keyboards.py#L1-L192)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 
 ## Architecture Overview
-The VK integration is structured around a bot factory that loads labelers in a specific order. Handlers are registered top-down, with the fallback labeler last to catch unmatched messages. Keyboard builders centralize UX patterns and service actions. States manage multi-step dialogs.
+The VK integration is structured around a bot factory that loads labelers in a specific order. Handlers are registered top-down, with the fallback labeler last to catch unmatched messages. Keyboard builders centralize UX patterns and service actions. States manage multi-step dialogs. The admin interface provides a FastAPI-based document management system with authentication and hot reloading.
 
 ```mermaid
 graph LR
-A["scripts/polling_vk.py<br/>Long Poll entrypoint"] --> B["app/integrations/vk/bot.py<br/>create_bot()"]
-B --> C["app/integrations/vk/handlers/start.py<br/>on_start/on_home/on_contact_hr"]
-B --> D["app/integrations/vk/handlers/fallback.py<br/>on_fallback"]
-B --> E["app/integrations/vk/keyboards.py<br/>main_menu_kb, with_service_row, stub_kb"]
-B --> F["app/integrations/vk/states.py<br/>BotStates"]
-B --> G["app/config.py<br/>Settings"]
+A["scripts/admin_server.py<br/>Hot reload admin server"] --> B["app/main.py<br/>create_app() factory"]
+B --> C["app/api/documents.py<br/>Admin routes & endpoints"]
+B --> D["app/config.py<br/>Settings"]
+E["scripts/polling_vk.py<br/>Long Poll entrypoint"] --> F["app/integrations/vk/bot.py<br/>create_bot()"]
+F --> G["app/integrations/vk/handlers/start.py<br/>on_start/on_home/on_contact_hr"]
+F --> H["app/integrations/vk/handlers/fallback.py<br/>on_fallback"]
+F --> I["app/integrations/vk/keyboards.py<br/>main_menu_kb, with_service_row, stub_kb"]
+F --> J["app/integrations/vk/states.py<br/>BotStates"]
 ```
 
+**Updated** Added admin server architecture with FastAPI application factory pattern and document management routes.
+
 **Diagram sources**
-- [scripts/polling_vk.py:1-33](file://scripts/polling_vk.py#L1-L33)
-- [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
-- [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
-- [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [app/integrations/vk/keyboards.py:1-108](file://app/integrations/vk/keyboards.py#L1-L108)
-- [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
+- [scripts/admin_server.py:38-58](file://scripts/admin_server.py#L38-L58)
+- [app/main.py:99-124](file://app/main.py#L99-L124)
+- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
 - [app/config.py:1-9](file://app/config.py#L1-L9)
+- [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
+- [app/integrations/vk/bot.py:14-31](file://app/integrations/vk/bot.py#L14-L31)
+- [app/integrations/vk/handlers/start.py:23-54](file://app/integrations/vk/handlers/start.py#L23-L54)
+- [app/integrations/vk/handlers/fallback.py:9-17](file://app/integrations/vk/handlers/fallback.py#L9-L17)
+- [app/integrations/vk/keyboards.py:11-108](file://app/integrations/vk/keyboards.py#L11-L108)
+- [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
 
 ## Detailed Component Analysis
 
 ### Settings and Environment
 - Settings class loads environment variables with UTF-8 encoding and supports VK tokens and group ID.
 - AGENTS.md specifies environment variable names and constraints for VK, Telegram (post-MVP), RAG, and storage.
+- Admin server requires ADMIN_API_KEY for authentication and supports comprehensive environment configuration.
 
 Best practices:
 - Use pydantic-settings for type-safe configuration.
 - Provide .env.example with placeholders; never hardcode secrets.
 - Validate required keys during startup.
 
+**Updated** Added admin server environment variable requirements including ADMIN_API_KEY and comprehensive RAG configuration.
+
 **Section sources**
 - [app/config.py:1-9](file://app/config.py#L1-L9)
 - [AGENTS.md:20-48](file://AGENTS.md#L20-L48)
+- [scripts/admin_server.py:6-19](file://scripts/admin_server.py#L6-L19)
+
+### FastAPI Application Factory Pattern
+- create_app builds a configurable FastAPI application with lifespan resource management.
+- Lifespan handles initialization of SQLite, S3 storage, Qdrant client, and document service.
+- Supports hot reloading through uvicorn factory pattern.
+- Mounts static files and templates for admin interface.
+
+```mermaid
+sequenceDiagram
+participant CLI as "scripts/admin_server.py"
+participant APP as "app/main.py"
+participant LIFESPAN as "lifespan()"
+participant RES as "Resources"
+CLI->>APP : create_app(Settings)
+APP->>LIFESPAN : Initialize resources
+LIFESPAN->>RES : init_db, S3, Qdrant
+CLI->>APP : uvicorn.run(factory=True)
+APP->>CLI : Hot reload server ready
+```
+
+**Updated** Added comprehensive documentation for the FastAPI application factory pattern and resource management.
+
+**Diagram sources**
+- [scripts/admin_server.py:52-58](file://scripts/admin_server.py#L52-L58)
+- [app/main.py:24-83](file://app/main.py#L24-L83)
+- [app/main.py:99-124](file://app/main.py#L99-L124)
+
+**Section sources**
+- [app/main.py:24-83](file://app/main.py#L24-L83)
+- [app/main.py:99-124](file://app/main.py#L99-L124)
+- [scripts/admin_server.py:38-58](file://scripts/admin_server.py#L38-L58)
+
+### Admin Server Development Environment
+- Hot-reloading FastAPI server for document administration.
+- Comprehensive logging with timestamp formatting and structured output.
+- Authentication via ADMIN_API_KEY for secure admin interface access.
+- Development server runs on localhost:8000 with automatic reload on code changes.
+- Integrates with existing document management infrastructure.
+
+Key features:
+- Automatic code reloading during development
+- Structured logging with INFO level by default
+- Admin authentication via API key
+- Integration with document upload, management, and search functionality
+
+**New Section**
+
+**Section sources**
+- [scripts/admin_server.py:1-63](file://scripts/admin_server.py#L1-L63)
+- [app/main.py:1-124](file://app/main.py#L1-L124)
+- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
 
 ### VK Bot Factory
 - create_bot registers labelers in order: start, sections, fallback (last).
@@ -182,11 +274,11 @@ CLI->>CFG : Load Settings()
 CLI->>BOT : create_bot(Settings)
 BOT->>START : load labeler
 BOT->>FALL : load labeler (last)
-CLI->>BOT : run_polling()
+CLI->>BOT : run_forever()
 ```
 
 **Diagram sources**
-- [scripts/polling_vk.py:24-28](file://scripts/polling_vk.py#L24-L28)
+- [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
 - [app/config.py:4-9](file://app/config.py#L4-L9)
 - [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
 - [app/integrations/vk/handlers/start.py:31-41](file://app/integrations/vk/handlers/start.py#L31-L41)
@@ -194,7 +286,7 @@ CLI->>BOT : run_polling()
 
 **Section sources**
 - [app/integrations/vk/bot.py:14-31](file://app/integrations/vk/bot.py#L14-L31)
-- [scripts/polling_vk.py:24-28](file://scripts/polling_vk.py#L24-L28)
+- [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
 
 ### Keyboard Builders and Payloads
 - Payload constants define navigation commands.
@@ -229,18 +321,45 @@ Validation focuses on:
 - [app/integrations/vk/handlers/start.py:23-54](file://app/integrations/vk/handlers/start.py#L23-L54)
 - [app/integrations/vk/handlers/fallback.py:9-17](file://app/integrations/vk/handlers/fallback.py#L9-L17)
 
+### Admin Interface Routes and Endpoints
+- Login page with admin authentication via API key
+- Main documents page with upload zone and document table
+- RESTful API endpoints for document management
+- HTMX partials for dynamic UI updates
+- File upload with validation and background indexing
+- Document search enable/disable functionality
+
+Key endpoints:
+- GET /login, POST /login - Admin authentication
+- GET /logout - Logout and cookie cleanup
+- GET /documents - Main admin page
+- POST /api/documents/upload - Upload files with validation
+- GET/PUT/PATCH/DELETE /api/documents/{id} - Document management
+- GET /partials/document-table - Dynamic table updates
+- GET /partials/document-row/{id} - Individual row updates
+
+**New Section**
+
+**Section sources**
+- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
+
 ### Testing Procedures
 - pytest configuration runs tests under tests/ with asyncio mode enabled.
 - Tests cover Settings defaults/env, keyboard layouts, and state enumeration.
+- Admin interface testing includes authentication, upload validation, and document management.
 
 Recommended test coverage:
 - Handler logic for each section
 - State transitions and persistence
 - Keyboard rendering and payload correctness
 - Integration with Settings and bot wiring
+- Admin interface authentication and authorization
+- Document upload validation and background processing
+
+**Updated** Added admin interface testing recommendations.
 
 **Section sources**
-- [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
+- [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
 - [tests/test_keyboards.py:49-191](file://tests/test_keyboards.py#L49-L191)
 - [tests/test_states.py:8-30](file://tests/test_states.py#L8-L30)
@@ -253,7 +372,7 @@ Validation commands:
 - Run linter and type checker before review per AGENTS.md.
 
 **Section sources**
-- [pyproject.toml:44-56](file://pyproject.toml#L44-L56)
+- [pyproject.toml:49-61](file://pyproject.toml#L49-L61)
 - [AGENTS.md:82-88](file://AGENTS.md#L82-L88)
 
 ### Local Infrastructure: Docker Compose
@@ -264,37 +383,47 @@ Validation commands:
 - [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
 
 ### Optional Local LLM Server
-- run_llama_qwen.sh starts llama.cpp’s llama-server with configurable model path, host, port, context size, threads, and GPU layers.
+- run_llama_qwen.sh starts llama.cpp's llama-server with configurable model path, host, port, context size, threads, and GPU layers.
 
 **Section sources**
 - [scripts/run_llama_qwen.sh:1-59](file://scripts/run_llama_qwen.sh#L1-L59)
 
 ## Dependency Analysis
 - The VK bot depends on Settings for credentials and on keyboard/state modules for UX and state machine.
+- Admin server depends on FastAPI application factory and document management services.
 - Handlers depend on keyboard builders for consistent UI.
 - Tests depend on the module under test and vkbottle Keyboard type.
 
 ```mermaid
 graph TD
 CFG["app/config.py"] --> BOT["app/integrations/vk/bot.py"]
+CFG --> MAIN["app/main.py"]
+MAIN --> DOCSAPI["app/api/documents.py"]
 KEY["app/integrations/vk/keyboards.py"] --> BOT
 STAT["app/integrations/vk/states.py"] --> BOT
 START["handlers/start.py"] --> BOT
 FALL["handlers/fallback.py"] --> BOT
 BOT --> POLL["scripts/polling_vk.py"]
+MAIN --> ADMINSRV["scripts/admin_server.py"]
+DOCSAPI --> ADMINSRV
 TCFG["tests/test_config.py"] --> CFG
 TKEY["tests/test_keyboards.py"] --> KEY
 TSTAT["tests/test_states.py"] --> STAT
 ```
 
+**Updated** Added admin server and FastAPI application factory dependencies.
+
 **Diagram sources**
 - [app/config.py:4-9](file://app/config.py#L4-L9)
 - [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
+- [app/main.py:99-124](file://app/main.py#L99-L124)
+- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
 - [app/integrations/vk/keyboards.py:56-98](file://app/integrations/vk/keyboards.py#L56-L98)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
 - [app/integrations/vk/handlers/start.py:31-41](file://app/integrations/vk/handlers/start.py#L31-L41)
 - [app/integrations/vk/handlers/fallback.py:15-17](file://app/integrations/vk/handlers/fallback.py#L15-L17)
-- [scripts/polling_vk.py:24-28](file://scripts/polling_vk.py#L24-L28)
+- [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
+- [scripts/admin_server.py:38-58](file://scripts/admin_server.py#L38-L58)
 - [tests/test_config.py:7-13](file://tests/test_config.py#L7-L13)
 - [tests/test_keyboards.py:8-21](file://tests/test_keyboards.py#L8-L21)
 - [tests/test_states.py:5-10](file://tests/test_states.py#L5-L10)
@@ -310,7 +439,11 @@ TSTAT["tests/test_states.py"] --> STAT
 - Keep handler logic synchronous where possible; defer heavy work to background tasks.
 - Minimize keyboard rebuilds; reuse keyboard instances where safe.
 - Use stateless helpers for pure transformations to improve cacheability.
-- Profile async bottlenecks using Python’s async profiler and monitor network latency to VK and external APIs.
+- Profile async bottlenecks using Python's async profiler and monitor network latency to VK and external APIs.
+- Admin interface should leverage HTMX partials to minimize full page reloads.
+- Hot reloading in development should be disabled in production environments.
+
+**Updated** Added performance considerations for admin interface and hot reloading.
 
 [No sources needed since this section provides general guidance]
 
@@ -321,11 +454,18 @@ Common issues and remedies:
 - Keyboard mismatch: Validate payload shapes and service-row additions.
 - Type-check failures: Align function signatures with MyPy expectations.
 - Lint errors: Fix style issues reported by Ruff.
+- Admin server startup failures: Check ADMIN_API_KEY configuration and logging output.
+- Hot reload not working: Verify uvicorn installation and factory pattern usage.
+- Document upload errors: Check S3 connectivity and file validation rules.
 
 Validation checklist:
 - Run tests for affected modules.
 - Execute linter and type checker.
 - Confirm environment variables are present and correct.
+- Test admin interface authentication and document operations.
+- Verify hot reload functionality during development.
+
+**Updated** Added troubleshooting guidance for admin server and document management.
 
 **Section sources**
 - [app/config.py:4-9](file://app/config.py#L4-L9)
@@ -333,9 +473,12 @@ Validation checklist:
 - [app/integrations/vk/keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
 - [tests/test_keyboards.py:49-150](file://tests/test_keyboards.py#L49-L150)
 - [AGENTS.md:82-88](file://AGENTS.md#L82-L88)
+- [scripts/admin_server.py:41-43](file://scripts/admin_server.py#L41-L43)
 
 ## Conclusion
-This guide consolidates the development workflow for cafetera_hr_bot, from environment setup to validation and code review. By following the documented standards, using the provided scripts and configurations, and adhering to the validation commands, contributors can maintain high-quality code and a smooth development lifecycle.
+This guide consolidates the development workflow for cafetera_hr_bot, from environment setup to validation and code review. The addition of the admin server with hot reloading capabilities significantly enhances the development experience for document management functionality. By following the documented standards, using the provided scripts and configurations, and adhering to the validation commands, contributors can maintain high-quality code and a smooth development lifecycle.
+
+**Updated** Enhanced conclusion to reflect the improved development workflow with admin server capabilities.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -346,16 +489,21 @@ This guide consolidates the development workflow for cafetera_hr_bot, from envir
 - Create a virtual environment via uv and install dependencies.
 - Configure environment variables according to AGENTS.md.
 - Start local VK long polling with the provided script.
+- **Alternative**: Start admin server with hot reloading for document management development.
 
 Practical steps:
 - Install dependencies including dev extras for testing and linting.
 - Set VK-related environment variables.
 - Launch long polling to verify the bot responds to /start and navigates to the main menu.
+- **Alternative**: Set ADMIN_API_KEY and launch admin server for document management interface.
+
+**Updated** Added admin server option for development environment setup.
 
 **Section sources**
 - [AGENTS.md:7-14](file://AGENTS.md#L7-L14)
-- [pyproject.toml:33-38](file://pyproject.toml#L33-L38)
-- [scripts/polling_vk.py:24-28](file://scripts/polling_vk.py#L24-L28)
+- [pyproject.toml:31-43](file://pyproject.toml#L31-L43)
+- [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
+- [scripts/admin_server.py:38-58](file://scripts/admin_server.py#L38-L58)
 
 ### Running Code Quality Checks
 - Lint: run the linter as specified in AGENTS.md.
@@ -363,14 +511,17 @@ Practical steps:
 
 **Section sources**
 - [AGENTS.md:82-88](file://AGENTS.md#L82-L88)
-- [pyproject.toml:44-56](file://pyproject.toml#L44-L56)
+- [pyproject.toml:49-61](file://pyproject.toml#L49-L61)
 
 ### Executing Tests
 - Run the test suite with the configured pytest settings.
 - Focus on tests for modules you modified.
+- **New**: Include admin interface tests for document management functionality.
+
+**Updated** Added recommendation for admin interface testing.
 
 **Section sources**
-- [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
+- [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
 - [tests/test_keyboards.py:49-150](file://tests/test_keyboards.py#L49-L150)
 - [tests/test_states.py:8-30](file://tests/test_states.py#L8-L30)
@@ -379,6 +530,9 @@ Practical steps:
 - Implement small, reviewable changes aligned with the development plan.
 - Validate with tests, linter, and type checker.
 - Summarize what passed, what failed, and remaining risks as per AGENTS.md.
+- **New**: Ensure admin interface changes include proper authentication and security validation.
+
+**Updated** Added requirement for admin interface security validation.
 
 **Section sources**
 - [PLAN.md:113-120](file://PLAN.md#L113-L120)
@@ -389,15 +543,37 @@ Practical steps:
 - Enable INFO logs for the bot and handlers.
 - Inspect keyboard JSON payloads and state transitions.
 - Use pytest with verbose output and breakpoints for targeted debugging.
+- **New**: Monitor admin server logs for authentication and document operations.
+- **New**: Use browser developer tools for HTMX partial updates and admin interface debugging.
+
+**Updated** Added debugging techniques for admin server and document management interface.
 
 **Section sources**
-- [scripts/polling_vk.py:17-21](file://scripts/polling_vk.py#L17-L21)
+- [scripts/polling_vk.py:18-22](file://scripts/polling_vk.py#L18-L22)
 - [app/integrations/vk/keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
+- [scripts/admin_server.py:31-35](file://scripts/admin_server.py#L31-L35)
 
 ### Commit Conventions and Contribution Workflow
 - Follow the contribution workflow: inspect, plan, implement small changes, validate, report.
 - Adhere to hard constraints: reuse existing patterns, avoid unnecessary changes, preserve contracts.
+- **New**: Admin interface changes should include proper authentication and authorization validation.
+
+**Updated** Added security validation requirement for admin interface contributions.
 
 **Section sources**
 - [AGENTS.md:58-74](file://AGENTS.md#L58-L74)
+
+### Admin Server Usage Guide
+- Start development server: `uv run python scripts/admin_server.py`
+- Access admin interface: Navigate to `http://localhost:8000/documents`
+- Authentication: Submit ADMIN_API_KEY on login page
+- Hot reloading: Server automatically restarts on code changes
+- Logging: INFO level logging with timestamp formatting
+- Environment variables: Configure all RAG and storage settings for full functionality
+
+**New Section**
+
+**Section sources**
+- [scripts/admin_server.py:1-63](file://scripts/admin_server.py#L1-L63)
+- [app/api/documents.py:133-174](file://app/api/documents.py#L133-L174)

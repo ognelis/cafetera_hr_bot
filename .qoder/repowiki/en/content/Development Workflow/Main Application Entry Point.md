@@ -16,20 +16,28 @@
 - [pyproject.toml](file://pyproject.toml)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Added new section on Static File Serving Infrastructure
+- Updated Application Architecture Overview to include static file routing
+- Enhanced Development Server Setup with static file configuration
+- Updated Troubleshooting Guide with static file access issues
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Application Architecture Overview](#application-architecture-overview)
 3. [Entry Point Analysis](#entry-point-analysis)
-4. [Configuration Management](#configuration-management)
-5. [Resource Lifecycle Management](#resource-lifecycle-management)
-6. [API Integration](#api-integration)
-7. [Dependency Injection System](#dependency-injection-system)
-8. [Domain Service Layer](#domain-service-layer)
-9. [Storage Layer](#storage-layer)
-10. [RAG Pipeline Components](#rag-pipeline-components)
-11. [Development Server Setup](#development-server-setup)
-12. [Production Deployment](#production-deployment)
-13. [Troubleshooting Guide](#troubleshooting-guide)
+4. [Static File Serving Infrastructure](#static-file-serving-infrastructure)
+5. [Configuration Management](#configuration-management)
+6. [Resource Lifecycle Management](#resource-lifecycle-management)
+7. [API Integration](#api-integration)
+8. [Dependency Injection System](#dependency-injection-system)
+9. [Domain Service Layer](#domain-service-layer)
+10. [Storage Layer](#storage-layer)
+11. [RAG Pipeline Components](#rag-pipeline-components)
+12. [Development Server Setup](#development-server-setup)
+13. [Production Deployment](#production-deployment)
+14. [Troubleshooting Guide](#troubleshooting-guide)
 
 ## Introduction
 
@@ -45,6 +53,7 @@ The application follows a layered architecture pattern with clear separation of 
 graph TB
 subgraph "Presentation Layer"
 API[FastAPI Application]
+Static[Static File Router]
 Templates[Jinja2 Templates]
 end
 subgraph "Domain Layer"
@@ -65,6 +74,7 @@ LLM[LLM Provider]
 Embeddings[Embedding Model]
 end
 API --> DocService
+API --> Static
 API --> Templates
 DocService --> SQLite
 DocService --> S3
@@ -106,6 +116,7 @@ App->>DB : Initialize database
 App->>S3 : Connect to S3 storage
 App->>Qdrant : Connect to Qdrant
 App->>Service : Initialize Document Service
+App->>App : Mount static file router
 App->>App : Yield control to application
 Note over App,Qdrant : Application runs
 App->>S3 : Close connection
@@ -116,7 +127,61 @@ App->>Qdrant : Close connection
 - [main.py:23-96](file://app/main.py#L23-L96)
 
 **Section sources**
-- [main.py:23-119](file://app/main.py#L23-L119)
+- [main.py:23-124](file://app/main.py#L23-L124)
+
+## Static File Serving Infrastructure
+
+**Updated** The application now includes comprehensive static file serving infrastructure to replace CDN-based asset loading with local static file hosting.
+
+The FastAPI application mounts a static file router at the '/static' endpoint, enabling local hosting of CSS and JavaScript resources for improved reliability and offline accessibility.
+
+### Static File Router Configuration
+
+The static file serving is implemented through FastAPI's built-in StaticFiles middleware:
+
+```python
+# Static files
+static_dir = Path(__file__).resolve().parent.parent / "static"
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+```
+
+This configuration creates a route handler that serves files from the `static/` directory located at the application root level.
+
+### Asset Organization
+
+Static assets are organized in a structured directory hierarchy:
+
+```
+static/
+├── css/
+│   └── daisyui.css          # UI framework stylesheet
+└── js/
+    ├── htmx.js              # HTMX AJAX library
+    └── alpinejs.js          # Alpine.js reactive framework
+```
+
+### Template Integration
+
+Templates reference static assets using the mounted route prefix:
+
+```html
+<link href="/static/css/daisyui.css" rel="stylesheet" type="text/css" />
+<script src="/static/js/tailwindcss.js"></script>
+<script src="/static/js/htmx.js"></script>
+<script defer src="/static/js/alpinejs.js"></script>
+```
+
+### Benefits Over CDN Approach
+
+- **Reliability**: Eliminates dependency on external CDNs that may be blocked or slow
+- **Offline Access**: Assets remain accessible even without internet connectivity
+- **Performance**: Reduces latency by serving assets locally
+- **Security**: Prevents mixed-content warnings and security policy violations
+- **Control**: Full control over asset versions and caching strategies
+
+**Section sources**
+- [main.py:110-112](file://app/main.py#L110-L112)
+- [base.html:7-10](file://templates/base.html#L7-L10)
 
 ## Configuration Management
 
@@ -152,6 +217,7 @@ The lifespan context manager handles the complete lifecycle of all external reso
 2. **S3 Storage**: Object storage is configured for document file management
 3. **Qdrant Client**: Vector database client is established for RAG functionality
 4. **Document Service**: Core business logic service is created with all dependencies
+5. **Static File Router**: Local static file serving is mounted for asset delivery
 
 ### Error Handling Strategy
 
@@ -376,6 +442,7 @@ The `admin_server.py` script provides:
 - **Debug Logging**: Comprehensive logging for development
 - **Local Configuration**: Easy setup for local development
 - **Health Checks**: Built-in server health monitoring
+- **Static File Serving**: Local hosting of CSS and JavaScript assets
 
 ### Environment Configuration
 
@@ -387,6 +454,13 @@ Development requires minimal setup with the following environment variables:
 | `DB_PATH` | SQLite database location | `data/cafetera.db` |
 | `S3_ENDPOINT_URL` | MinIO/S3 endpoint | `http://localhost:9000` |
 | `QDRANT_URL` | Qdrant service URL | `http://localhost:6333` |
+
+### Static File Access in Development
+
+During development, static assets are served from the local filesystem:
+- CSS files: `http://localhost:8000/static/css/daisyui.css`
+- JavaScript files: `http://localhost:8000/static/js/htmx.js`
+- Alpine.js: `http://localhost:8000/static/js/alpinejs.js`
 
 **Section sources**
 - [admin_server.py:1-63](file://scripts/admin_server.py#L1-L63)
@@ -427,6 +501,13 @@ MinIO --> Worker
 | FastAPI | 8000/tcp | Web application | No persistence |
 | Background Workers | N/A | Document processing | No persistence |
 
+### Static File Deployment
+
+In production deployments, static files are served efficiently through:
+- Nginx or similar reverse proxy for static asset optimization
+- Proper caching headers for improved performance
+- CDN integration for global distribution (optional)
+
 **Section sources**
 - [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
 
@@ -449,6 +530,12 @@ MinIO --> Worker
 - Check API key configuration (if required)
 - Ensure sufficient memory allocation
 
+**Static File Access Issues**
+- **404 Not Found**: Verify static directory exists and contains required files
+- **Permission Denied**: Check file permissions for static directory
+- **Route Conflicts**: Ensure no other routes conflict with `/static` prefix
+- **Asset Loading Errors**: Verify template references match actual file paths
+
 ### Performance Optimization
 
 **Memory Management**
@@ -466,6 +553,12 @@ MinIO --> Worker
 - Implement proper error handling for failed tasks
 - Set appropriate retry limits for failed operations
 
+**Static File Optimization**
+- Enable compression for CSS and JavaScript files
+- Configure appropriate cache headers
+- Consider bundling and minification for production
+- Implement versioning for cache busting
+
 ### Monitoring and Logging
 
 The application provides comprehensive logging at multiple levels:
@@ -473,6 +566,7 @@ The application provides comprehensive logging at multiple levels:
 - **API Operations**: Request processing and response generation
 - **Background Tasks**: Document processing status
 - **Error Conditions**: Exception handling and recovery
+- **Static File Access**: Asset loading and serving statistics
 
 **Section sources**
 - [main.py:23-96](file://app/main.py#L23-L96)

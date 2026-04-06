@@ -15,9 +15,22 @@
 - [app/rag/retriever.py](file://app/rag/retriever.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
 - [templates/documents.html](file://templates/documents.html)
+- [templates/base.html](file://templates/base.html)
+- [templates/partials/document_row.html](file://templates/partials/document_row.html)
+- [templates/partials/document_table.html](file://templates/partials/document_table.html)
+- [scripts/admin_server.py](file://scripts/admin_server.py)
+- [static/js/htmx.js](file://static/js/htmx.js)
 - [scripts/ingest.py](file://scripts/ingest.py)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Enhanced admin interface documentation to reflect comprehensive sidebar navigation system
+- Updated document table layouts and row styling improvements
+- Added HX-Tags JavaScript framework integration details
+- Documented expanded row heights and improved document actions organization
+- Updated admin interface architecture with HTMX progressive enhancement
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -43,8 +56,11 @@ Key features include:
 - Vector-based semantic search using Qdrant
 - Multi-provider embedding support (Ollama, OpenAI, Llama.cpp)
 - Asynchronous background processing for document indexing
-- HTMX-powered dynamic user interface
+- HTMX-powered dynamic user interface with progressive enhancement
 - Comprehensive admin authentication and authorization
+- **Enhanced sidebar navigation system with icon-based interface**
+- **Improved document table layouts with expanded row heights**
+- **Modern styling with Tailwind CSS and DaisyUI framework**
 
 ## System Architecture
 
@@ -55,6 +71,8 @@ graph TB
 subgraph "Presentation Layer"
 UI[Web Interface]
 API[REST API]
+Sidebar[Sidebar Navigation]
+Partial[HTMX Partials]
 end
 subgraph "Application Layer"
 Router[FastAPI Router]
@@ -87,6 +105,8 @@ Service --> Qdrant
 Parser --> LLM
 Retriever --> LLM
 VKBot --> Service
+Sidebar --> UI
+Partial --> UI
 ```
 
 **Diagram sources**
@@ -360,23 +380,27 @@ The system exposes a comprehensive REST API for document management:
 
 ## Admin Interface
 
-The web interface provides a modern, responsive experience powered by HTMX:
+The web interface provides a modern, responsive experience powered by HTMX with comprehensive sidebar navigation:
 
 ```mermaid
 graph LR
 subgraph "Admin Interface"
+Sidebar[Sidebar Navigation]
 Login[Login Page]
 Documents[Documents Table]
 Upload[Drag & Drop Upload]
 Actions[Action Buttons]
 Modals[Dialog Modals]
+Partials[HTMX Partials]
 end
 subgraph "HTMX Features"
 LiveUpdates[Live Table Updates]
 Progress[Upload Progress]
 Toast[Success/Error Messages]
 Realtime[Real-time Status]
+Polling[Automatic Polling]
 end
+Sidebar --> Documents
 Login --> Documents
 Documents --> Upload
 Upload --> LiveUpdates
@@ -384,10 +408,25 @@ Actions --> Modals
 Documents --> Progress
 Documents --> Toast
 Documents --> Realtime
+Documents --> Partials
+Partials --> Polling
 ```
 
 **Diagram sources**
 - [templates/documents.html:14-319](file://templates/documents.html#L14-L319)
+- [templates/base.html:18-76](file://templates/base.html#L18-L76)
+
+### Enhanced Sidebar Navigation System
+
+The admin interface features a comprehensive sidebar navigation system with icon-based interface:
+
+| Navigation Item | Icon | Status | Purpose |
+|----------------|------|--------|---------|
+| Knowledge Base | 📚 | Active | Main document management interface |
+| Broadcasts | 📢 | Disabled | Future feature for mass communications |
+| Settings | ⚙️ | Disabled | Future feature for system configuration |
+| Analytics | 📊 | Disabled | Future feature for usage analytics |
+| Logout | 🚪 | Available | Secure session termination |
 
 ### Key Interface Features
 
@@ -397,10 +436,27 @@ Documents --> Realtime
 | Real-time Updates | HTMX polling | Automatic table refresh |
 | Progress Indicators | XMLHttpRequest | Upload progress feedback |
 | Confirmation Dialogs | HTML5 Dialog | Prevent accidental deletions |
-| Responsive Design | Tailwind CSS | Mobile/desktop compatibility |
+| Responsive Design | Tailwind CSS + DaisyUI | Mobile/desktop compatibility |
+| Expanded Row Heights | Custom CSS classes | Better organized document actions |
+| Status Badges | Dynamic HTMX updates | Real-time processing status |
+| Action Dropdowns | Interactive menus | Organized document operations |
+
+### Document Table Enhancements
+
+The document table features improved layouts and styling:
+
+- **Expanded row heights** for better visual organization
+- **Enhanced status indicators** with loading animations
+- **Improved action buttons** with dedicated dropdown menus
+- **Better source type visualization** with colored file icons
+- **Real-time status polling** for processing documents
+- **Dynamic filtering** with multiple filter criteria
 
 **Section sources**
-- [templates/documents.html:1-319](file://templates/documents.html#L1-L319)
+- [templates/documents.html:1-542](file://templates/documents.html#L1-L542)
+- [templates/base.html:1-132](file://templates/base.html#L1-L132)
+- [templates/partials/document_row.html:1-146](file://templates/partials/document_row.html#L1-L146)
+- [templates/partials/document_table.html:1-18](file://templates/partials/document_table.html#L1-L18)
 
 ## Integration Points
 
