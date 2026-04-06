@@ -118,21 +118,43 @@ class DocumentRepository:
         return _row_to_record(row)
 
     async def list_page(
-        self, *, page: int = 1, per_page: int = 20,
+        self, *, page: int = 1, per_page: int = 20, search: str | None = None,
     ) -> tuple[list[DocumentRecord], int]:
         """Return (documents, total_count) ordered by id DESC with pagination."""
         cols = ", ".join(_COLUMNS)
         async with aiosqlite.connect(self._db_path) as db:
-            cursor = await db.execute("SELECT COUNT(*) FROM documents")
-            row = await cursor.fetchone()
-            total = row[0] if row else 0
+            if search:
+                search_pattern = f"%{search}%"
+                count_sql = (
+                    "SELECT COUNT(*) FROM documents "
+                    "WHERE LOWER(title) LIKE LOWER(?) OR LOWER(filename) LIKE LOWER(?)"
+                )
+                cursor = await db.execute(count_sql, (search_pattern, search_pattern))
+                row = await cursor.fetchone()
+                total = row[0] if row else 0
 
-            offset = (page - 1) * per_page
-            cursor = await db.execute(
-                f"SELECT {cols} FROM documents ORDER BY id DESC LIMIT ? OFFSET ?",  # noqa: S608
-                (per_page, offset),
-            )
-            rows = await cursor.fetchall()
+                offset = (page - 1) * per_page
+                select_sql = (
+                    f"SELECT {cols} FROM documents "
+                    "WHERE LOWER(title) LIKE LOWER(?) OR LOWER(filename) LIKE LOWER(?) "
+                    "ORDER BY id DESC LIMIT ? OFFSET ?"  # noqa: S608
+                )
+                cursor = await db.execute(
+                    select_sql,
+                    (search_pattern, search_pattern, per_page, offset),
+                )
+                rows = await cursor.fetchall()
+            else:
+                cursor = await db.execute("SELECT COUNT(*) FROM documents")
+                row = await cursor.fetchone()
+                total = row[0] if row else 0
+
+                offset = (page - 1) * per_page
+                cursor = await db.execute(
+                    f"SELECT {cols} FROM documents ORDER BY id DESC LIMIT ? OFFSET ?",  # noqa: S608
+                    (per_page, offset),
+                )
+                rows = await cursor.fetchall()
         return [_row_to_record(r) for r in rows], total
 
     # ── Update ────────────────────────────────────────────────────

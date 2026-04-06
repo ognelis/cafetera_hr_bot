@@ -199,8 +199,9 @@ async def documents_page(
     repo: RepoDep,
     page: int = 1,
     per_page: int = 10,
+    search: str | None = None,
 ):
-    documents, total = await repo.list_page(page=page, per_page=per_page)
+    documents, total = await repo.list_page(page=page, per_page=per_page, search=search)
     pages = math.ceil(total / per_page) if per_page > 0 else 0
     return templates.TemplateResponse(
         request,
@@ -212,6 +213,7 @@ async def documents_page(
             "per_page": per_page,
             "pages": pages,
             "total": total,
+            "search": search,
         },
     )
 
@@ -227,8 +229,9 @@ async def document_table_partial(
     repo: RepoDep,
     page: int = 1,
     per_page: int = 10,
+    search: str | None = None,
 ):
-    documents, total = await repo.list_page(page=page, per_page=per_page)
+    documents, total = await repo.list_page(page=page, per_page=per_page, search=search)
     pages = math.ceil(total / per_page) if per_page > 0 else 0
     return templates.TemplateResponse(
         request,
@@ -240,6 +243,7 @@ async def document_table_partial(
             "per_page": per_page,
             "pages": pages,
             "total": total,
+            "search": search,
         },
     )
 
@@ -389,14 +393,16 @@ async def list_documents(
     repo: RepoDep,
     page: int = 1,
     per_page: int = 10,
+    search: str | None = None,
 ):
-    docs, total = await repo.list_page(page=page, per_page=per_page)
+    docs, total = await repo.list_page(page=page, per_page=per_page, search=search)
     return {
         "items": [_doc_to_dict(d) for d in docs],
         "total": total,
         "page": page,
         "per_page": per_page,
         "pages": math.ceil(total / per_page) if per_page > 0 else 0,
+        "search": search,
     }
 
 

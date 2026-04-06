@@ -16,12 +16,36 @@
     <input type="checkbox" class="checkbox checkbox-sm" value="{{ doc.document_id }}" />
   </td>
 
-  {# Status toggle #}
+  {# Status badge column #}
   <td class="px-2 py-3">
+    {% if doc.status.value == 'pending' %}
+      <span class="badge badge-warning badge-sm">
+        <span class="loading loading-dots size-3 mr-1"></span>
+        Ожидание
+      </span>
+    {% elif doc.status.value == 'processing' %}
+      <span class="badge badge-info badge-sm">
+        <span class="loading loading-spinner size-3 mr-1"></span>
+        Индексация
+      </span>
+    {% elif doc.status.value == 'completed' %}
+      <span class="badge badge-success badge-sm">Готов</span>
+    {% elif doc.status.value == 'failed' %}
+      <span class="badge badge-error badge-sm tooltip" data-tip="{{ doc.error or 'Неизвестная ошибка' }}">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Ошибка
+      </span>
+    {% endif %}
+  </td>
+
+  {# Search enabled checkbox column #}
+  <td class="px-2 py-3 text-center">
     <form>
       <input
         type="checkbox"
-        class="toggle toggle-sm toggle-primary"
+        class="checkbox checkbox-sm checkbox-primary"
         {% if doc.is_search_enabled %}checked{% endif %}
         hx-patch="/api/documents/{{ doc.document_id }}/search"
         hx-target="#row-{{ doc.document_id }}"
@@ -33,34 +57,13 @@
     </form>
   </td>
 
-  {# Title with status indicator #}
+  {# Title #}
   <td class="px-3 py-3">
-    <div class="flex items-center gap-2">
-      <a
-        href="/api/documents/{{ doc.document_id }}/download"
-        class="text-sm font-medium text-base-content hover:text-primary transition-colors"
-        title="Скачать файл"
-      >{{ doc.title }}</a>
-
-      {% if doc.status.value == 'processing' %}
-        <span class="inline-flex items-center gap-1 text-[11px] text-warning">
-          <span class="loading loading-spinner size-3"></span>
-          Индексация
-        </span>
-      {% elif doc.status.value == 'pending' %}
-        <span class="inline-flex items-center gap-1 text-[11px] text-info">
-          <span class="loading loading-dots size-3"></span>
-          Ожидание
-        </span>
-      {% elif doc.status.value == 'failed' %}
-        <span class="inline-flex items-center gap-1 text-[11px] text-error tooltip" data-tip="{{ doc.error or 'Неизвестная ошибка' }}">
-          <svg xmlns="http://www.w3.org/2000/svg" class="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Ошибка
-        </span>
-      {% endif %}
-    </div>
+    <a
+      href="/api/documents/{{ doc.document_id }}/download"
+      class="text-sm font-medium text-base-content hover:text-primary transition-colors"
+      title="Скачать файл"
+    >{{ doc.title }}</a>
   </td>
 
   {# Source type with icon — right aligned #}

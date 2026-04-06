@@ -28,20 +28,30 @@
       </svg>
       <input
         type="text"
+        name="search"
         placeholder="Поиск"
         class="input input-sm input-bordered w-full pl-9 rounded-full bg-base-100"
         x-model="searchQuery"
+        hx-get="/partials/document-table"
+        hx-trigger="input changed delay:300ms"
+        hx-target="#document-table-container"
+        hx-swap="innerHTML"
+        hx-vals='{"page": 1}'
+        @htmx:before-request="currentPage = 1"
       />
     </div>
 
     {# Per-page selector #}
-    <select x-model="perPage"
-            @change="currentPage = 1; htmx.ajax('GET', '/partials/document-table?page=1&per_page=' + perPage, {target: '#document-table-container', swap: 'innerHTML'})"
-            class="select select-sm select-bordered rounded-full bg-base-100">
-      <option value="10">10</option>
-      <option value="20">20</option>
-      <option value="50">50</option>
-    </select>
+    <div class="flex items-center gap-2">
+      <span class="text-sm text-base-content/60">Показать по:</span>
+      <select x-model="perPage"
+              @change="currentPage = 1; htmx.ajax('GET', '/partials/document-table?page=1&per_page=' + perPage + (searchQuery ? '&search=' + encodeURIComponent(searchQuery) : ''), {target: '#document-table-container', swap: 'innerHTML'})"
+              class="select select-sm select-bordered rounded-full bg-base-100">
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="50">50</option>
+      </select>
+    </div>
   </div>
 
   {# ── Filter chips ─────────────────────────────────────────── #}
@@ -276,13 +286,10 @@
       },
 
       shouldShowRow(row) {
-        const title = (row.getAttribute('data-title') || '').toLowerCase();
         const status = row.getAttribute('data-status') || '';
         const sourceType = row.getAttribute('data-source-type') || '';
 
-        if (this.searchQuery && !title.includes(this.searchQuery.toLowerCase())) {
-          return false;
-        }
+        // Search is now server-side, only apply client-side filters
         if (this.statusFilter !== 'all' && status !== this.statusFilter) {
           return false;
         }
@@ -451,7 +458,7 @@
 
           // Refresh table to show new document, reset to page 1
           this.currentPage = 1;
-          htmx.ajax('GET', '/partials/document-table?page=1&per_page=' + this.perPage, {target: '#document-table-container', swap: 'innerHTML'});
+          htmx.ajax('GET', '/partials/document-table?page=1&per_page=' + this.perPage + (this.searchQuery ? '&search=' + encodeURIComponent(this.searchQuery) : ''), {target: '#document-table-container', swap: 'innerHTML'});
 
           setTimeout(() => {
             this.uploads = this.uploads.filter(u => u.id !== id);
@@ -487,7 +494,7 @@
       }));
       // Refresh the entire table to update pagination and counts
       const alpineData = document.querySelector('[x-data="documentsPage()"]')._x_dataStack[0];
-      htmx.ajax('GET', `/partials/document-table?page=${alpineData.currentPage}&per_page=${alpineData.perPage}`, {target: '#document-table-container', swap: 'innerHTML'});
+      htmx.ajax('GET', `/partials/document-table?page=${alpineData.currentPage}&per_page=${alpineData.perPage}` + (alpineData.searchQuery ? '&search=' + encodeURIComponent(alpineData.searchQuery) : ''), {target: '#document-table-container', swap: 'innerHTML'});
     });
 
     pendingDeleteId = null;

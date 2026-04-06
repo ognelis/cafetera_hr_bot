@@ -4,7 +4,7 @@
     {# Previous button #}
     {% if page > 1 %}
     <button class="join-item btn btn-sm"
-            hx-get="/partials/document-table?page={{ page - 1 }}&per_page={{ per_page }}"
+            hx-get="/partials/document-table?page={{ page - 1 }}&per_page={{ per_page }}{% if search %}&search={{ search | urlencode }}{% endif %}"
             hx-target="#document-table-container"
             hx-swap="innerHTML">
       «
@@ -18,7 +18,7 @@
       {# Show all pages if 7 or fewer #}
       {% for p in range(1, pages + 1) %}
       <button class="join-item btn btn-sm {% if p == page %}btn-active{% endif %}"
-              hx-get="/partials/document-table?page={{ p }}&per_page={{ per_page }}"
+              hx-get="/partials/document-table?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search | urlencode }}{% endif %}"
               hx-target="#document-table-container"
               hx-swap="innerHTML">
         {{ p }}
@@ -30,7 +30,7 @@
         {# Near start: show 1, 2, 3, 4, 5, ..., last #}
         {% for p in range(1, 6) %}
         <button class="join-item btn btn-sm {% if p == page %}btn-active{% endif %}"
-                hx-get="/partials/document-table?page={{ p }}&per_page={{ per_page }}"
+                hx-get="/partials/document-table?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search | urlencode }}{% endif %}"
                 hx-target="#document-table-container"
                 hx-swap="innerHTML">
           {{ p }}
@@ -38,7 +38,7 @@
         {% endfor %}
         <button class="join-item btn btn-sm btn-disabled">...</button>
         <button class="join-item btn btn-sm"
-                hx-get="/partials/document-table?page={{ pages }}&per_page={{ per_page }}"
+                hx-get="/partials/document-table?page={{ pages }}&per_page={{ per_page }}{% if search %}&search={{ search | urlencode }}{% endif %}"
                 hx-target="#document-table-container"
                 hx-swap="innerHTML">
           {{ pages }}
@@ -46,7 +46,7 @@
       {% elif page >= pages - 3 %}
         {# Near end: show 1, ..., pages-4, pages-3, pages-2, pages-1, pages #}
         <button class="join-item btn btn-sm"
-                hx-get="/partials/document-table?page=1&per_page={{ per_page }}"
+                hx-get="/partials/document-table?page=1&per_page={{ per_page }}{% if search %}&search={{ search | urlencode }}{% endif %}"
                 hx-target="#document-table-container"
                 hx-swap="innerHTML">
           1
@@ -54,7 +54,7 @@
         <button class="join-item btn btn-sm btn-disabled">...</button>
         {% for p in range(pages - 4, pages + 1) %}
         <button class="join-item btn btn-sm {% if p == page %}btn-active{% endif %}"
-                hx-get="/partials/document-table?page={{ p }}&per_page={{ per_page }}"
+                hx-get="/partials/document-table?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search | urlencode }}{% endif %}"
                 hx-target="#document-table-container"
                 hx-swap="innerHTML">
           {{ p }}
@@ -63,7 +63,7 @@
       {% else %}
         {# Middle: show 1, ..., page-1, page, page+1, ..., last #}
         <button class="join-item btn btn-sm"
-                hx-get="/partials/document-table?page=1&per_page={{ per_page }}"
+                hx-get="/partials/document-table?page=1&per_page={{ per_page }}{% if search %}&search={{ search | urlencode }}{% endif %}"
                 hx-target="#document-table-container"
                 hx-swap="innerHTML">
           1
@@ -71,7 +71,7 @@
         <button class="join-item btn btn-sm btn-disabled">...</button>
         {% for p in range(page - 1, page + 2) %}
         <button class="join-item btn btn-sm {% if p == page %}btn-active{% endif %}"
-                hx-get="/partials/document-table?page={{ p }}&per_page={{ per_page }}"
+                hx-get="/partials/document-table?page={{ p }}&per_page={{ per_page }}{% if search %}&search={{ search | urlencode }}{% endif %}"
                 hx-target="#document-table-container"
                 hx-swap="innerHTML">
           {{ p }}
@@ -79,7 +79,7 @@
         {% endfor %}
         <button class="join-item btn btn-sm btn-disabled">...</button>
         <button class="join-item btn btn-sm"
-                hx-get="/partials/document-table?page={{ pages }}&per_page={{ per_page }}"
+                hx-get="/partials/document-table?page={{ pages }}&per_page={{ per_page }}{% if search %}&search={{ search | urlencode }}{% endif %}"
                 hx-target="#document-table-container"
                 hx-swap="innerHTML">
           {{ pages }}
@@ -90,7 +90,7 @@
     {# Next button #}
     {% if page < pages %}
     <button class="join-item btn btn-sm"
-            hx-get="/partials/document-table?page={{ page + 1 }}&per_page={{ per_page }}"
+            hx-get="/partials/document-table?page={{ page + 1 }}&per_page={{ per_page }}{% if search %}&search={{ search | urlencode }}{% endif %}"
             hx-target="#document-table-container"
             hx-swap="innerHTML">
       »

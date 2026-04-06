@@ -11,6 +11,7 @@
 - [app/storage/document_repo.py](file://app/storage/document_repo.py)
 - [app/storage/models.py](file://app/storage/models.py)
 - [app/storage/s3.py](file://app/storage/s3.py)
+- [app/storage/database.py](file://app/storage/database.py)
 - [app/rag/indexer.py](file://app/rag/indexer.py)
 - [app/rag/parser.py](file://app/rag/parser.py)
 - [app/rag/retriever.py](file://app/rag/retriever.py)
@@ -20,37 +21,52 @@
 - [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
 - [app/integrations/vk/handlers/hr_request.py](file://app/integrations/vk/handlers/hr_request.py)
 - [app/integrations/vk/handlers/fire.py](file://app/integrations/vk/handlers/fire.py)
-- [app/integrations/vk/handlers/hire.py](file://app/integrations/vk/handators/hire.py](file://app/integrations/vk/handlers/hire.py)
+- [app/integrations/vk/handlers/hire.py](file://app/integrations/vk/handlers/hire.py)
 - [app/integrations/vk/handlers/pay.py](file://app/integrations/vk/handlers/pay.py)
 - [app/integrations/vk/handlers/vacation.py](file://app/integrations/vk/handlers/vacation.py)
 - [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
 - [app/integrations/vk/rules.py](file://app/integrations/vk/rules.py)
 - [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
 - [templates/documents.html](file://templates/documents.html)
+- [templates/partials/document_table.html](file://templates/partials/document_table.html)
+- [templates/partials/pagination.html](file://templates/partials/pagination.html)
 - [scripts/ingest.py](file://scripts/ingest.py)
+- [tests/test_api_documents.py](file://tests/test_api_documents.py)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added comprehensive pagination system documentation across API endpoints and frontend
+- Updated database schema documentation to reflect auto-incrementing primary key
+- Enhanced API endpoints documentation with pagination parameters
+- Added HTMX integration details for dynamic pagination controls
+- Updated storage layer documentation with pagination implementation
+- Enhanced testing strategy to cover pagination functionality
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [System Architecture](#system-architecture)
 3. [Core Components](#core-components)
 4. [Document Management Workflow](#document-management-workflow)
-5. [RAG Pipeline](#rag-pipeline)
-6. [VK Bot Integration](#vk-bot-integration)
-7. [Storage Layer](#storage-layer)
-8. [API Endpoints](#api-endpoints)
-9. [Configuration Management](#configuration-management)
-10. [Testing Strategy](#testing-strategy)
-11. [Deployment and Operations](#deployment-and-operations)
-12. [Troubleshooting Guide](#troubleshooting-guide)
-13. [Conclusion](#conclusion)
+5. [Pagination System](#pagination-system)
+6. [RAG Pipeline](#rag-pipeline)
+7. [VK Bot Integration](#vk-bot-integration)
+8. [Storage Layer](#storage-layer)
+9. [API Endpoints](#api-endpoints)
+10. [Configuration Management](#configuration-management)
+11. [Testing Strategy](#testing-strategy)
+12. [Deployment and Operations](#deployment-and-operations)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+14. [Conclusion](#conclusion)
 
 ## Introduction
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
 The system supports multiple document formats (primarily DOCX), integrates with vector databases for semantic search, and provides both web-based administration and VK social network bot integration for HR assistance. It features a modular architecture with clear separation between presentation, business logic, data persistence, and external integrations.
+
+**Updated** The system now includes a comprehensive pagination system that enhances scalability and user experience when managing large document collections.
 
 ## System Architecture
 
@@ -61,6 +77,7 @@ graph TB
 subgraph "Presentation Layer"
 WebUI[Web Interface]
 VKBot[VK Bot]
+Pagination[HTMX Pagination Controls]
 end
 subgraph "Application Layer"
 API[FastAPI Router]
@@ -74,6 +91,7 @@ end
 subgraph "Data Access Layer"
 Repo[Document Repository]
 Models[Data Models]
+Pagination[Database Pagination]
 end
 subgraph "External Services"
 S3[MinIO/S3 Storage]
@@ -81,12 +99,14 @@ Qdrant[Qdrant Vector DB]
 LLM[LLM Provider]
 end
 WebUI --> API
+WebUI --> Pagination
 VKBot --> API
 API --> Service
 Service --> Repo
 Service --> Qdrant
 Service --> S3
 Repo --> Models
+Repo --> Pagination
 Service --> LLM
 QAService --> Service
 QAService --> LLM
@@ -94,15 +114,16 @@ QAService --> LLM
 
 **Diagram sources**
 - [app/main.py:99-124](file://app/main.py#L99-L124)
-- [app/api/documents.py:1-571](file://app/api/documents.py#L1-L571)
+- [app/api/documents.py:1-577](file://app/api/documents.py#L1-L577)
 - [app/domain/document_service.py:35-281](file://app/domain/document_service.py#L35-L281)
+- [templates/partials/pagination.html:1-104](file://templates/partials/pagination.html#L1-L104)
 
-The architecture consists of five main layers:
+The architecture consists of five main layers with enhanced pagination support:
 
-1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration
-2. **Application Layer**: Business logic encapsulated in domain services and API routers
+1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration and HTMX-powered pagination controls
+2. **Application Layer**: Business logic encapsulated in domain services and API routers with pagination-aware endpoints
 3. **Domain Layer**: Core business entities and state management for bot interactions
-4. **Data Access Layer**: Async repository pattern for SQLite database operations
+4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive pagination support
 5. **Integration Layer**: External services for storage, vector databases, and AI providers
 
 ## Core Components
@@ -120,7 +141,7 @@ participant S3 as Storage
 participant Qdrant as VectorDB
 participant Service as DocumentService
 App->>Config : Load configuration
-App->>DB : Initialize SQLite
+App->>DB : Initialize SQLite with auto-incrementing primary key
 App->>S3 : Connect to storage
 App->>Qdrant : Connect to vector database
 App->>Service : Create document service
@@ -130,6 +151,7 @@ App->>App : Register routes and templates
 **Diagram sources**
 - [app/main.py:24-82](file://app/main.py#L24-L82)
 - [app/config.py:4-33](file://app/config.py#L4-L33)
+- [app/storage/database.py:32-39](file://app/storage/database.py#L32-L39)
 
 ### Document Service Architecture
 
@@ -223,6 +245,77 @@ The system implements comprehensive validation for uploaded documents:
 - [app/api/documents.py:307-366](file://app/api/documents.py#L307-L366)
 - [app/api/documents.py:111-130](file://app/api/documents.py#L111-L130)
 
+## Pagination System
+
+The system implements a comprehensive pagination system that enhances scalability and user experience when managing large document collections:
+
+```mermaid
+sequenceDiagram
+participant Client as Client Browser
+participant API as API Router
+participant Repo as Document Repository
+participant DB as SQLite Database
+Client->>API : GET /api/documents?page=2&per_page=20
+API->>Repo : list_page(page=2, per_page=20)
+Repo->>DB : SELECT ... LIMIT 20 OFFSET 20
+DB-->>Repo : Documents + Total Count
+Repo-->>API : (documents, total)
+API-->>Client : JSON with pagination metadata
+Client->>Client : Render pagination controls
+```
+
+**Diagram sources**
+- [app/api/documents.py:390-406](file://app/api/documents.py#L390-L406)
+- [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
+
+### Pagination Parameters
+
+The pagination system supports the following parameters:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | Integer | 1 | Current page number (1-indexed) |
+| `per_page` | Integer | 10 | Number of items per page (10, 20, 50) |
+| `search` | String | None | Search query for filtering documents |
+
+### Frontend Pagination Implementation
+
+The frontend uses HTMX for dynamic pagination without full page reloads:
+
+```mermaid
+stateDiagram-v2
+[*] --> PageLoad : Initial Load
+PageLoad --> TableRender : Render table with pagination
+TableRender --> PageChange : User clicks page button
+PageChange --> HTMXRequest : Send AJAX request
+HTMXRequest --> TableRefresh : Replace table content
+TableRefresh --> PageChange : User continues navigating
+PageChange --> SearchChange : User changes search
+SearchChange --> HTMXRequest : Send AJAX request with search
+HTMXRequest --> TableRefresh : Replace table content
+TableRefresh --> PageChange : Continue navigation
+```
+
+**Diagram sources**
+- [templates/documents.html:35-41](file://templates/documents.html#L35-L41)
+- [templates/partials/pagination.html:7-10](file://templates/partials/pagination.html#L7-L10)
+
+### Pagination Controls
+
+The system provides sophisticated pagination controls with intelligent page numbering:
+
+- **Previous/Next Buttons**: Navigate between adjacent pages
+- **Page Number Buttons**: Direct access to specific pages with ellipsis for large ranges
+- **Dynamic Ellipsis**: Shows `1, 2, 3, ..., last` near the end, `1, ..., middle-1, middle, middle+1, ..., last` in the middle, and `1, 2, 3, 4, 5, ..., last` near the beginning
+- **Active State Highlighting**: Current page button is visually distinct
+- **Disabled States**: Previous button disabled on first page, next button disabled on last page
+
+**Section sources**
+- [app/api/documents.py:194-218](file://app/api/documents.py#L194-L218)
+- [app/api/documents.py:390-406](file://app/api/documents.py#L390-L406)
+- [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
+- [templates/partials/pagination.html:1-104](file://templates/partials/pagination.html#L1-L104)
+
 ## RAG Pipeline
 
 The Retrieval-Augmented Generation pipeline processes documents through multiple stages:
@@ -307,7 +400,7 @@ The VK bot uses a handler-based architecture for different interaction modes:
 
 ## Storage Layer
 
-The storage architecture provides a robust foundation for document management:
+The storage architecture provides a robust foundation for document management with enhanced pagination support:
 
 ```mermaid
 erDiagram
@@ -334,6 +427,7 @@ DOCUMENTS ||--o{ FILES : stored_in
 **Diagram sources**
 - [app/storage/models.py:20-37](file://app/storage/models.py#L20-L37)
 - [app/storage/document_repo.py:14-49](file://app/storage/document_repo.py#L14-L49)
+- [app/storage/database.py:12-29](file://app/storage/database.py#L12-L29)
 
 ### Database Schema Design
 
@@ -344,14 +438,18 @@ The SQLite schema supports comprehensive document tracking with:
 - **Search Optimization**: Dedicated search enablement flag for vector filtering
 - **Audit Trail**: Creation and modification timestamps for all records
 - **Performance Metrics**: Chunk count and indexing timestamps for monitoring
+- **Pagination Support**: Efficient ordering by ID for pagination queries
+
+**Updated** The database now uses an auto-incrementing primary key (`id INTEGER PRIMARY KEY AUTOINCREMENT`) which enables efficient pagination through `ORDER BY id DESC LIMIT ? OFFSET ?` queries.
 
 **Section sources**
 - [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
 - [app/storage/document_repo.py:63-214](file://app/storage/document_repo.py#L63-L214)
+- [app/storage/database.py:12-29](file://app/storage/database.py#L12-L29)
 
 ## API Endpoints
 
-The system provides a comprehensive REST API for document management:
+The system provides a comprehensive REST API for document management with full pagination support:
 
 ### Authentication and Authorization
 
@@ -377,12 +475,22 @@ The system provides a comprehensive REST API for document management:
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/partials/document-table` | GET | Dynamic table content |
+| `/partials/document-table` | GET | Dynamic table content with pagination |
 | `/partials/document-row/{id}` | GET | Individual row updates |
 | `/partials/document-status/{id}` | GET | Status badge refresh |
 
+### Pagination Parameters
+
+All list endpoints support the following pagination parameters:
+
+- **`page`**: Current page number (default: 1)
+- **`per_page`**: Items per page (default: 10, options: 10, 20, 50)
+- **`search`**: Search query for filtering documents
+
+**Updated** All endpoints now support pagination parameters, with the main `/api/documents` endpoint returning comprehensive pagination metadata including total count, current page, items per page, and total pages.
+
 **Section sources**
-- [app/api/documents.py:1-571](file://app/api/documents.py#L1-L571)
+- [app/api/documents.py:1-577](file://app/api/documents.py#L1-L577)
 - [app/api/deps.py:54-74](file://app/api/deps.py#L54-L74)
 
 ## Configuration Management
@@ -433,7 +541,7 @@ Settings --> Environment : inherits
 
 ## Testing Strategy
 
-The system includes comprehensive testing across all layers:
+The system includes comprehensive testing across all layers with extensive pagination coverage:
 
 ### Test Coverage Areas
 
@@ -446,16 +554,22 @@ The system includes comprehensive testing across all layers:
 | `test_bot_factory.py` | VK bot integration | State machine validation |
 | `test_qa_service.py` | Question-answering logic | Scenario-based testing |
 
-### Testing Dependencies
+### Pagination Testing Coverage
 
-The test suite leverages:
-- **pytest-asyncio**: Asynchronous test execution
-- **Mock objects**: External service mocking
-- **Test fixtures**: Shared test infrastructure
-- **Coverage reporting**: Test coverage analysis
+The test suite includes comprehensive pagination testing:
+
+- **Default Pagination**: Tests default page size (10 items)
+- **Custom Pagination**: Tests custom page sizes (3 items per page)
+- **Large Collections**: Tests pagination with 7 documents across 3 pages
+- **Beyond Range**: Tests pagination beyond available data
+- **Total Count Accuracy**: Verifies total count matches actual document count
+- **HTMX Partials**: Tests pagination controls in HTMX partial responses
+
+**Updated** The testing strategy now includes extensive pagination testing covering edge cases, performance scenarios, and frontend integration.
 
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
+- [tests/test_api_documents.py:506-605](file://tests/test_api_documents.py#L506-L605)
 
 ## Deployment and Operations
 
@@ -471,7 +585,7 @@ Bot[VK Bot Worker]
 Poller[Message Poller]
 end
 subgraph "Data Services"
-DB[(SQLite Database)]
+DB[(SQLite Database with Auto-Increment)]
 MinIO[(MinIO Storage)]
 Qdrant[(Qdrant Vector DB)]
 end
@@ -495,6 +609,8 @@ Required environment variables:
 - `QDRANT_URL`: Vector database connection
 - `OLLAMA_BASE_URL`: LLM service endpoint
 
+**Updated** The deployment configuration now supports the enhanced pagination system with auto-incrementing database primary keys.
+
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
 
@@ -509,6 +625,7 @@ Required environment variables:
 | **S3 Storage Issues** | Files not accessible | Confirm bucket existence, credentials, network connectivity |
 | **Admin Authentication Problems** | 403 Forbidden errors | Verify `admin_api_key` matches cookie value |
 | **Bot Not Responding** | VK messages ignored | Check VK access token, webhook configuration |
+| **Pagination Issues** | Incorrect page counts or empty results | Verify database auto-increment setup, check pagination parameters |
 
 ### Logging and Monitoring
 
@@ -518,6 +635,9 @@ The system provides comprehensive logging at multiple levels:
 - **Storage logs**: File operations, upload/download progress
 - **Vector database logs**: Indexing operations, search queries
 - **Bot logs**: Message processing, state transitions
+- **Pagination logs**: Page calculation, query performance
+
+**Updated** The troubleshooting guide now includes pagination-specific issues and solutions.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -533,5 +653,9 @@ Key strengths include:
 - **Advanced RAG Pipeline**: Semantic search and question-answering capabilities
 - **Multi-channel Integration**: Web interface and VK social network bot
 - **Production-ready Architecture**: Proper separation of concerns and testing strategy
+- **Scalable Pagination System**: Efficient handling of large document collections
+- **Enhanced User Experience**: Dynamic pagination with HTMX integration
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
+
+**Updated** The recent implementation of comprehensive pagination system significantly enhances the system's ability to handle large document collections efficiently, providing users with smooth navigation and improved performance across all document management operations.
