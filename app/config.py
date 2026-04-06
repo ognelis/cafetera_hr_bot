@@ -23,3 +23,10 @@ class Settings(BaseSettings):
 
     # Storage
     db_path: str = "data/cafetera.db"
+    s3_endpoint_url: str = "http://localhost:9000"
+    s3_access_key: str = "minioadmin"
+    s3_secret_key: str = "minioadmin"
+    s3_bucket: str = "rag-documents"
+
+    # Admin
+    admin_api_key: str = ""

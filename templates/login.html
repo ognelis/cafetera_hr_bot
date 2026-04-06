@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Login{% endblock %}
+
+{% block body %}
+<div class="flex items-center justify-center min-h-screen">
+  <div class="card bg-base-100 shadow-xl w-full max-w-sm">
+    <div class="card-body">
+      <h2 class="card-title justify-center text-2xl mb-4">Cafetera HR Admin</h2>
+
+      {% if error %}
+      <div class="alert alert-error mb-4">
+        <span>
+          {% if error == "invalid_key" %}
+            Неверный ключ доступа.
+          {% else %}
+            Ошибка авторизации.
+          {% endif %}
+        </span>
+      </div>
+      {% endif %}
+
+      <form method="post" action="/login">
+        <div class="form-control mb-4">
+          <label class="label" for="api_key">
+            <span class="label-text">Ключ доступа</span>
+          </label>
+          <input
+            type="password"
+            id="api_key"
+            name="api_key"
+            placeholder="Введите ключ"
+            class="input input-bordered w-full"
+            required
+            autofocus
+          />
+        </div>
+        <button type="submit" class="btn btn-primary w-full">Войти</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

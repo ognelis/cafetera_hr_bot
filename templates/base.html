@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="corporate">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Admin{% endblock %} — Cafetera HR</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5/full.css" rel="stylesheet" type="text/css" />
+  <script src="https://cdn.tailwindcss.com/4"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen bg-base-200">
+  {% block body %}{% endblock %}
+
+  {# ── Toast container ─────────────────────────────────────── #}
+  <div
+    x-data="toastManager()"
+    x-cloak
+    @show-toast.window="addToast($event.detail)"
+    class="toast toast-end toast-top z-50"
+  >
+    <template x-for="toast in toasts" :key="toast.id">
+      <div
+        class="alert shadow-lg"
+        :class="{
+          'alert-success': toast.type === 'success',
+          'alert-error':   toast.type === 'error',
+          'alert-warning': toast.type === 'warning',
+          'alert-info':    toast.type === 'info'
+        }"
+        x-transition
+      >
+        <span x-text="toast.message"></span>
+        <button class="btn btn-ghost btn-xs" @click="remove(toast.id)">&#x2715;</button>
+      </div>
+    </template>
+  </div>
+
+  <script>
+    function toastManager() {
+      return {
+        toasts: [],
+        nextId: 0,
+        addToast(detail) {
+          const id = this.nextId++;
+          this.toasts.push({ id, message: detail.message || detail, type: detail.type || 'info' });
+          setTimeout(() => this.remove(id), 5000);
+        },
+        remove(id) {
+          this.toasts = this.toasts.filter(t => t.id !== id);
+        }
+      };
+    }
+
+    // Listen for HX-Trigger "showToast" events from HTMX responses
+    document.body.addEventListener('showToast', function(evt) {
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: evt.detail }));
+    });
+  </script>
+</body>
+</html>

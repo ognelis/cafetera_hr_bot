@@ -4,6 +4,8 @@
 **Referenced Files in This Document**
 - [app/config.py](file://app/config.py)
 - [app/rag/chain.py](file://app/rag/chain.py)
+- [app/rag/indexer.py](file://app/rag/indexer.py)
+- [app/rag/parser.py](file://app/rag/parser.py)
 - [app/rag/prompts.py](file://app/rag/prompts.py)
 - [app/rag/retriever.py](file://app/rag/retriever.py)
 - [app/domain/qa_service.py](file://app/domain/qa_service.py)
@@ -30,13 +32,16 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced with comprehensive document storage system for RAG functionality
-- Added SQLite database integration with DocumentRepository CRUD operations
-- Implemented complete test coverage for document metadata management
-- Integrated DocumentService for full document lifecycle management
-- Added DocumentRecord model with comprehensive metadata fields
-- Enhanced ingestion pipeline with SQLite metadata tracking
-- Completed Block 10 of Phase 3 for document storage infrastructure
+- Complete RAG system implementation delivered with DocumentService orchestration
+- Enhanced indexer module for Qdrant chunk management and document operations
+- Comprehensive parser module for Word document processing and chunking
+- Full document lifecycle management through DocumentService with SQLite integration
+- Enhanced retriever with search filtering and Qdrant integration
+- Complete ingestion pipeline with bulk processing and metadata tracking
+- Robust QA service with singleton pattern and error handling
+- Topic hints detection system with scenario and disclaimer logic
+- Enhanced VK ask handler with typing indicators and contextual navigation
+- Comprehensive testing framework covering all components
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -74,6 +79,8 @@ Config["Settings Configuration<br/>app/config.py"]
 Chain["RAG Chain<br/>app/rag/chain.py"]
 Prompts["System Prompts<br/>app/rag/prompts.py"]
 Retriever["Vector Store & Retriever<br/>app/rag/retriever.py"]
+Indexer["Chunk Indexer<br/>app/rag/indexer.py"]
+Parser["Document Parser<br/>app/rag/parser.py"]
 QAService["QA Service Layer<br/>app/domain/qa_service.py"]
 end
 subgraph "Document Storage System"
@@ -111,6 +118,8 @@ Config --> Chain
 Chain --> QAService
 Prompts --> Chain
 Retriever --> Chain
+Indexer --> DocService
+Parser --> DocService
 QAService --> Qdrant
 AskHandler --> TopicHints
 AskHandler --> Keyboards
@@ -121,9 +130,9 @@ DocService --> Repo
 DocService --> Qdrant
 DBInit --> Repo
 Models --> Repo
-Docx --> Ingest
-Chunking --> Ingest
-Embeddings --> Ingest
+Docx --> Parser
+Chunking --> Parser
+Embeddings --> Retriever
 Ingest --> DocService
 Ingest --> Qdrant
 Qdrant --> Retriever
@@ -140,6 +149,8 @@ OllamaScript --> QAService
 - [app/rag/chain.py:30-80](file://app/rag/chain.py#L30-L80)
 - [app/rag/prompts.py:5-19](file://app/rag/prompts.py#L5-L19)
 - [app/rag/retriever.py:22-74](file://app/rag/retriever.py#L22-L74)
+- [app/rag/indexer.py:23-72](file://app/rag/indexer.py#L23-L72)
+- [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
 - [app/domain/qa_service.py:51-120](file://app/domain/qa_service.py#L51-L120)
 - [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
 - [app/storage/models.py:11-36](file://app/storage/models.py#L11-L36)
@@ -161,16 +172,18 @@ OllamaScript --> QAService
 - [app/rag/chain.py:1-80](file://app/rag/chain.py#L1-L80)
 - [app/rag/prompts.py:1-19](file://app/rag/prompts.py#L1-L19)
 - [app/rag/retriever.py:1-74](file://app/rag/retriever.py#L1-L74)
+- [app/rag/indexer.py:1-152](file://app/rag/indexer.py#L1-L152)
+- [app/rag/parser.py:1-83](file://app/rag/parser.py#L1-L83)
 - [app/domain/qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
 - [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
 - [app/storage/models.py:1-36](file://app/storage/models.py#L1-L36)
 - [app/storage/document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
-- [app/domain/document_service.py:1-279](file://app/domain/document_service.py#L1-L279)
+- [app/domain/document_service.py:1-280](file://app/domain/document_service.py#L1-L280)
 - [app/integrations/vk/handlers/ask.py:1-86](file://app/integrations/vk/handlers/ask.py#L1-L86)
 - [app/domain/topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
 - [app/integrations/vk/keyboards.py:1-322](file://app/integrations/vk/keyboards.py#L1-L322)
 - [app/integrations/vk/states.py:1-17](file://app/integrations/vk/states.py#L1-L17)
-- [scripts/ingest.py:1-254](file://scripts/ingest.py#L1-L254)
+- [scripts/ingest.py:1-181](file://scripts/ingest.py#L1-L181)
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 - [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
 - [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
@@ -192,6 +205,9 @@ The RAG infrastructure consists of several interconnected components that work t
 - **Enhanced Ask Handler**: Multi-step dialog flow with typing indicators and contextual navigation
 - **Local LLM Deployment**: Dedicated scripts for llama.cpp and Ollama server deployment
 - **Application Integration**: Seamless integration with VK bot handlers and state management
+- **Document Service**: Central orchestration service managing document lifecycle across all systems
+- **Chunk Indexer**: Qdrant-specific operations for chunk management, deletion, and search filtering
+- **Document Parser**: Word document processing with section extraction and recursive character chunking
 
 **Updated** The RAG infrastructure now provides a complete, production-ready solution with comprehensive LangChain integration, Qdrant vector store capabilities, robust document storage system with SQLite, comprehensive QA service layer, topic hints detection system, enhanced user experience features, and support for three LLM providers including the new llama.cpp option.
 
@@ -207,6 +223,8 @@ The RAG infrastructure consists of several interconnected components that work t
 - [app/storage/models.py:11-36](file://app/storage/models.py#L11-L36)
 - [app/storage/document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
 - [app/domain/document_service.py:34-279](file://app/domain/document_service.py#L34-L279)
+- [app/rag/indexer.py:23-72](file://app/rag/indexer.py#L23-L72)
+- [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
 - [scripts/run_llama_qwen.sh:1-61](file://scripts/run_llama_qwen.sh#L1-L61)
 - [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
 
@@ -439,18 +457,18 @@ end
 - [app/rag/chain.py:30-73](file://app/rag/chain.py#L30-L73)
 
 **Section sources**
-- [app/rag/chain.py:1-80](file://app/rag/chain.py#L1-L80)
+- [app/rag/chain.py:1-95](file://app/rag/chain.py#L1-L95)
 
 ### Vector Store and Retrieval
 The retriever module provides comprehensive vector store integration with Qdrant and embedding model support for all LLM providers:
 
 - **Embedding Models**: Support for OpenAI embeddings, Ollama embeddings, and llama.cpp embeddings through OpenAI-compatible interface
 - **Vector Store Creation**: Wraps Qdrant collection into LangChain vector store
-- **Retrieval Configuration**: Configurable similarity search parameters
+- **Retrieval Configuration**: Configurable similarity search parameters with search filtering
 - **Collection Management**: Automatic collection creation and management
 - **Provider Flexibility**: Embedding model selection based on LLM provider configuration
 
-**Updated** Full implementation of vector store integration with comprehensive error handling, provider flexibility, llama.cpp support through OpenAI-compatible embeddings, and automatic embedding model selection.
+**Updated** Full implementation of vector store integration with comprehensive error handling, provider flexibility, llama.cpp support through OpenAI-compatible embeddings, automatic embedding model selection, and search filtering for document participation control.
 
 ```mermaid
 classDiagram
@@ -478,7 +496,37 @@ VectorStoreRetriever --> QdrantVectorStore : "created from"
 - [app/rag/retriever.py:22-48](file://app/rag/retriever.py#L22-L48)
 
 **Section sources**
-- [app/rag/retriever.py:1-74](file://app/rag/retriever.py#L1-L74)
+- [app/rag/retriever.py:1-103](file://app/rag/retriever.py#L1-L103)
+
+### Chunk Indexer Operations
+The indexer module provides comprehensive Qdrant-specific operations for document chunk management:
+
+- **Chunk Preparation**: Enriches chunks with document metadata and unique chunk IDs
+- **Bulk Indexing**: Adds prepared chunks to Qdrant collection with error handling
+- **Document Deletion**: Removes all chunks belonging to a specific document
+- **Search Control**: Updates is_search_enabled flag for document participation
+- **Chunk Counting**: Returns the number of chunks for a document
+- **Dot-Notation Updates**: Uses Qdrant dot-notation for precise payload updates
+
+**Updated** Complete implementation of chunk indexing operations with comprehensive error handling, metadata enrichment, bulk operations, and precise Qdrant payload management.
+
+```mermaid
+classDiagram
+class ChunkIndexer {
++prepare_chunks(chunks, document_id, filename, s3_key, is_search_enabled) list[Document]
++index_chunks(client, embeddings, collection_name, chunks) int
++delete_document_chunks(client, collection_name, document_id) None
++set_search_enabled(client, collection_name, document_id, enabled) None
++count_document_chunks(client, collection_name, document_id) int
+}
+```
+
+**Diagram sources**
+- [app/rag/indexer.py:23-72](file://app/rag/indexer.py#L23-L72)
+- [app/rag/indexer.py:74-152](file://app/rag/indexer.py#L74-L152)
+
+**Section sources**
+- [app/rag/indexer.py:1-152](file://app/rag/indexer.py#L1-L152)
 
 ## Document Storage System
 
@@ -646,7 +694,7 @@ UpdateError --> ReadyForRAG
 - [app/domain/document_service.py:145-176](file://app/domain/document_service.py#L145-L176)
 
 **Section sources**
-- [app/domain/document_service.py:1-279](file://app/domain/document_service.py#L1-L279)
+- [app/domain/document_service.py:1-280](file://app/domain/document_service.py#L1-L280)
 
 ### Status Management and Processing Flow
 The document processing pipeline implements a robust status management system with automatic transitions and comprehensive error handling:
@@ -664,6 +712,38 @@ The document processing pipeline implements a robust status management system wi
 **Section sources**
 - [app/domain/document_service.py:82-130](file://app/domain/document_service.py#L82-L130)
 - [app/domain/document_service.py:145-176](file://app/domain/document_service.py#L145-L176)
+
+### Document Parser and Chunking
+The parser module provides comprehensive Word document processing with section extraction and chunking:
+
+- **Section Extraction**: Identifies document sections using heading styles
+- **Text Chunking**: Uses recursive character splitting with configurable chunk size and overlap
+- **Metadata Preservation**: Maintains source filename and section information
+- **Document Creation**: Creates LangChain Document objects with proper metadata
+- **Flexible Chunking**: Configurable chunk size (1000 chars) and overlap (200 chars)
+
+**Updated** Complete document parsing implementation with comprehensive error handling, metadata preservation, flexible chunking parameters, and integration with the ingestion pipeline.
+
+```mermaid
+classDiagram
+class DocumentParser {
++load_docx(path) list[Document]
++_extract_sections(path) list[tuple[str, str]]
++CHUNK_SIZE : int
++CHUNK_OVERLAP : int
++DOCX_MIME : str
+}
+class SectionExtractor {
++_extract_sections(path) list[tuple[str, str]]
+}
+DocumentParser --> SectionExtractor : "uses"
+```
+
+**Diagram sources**
+- [app/rag/parser.py:23-83](file://app/rag/parser.py#L23-L83)
+
+**Section sources**
+- [app/rag/parser.py:1-83](file://app/rag/parser.py#L1-L83)
 
 ## QA Service Implementation
 
@@ -798,7 +878,7 @@ UpdateStatus --> Success["Ingestion Complete"]
 - [scripts/ingest.py:130-254](file://scripts/ingest.py#L130-L254)
 
 **Section sources**
-- [scripts/ingest.py:1-254](file://scripts/ingest.py#L1-L254)
+- [scripts/ingest.py:1-181](file://scripts/ingest.py#L1-L181)
 
 ### Ingestion Workflow
 The ingestion process follows a systematic approach to prepare documents for RAG:

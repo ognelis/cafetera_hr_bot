@@ -87,7 +87,7 @@ class TestRagSettings:
 
 class TestExtractSections:
     def test_single_section_no_heading(self):
-        from scripts.ingest import _extract_sections
+        from app.rag.parser import _extract_sections
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -101,7 +101,7 @@ class TestExtractSections:
         assert "Second line" in body
 
     def test_multiple_headings(self):
-        from scripts.ingest import _extract_sections
+        from app.rag.parser import _extract_sections
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -123,7 +123,7 @@ class TestExtractSections:
         assert "Body of section two." in sections[1][1]
 
     def test_empty_paragraphs_skipped(self):
-        from scripts.ingest import _extract_sections
+        from app.rag.parser import _extract_sections
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -136,7 +136,7 @@ class TestExtractSections:
 
 class TestLoadDocx:
     def test_returns_lc_documents(self):
-        from scripts.ingest import load_docx
+        from app.rag.parser import load_docx
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -147,7 +147,7 @@ class TestLoadDocx:
         assert all(isinstance(d, LCDocument) for d in docs)
 
     def test_metadata_contains_source(self):
-        from scripts.ingest import load_docx
+        from app.rag.parser import load_docx
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "policy.docx"
@@ -157,7 +157,7 @@ class TestLoadDocx:
         assert docs[0].metadata["source"] == "policy.docx"
 
     def test_metadata_contains_section(self):
-        from scripts.ingest import load_docx
+        from app.rag.parser import load_docx
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "manual.docx"
@@ -173,7 +173,7 @@ class TestLoadDocx:
         assert docs[0].metadata["section"] == "Vacation Policy"
 
     def test_long_text_is_chunked(self):
-        from scripts.ingest import CHUNK_SIZE, load_docx
+        from app.rag.parser import CHUNK_SIZE, load_docx
 
         long_text = "Word " * 500  # ~2500 chars, should be split
         with TemporaryDirectory() as tmp:
