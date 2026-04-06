@@ -1,15 +1,15 @@
-"""Ingest Word documents into Qdrant for RAG.
+"""Ingest documents into Qdrant for RAG.
 
 Usage:
     uv run python scripts/ingest.py <docs_directory>
     uv run python scripts/ingest.py data/documents/
 
-Reads all .docx files from the given directory, splits them into chunks,
+Reads all .docx and .doc files from the given directory, splits them into chunks,
 generates embeddings, and stores them in the Qdrant ``hr_documents`` collection.
 Each file is tracked as a ``DocumentRecord`` in SQLite with chunk count and
 indexing timestamp.
 
-Only .docx files are processed (NFR-3: PDF scans are not used).
+Supported formats: DOCX, DOC.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ sys.path.insert(0, ".")
 
 from app.config import Settings
 from app.rag.indexer import prepare_chunks
-from app.rag.parser import DOCX_MIME, load_docx
+from app.rag.parser import load_document
 from app.rag.retriever import build_embeddings
 from app.storage.database import init_db
 from app.storage.document_repo import DocumentRepository
@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 
 async def ingest(docs_dir: Path, settings: Settings) -> int:
-    """Ingest all .docx files from *docs_dir* into Qdrant.
+    """Ingest all supported files from *docs_dir* into Qdrant.
 
     Creates a ``DocumentRecord`` in SQLite for every file and enriches
     each chunk with ``document_id``, ``chunk_id``, ``filename``, ``s3_key``,
@@ -55,12 +55,17 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
 
     Returns the total number of stored chunks.
     """
-    docx_files = sorted(docs_dir.glob("*.docx"))
-    if not docx_files:
-        logger.warning("No .docx files found in %s", docs_dir)
+    # Collect files for all supported extensions
+    all_files = []
+    for ext in ["*.docx", "*.doc"]:
+        all_files.extend(docs_dir.glob(ext))
+    all_files = sorted(all_files)
+
+    if not all_files:
+        logger.warning("No .docx or .doc files found in %s", docs_dir)
         return 0
 
-    logger.info("Found %d .docx file(s) to ingest", len(docx_files))
+    logger.info("Found %d file(s) to ingest", len(all_files))
 
     # Initialise SQLite
     await init_db(settings.db_path)
@@ -70,9 +75,9 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
     all_docs: list[LCDocument] = []
     file_chunks: dict[str, list[LCDocument]] = {}
 
-    for path in docx_files:
+    for path in all_files:
         logger.info("Processing %s ...", path.name)
-        raw_chunks = load_docx(path)
+        raw_chunks = load_document(path)
         logger.info("  -> %d chunk(s)", len(raw_chunks))
 
         doc_id = uuid.uuid4().hex
@@ -82,7 +87,7 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
             filename=path.name,
             title=path.stem,
             s3_key=f"documents/{path.name}",
-            mime_type=DOCX_MIME,
+            mime_type=None,  # Will be determined from file extension during upload
             size_bytes=path.stat().st_size,
             status=DocumentStatus.processing,
             created_at=now,
@@ -103,7 +108,7 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
         logger.warning("No text extracted from any document")
         return 0
 
-    logger.info("Total: %d chunk(s) from %d file(s)", len(all_docs), len(docx_files))
+    logger.info("Total: %d chunk(s) from %d file(s)", len(all_docs), len(all_files))
 
     # Build embeddings
     embeddings = build_embeddings(settings)

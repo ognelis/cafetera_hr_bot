@@ -376,7 +376,7 @@ class TestDeleteDocument:
 
 
 class TestUpload:
-    @patch("app.api.documents.load_docx", return_value=[])
+    @patch("app.api.documents.load_document", return_value=[])
     @patch("app.api.documents._index_in_background", new_callable=AsyncMock)
     async def test_upload_valid_file(
         self, mock_bg, mock_parse, auth_client, mock_s3
@@ -608,7 +608,7 @@ class TestPagination:
 
 
 class TestReindex:
-    @patch("app.api.documents.load_docx", return_value=[])
+    @patch("app.api.documents.load_document", return_value=[])
     async def test_reindex_starts(
         self, mock_parse, auth_client, repo, mock_s3
     ):

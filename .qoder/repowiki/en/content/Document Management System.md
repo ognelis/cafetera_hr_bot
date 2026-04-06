@@ -39,12 +39,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced server-side search functionality with case-insensitive pattern matching against document titles and filenames
-- Improved status display with visual indicators including loading states and error tooltips
-- Added new UI elements for better document tracking and management including search-enabled checkboxes
-- Implemented comprehensive pagination system with real-time filtering and dynamic pagination controls
-- Updated database schema to support search functionality with is_search_enabled flag
-- Enhanced frontend with HTMX integration for real-time search and filtering
+- Added comprehensive bulk operations system supporting delete, reindex, and search toggle operations
+- Enhanced date range filtering capabilities with inclusive date boundaries and ISO format parsing
+- Modernized frontend interface with bulk actions toolbar, interactive features, and improved user experience
+- Implemented HTMX-driven partial updates for seamless bulk operation feedback
+- Added comprehensive bulk operation endpoints with error handling and background processing support
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -54,15 +53,18 @@
 5. [Server-Side Search Functionality](#server-side-search-functionality)
 6. [Enhanced Status Display System](#enhanced-status-display-system)
 7. [Pagination System](#pagination-system)
-8. [RAG Pipeline](#rag-pipeline)
-9. [VK Bot Integration](#vk-bot-integration)
-10. [Storage Layer](#storage-layer)
-11. [API Endpoints](#api-endpoints)
-12. [Configuration Management](#configuration-management)
-13. [Testing Strategy](#testing-strategy)
-14. [Deployment and Operations](#deployment-and-operations)
-15. [Troubleshooting Guide](#troubleshooting-guide)
-16. [Conclusion](#conclusion)
+8. [Bulk Operations System](#bulk-operations-system)
+9. [Enhanced Date Range Filtering](#enhanced-date-range-filtering)
+10. [Modernized Frontend Interface](#modernized-frontend-interface)
+11. [RAG Pipeline](#rag-pipeline)
+12. [VK Bot Integration](#vk-bot-integration)
+13. [Storage Layer](#storage-layer)
+14. [API Endpoints](#api-endpoints)
+15. [Configuration Management](#configuration-management)
+16. [Testing Strategy](#testing-strategy)
+17. [Deployment and Operations](#deployment-and-operations)
+18. [Troubleshooting Guide](#troubleshooting-guide)
+19. [Conclusion](#conclusion)
 
 ## Introduction
 
@@ -70,7 +72,7 @@ The Document Management System is a comprehensive RAG (Retrieval-Augmented Gener
 
 The system supports multiple document formats (primarily DOCX), integrates with vector databases for semantic search, and provides both web-based administration and VK social network bot integration for HR assistance. It features a modular architecture with clear separation between presentation, business logic, data persistence, and external integrations.
 
-**Updated** The system now includes comprehensive server-side search functionality with real-time filtering, enhanced status display with visual indicators, and new UI elements for better document tracking and management. Search functionality supports case-insensitive pattern matching against document titles and filenames, providing users with powerful document discovery capabilities.
+**Updated** The system now includes comprehensive bulk operations system with delete, reindex, and search toggle capabilities, enhanced date range filtering with inclusive boundaries, and modernized frontend interface featuring bulk actions toolbar and interactive features. These enhancements significantly improve operational efficiency and user experience for managing large document collections.
 
 ## System Architecture
 
@@ -84,21 +86,26 @@ VKBot[VK Bot]
 Search[Real-time Search]
 Pagination[Dynamic Pagination]
 Status[Visual Status Indicators]
+BulkToolbar[Bulk Actions Toolbar]
+DateFilter[Enhanced Date Filters]
 end
 subgraph "Application Layer"
 API[FastAPI Router]
 Service[Document Service]
 QAService[QA Service]
+BulkOps[Bulk Operations Controller]
 end
 subgraph "Domain Layer"
 Entities[Domain Entities]
 States[Bot States]
+BulkRequests[Bulk Operation Requests]
 end
 subgraph "Data Access Layer"
 Repo[Document Repository]
 Models[Data Models]
 Search[Case-insensitive Search]
 Pagination[Database Pagination]
+DateRange[Date Range Filtering]
 end
 subgraph "External Services"
 S3[MinIO/S3 Storage]
@@ -109,6 +116,8 @@ WebUI --> API
 WebUI --> Search
 WebUI --> Pagination
 WebUI --> Status
+WebUI --> BulkToolbar
+WebUI --> DateFilter
 VKBot --> API
 API --> Service
 Service --> Repo
@@ -117,23 +126,27 @@ Service --> S3
 Repo --> Models
 Repo --> Search
 Repo --> Pagination
+Repo --> DateRange
 Service --> LLM
 QAService --> Service
 QAService --> LLM
+BulkOps --> Service
+BulkOps --> Repo
 ```
 
 **Diagram sources**
 - [app/main.py:99-124](file://app/main.py#L99-L124)
-- [app/api/documents.py:1-577](file://app/api/documents.py#L1-L577)
+- [app/api/documents.py:1-806](file://app/api/documents.py#L1-L806)
 - [app/domain/document_service.py:35-281](file://app/domain/document_service.py#L35-L281)
-- [templates/partials/pagination.html:1-104](file://templates/partials/pagination.html#L1-L104)
+- [templates/partials/pagination.html:1-103](file://templates/partials/pagination.html#L1-L103)
+- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
 
-The architecture consists of five main layers with enhanced search and status management capabilities:
+The architecture consists of five main layers with enhanced bulk operations, date filtering, and modernized frontend capabilities:
 
-1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, and visual status indicators
-2. **Application Layer**: Business logic encapsulated in domain services and API routers with search-aware endpoints and enhanced status management
-3. **Domain Layer**: Core business entities and state management for bot interactions
-4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality and pagination support
+1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, and enhanced date range filtering
+2. **Application Layer**: Business logic encapsulated in domain services and API routers with bulk-aware endpoints, enhanced status management, and comprehensive operation orchestration
+3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models
+4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, and advanced date range filtering capabilities
 5. **Integration Layer**: External services for storage, vector databases, and AI providers
 
 ## Core Components
@@ -306,7 +319,7 @@ The frontend provides intuitive search capabilities:
 
 - **Real-time search**: Debounced input with 300ms delay for performance
 - **Search icon**: Visual indicator with magnifying glass icon
-- **Placeholder text**: "Поиск" (Search) for user guidance
+- **Placeholder text**: "Search" for user guidance
 - **HTMX integration**: Automatic AJAX requests for filtered results
 - **Pagination preservation**: Search maintains current pagination state
 
@@ -441,7 +454,240 @@ The system provides sophisticated pagination controls with intelligent page numb
 - [app/api/documents.py:194-218](file://app/api/documents.py#L194-L218)
 - [app/api/documents.py:390-406](file://app/api/documents.py#L390-L406)
 - [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
-- [templates/partials/pagination.html:1-104](file://templates/partials/pagination.html#L1-L104)
+- [templates/partials/pagination.html:1-103](file://templates/partials/pagination.html#L1-L103)
+
+## Bulk Operations System
+
+The system provides comprehensive bulk operations for efficient document management at scale:
+
+```mermaid
+sequenceDiagram
+participant Client as Client Browser
+participant API as Bulk Operations API
+participant Service as Document Service
+participant Repo as Document Repository
+participant S3 as Storage
+Client->>Client : Select multiple documents
+Client->>API : POST /api/documents/bulk/delete
+API->>Service : bulk_delete_documents()
+Service->>Repo : get() for each ID
+Service->>S3 : delete() for each file
+Service->>Repo : delete() record
+Repo-->>Service : Deletion results
+Service-->>API : Bulk operation results
+API-->>Client : Refreshed table partial
+Client->>Client : Update UI with success/error feedback
+```
+
+**Diagram sources**
+- [app/api/documents.py:492-538](file://app/api/documents.py#L492-L538)
+- [templates/documents.html:537-561](file://templates/documents.html#L537-L561)
+
+### Bulk Operations Architecture
+
+The bulk operations system provides three core capabilities:
+
+#### Delete Operation
+- **Endpoint**: `POST /api/documents/bulk/delete`
+- **Request Body**: `{ ids: [string[]] }`
+- **Behavior**: Deletes multiple documents atomically with error collection
+- **Response**: Refreshed document table partial via HTMX
+- **Error Handling**: Continues processing despite individual failures
+
+#### Reindex Operation
+- **Endpoint**: `POST /api/documents/bulk/reindex`
+- **Request Body**: `{ ids: [string[]] }`
+- **Behavior**: Initiates background reindexing for multiple documents
+- **Response**: Immediate acknowledgment with background processing
+- **Error Handling**: Logs errors and continues with remaining documents
+
+#### Search Toggle Operation
+- **Endpoint**: `PATCH /api/documents/bulk/search`
+- **Request Body**: `{ ids: [string[]], enabled: boolean }`
+- **Behavior**: Toggles search participation for multiple documents
+- **Response**: Refreshed table partial with updated status
+- **Error Handling**: Processes all documents regardless of individual failures
+
+### Frontend Bulk Actions Toolbar
+
+The modernized interface includes an interactive bulk actions toolbar:
+
+```mermaid
+stateDiagram-v2
+[*] --> NoSelection : No documents selected
+NoSelection --> HasSelection : Select documents
+HasSelection --> BulkToolbar : Show toolbar
+BulkToolbar --> DeleteAction : Click delete
+BulkToolbar --> ReindexAction : Click reindex
+BulkToolbar --> ToggleAction : Click search toggle
+DeleteAction --> Confirmation : Show confirmation dialog
+ReindexAction --> Confirmation : Show confirmation dialog
+ToggleAction --> Execute : Execute immediately
+Confirmation --> Execute : Confirm action
+Execute --> Refresh : Update UI
+Refresh --> NoSelection : Clear selection
+```
+
+**Diagram sources**
+- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
+- [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
+
+### Bulk Action Features
+
+The bulk operations provide comprehensive functionality:
+
+- **Multi-selection**: Checkbox-based selection with "Select All" capability
+- **Bulk Toolbar**: Persistent toolbar showing selected count and available actions
+- **Confirmation Dialogs**: Prevent accidental bulk deletions
+- **Real-time Feedback**: Toast notifications for operation results
+- **Selection Persistence**: Maintains selections across pagination and filters
+- **HTMX Integration**: Seamless partial updates without full page reloads
+
+**Section sources**
+- [app/api/documents.py:476-635](file://app/api/documents.py#L476-L635)
+- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
+- [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
+
+## Enhanced Date Range Filtering
+
+The system implements sophisticated date range filtering with inclusive boundaries and ISO format support:
+
+```mermaid
+sequenceDiagram
+participant Client as Client Browser
+participant API as API Router
+participant Repo as Document Repository
+participant DB as SQLite Database
+Client->>Client : Set date_from and date_to
+Client->>API : GET /api/documents?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+API->>Repo : list_page(date_from, date_to)
+Repo->>DB : SELECT COUNT(*) WHERE created_at BETWEEN ? AND ?
+DB-->>Repo : Filtered total count
+Repo->>DB : SELECT ... WHERE created_at BETWEEN ? AND ?
+DB-->>Repo : Documents with date range filtering
+Repo-->>API : (documents, total)
+API-->>Client : JSON with filtered results
+Client->>Client : Update table with date-filtered results
+```
+
+**Diagram sources**
+- [app/api/documents.py:435-473](file://app/api/documents.py#L435-L473)
+- [app/storage/document_repo.py:120-174](file://app/storage/document_repo.py#L120-L174)
+
+### Date Range Implementation Details
+
+The date filtering system provides precise temporal control:
+
+- **ISO Format Parsing**: Accepts `YYYY-MM-DD` format with robust error handling
+- **Inclusive Boundaries**: 
+  - `date_from`: Documents created on or after this date
+  - `date_to`: Documents created on or before this date (end of day)
+- **Time Zone Handling**: Uses UTC for consistent filtering across time zones
+- **Partial Date Support**: Either date can be specified independently
+- **Validation**: Graceful handling of invalid date formats
+
+### Date Filter UI Components
+
+The enhanced frontend includes comprehensive date filtering:
+
+- **Dropdown Interface**: Collapsible date filter panel with two date inputs
+- **Real-time Updates**: Automatic filtering on date input changes
+- **Clear Functionality**: One-click clearing of date filters
+- **Apply Button**: Explicit apply mechanism for complex workflows
+- **URL Parameter Sync**: Date filters persist in URL for sharing and bookmarking
+- **Responsive Design**: Mobile-friendly date picker interface
+
+### Date Filter Parameters
+
+The date filtering system supports:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `date_from` | String (ISO-8601) | Filter documents created on or after this date |
+| `date_to` | String (ISO-8601) | Filter documents created on or before this date |
+
+**Section sources**
+- [app/api/documents.py:435-473](file://app/api/documents.py#L435-L473)
+- [app/storage/document_repo.py:120-174](file://app/storage/document_repo.py#L120-L174)
+- [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
+- [templates/documents.html:489-494](file://templates/documents.html#L489-L494)
+
+## Modernized Frontend Interface
+
+The system features a modernized frontend interface with enhanced user experience and interactive capabilities:
+
+```mermaid
+flowchart TD
+UI[Modernized Interface] --> BulkToolbar[Bulk Actions Toolbar]
+UI --> DateFilter[Enhanced Date Filters]
+UI --> Search[Improved Search]
+UI --> Pagination[Enhanced Pagination]
+UI --> Status[Visual Status Indicators]
+BulkToolbar --> DeleteBtn[Delete Button]
+BulkToolbar --> ReindexBtn[Reindex Button]
+BulkToolbar --> ToggleBtn[Toggle Search Button]
+DateFilter --> FromInput[From Date Input]
+DateFilter --> ToInput[To Date Input]
+DateFilter --> ApplyBtn[Apply Button]
+DateFilter --> ClearBtn[Clear Button]
+Search --> RealtimeSearch[Real-time Search]
+Search --> Debounce[300ms Debounce]
+Pagination --> HTMX[HTMX Integration]
+Pagination --> Ellipsis[Smart Ellipsis]
+Status --> AutoRefresh[Auto-refresh]
+Status --> Tooltips[Error Tooltips]
+```
+
+**Diagram sources**
+- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
+- [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
+- [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
+
+### Interactive Features
+
+The modernized interface includes several key interactive elements:
+
+#### Bulk Actions Toolbar
+- **Persistent Display**: Appears when documents are selected
+- **Visual Feedback**: Shows selected count with badge styling
+- **Action Buttons**: Delete, Reindex, Include/Exclude from search
+- **Selection Controls**: Clear selection button
+- **Responsive Layout**: Adapts to different screen sizes
+
+#### Enhanced Date Filters
+- **Dropdown Interface**: Collapsible filter panel with smooth animations
+- **Two-Date Selection**: Separate inputs for start and end dates
+- **Real-time Updates**: Automatic filtering on input changes
+- **Clear Functionality**: One-click reset of all date filters
+- **Apply/Clear Buttons**: Explicit control over filter application
+
+#### Improved Search Experience
+- **Debounced Input**: 300ms delay for performance optimization
+- **Real-time Results**: Instant filtering without page reloads
+- **Visual Indicators**: Clear display of active search terms
+- **Search Icon**: Intuitive magnifying glass icon
+
+#### Advanced Pagination
+- **HTMX Integration**: Seamless partial updates without full reloads
+- **Smart Ellipsis**: Intelligent page number display for large datasets
+- **URL Synchronization**: Pagination state preserved in URL
+- **Responsive Design**: Mobile-optimized pagination controls
+
+### Frontend State Management
+
+The interface uses Alpine.js for comprehensive state management:
+
+- **Filter State**: Search query, status filter, source type filter, date range
+- **Selection State**: Track selected document IDs across operations
+- **Pagination State**: Current page, items per page, total counts
+- **Upload State**: Track file upload progress and status
+- **Modal State**: Manage dialog visibility and user interactions
+
+**Section sources**
+- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
+- [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
+- [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
+- [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
 
 ## RAG Pipeline
 
@@ -527,7 +773,7 @@ The VK bot uses a handler-based architecture for different interaction modes:
 
 ## Storage Layer
 
-The storage architecture provides a robust foundation for document management with enhanced search and pagination support:
+The storage architecture provides a robust foundation for document management with enhanced search, pagination, and date filtering support:
 
 ```mermaid
 erDiagram
@@ -567,8 +813,9 @@ The SQLite schema supports comprehensive document tracking with:
 - **Performance Metrics**: Chunk count and indexing timestamps for monitoring
 - **Pagination Support**: Efficient ordering by ID for pagination queries
 - **Search Indexing**: Case-insensitive search columns for optimal query performance
+- **Date Filtering**: Precise timestamp fields for temporal queries
 
-**Updated** The database now uses an auto-incrementing primary key (`id INTEGER PRIMARY KEY AUTOINCREMENT`) which enables efficient pagination through `ORDER BY id DESC LIMIT ? OFFSET ?` queries. The `is_search_enabled` column provides granular control over document inclusion in search results.
+**Updated** The database now uses an auto-incrementing primary key (`id INTEGER PRIMARY KEY AUTOINCREMENT`) which enables efficient pagination through `ORDER BY id DESC LIMIT ? OFFSET ?` queries. The `is_search_enabled` column provides granular control over document inclusion in search results. The `created_at` field supports precise date range filtering with inclusive boundaries.
 
 **Section sources**
 - [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
@@ -577,7 +824,7 @@ The SQLite schema supports comprehensive document tracking with:
 
 ## API Endpoints
 
-The system provides a comprehensive REST API for document management with full search and pagination support:
+The system provides a comprehensive REST API for document management with full search, pagination, and bulk operation support:
 
 ### Authentication and Authorization
 
@@ -592,18 +839,26 @@ The system provides a comprehensive REST API for document management with full s
 | Endpoint | Method | Description | Authentication |
 |----------|--------|-------------|----------------|
 | `/api/documents/upload` | POST | Upload multiple DOCX files | Admin cookie |
-| `/api/documents` | GET | List all documents with search and pagination | Admin cookie |
+| `/api/documents` | GET | List all documents with search, pagination, and date filtering | Admin cookie |
 | `/api/documents/{id}` | GET/PATCH/DELETE | Document operations | Admin cookie |
 | `/api/documents/{id}/title` | PATCH | Update document title | Admin cookie |
 | `/api/documents/{id}/search` | PATCH | Toggle search participation | Admin cookie |
 | `/api/documents/{id}/reindex` | POST | Re-index document content | Admin cookie |
 | `/api/documents/{id}/download` | GET | Download original file | Admin cookie |
 
+### Bulk Operations API
+
+| Endpoint | Method | Description | Authentication |
+|----------|--------|-------------|----------------|
+| `/api/documents/bulk/delete` | POST | Delete multiple documents | Admin cookie |
+| `/api/documents/bulk/reindex` | POST | Re-index multiple documents | Admin cookie |
+| `/api/documents/bulk/search` | PATCH | Toggle search participation for multiple documents | Admin cookie |
+
 ### HTMX Partial Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/partials/document-table` | GET | Dynamic table content with search and pagination |
+| `/partials/document-table` | GET | Dynamic table content with search, pagination, and date filtering |
 | `/partials/document-row/{id}` | GET | Individual row updates with status refresh |
 | `/partials/document-status/{id}` | GET | Status badge refresh |
 
@@ -614,11 +869,13 @@ All list endpoints support the following parameters:
 - **`page`**: Current page number (default: 1)
 - **`per_page`**: Items per page (default: 10, options: 10, 20, 50)
 - **`search`**: Search query for filtering documents by title or filename
+- **`date_from`**: ISO date string for minimum creation date (inclusive)
+- **`date_to`**: ISO date string for maximum creation date (inclusive)
 
-**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages.
+**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience.
 
 **Section sources**
-- [app/api/documents.py:1-577](file://app/api/documents.py#L1-L577)
+- [app/api/documents.py:1-806](file://app/api/documents.py#L1-L806)
 - [app/api/deps.py:54-74](file://app/api/deps.py#L54-L74)
 
 ## Configuration Management
@@ -669,7 +926,7 @@ Settings --> Environment : inherits
 
 ## Testing Strategy
 
-The system includes comprehensive testing across all layers with extensive search and pagination coverage:
+The system includes comprehensive testing across all layers with extensive search, pagination, and bulk operation coverage:
 
 ### Test Coverage Areas
 
@@ -704,7 +961,18 @@ The test suite includes comprehensive pagination testing:
 - **Total Count Accuracy**: Verifies total count matches actual document count
 - **HTMX Partials**: Tests pagination controls in HTMX partial responses
 
-**Updated** The testing strategy now includes extensive search functionality testing covering case-insensitive matching, real-time filtering, and search-enable/disable operations.
+### Bulk Operations Testing Coverage
+
+The test suite includes comprehensive bulk operation testing:
+
+- **Bulk Delete**: Tests deletion of multiple documents with error collection
+- **Bulk Reindex**: Tests background reindexing initiation for multiple documents
+- **Bulk Search Toggle**: Tests enabling/disabling search participation for multiple documents
+- **Error Handling**: Validates graceful handling of non-existent documents
+- **HTMX Responses**: Tests partial HTML responses for seamless updates
+- **Background Processing**: Validates background task scheduling and execution
+
+**Updated** The testing strategy now includes extensive bulk operations testing covering atomic operations, error handling, background processing, and HTMX partial responses. The test suite validates all bulk endpoints with comprehensive error scenarios and ensures proper user feedback mechanisms.
 
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
@@ -749,7 +1017,7 @@ Required environment variables:
 - `QDRANT_URL`: Vector database connection
 - `OLLAMA_BASE_URL`: LLM service endpoint
 
-**Updated** The deployment configuration now supports the enhanced search functionality with optimized database queries and real-time status updates.
+**Updated** The deployment configuration now supports the enhanced bulk operations system with proper background task handling, comprehensive date range filtering, and modernized frontend interface with HTMX integration for seamless user experience.
 
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
@@ -768,6 +1036,9 @@ Required environment variables:
 | **Search Not Working** | No results for valid queries | Verify database search columns, case-insensitive matching |
 | **Status Display Issues** | Wrong status icons or no refresh | Check HTMX configuration, JavaScript console errors |
 | **Pagination Problems** | Incorrect page counts or empty results | Verify database auto-increment setup, check pagination parameters |
+| **Bulk Operations Fail** | Partial bulk operation success | Check individual document IDs, verify file existence in storage |
+| **Date Filter Issues** | Incorrect date range results | Verify ISO date format (YYYY-MM-DD), check timezone handling |
+| **Frontend Not Updating** | UI not reflecting changes | Check HTMX configuration, verify partial endpoint responses |
 
 ### Logging and Monitoring
 
@@ -779,8 +1050,10 @@ The system provides comprehensive logging at multiple levels:
 - **Bot logs**: Message processing, state transitions
 - **Search logs**: Query performance, filtering effectiveness
 - **Pagination logs**: Page calculation, query performance
+- **Bulk operations logs**: Atomic operation execution, error handling
+- **Date filter logs**: Temporal query processing, boundary handling
 
-**Updated** The troubleshooting guide now includes search-specific issues and status display problems.
+**Updated** The troubleshooting guide now includes bulk operations issues, date range filtering problems, and frontend update failures. The logging system provides comprehensive coverage for all new features including bulk operation execution, date range query processing, and HTMX partial response handling.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -801,7 +1074,10 @@ Key strengths include:
 - **Powerful Search Capabilities**: Real-time filtering with case-insensitive pattern matching
 - **Visual Status Management**: Comprehensive status indicators with real-time updates
 - **Granular Control**: Search enable/disable functionality for individual documents
+- **Comprehensive Bulk Operations**: Atomic operations for efficient document management
+- **Advanced Date Filtering**: Precise temporal querying with inclusive boundaries
+- **Modernized Interface**: Interactive toolbar and enhanced user experience
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
-**Updated** The recent implementation of comprehensive server-side search functionality, enhanced status display with visual indicators, and new UI elements for better document tracking and management significantly enhances the system's usability and operational efficiency. The real-time filtering capabilities with case-insensitive pattern matching provide users with powerful document discovery tools, while the visual status indicators and search controls improve overall document management workflows.
+**Updated** The recent implementation of comprehensive bulk operations system, enhanced date range filtering capabilities, and modernized frontend interface with bulk actions toolbar and interactive features significantly enhances the system's operational efficiency and user experience. The atomic bulk operations provide reliable mass document management, while the precise date filtering enables sophisticated temporal queries. The modernized interface with HTMX integration delivers seamless user interactions and real-time feedback for all document management tasks.

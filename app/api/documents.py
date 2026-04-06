@@ -53,7 +53,7 @@ from app.api.deps import (
     SettingsDep,
     TemplatesDep,
 )
-from app.rag.parser import DOCX_MIME, load_docx
+from app.rag.parser import load_document
 from app.storage.models import DocumentRecord, DocumentStatus
 from app.storage.s3 import S3Storage
 
@@ -63,10 +63,16 @@ router = APIRouter()
 
 _COOKIE_NAME = "admin_session"
 _MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-_ALLOWED_EXTENSIONS = {".docx"}
+_ALLOWED_EXTENSIONS = {".docx", ".doc"}
 _ALLOWED_MIMES = {
-    DOCX_MIME,
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+    "application/msword",                                                          # .doc
     "application/octet-stream",  # browsers sometimes send this
+}
+
+_EXT_TO_MIME = {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".doc": "application/msword",
 }
 
 
@@ -78,6 +84,12 @@ def _sanitize_filename(name: str) -> str:
     name = Path(name).name  # strip directories
     name = re.sub(r"[^\w\s.\-]", "_", name)
     return name or "document.docx"
+
+
+def _get_mime_from_ext(filename: str) -> str | None:
+    """Get MIME type from file extension."""
+    ext = Path(filename).suffix.lower()
+    return _EXT_TO_MIME.get(ext)
 
 
 def _human_size(size_bytes: int) -> str:
@@ -119,7 +131,7 @@ async def _index_in_background(
             tmp.write(data)
             tmp_path = Path(tmp.name)
         try:
-            chunks = await asyncio.to_thread(load_docx, tmp_path)
+            chunks = await asyncio.to_thread(load_document, tmp_path)
             await service.index_document(document_id, chunks)
             logger.info("Background indexing completed for %s", document_id)
         finally:
@@ -349,7 +361,10 @@ async def upload_documents(
     background_tasks: BackgroundTasks,
     files: list[UploadFile],
 ):
-    """Upload one or more .docx files to S3.  Returns list of created documents."""
+    """Upload one or more documents (.docx, .doc) to S3.
+
+    Returns list of created documents.
+    """
     results = []
     errors = []
 
@@ -362,9 +377,10 @@ async def upload_documents(
         safe_name = _sanitize_filename(file.filename)
         ext = Path(safe_name).suffix.lower()
         if ext not in _ALLOWED_EXTENSIONS:
+            allowed_list = ", ".join(sorted(_ALLOWED_EXTENSIONS))
             errors.append({
                 "filename": safe_name,
-                "error": f"Unsupported file type: {ext}. Only .docx allowed.",
+                "error": f"Unsupported file type: {ext}. Allowed: {allowed_list}.",
             })
             continue
 
@@ -394,15 +410,18 @@ async def upload_documents(
 
         stored_name = Path(s3_key).name
 
+        # Determine MIME type from extension
+        mime_type = _get_mime_from_ext(safe_name) or "application/octet-stream"
+
         # Upload to S3
-        await s3.upload(s3_key, content, content_type=DOCX_MIME)
+        await s3.upload(s3_key, content, content_type=mime_type)
 
         # Create metadata record
         record = await service.create_document(
             filename=stored_name,
             title=Path(safe_name).stem,
             s3_key=s3_key,
-            mime_type=DOCX_MIME,
+            mime_type=mime_type,
             size_bytes=len(content),
         )
 
@@ -742,7 +761,7 @@ async def _reindex_in_background(
             tmp.write(data)
             tmp_path = Path(tmp.name)
         try:
-            chunks = await asyncio.to_thread(load_docx, tmp_path)
+            chunks = await asyncio.to_thread(load_document, tmp_path)
             await service.reindex_document(document_id, chunks)
             logger.info("Background reindex completed for %s", document_id)
         finally:

@@ -1,6 +1,6 @@
-"""Docx parsing and chunking for the RAG pipeline.
+"""Document parsing and chunking for the RAG pipeline.
 
-Extracts text from .docx files, splits into sections by heading, and chunks
+Extracts text from .docx and .doc files, splits into sections, and chunks
 for embedding.  Used by both ``scripts/ingest.py`` and the admin upload flow.
 """
 
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import docx2txt
 from docx import Document as DocxDocument
 from langchain_core.documents import Document as LCDocument
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -80,3 +81,57 @@ def load_docx(path: Path) -> list[LCDocument]:
             )
 
     return documents
+
+
+def load_doc(path: Path) -> list[LCDocument]:
+    """Parse a legacy .doc file into chunked LangChain ``Document`` objects.
+
+    Since .doc files lack structured heading styles, the entire text is treated
+    as one section with the filename stem as the heading.
+
+    Each chunk carries metadata: ``source`` (filename) and ``section``
+    (filename stem).
+    """
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
+        separators=["\n\n", "\n", ". ", " "],
+    )
+
+    text = docx2txt.process(str(path))
+    section_heading = path.stem
+    chunks = splitter.split_text(text)
+    documents: list[LCDocument] = []
+
+    for chunk in chunks:
+        documents.append(
+            LCDocument(
+                page_content=chunk,
+                metadata={
+                    "source": path.name,
+                    "section": section_heading,
+                },
+            )
+        )
+
+    return documents
+
+
+
+def load_document(path: Path) -> list[LCDocument]:
+    """Parse a document file into chunked LangChain ``Document`` objects.
+
+    Dispatches to the appropriate loader based on file extension:
+    - .docx -> load_docx
+    - .doc -> load_doc
+
+    Raises:
+        ValueError: If the file extension is not supported.
+    """
+    suffix = path.suffix.lower()
+    if suffix == ".docx":
+        return load_docx(path)
+    elif suffix == ".doc":
+        return load_doc(path)
+    else:
+        raise ValueError(f"Unsupported file extension: {suffix}")

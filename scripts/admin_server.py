@@ -24,9 +24,11 @@ import sys
 # Allow running from project root
 sys.path.insert(0, ".")
 
-import uvicorn
+from hypercorn.config import Config
+from hypercorn.asyncio import serve
 
 from app.config import Settings
+from app.main import create_app
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,7 +37,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def main() -> None:
+async def main() -> None:
     settings = Settings()
 
     if not settings.admin_api_key:
@@ -45,18 +47,22 @@ def main() -> None:
     host = "127.0.0.1"
     port = 8000
 
-    logger.info("Starting admin server on http://%s:%s", host, port)
+    logger.info("Starting admin server on http://%s:%s (HTTP/2 enabled)", host, port)
     logger.info("Admin UI available at: http://%s:%s/documents", host, port)
 
-    # Run uvicorn with the FastAPI app factory
-    uvicorn.run(
-        "app.main:create_app",
-        host=host,
-        port=port,
-        reload=True,
-        factory=True,
-    )
+    # Configure Hypercorn with HTTP/2 support
+    config = Config()
+    config.bind = [f"{host}:{port}"]
+    config.worker_class = "asyncio"
+    config.h2_max_concurrent_streams = 100
+    
+    # Create app
+    app = create_app(settings)
+    
+    # Run with HTTP/2
+    await serve(app, config)
 
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
