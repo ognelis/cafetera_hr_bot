@@ -66,6 +66,11 @@
     >{{ doc.title }}</a>
   </td>
 
+  {# Added date #}
+  <td class="px-3 py-3">
+    <span class="text-sm text-base-content/70 whitespace-nowrap">{{ doc.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+  </td>
+
   {# Source type with icon — right aligned #}
   <td class="px-3 py-3 text-right">
     <div class="inline-flex items-center gap-1.5 text-sm text-base-content/60">
