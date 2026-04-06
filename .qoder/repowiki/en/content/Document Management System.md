@@ -39,11 +39,12 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive bulk operations system supporting delete, reindex, and search toggle operations
-- Enhanced date range filtering capabilities with inclusive date boundaries and ISO format parsing
-- Modernized frontend interface with bulk actions toolbar, interactive features, and improved user experience
-- Implemented HTMX-driven partial updates for seamless bulk operation feedback
-- Added comprehensive bulk operation endpoints with error handling and background processing support
+- Enhanced API layer with support for both .doc and .docx formats
+- Expanded allowed file extensions from .docx to include .doc
+- Improved MIME type validation with comprehensive type support
+- Updated frontend templates to reflect new document format support
+- Enhanced RAG parser to handle both legacy .doc and modern .docx formats
+- Updated upload validation and processing pipeline to support dual format handling
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -56,23 +57,24 @@
 8. [Bulk Operations System](#bulk-operations-system)
 9. [Enhanced Date Range Filtering](#enhanced-date-range-filtering)
 10. [Modernized Frontend Interface](#modernized-frontend-interface)
-11. [RAG Pipeline](#rag-pipeline)
-12. [VK Bot Integration](#vk-bot-integration)
-13. [Storage Layer](#storage-layer)
-14. [API Endpoints](#api-endpoints)
-15. [Configuration Management](#configuration-management)
-16. [Testing Strategy](#testing-strategy)
-17. [Deployment and Operations](#deployment-and-operations)
-18. [Troubleshooting Guide](#troubleshooting-guide)
-19. [Conclusion](#conclusion)
+11. [Enhanced Document Format Support](#enhanced-document-format-support)
+12. [RAG Pipeline](#rag-pipeline)
+13. [VK Bot Integration](#vk-bot-integration)
+14. [Storage Layer](#storage-layer)
+15. [API Endpoints](#api-endpoints)
+16. [Configuration Management](#configuration-management)
+17. [Testing Strategy](#testing-strategy)
+18. [Deployment and Operations](#deployment-and-operations)
+19. [Troubleshooting Guide](#troubleshooting-guide)
+20. [Conclusion](#conclusion)
 
 ## Introduction
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-The system supports multiple document formats (primarily DOCX), integrates with vector databases for semantic search, and provides both web-based administration and VK social network bot integration for HR assistance. It features a modular architecture with clear separation between presentation, business logic, data persistence, and external integrations.
+The system supports multiple document formats (both DOCX and legacy DOC), integrates with vector databases for semantic search, and provides both web-based administration and VK social network bot integration for HR assistance. It features a modular architecture with clear separation between presentation, business logic, data persistence, and external integrations.
 
-**Updated** The system now includes comprehensive bulk operations system with delete, reindex, and search toggle capabilities, enhanced date range filtering with inclusive boundaries, and modernized frontend interface featuring bulk actions toolbar and interactive features. These enhancements significantly improve operational efficiency and user experience for managing large document collections.
+**Updated** The system now includes comprehensive support for both modern DOCX and legacy DOC document formats, enhanced MIME type validation with expanded type support, and updated frontend templates that clearly distinguish between different document types. The RAG pipeline has been enhanced to handle both format types with appropriate parsing strategies, while maintaining backward compatibility with existing DOCX processing workflows.
 
 ## System Architecture
 
@@ -88,17 +90,20 @@ Pagination[Dynamic Pagination]
 Status[Visual Status Indicators]
 BulkToolbar[Bulk Actions Toolbar]
 DateFilter[Enhanced Date Filters]
+FormatIcons[Format Type Icons]
 end
 subgraph "Application Layer"
 API[FastAPI Router]
 Service[Document Service]
 QAService[QA Service]
 BulkOps[Bulk Operations Controller]
+FormatHandler[Format Detection Handler]
 end
 subgraph "Domain Layer"
 Entities[Domain Entities]
 States[Bot States]
 BulkRequests[Bulk Operation Requests]
+FormatDispatch[Format Dispatcher]
 end
 subgraph "Data Access Layer"
 Repo[Document Repository]
@@ -106,11 +111,13 @@ Models[Data Models]
 Search[Case-insensitive Search]
 Pagination[Database Pagination]
 DateRange[Date Range Filtering]
+FormatSupport[Format Support Tracking]
 end
 subgraph "External Services"
 S3[MinIO/S3 Storage]
 Qdrant[Qdrant Vector DB]
 LLM[LLM Provider]
+Parser[Enhanced Parser]
 end
 WebUI --> API
 WebUI --> Search
@@ -118,6 +125,7 @@ WebUI --> Pagination
 WebUI --> Status
 WebUI --> BulkToolbar
 WebUI --> DateFilter
+WebUI --> FormatIcons
 VKBot --> API
 API --> Service
 Service --> Repo
@@ -127,11 +135,14 @@ Repo --> Models
 Repo --> Search
 Repo --> Pagination
 Repo --> DateRange
+Repo --> FormatSupport
 Service --> LLM
 QAService --> Service
 QAService --> LLM
 BulkOps --> Service
 BulkOps --> Repo
+FormatHandler --> FormatDispatch
+FormatHandler --> Parser
 ```
 
 **Diagram sources**
@@ -140,14 +151,15 @@ BulkOps --> Repo
 - [app/domain/document_service.py:35-281](file://app/domain/document_service.py#L35-L281)
 - [templates/partials/pagination.html:1-103](file://templates/partials/pagination.html#L1-L103)
 - [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
+- [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
 
-The architecture consists of five main layers with enhanced bulk operations, date filtering, and modernized frontend capabilities:
+The architecture consists of five main layers with enhanced format support, comprehensive document type handling, and modernized frontend capabilities:
 
-1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, and enhanced date range filtering
-2. **Application Layer**: Business logic encapsulated in domain services and API routers with bulk-aware endpoints, enhanced status management, and comprehensive operation orchestration
-3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models
-4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, and advanced date range filtering capabilities
-5. **Integration Layer**: External services for storage, vector databases, and AI providers
+1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, and format-specific icon display
+2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management, comprehensive operation orchestration, and dual-format processing capabilities
+3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models and format detection mechanisms
+4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, and format-specific metadata tracking
+5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for both DOC and DOCX formats
 
 ## Core Components
 
@@ -211,15 +223,25 @@ class S3Storage {
 +delete() void
 +exists() bool
 }
+class FormatHandler {
+-string _allowed_extensions
+-string _allowed_mimes
++validate_format() bool
++dispatch_parser() list
++get_mime_type() string
+}
 DocumentService --> DocumentRepository : uses
 DocumentService --> S3Storage : uses
 DocumentService --> QdrantClient : uses
+DocumentService --> FormatHandler : uses
+FormatHandler --> Parser : dispatches to
 ```
 
 **Diagram sources**
 - [app/domain/document_service.py:35-281](file://app/domain/document_service.py#L35-L281)
 - [app/storage/document_repo.py:63-214](file://app/storage/document_repo.py#L63-L214)
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
+- [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
 
 **Section sources**
 - [app/main.py:1-124](file://app/main.py#L1-L124)
@@ -227,14 +249,15 @@ DocumentService --> QdrantClient : uses
 
 ## Document Management Workflow
 
-The document management process follows a structured workflow from upload to searchable state:
+The document management process follows a structured workflow from upload to searchable state with enhanced format support:
 
 ```mermaid
 flowchart TD
-Start([Document Upload]) --> Validate[Validate File Type & Size]
+Start([Document Upload]) --> DetectFormat[Detect Document Format]
+DetectFormat --> Validate[Validate File Type & Size]
 Validate --> Upload[Upload to S3 Storage]
 Upload --> CreateMeta[Create Metadata Record]
-CreateMeta --> Parse[Parse DOCX Content]
+CreateMeta --> Parse[Parse DOC/DOCX Content]
 Parse --> Chunk[Chunk Text Content]
 Chunk --> Index[Index in Qdrant Vector DB]
 Index --> Complete[Mark as Completed]
@@ -252,17 +275,21 @@ end
 **Diagram sources**
 - [app/api/documents.py:294-381](file://app/api/documents.py#L294-L381)
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
+- [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
 
 ### Upload Validation and Processing
 
-The system implements comprehensive validation for uploaded documents:
+The system implements comprehensive validation for uploaded documents with enhanced format support:
 
 | Validation Step | Criteria | Action |
 |----------------|----------|---------|
-| File Extension | Only `.docx` allowed | Reject with error |
+| File Extension | Both `.docx` and `.doc` allowed | Accept both formats |
 | File Size | Maximum 10MB | Reject if exceeded |
-| Content Type | DOCX MIME type | Validate against allowed types |
+| Content Type | DOCX/DOC MIME types | Validate against allowed types |
+| Format Detection | Automatic extension-based detection | Route to appropriate parser |
 | Duplicate Prevention | Unique S3 keys | Append counter suffix |
+
+**Updated** The validation system now supports both DOCX and DOC formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files while maintaining modern DOCX processing capabilities.
 
 **Section sources**
 - [app/api/documents.py:307-366](file://app/api/documents.py#L307-L366)
@@ -590,7 +617,8 @@ The date filtering system provides precise temporal control:
 
 The enhanced frontend includes comprehensive date filtering:
 
-- **Dropdown Interface**: Collapsible date filter panel with two date inputs
+- **Dropdown Interface**: Collapsible date filter panel with smooth animations
+- **Two-Date Selection**: Separate inputs for start and end dates
 - **Real-time Updates**: Automatic filtering on date input changes
 - **Clear Functionality**: One-click clearing of date filters
 - **Apply Button**: Explicit apply mechanism for complex workflows
@@ -623,6 +651,7 @@ UI --> DateFilter[Enhanced Date Filters]
 UI --> Search[Improved Search]
 UI --> Pagination[Enhanced Pagination]
 UI --> Status[Visual Status Indicators]
+UI --> FormatIcons[Format Type Icons]
 BulkToolbar --> DeleteBtn[Delete Button]
 BulkToolbar --> ReindexBtn[Reindex Button]
 BulkToolbar --> ToggleBtn[Toggle Search Button]
@@ -636,12 +665,15 @@ Pagination --> HTMX[HTMX Integration]
 Pagination --> Ellipsis[Smart Ellipsis]
 Status --> AutoRefresh[Auto-refresh]
 Status --> Tooltips[Error Tooltips]
+FormatIcons --> DocIcon[DOC Format Icon]
+FormatIcons --> DocxIcon[DOCX Format Icon]
 ```
 
 **Diagram sources**
 - [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
 - [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
 - [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
+- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
 
 ### Interactive Features
 
@@ -673,6 +705,12 @@ The modernized interface includes several key interactive elements:
 - **URL Synchronization**: Pagination state preserved in URL
 - **Responsive Design**: Mobile-optimized pagination controls
 
+#### Format Type Display
+- **Visual Icons**: Distinct icons for DOC and DOCX formats
+- **Color Coding**: Different visual treatments for different formats
+- **Tooltip Information**: Hover details showing exact format type
+- **Filtering Support**: Separate filters for DOC and DOCX formats
+
 ### Frontend State Management
 
 The interface uses Alpine.js for comprehensive state management:
@@ -682,25 +720,89 @@ The interface uses Alpine.js for comprehensive state management:
 - **Pagination State**: Current page, items per page, total counts
 - **Upload State**: Track file upload progress and status
 - **Modal State**: Manage dialog visibility and user interactions
+- **Format State**: Track document format types and display preferences
 
 **Section sources**
 - [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
 - [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
 - [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
 - [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
+- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
+
+## Enhanced Document Format Support
+
+The system now provides comprehensive support for both modern DOCX and legacy DOC document formats:
+
+```mermaid
+flowchart TD
+FormatDetection[Format Detection] --> DocxCheck{Is .docx?}
+DocxCheck --> |Yes| DocxParser[DOCX Parser]
+DocxCheck --> |No| DocCheck{Is .doc?}
+DocCheck --> |Yes| DocParser[Legacy DOC Parser]
+DocCheck --> |No| Unsupported[Unsupported Format]
+DocxParser --> DocxChunks[Generate DOCX Chunks]
+DocParser --> DocChunks[Generate DOC Chunks]
+DocxChunks --> CombinedChunks[Combined Chunks]
+DocChunks --> CombinedChunks
+CombinedChunks --> VectorStore[Vector Store Indexing]
+Unsupported --> Error[Format Error Response]
+```
+
+**Diagram sources**
+- [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
+- [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
+
+### Format Detection and Validation
+
+The system implements comprehensive format detection and validation:
+
+- **Allowed Extensions**: Both `.docx` and `.doc` are supported
+- **MIME Type Validation**: Comprehensive MIME type checking for both formats
+- **Automatic Routing**: Format detection determines appropriate parsing strategy
+- **Error Handling**: Graceful handling of unsupported formats with clear error messages
+
+### Parser Architecture
+
+The enhanced parser system supports both document formats:
+
+#### DOCX Parser
+- **Structured Content**: Preserves document structure with heading-based sections
+- **Metadata Enrichment**: Maintains source filename and section information
+- **Chunk Processing**: Generates semantic chunks with proper metadata
+- **Vector Embedding**: Creates embeddings for semantic search
+
+#### Legacy DOC Parser
+- **Text Extraction**: Uses `docx2txt` for reliable text extraction
+- **Single Section**: Treats entire document as single section
+- **Filename-Based Section**: Uses document stem as section heading
+- **Consistent Processing**: Mirrors DOCX processing approach for uniform results
+
+### Format-Specific Features
+
+Both formats benefit from enhanced processing capabilities:
+
+- **Unified Metadata**: Consistent metadata structure regardless of format
+- **Chunk Size Optimization**: Same chunk size and overlap for both formats
+- **Vector Database Integration**: Seamless integration with Qdrant vector store
+- **Search Compatibility**: Identical search behavior for both document types
+
+**Section sources**
+- [app/rag/parser.py:55-138](file://app/rag/parser.py#L55-L138)
+- [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
+- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
 
 ## RAG Pipeline
 
-The Retrieval-Augmented Generation pipeline processes documents through multiple stages:
+The Retrieval-Augmented Generation pipeline processes documents through multiple stages with enhanced format support:
 
 ```mermaid
 sequenceDiagram
-participant Parser as Docx Parser
+participant Parser as Enhanced Parser
 participant Splitter as Text Splitter
 participant Embedder as Embedding Model
 participant VectorDB as Qdrant
 participant Retriever as Dense Retriever
-Parser->>Parser : Extract sections from DOCX
+Parser->>Parser : Detect format and extract sections
 Parser->>Splitter : Split text into chunks
 Splitter->>Embedder : Generate embeddings
 Embedder->>VectorDB : Store vectors with metadata
@@ -718,8 +820,18 @@ The system employs intelligent chunking for optimal retrieval performance:
 
 - **Chunk Size**: 1000 characters with 200-character overlap
 - **Splitting Strategy**: Hierarchical splitting by paragraphs, sentences, and words
-- **Section Preservation**: Maintains semantic boundaries using heading-based sections
+- **Section Preservation**: Maintains semantic boundaries using heading-based sections for DOCX
+- **Legacy Support**: Single-section processing for DOC files with filename-based sectioning
 - **Metadata Enrichment**: Each chunk carries document ID, chunk ID, filename, and search enablement status
+
+### Format-Aware Processing
+
+The enhanced pipeline handles both document formats appropriately:
+
+- **DOCX Processing**: Structured section extraction with heading preservation
+- **DOC Processing**: Text extraction with single-section approach
+- **Unified Output**: Consistent chunk structure for both formats
+- **Metadata Consistency**: Same metadata schema regardless of source format
 
 **Section sources**
 - [app/rag/parser.py:15-17](file://app/rag/parser.py#L15-L17)
@@ -814,8 +926,9 @@ The SQLite schema supports comprehensive document tracking with:
 - **Pagination Support**: Efficient ordering by ID for pagination queries
 - **Search Indexing**: Case-insensitive search columns for optimal query performance
 - **Date Filtering**: Precise timestamp fields for temporal queries
+- **Format Support**: MIME type tracking for different document formats
 
-**Updated** The database now uses an auto-incrementing primary key (`id INTEGER PRIMARY KEY AUTOINCREMENT`) which enables efficient pagination through `ORDER BY id DESC LIMIT ? OFFSET ?` queries. The `is_search_enabled` column provides granular control over document inclusion in search results. The `created_at` field supports precise date range filtering with inclusive boundaries.
+**Updated** The database now tracks MIME types for both DOC and DOCX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries.
 
 **Section sources**
 - [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
@@ -838,7 +951,7 @@ The system provides a comprehensive REST API for document management with full s
 
 | Endpoint | Method | Description | Authentication |
 |----------|--------|-------------|----------------|
-| `/api/documents/upload` | POST | Upload multiple DOCX files | Admin cookie |
+| `/api/documents/upload` | POST | Upload multiple DOC/DOCX files | Admin cookie |
 | `/api/documents` | GET | List all documents with search, pagination, and date filtering | Admin cookie |
 | `/api/documents/{id}` | GET/PATCH/DELETE | Document operations | Admin cookie |
 | `/api/documents/{id}/title` | PATCH | Update document title | Admin cookie |
@@ -972,7 +1085,17 @@ The test suite includes comprehensive bulk operation testing:
 - **HTMX Responses**: Tests partial HTML responses for seamless updates
 - **Background Processing**: Validates background task scheduling and execution
 
-**Updated** The testing strategy now includes extensive bulk operations testing covering atomic operations, error handling, background processing, and HTMX partial responses. The test suite validates all bulk endpoints with comprehensive error scenarios and ensures proper user feedback mechanisms.
+### Enhanced Format Testing Coverage
+
+The test suite includes comprehensive format-specific testing:
+
+- **DOCX Upload**: Tests upload and processing of modern DOCX files
+- **DOC Upload**: Tests upload and processing of legacy DOC files
+- **Format Detection**: Validates automatic format detection and routing
+- **Parser Compatibility**: Ensures both formats produce identical chunk structures
+- **Metadata Consistency**: Verifies consistent metadata across formats
+
+**Updated** The testing strategy now includes extensive format-specific testing covering both DOC and DOCX processing, format detection mechanisms, and parser compatibility validation. The test suite validates all format-aware endpoints with comprehensive error scenarios and ensures proper user feedback mechanisms for both document types.
 
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
@@ -1017,7 +1140,7 @@ Required environment variables:
 - `QDRANT_URL`: Vector database connection
 - `OLLAMA_BASE_URL`: LLM service endpoint
 
-**Updated** The deployment configuration now supports the enhanced bulk operations system with proper background task handling, comprehensive date range filtering, and modernized frontend interface with HTMX integration for seamless user experience.
+**Updated** The deployment configuration now supports the enhanced format handling system with proper background task handling, comprehensive date range filtering, and modernized frontend interface with HTMX integration for seamless user experience across both DOC and DOCX document types.
 
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
@@ -1028,7 +1151,7 @@ Required environment variables:
 
 | Issue | Symptoms | Solution |
 |-------|----------|----------|
-| **Document Upload Fails** | 400 errors on upload | Check file size limit (10MB), supported formats (.docx) |
+| **Document Upload Fails** | 400 errors on upload | Check file size limit (10MB), supported formats (.docx, .doc) |
 | **Vector Indexing Errors** | Documents show "failed" status | Verify Qdrant connectivity, embedding model availability |
 | **S3 Storage Issues** | Files not accessible | Confirm bucket existence, credentials, network connectivity |
 | **Admin Authentication Problems** | 403 Forbidden errors | Verify `admin_api_key` matches cookie value |
@@ -1038,7 +1161,9 @@ Required environment variables:
 | **Pagination Problems** | Incorrect page counts or empty results | Verify database auto-increment setup, check pagination parameters |
 | **Bulk Operations Fail** | Partial bulk operation success | Check individual document IDs, verify file existence in storage |
 | **Date Filter Issues** | Incorrect date range results | Verify ISO date format (YYYY-MM-DD), check timezone handling |
+| **Format Detection Problems** | Unsupported format errors | Verify file extension and MIME type, check format-specific parsers |
 | **Frontend Not Updating** | UI not reflecting changes | Check HTMX configuration, verify partial endpoint responses |
+| **Mixed Format Display Issues** | DOC/DOCX format icons not showing | Verify template rendering, check format detection logic |
 
 ### Logging and Monitoring
 
@@ -1052,8 +1177,10 @@ The system provides comprehensive logging at multiple levels:
 - **Pagination logs**: Page calculation, query performance
 - **Bulk operations logs**: Atomic operation execution, error handling
 - **Date filter logs**: Temporal query processing, boundary handling
+- **Format detection logs**: Parser routing, format validation
+- **Parser logs**: Text extraction, chunk generation, metadata processing
 
-**Updated** The troubleshooting guide now includes bulk operations issues, date range filtering problems, and frontend update failures. The logging system provides comprehensive coverage for all new features including bulk operation execution, date range query processing, and HTMX partial response handling.
+**Updated** The troubleshooting guide now includes format-specific issues, parser compatibility problems, and mixed format display failures. The logging system provides comprehensive coverage for all new features including format detection mechanisms, dual-format processing, and enhanced frontend format display capabilities.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -1064,9 +1191,9 @@ The system provides comprehensive logging at multiple levels:
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
 
 Key strengths include:
-- **Comprehensive Document Lifecycle Management**: From upload to searchable state
+- **Comprehensive Document Lifecycle Management**: From upload to searchable state with dual format support
 - **Flexible Storage Backend**: Support for multiple storage providers
-- **Advanced RAG Pipeline**: Semantic search and question-answering capabilities
+- **Advanced RAG Pipeline**: Semantic search and question-answering capabilities with enhanced format handling
 - **Multi-channel Integration**: Web interface and VK social network bot
 - **Production-ready Architecture**: Proper separation of concerns and testing strategy
 - **Scalable Pagination System**: Efficient handling of large document collections
@@ -1077,7 +1204,9 @@ Key strengths include:
 - **Comprehensive Bulk Operations**: Atomic operations for efficient document management
 - **Advanced Date Filtering**: Precise temporal querying with inclusive boundaries
 - **Modernized Interface**: Interactive toolbar and enhanced user experience
+- **Dual Format Support**: Comprehensive handling of both DOCX and legacy DOC documents
+- **Enhanced Parser Architecture**: Robust processing pipeline for diverse document formats
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
-**Updated** The recent implementation of comprehensive bulk operations system, enhanced date range filtering capabilities, and modernized frontend interface with bulk actions toolbar and interactive features significantly enhances the system's operational efficiency and user experience. The atomic bulk operations provide reliable mass document management, while the precise date filtering enables sophisticated temporal queries. The modernized interface with HTMX integration delivers seamless user interactions and real-time feedback for all document management tasks.
+**Updated** The recent implementation of comprehensive dual-format support for both DOCX and DOC documents significantly enhances the system's versatility and backward compatibility. The enhanced API layer with expanded format support, improved MIME type validation, and updated frontend templates provide a seamless experience for managing diverse document collections. The robust RAG pipeline with format-aware processing ensures consistent performance across different document types, while the modernized interface with format-specific icons and filtering capabilities improves user experience and operational efficiency.

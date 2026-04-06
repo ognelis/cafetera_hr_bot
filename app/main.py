@@ -69,6 +69,9 @@ async def lifespan(app: FastAPI):
         app.state.doc_service = doc_service
         logger.info("Qdrant client and document service initialised")
     except Exception:
+        if qdrant_client is not None:
+            qdrant_client.close()
+            qdrant_client = None
         logger.warning(
             "Qdrant/embeddings not available — document operations will fail",
             exc_info=True,

@@ -135,7 +135,7 @@ async def _index_in_background(
             await service.index_document(document_id, chunks)
             logger.info("Background indexing completed for %s", document_id)
         finally:
-            tmp_path.unlink(missing_ok=True)
+            await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
     except Exception:
         logger.error(
             "Background indexing failed for %s", document_id, exc_info=True
@@ -521,13 +521,24 @@ async def bulk_delete_documents(
     """Delete multiple documents by ID. Returns refreshed document table partial."""
     errors = []
 
-    for document_id in body.ids:
-        try:
-            record = await repo.get(document_id)
-            if record is None:
-                errors.append(f"Document {document_id}: not found")
-                continue
+    # Fetch all documents concurrently
+    results = await asyncio.gather(
+        *[repo.get(document_id) for document_id in body.ids],
+        return_exceptions=True,
+    )
 
+    for document_id, result in zip(body.ids, results, strict=False):
+        if isinstance(result, Exception):
+            logger.error("Bulk delete failed for %s", document_id, exc_info=True)
+            errors.append(f"Document {document_id}: {result}")
+            continue
+
+        record = result
+        if record is None:
+            errors.append(f"Document {document_id}: not found")
+            continue
+
+        try:
             deleted = await service.delete_document(
                 document_id, file_deleter=s3.delete
             )
@@ -571,13 +582,24 @@ async def bulk_reindex_documents(
     """Reindex multiple documents by ID. Returns refreshed document table partial."""
     errors = []
 
-    for document_id in body.ids:
-        try:
-            record = await repo.get(document_id)
-            if record is None:
-                errors.append(f"Document {document_id}: not found")
-                continue
+    # Fetch all documents concurrently
+    results = await asyncio.gather(
+        *[repo.get(document_id) for document_id in body.ids],
+        return_exceptions=True,
+    )
 
+    for document_id, result in zip(body.ids, results, strict=False):
+        if isinstance(result, Exception):
+            logger.error("Bulk reindex failed for %s", document_id, exc_info=True)
+            errors.append(f"Document {document_id}: {result}")
+            continue
+
+        record = result
+        if record is None:
+            errors.append(f"Document {document_id}: not found")
+            continue
+
+        try:
             # Verify file exists in S3
             if not await s3.exists(record.s3_key):
                 errors.append(f"Document {document_id}: file not found in storage")
@@ -625,11 +647,27 @@ async def bulk_toggle_search(
     """Toggle search enabled for multiple documents. Returns refreshed document table partial."""
     errors = []
 
-    for document_id in body.ids:
+    # Fetch all documents concurrently
+    results = await asyncio.gather(
+        *[repo.get(document_id) for document_id in body.ids],
+        return_exceptions=True,
+    )
+
+    for document_id, result in zip(body.ids, results, strict=False):
+        if isinstance(result, Exception):
+            logger.error("Bulk toggle search failed for %s", document_id, exc_info=True)
+            errors.append(f"Document {document_id}: {result}")
+            continue
+
+        record = result
+        if record is None:
+            errors.append(f"Document {document_id}: not found")
+            continue
+
         try:
-            record = await service.toggle_search(document_id, enabled=body.enabled)
-            if record is None:
-                errors.append(f"Document {document_id}: not found")
+            updated = await service.toggle_search(document_id, enabled=body.enabled)
+            if updated is None:
+                errors.append(f"Document {document_id}: toggle failed")
         except Exception as exc:
             logger.error("Bulk toggle search failed for %s", document_id, exc_info=True)
             errors.append(f"Document {document_id}: {exc}")
@@ -765,7 +803,7 @@ async def _reindex_in_background(
             await service.reindex_document(document_id, chunks)
             logger.info("Background reindex completed for %s", document_id)
         finally:
-            tmp_path.unlink(missing_ok=True)
+            await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
     except Exception:
         logger.error(
             "Background reindex failed for %s", document_id, exc_info=True

@@ -18,16 +18,18 @@ Environment variables (see .env.example):
     - EMBEDDING_MODEL        — embedding model name (default: nomic-embed-text)
 """
 
+import atexit
 import logging
 import sys
 
 # Allow running from project root
 sys.path.insert(0, ".")
 
-from hypercorn.config import Config
 from hypercorn.asyncio import serve
+from hypercorn.config import Config
 
 from app.config import Settings
+from app.domain.qa_service import close_qa
 from app.main import create_app
 
 logging.basicConfig(
@@ -58,7 +60,10 @@ async def main() -> None:
     
     # Create app
     app = create_app(settings)
-    
+
+    # Register cleanup on shutdown
+    atexit.register(close_qa)
+
     # Run with HTTP/2
     await serve(app, config)
 

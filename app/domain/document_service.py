@@ -159,7 +159,7 @@ class DocumentService:
         if record is None:
             return None
 
-        # Update Qdrant chunks (best-effort — SQLite is the source of truth)
+        # Update Qdrant chunks first to ensure consistency
         try:
             set_search_enabled(
                 self._qdrant,
@@ -173,8 +173,10 @@ class DocumentService:
                 document_id,
                 exc_info=True,
             )
+            # Do not update SQLite if Qdrant failed — keep state consistent
+            return record
 
-        # Update SQLite
+        # Update SQLite only if Qdrant succeeded
         return await self._repo.toggle_search(document_id, enabled)
 
     # ── reindex ───────────────────────────────────────────────────

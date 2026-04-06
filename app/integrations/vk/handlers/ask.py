@@ -14,6 +14,8 @@ Uses the shared state_dispenser from hr_request module.
 
 from __future__ import annotations
 
+import logging
+
 from vkbottle.bot import BotLabeler, Message
 
 from app.domain import qa_service
@@ -24,6 +26,8 @@ from app.integrations.vk.keyboards import (
     ask_result_kb,
 )
 from app.integrations.vk.states import BotStates
+
+logger = logging.getLogger(__name__)
 
 bl = BotLabeler()
 
@@ -62,7 +66,7 @@ async def on_ask_text(message: Message) -> None:
     try:
         await state_dispenser.delete(message.peer_id)
     except Exception:
-        pass
+        logger.warning("Failed to clear state for peer %s", message.peer_id, exc_info=True)
 
     # Show typing indicator while RAG processes
     await message.ctx_api.messages.set_activity(

@@ -217,15 +217,21 @@ class TestToggleSearch:
         assert result is not None
         assert result.status == DocumentStatus.completed
 
-    async def test_qdrant_failure_still_updates_sqlite(self, service, repo, mock_qdrant):
+    async def test_qdrant_failure_preserves_sqlite_state(self, service, repo, mock_qdrant):
+        """When Qdrant fails, SQLite should not be updated to maintain consistency."""
         mock_qdrant.set_payload.side_effect = RuntimeError("Qdrant unreachable")
         rec = _make_record(is_search_enabled=True)
         await repo.create(rec)
 
         result = await service.toggle_search(rec.document_id, enabled=False)
 
+        # Returns original record unchanged when Qdrant fails
         assert result is not None
-        assert result.is_search_enabled is False
+        assert result.is_search_enabled is True  # Unchanged
+
+        # Verify SQLite was not updated
+        updated = await repo.get(rec.document_id)
+        assert updated.is_search_enabled is True
 
     async def test_nonexistent_returns_none(self, service):
         result = await service.toggle_search("nonexistent", enabled=False)

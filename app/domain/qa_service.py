@@ -57,6 +57,11 @@ def init_qa(settings: Settings) -> None:
     """
     global _chain, _qdrant_client  # noqa: PLW0603
 
+    if _qdrant_client is not None:
+        _qdrant_client.close()
+        _qdrant_client = None
+        _chain = None
+
     try:
         from qdrant_client import QdrantClient as _QC
 

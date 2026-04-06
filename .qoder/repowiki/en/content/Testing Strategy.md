@@ -17,6 +17,7 @@
 - [tests/test_ask_block9.py](file://tests/test_ask_block9.py)
 - [tests/test_storage.py](file://tests/test_storage.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
+- [tests/test_parser.py](file://tests/test_parser.py)
 - [app/api/documents.py](file://app/api/documents.py)
 - [app/api/deps.py](file://app/api/deps.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
@@ -37,6 +38,7 @@
 - [app/config.py](file://app/config.py)
 - [app/rag/chain.py](file://app/rag/chain.py)
 - [app/rag/retriever.py](file://app/rag/retriever.py)
+- [app/rag/parser.py](file://app/rag/parser.py)
 - [app/storage/models.py](file://app/storage/models.py)
 - [app/storage/database.py](file://app/storage/database.py)
 - [app/storage/document_repo.py](file://app/storage/document_repo.py)
@@ -47,10 +49,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced test infrastructure with new `auth_client` fixture that creates authenticated TestClient instances with pre-set admin_session cookies
-- Updated test assertions to use Russian localization strings ('HR-панель управления', 'Документы', 'Документов пока нет') instead of English equivalents
-- Added comprehensive admin document API testing with authentication, authorization, and localization validation
-- Expanded test coverage for Block 12 admin functionality including document management, authentication, and Russian UI validation
+- Enhanced test infrastructure with comprehensive parser testing covering .docx and .doc file processing validation
+- Added new tests/test_parser.py containing 93 lines of unit tests for parser functionality
+- Integrated parser testing with dispatcher testing for file extension handling
+- Expanded RAG pipeline testing with dedicated parser functionality validation
+- Added comprehensive document ingestion testing with section extraction and chunking validation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -65,12 +68,12 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly expanded to cover new domain content, entity definitions, keyboard builders, RAG stub functionality, custom rules, enhanced handler registration testing, comprehensive Block 9 functionality including scenario detection, background-topic disclaimer handling, QA service integration, and the new Block 12 admin document API with authentication and Russian localization. It explains how pytest is configured and used, how to test asynchronous bot components, and how to validate behavior without relying on live external services. Practical examples are provided via file references to the actual test suite and implementation.
+This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly expanded to cover new domain content, entity definitions, keyboard builders, RAG stub functionality, custom rules, enhanced handler registration testing, comprehensive Block 9 functionality including scenario detection, background-topic disclaimer handling, QA service integration, the new Block 12 admin document API with authentication and Russian localization, and **comprehensive parser testing infrastructure for document ingestion and processing**. It explains how pytest is configured and used, how to test asynchronous bot components, and how to validate behavior without relying on live external services. Practical examples are provided via file references to the actual test suite and implementation.
 
-**Updated** Enhanced with comprehensive test coverage for new RAG stub features, including dedicated test classes for FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) functionality, expanded handler registration verification with detailed count breakdown, comprehensive Block 9 testing infrastructure for scenario detection and QA service integration, extensive llama.cpp provider testing infrastructure, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
+**Updated** Enhanced with comprehensive test coverage for new RAG stub features, including dedicated test classes for FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) functionality, expanded handler registration verification with detailed count breakdown, comprehensive Block 9 testing infrastructure for scenario detection and QA service integration, extensive llama.cpp provider testing infrastructure, **comprehensive parser testing for document ingestion and processing**, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
 
 ## Project Structure
-The testing effort is organized under the tests/ directory and targets all major components of the VK integration, the new document storage system, and the Block 12 admin functionality:
+The testing effort is organized under the tests/ directory and targets all major components of the VK integration, the new document storage system, the RAG pipeline, and the Block 12 admin functionality:
 - Configuration loading and defaults with explicit environment file control
 - Bot factory and handler registration order with detailed handler counting
 - Keyboard builders and payload constants (including Block 2 and Block 9 functionality)
@@ -84,6 +87,7 @@ The testing effort is organized under the tests/ directory and targets all major
 - Topic hints detection for scenario linking and disclaimer handling
 - **Document storage system testing with comprehensive database initialization, CRUD operations, status transitions, and search enablement functionality**
 - **Extensive RAG infrastructure testing with llama.cpp provider dispatch logic, configuration parameter validation, and integration with existing RAG components**
+- **Comprehensive parser testing for document ingestion, section extraction, chunking, and dispatcher functionality**
 - **Block 12 admin document API testing with authentication, authorization, and Russian localization validation**
 
 ```mermaid
@@ -97,6 +101,7 @@ T_CONTENT["test_content.py"]
 T_ENTITIES["test_entities.py"]
 T_RAG3["test_rag_stub_block3.py"]
 T_RAG6["test_rag_block6.py"]
+T_PARSER["test_parser.py"]
 T_QA["test_qa_service.py"]
 T_RULES["test_rules.py"]
 T_STATES["test_states.py"]
@@ -118,15 +123,8 @@ STORAGE["app/storage/"]
 MODELS["models.py"]
 DATABASE["database.py"]
 REPO["document_repo.py"]
-HANDLERS["handlers/"]
-START["start.py"]
-SECTIONS["sections.py"]
-FALLBACK["fallback.py"]
-FIRE["fire.py"]
-VACATION["vacation.py"]
-ASK["ask.py"]
-CFG["config.py"]
 RAG["app/rag/"]
+PARSER["parser.py"]
 CHAIN["chain.py"]
 RETRIEVER["retriever.py"]
 API["app/api/"]
@@ -145,6 +143,7 @@ T --> T_CONTENT
 T --> T_ENTITIES
 T --> T_RAG3
 T --> T_RAG6
+T --> T_PARSER
 T --> T_QA
 T --> T_RULES
 T --> T_STATES
@@ -164,7 +163,7 @@ DOMAIN --> DOCUMENT_SERVICE
 STORAGE --> MODELS
 STORAGE --> DATABASE
 STORAGE --> REPO
-APP --> CFG
+RAG --> PARSER
 RAG --> CHAIN
 RAG --> RETRIEVER
 API --> DOCS_API
@@ -186,6 +185,7 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
 - [tests/test_rag_stub_block3.py:1-98](file://tests/test_rag_stub_block3.py#L1-L98)
 - [tests/test_rag_block6.py:1-413](file://tests/test_rag_block6.py#L1-L413)
+- [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
 - [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
@@ -210,6 +210,7 @@ SCRIPTS --> RUN_LLAMA
 - [app/storage/models.py:1-36](file://app/storage/models.py#L1-L36)
 - [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
 - [app/storage/document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
+- [app/rag/parser.py:1-138](file://app/rag/parser.py#L1-L138)
 - [app/config.py:1-23](file://app/config.py#L1-L23)
 - [app/rag/chain.py:1-95](file://app/rag/chain.py#L1-L95)
 - [app/rag/retriever.py:1-88](file://app/rag/retriever.py#L1-L88)
@@ -229,6 +230,7 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
 - [tests/test_rag_stub_block3.py:1-98](file://tests/test_rag_stub_block3.py#L1-L98)
 - [tests/test_rag_block6.py:1-413](file://tests/test_rag_block6.py#L1-L413)
+- [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
 - [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
@@ -251,6 +253,7 @@ SCRIPTS --> RUN_LLAMA
 - Ask handler tests validate state management, QA service integration, and scenario navigation.
 - **Document storage system tests validate database initialization, CRUD operations, status transitions, and search enablement functionality with comprehensive test coverage.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter validation, and error handling scenarios.**
+- **Comprehensive parser testing validates document ingestion, section extraction, chunking, and dispatcher functionality for .docx and .doc file processing.**
 - **Block 12 admin document API tests validate authentication, authorization, and Russian localization with comprehensive test coverage.**
 
 Key testing characteristics:
@@ -269,10 +272,11 @@ Key testing characteristics:
 - Ask handler testing validates state management and integration with QA service and topic hints.
 - **Document storage system testing validates comprehensive database operations including timestamp management, status transitions, and search enablement toggling.**
 - **Llama.cpp provider testing validates provider selection logic, configuration parameter handling, import error scenarios, and integration with existing RAG components.**
+- **Parser testing validates document ingestion pipeline with section extraction, chunking, and metadata handling.**
 - **Admin document API testing validates authentication cookie handling, authorization enforcement, and Russian UI localization.**
 - **Auth client fixture provides authenticated TestClient instances with pre-set admin_session cookies for comprehensive admin functionality testing.**
 
-**Updated** Enhanced with comprehensive testing coverage for domain content, entity definitions, keyboard builders, RAG stub functionality, QA service integration, custom payload matching rules, topic hints detection, ask handler validation, document storage system testing, extensive llama.cpp provider testing infrastructure, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
+**Updated** Enhanced with comprehensive testing coverage for domain content, entity definitions, keyboard builders, RAG stub functionality, QA service integration, custom payload matching rules, topic hints detection, ask handler validation, document storage system testing, extensive llama.cpp provider testing infrastructure, **comprehensive parser testing for document ingestion and processing**, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -284,6 +288,7 @@ Key testing characteristics:
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
 - [tests/test_rag_stub_block3.py:1-98](file://tests/test_rag_stub_block3.py#L1-L98)
 - [tests/test_rag_block6.py:1-413](file://tests/test_rag_block6.py#L1-L413)
+- [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
 - [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
@@ -292,7 +297,7 @@ Key testing characteristics:
 - [tests/test_api_documents.py:1-647](file://tests/test_api_documents.py#L1-L647)
 
 ## Architecture Overview
-The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with detailed breakdown by functional area. The expanded testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, and **comprehensive Block 12 admin document API testing with authentication and Russian localization**.
+The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with detailed breakdown by functional area. The expanded testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive parser testing for document ingestion pipeline**, and **comprehensive Block 12 admin document API testing with authentication and Russian localization**.
 
 ```mermaid
 sequenceDiagram
@@ -595,6 +600,41 @@ Testing patterns:
 - [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
 - [app/storage/document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
 
+### Parser Testing Infrastructure
+**New Section** - Comprehensive testing coverage for document ingestion and processing
+
+Purpose:
+- Validate document ingestion pipeline for .docx and .doc file formats.
+- Test section extraction from structured .docx documents.
+- Validate text chunking with configurable chunk size and overlap.
+- Test metadata handling including source filename and section headings.
+- Validate dispatcher functionality for file extension-based routing.
+- Test error handling for unsupported file formats.
+
+Methodology:
+- Test load_docx function for structured .docx parsing with heading-based section extraction.
+- Validate load_doc function for legacy .doc file processing using docx2txt library.
+- Test load_document dispatcher for file extension-based routing to appropriate loaders.
+- Validate section extraction preserves paragraph structure and handles empty paragraphs.
+- Test chunking logic with configurable chunk size (1000) and overlap (200).
+- Validate metadata includes source filename and section headings for both formats.
+- Test error handling raises ValueError for unsupported file extensions.
+- Test multi-paragraph content preservation and combined content validation.
+
+Testing patterns:
+- Use TemporaryDirectory fixtures for isolated file operations.
+- Mock docx2txt.process for .doc file processing to avoid external dependencies.
+- Validate LangChain Document objects with proper metadata structure.
+- Test chunk size constraints and content length validation.
+- Use parameterized tests for different file formats and content scenarios.
+- Validate error scenarios with pytest.raises for unsupported extensions.
+
+**Updated** Added comprehensive parser testing infrastructure with 94 lines of new test coverage validating document ingestion pipeline, section extraction, chunking logic, metadata handling, dispatcher functionality, and error scenarios for .docx and .doc file processing.
+
+**Section sources**
+- [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
+- [app/rag/parser.py:1-138](file://app/rag/parser.py#L1-L138)
+
 ### Admin Document API Testing
 **New Section** - Comprehensive testing coverage for Block 12 admin functionality
 
@@ -645,6 +685,7 @@ Current coverage:
 - Ask handler testing validates state management and integration with QA service.
 - **Document storage system testing validates comprehensive database operations and lifecycle management.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter handling, and error scenarios.**
+- **Comprehensive parser testing validates document ingestion pipeline and dispatcher functionality.**
 - **Admin document API testing validates authentication, authorization, and Russian localization with comprehensive test coverage.**
 
 Testing approach:
@@ -657,6 +698,7 @@ Testing approach:
 - Ask handler testing validates state management and scenario navigation.
 - **Document storage system testing validates repository operations and data integrity.**
 - **Llama.cpp provider testing validates provider selection logic, configuration parameter handling, import error scenarios, and integration with existing RAG components.**
+- **Parser testing validates document ingestion pipeline with section extraction and chunking logic.**
 - **Admin document API testing validates authentication mechanisms, authorization enforcement, and Russian localization.**
 - **Auth client fixture testing validates authenticated TestClient creation with pre-set cookies.**
 
@@ -669,6 +711,8 @@ Mocking external dependencies:
 - **Use patch.dict for mocking module imports in llama.cpp provider testing.**
 - **Use auth_client fixture for authenticated admin API testing.**
 - **Use auth_cookies fixture for manual cookie manipulation in tests.**
+- **Use TemporaryDirectory fixtures for parser testing with isolated file operations.**
+- **Use patch for mocking docx2txt.process in .doc file processing tests.**
 
 Validation tips:
 - Use keyboard payload assertions to confirm routing correctness.
@@ -684,6 +728,10 @@ Validation tips:
 - **Test search enablement toggling and its effects on retrieval functionality.**
 - **Validate database initialization and table creation.**
 - **Validate CRUD operations and data persistence across operations.**
+- **Validate parser section extraction and chunking logic.**
+- **Validate dispatcher functionality for file extension-based routing.**
+- **Test error handling for unsupported file formats.**
+- **Validate metadata handling for source and section information.**
 - **Validate llama.cpp provider selection logic and configuration parameter handling.**
 - **Test import error scenarios and fallback mechanisms.**
 - **Validate integration with existing RAG components (chain.py, retriever.py).**
@@ -691,7 +739,7 @@ Validation tips:
 - **Test Russian localization strings throughout admin interface.**
 - **Validate partial rendering with authentication requirements.**
 
-**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation, document storage system testing for comprehensive database operations, extensive llama.cpp provider testing infrastructure, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
+**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation, document storage system testing for comprehensive database operations, extensive llama.cpp provider testing infrastructure, **comprehensive parser testing for document ingestion pipeline**, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
 
 **Section sources**
 - [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
@@ -703,6 +751,7 @@ Validation tips:
 - [app/integrations/vk/handlers/vacation.py:79-88](file://app/integrations/vk/handlers/vacation.py#L79-L88)
 - [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
+- [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
 - [tests/test_api_documents.py:1-647](file://tests/test_api_documents.py#L1-L647)
 
 ### Llama.cpp Provider Testing Infrastructure
@@ -753,6 +802,8 @@ The test suite depends on:
 - **Extended mocking infrastructure for module imports in llama.cpp provider testing.**
 - **Auth client fixture for authenticated admin API testing.**
 - **Cookie-based authentication testing infrastructure.**
+- **TemporaryDirectory fixtures for parser testing with isolated file operations.**
+- **Patch decorators for mocking docx2txt.process in .doc file processing.**
 
 ```mermaid
 graph TB
@@ -770,6 +821,7 @@ QA["QA Service Testing"]
 TH["Topic Hints Testing"]
 DS["Document Storage Testing"]
 LP["Llama.cpp Provider Testing"]
+PARSER["Parser Testing"]
 AD["Admin Document API Testing"]
 AC["Auth Client Fixture"]
 PY --> P
@@ -785,6 +837,7 @@ PY --> QA
 PY --> TH
 PY --> DS
 PY --> LP
+PY --> PARSER
 PY --> AD
 PY --> AC
 ```
@@ -816,8 +869,11 @@ PY --> AC
 - **Admin document API testing should leverage auth_client fixture for efficient authenticated testing.**
 - **Authentication testing should minimize cookie manipulation overhead.**
 - **Russian localization testing should validate strings efficiently without network dependencies.**
+- **Parser testing should use TemporaryDirectory fixtures for isolated file operations.**
+- **Mock docx2txt.process to avoid external dependencies in .doc file processing tests.**
+- **Chunking validation should test performance with large text inputs.**
 
-**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with temporary databases, llama.cpp provider testing optimization, and **comprehensive admin document API testing with auth_client fixture optimization**.
+**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with temporary databases, llama.cpp provider testing optimization, **comprehensive parser testing with TemporaryDirectory fixtures**, and **comprehensive admin document API testing with auth_client fixture optimization**.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -841,6 +897,10 @@ Common issues and resolutions:
 - **Document storage CRUD failures: Test create, read, update, and delete operations with proper error handling.**
 - **Document storage status transition failures: Validate processing, completed, and failed status handling.**
 - **Document storage search enablement failures: Test toggle functionality without affecting document status.**
+- **Parser failures: Validate section extraction, chunking logic, and metadata handling.**
+- **Parser dispatcher failures: Test file extension-based routing and error handling.**
+- **Parser metadata failures: Validate source and section metadata for both .docx and .doc formats.**
+- **Parser chunking failures: Test chunk size constraints and content length validation.**
 - **Llama.cpp provider failures: Validate provider selection logic and configuration parameter handling.**
 - **Import error scenarios: Test ImportError handling and fallback mechanisms.**
 - **Integration failures: Verify llama.cpp provider integration with existing RAG components.**
@@ -869,8 +929,12 @@ Debugging tips:
 - **Test cookie-based authentication with auth_cookies fixture.**
 - **Validate Russian localization strings in HTML templates.**
 - **Test partial rendering with authentication requirements.**
+- **Use TemporaryDirectory fixtures for parser testing with isolated file operations.**
+- **Use patch for mocking docx2txt.process in .doc file processing tests.**
+- **Validate section extraction preserves paragraph structure and handles empty paragraphs.**
+- **Test chunking logic with configurable chunk size and overlap constraints.**
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation, keyboard validation failures, document storage system testing with comprehensive debugging strategies, llama.cpp provider testing scenarios, and **comprehensive admin document API testing with authentication, authorization, and Russian localization debugging strategies**.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation, keyboard validation failures, document storage system testing with comprehensive debugging strategies, llama.cpp provider testing scenarios, **comprehensive parser testing with TemporaryDirectory fixtures**, and **comprehensive admin document API testing with authentication, authorization, and Russian localization debugging strategies**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -883,6 +947,7 @@ Debugging tips:
 - [tests/test_qa_service.py:15-23](file://tests/test_qa_service.py#L15-L23)
 - [tests/test_ask_block9.py:8-87](file://tests/test_ask_block9.py#L8-L87)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
+- [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
 - [tests/test_rag_block6.py:75-83](file://tests/test_rag_block6.py#L75-L83)
 - [tests/test_api_documents.py:1-647](file://tests/test_api_documents.py#L1-L647)
 
@@ -902,6 +967,7 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - Ask handler testing validates state management, QA service integration, and scenario navigation.
 - **Document storage system testing validates comprehensive database operations including timestamp management, status transitions, and search enablement functionality.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter handling, and error scenarios.**
+- **Comprehensive parser testing validates document ingestion pipeline with section extraction, chunking, and metadata handling.**
 - **Admin document API testing validates authentication, authorization, and Russian localization with comprehensive test coverage.**
 
 To evolve the test suite:
@@ -931,8 +997,12 @@ To evolve the test suite:
 - **Validate auth_client fixture for authenticated TestClient creation.**
 - **Test cookie-based authentication and session management.**
 - **Validate Russian localization strings throughout admin interface.**
+- **Add comprehensive parser testing for document ingestion pipeline validation.**
+- **Test section extraction, chunking logic, and metadata handling for both .docx and .doc formats.**
+- **Validate dispatcher functionality for file extension-based routing.**
+- **Test error handling for unsupported file formats.**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, extensive llama.cpp provider testing infrastructure, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, extensive llama.cpp provider testing infrastructure, **comprehensive parser testing for document ingestion pipeline**, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
 
 ## Appendices
 
@@ -944,6 +1014,7 @@ To evolve the test suite:
 - Run QA service tests for RAG chain integration validation (e.g., `pytest tests/test_qa_service.py`).
 - Run topic hints tests for scenario detection validation (e.g., `pytest tests/test_ask_block9.py`).
 - **Run document storage tests for comprehensive database validation (e.g., `pytest tests/test_storage.py`).**
+- **Run parser tests for document ingestion pipeline validation (e.g., `pytest tests/test_parser.py`).**
 - **Run llama.cpp provider tests for comprehensive provider validation (e.g., `pytest tests/test_rag_block6.py::TestBuildLlmLlamaCpp`).**
 - **Run admin document API tests for authentication and localization validation (e.g., `pytest tests/test_api_documents.py::TestAuth`).**
 - **Run auth client fixture tests for authenticated TestClient validation (e.g., `pytest tests/test_api_documents.py::TestAuth::test_login_with_valid_key`).**
@@ -980,5 +1051,11 @@ To evolve the test suite:
 - **Test cookie-based authentication and session management.**
 - **Validate Russian localization strings in admin interface templates.**
 - **Test partial rendering with authentication requirements.**
+- **Use TemporaryDirectory fixtures for parser testing with isolated file operations.**
+- **Use patch for mocking docx2txt.process in .doc file processing tests.**
+- **Validate section extraction preserves paragraph structure and handles empty paragraphs.**
+- **Test chunking logic with configurable chunk size and overlap constraints.**
+- **Validate metadata handling for source and section information.**
+- **Test dispatcher functionality for file extension-based routing.**
 
-**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, comprehensive feature testing strategies, QA service testing, topic hints detection validation, ask handler testing, keyboard validation testing, document storage system testing with temporary databases, llama.cpp provider testing strategies, and **comprehensive admin document API testing with auth_client fixture and Russian localization validation**.
+**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, comprehensive feature testing strategies, QA service testing, topic hints detection validation, ask handler testing, keyboard validation testing, document storage system testing with temporary databases, llama.cpp provider testing strategies, **comprehensive parser testing with TemporaryDirectory fixtures**, and **comprehensive admin document API testing with auth_client fixture and Russian localization validation**.
