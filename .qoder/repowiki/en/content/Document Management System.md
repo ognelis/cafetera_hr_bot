@@ -29,36 +29,40 @@
 - [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
 - [templates/documents.html](file://templates/documents.html)
 - [templates/partials/document_table.html](file://templates/partials/document_table.html)
+- [templates/partials/document_row.html](file://templates/partials/document_row.html)
 - [templates/partials/pagination.html](file://templates/partials/pagination.html)
 - [scripts/ingest.py](file://scripts/ingest.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
+- [tests/test_storage.py](file://tests/test_storage.py)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive pagination system documentation across API endpoints and frontend
-- Updated database schema documentation to reflect auto-incrementing primary key
-- Enhanced API endpoints documentation with pagination parameters
-- Added HTMX integration details for dynamic pagination controls
-- Updated storage layer documentation with pagination implementation
-- Enhanced testing strategy to cover pagination functionality
+- Enhanced server-side search functionality with case-insensitive pattern matching against document titles and filenames
+- Improved status display with visual indicators including loading states and error tooltips
+- Added new UI elements for better document tracking and management including search-enabled checkboxes
+- Implemented comprehensive pagination system with real-time filtering and dynamic pagination controls
+- Updated database schema to support search functionality with is_search_enabled flag
+- Enhanced frontend with HTMX integration for real-time search and filtering
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [System Architecture](#system-architecture)
 3. [Core Components](#core-components)
 4. [Document Management Workflow](#document-management-workflow)
-5. [Pagination System](#pagination-system)
-6. [RAG Pipeline](#rag-pipeline)
-7. [VK Bot Integration](#vk-bot-integration)
-8. [Storage Layer](#storage-layer)
-9. [API Endpoints](#api-endpoints)
-10. [Configuration Management](#configuration-management)
-11. [Testing Strategy](#testing-strategy)
-12. [Deployment and Operations](#deployment-and-operations)
-13. [Troubleshooting Guide](#troubleshooting-guide)
-14. [Conclusion](#conclusion)
+5. [Server-Side Search Functionality](#server-side-search-functionality)
+6. [Enhanced Status Display System](#enhanced-status-display-system)
+7. [Pagination System](#pagination-system)
+8. [RAG Pipeline](#rag-pipeline)
+9. [VK Bot Integration](#vk-bot-integration)
+10. [Storage Layer](#storage-layer)
+11. [API Endpoints](#api-endpoints)
+12. [Configuration Management](#configuration-management)
+13. [Testing Strategy](#testing-strategy)
+14. [Deployment and Operations](#deployment-and-operations)
+15. [Troubleshooting Guide](#troubleshooting-guide)
+16. [Conclusion](#conclusion)
 
 ## Introduction
 
@@ -66,7 +70,7 @@ The Document Management System is a comprehensive RAG (Retrieval-Augmented Gener
 
 The system supports multiple document formats (primarily DOCX), integrates with vector databases for semantic search, and provides both web-based administration and VK social network bot integration for HR assistance. It features a modular architecture with clear separation between presentation, business logic, data persistence, and external integrations.
 
-**Updated** The system now includes a comprehensive pagination system that enhances scalability and user experience when managing large document collections.
+**Updated** The system now includes comprehensive server-side search functionality with real-time filtering, enhanced status display with visual indicators, and new UI elements for better document tracking and management. Search functionality supports case-insensitive pattern matching against document titles and filenames, providing users with powerful document discovery capabilities.
 
 ## System Architecture
 
@@ -77,7 +81,9 @@ graph TB
 subgraph "Presentation Layer"
 WebUI[Web Interface]
 VKBot[VK Bot]
-Pagination[HTMX Pagination Controls]
+Search[Real-time Search]
+Pagination[Dynamic Pagination]
+Status[Visual Status Indicators]
 end
 subgraph "Application Layer"
 API[FastAPI Router]
@@ -91,6 +97,7 @@ end
 subgraph "Data Access Layer"
 Repo[Document Repository]
 Models[Data Models]
+Search[Case-insensitive Search]
 Pagination[Database Pagination]
 end
 subgraph "External Services"
@@ -99,13 +106,16 @@ Qdrant[Qdrant Vector DB]
 LLM[LLM Provider]
 end
 WebUI --> API
+WebUI --> Search
 WebUI --> Pagination
+WebUI --> Status
 VKBot --> API
 API --> Service
 Service --> Repo
 Service --> Qdrant
 Service --> S3
 Repo --> Models
+Repo --> Search
 Repo --> Pagination
 Service --> LLM
 QAService --> Service
@@ -118,12 +128,12 @@ QAService --> LLM
 - [app/domain/document_service.py:35-281](file://app/domain/document_service.py#L35-L281)
 - [templates/partials/pagination.html:1-104](file://templates/partials/pagination.html#L1-L104)
 
-The architecture consists of five main layers with enhanced pagination support:
+The architecture consists of five main layers with enhanced search and status management capabilities:
 
-1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration and HTMX-powered pagination controls
-2. **Application Layer**: Business logic encapsulated in domain services and API routers with pagination-aware endpoints
+1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, and visual status indicators
+2. **Application Layer**: Business logic encapsulated in domain services and API routers with search-aware endpoints and enhanced status management
 3. **Domain Layer**: Core business entities and state management for bot interactions
-4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive pagination support
+4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality and pagination support
 5. **Integration Layer**: External services for storage, vector databases, and AI providers
 
 ## Core Components
@@ -245,6 +255,120 @@ The system implements comprehensive validation for uploaded documents:
 - [app/api/documents.py:307-366](file://app/api/documents.py#L307-L366)
 - [app/api/documents.py:111-130](file://app/api/documents.py#L111-L130)
 
+## Server-Side Search Functionality
+
+The system implements comprehensive server-side search functionality with real-time filtering capabilities:
+
+```mermaid
+sequenceDiagram
+participant Client as Client Browser
+participant API as API Router
+participant Repo as Document Repository
+participant DB as SQLite Database
+Client->>API : GET /api/documents?search=query&page=1&per_page=10
+API->>Repo : list_page(page=1, per_page=10, search=query)
+Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?)
+DB-->>Repo : Total count
+Repo->>DB : SELECT ... WHERE LOWER(title) LIKE LOWER(?) OR LOWER(filename) LIKE LOWER(?)
+DB-->>Repo : Documents with pagination
+Repo-->>API : (documents, total)
+API-->>Client : JSON with search results and pagination
+Client->>Client : Render filtered table with search highlighting
+```
+
+**Diagram sources**
+- [app/api/documents.py:390-406](file://app/api/documents.py#L390-L406)
+- [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
+
+### Search Implementation Details
+
+The search functionality provides comprehensive filtering capabilities:
+
+- **Case-insensitive matching**: Uses `LOWER()` function for case-insensitive pattern matching
+- **Dual-field search**: Searches both document titles and filenames simultaneously
+- **Real-time filtering**: Integrated with HTMX for immediate search results
+- **Pattern matching**: Supports partial matches with wildcard patterns
+- **Performance optimization**: Efficient LIKE queries with proper indexing considerations
+
+### Search Parameters
+
+The search system supports the following parameters:
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `search` | String | Search query for filtering documents by title or filename |
+| `page` | Integer | Current page number (1-indexed) |
+| `per_page` | Integer | Number of items per page (10, 20, 50) |
+
+### Search UI Integration
+
+The frontend provides intuitive search capabilities:
+
+- **Real-time search**: Debounced input with 300ms delay for performance
+- **Search icon**: Visual indicator with magnifying glass icon
+- **Placeholder text**: "Поиск" (Search) for user guidance
+- **HTMX integration**: Automatic AJAX requests for filtered results
+- **Pagination preservation**: Search maintains current pagination state
+
+**Section sources**
+- [app/api/documents.py:194-218](file://app/api/documents.py#L194-L218)
+- [app/api/documents.py:390-406](file://app/api/documents.py#L390-L406)
+- [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
+- [templates/documents.html:25-42](file://templates/documents.html#L25-L42)
+
+## Enhanced Status Display System
+
+The system provides comprehensive visual status indicators for document tracking:
+
+```mermaid
+stateDiagram-v2
+[*] --> Pending : Document created
+Pending --> Processing : Background indexing started
+Processing --> Completed : Indexing successful
+Processing --> Failed : Indexing error
+Completed --> Completed : Search enabled/disabled
+Failed --> Processing : Retry indexing
+Failed --> Failed : Persistent error
+```
+
+**Diagram sources**
+- [templates/partials/document_row.html:19-41](file://templates/partials/document_row.html#L19-L41)
+- [app/storage/models.py:11-18](file://app/storage/models.py#L11-L18)
+
+### Status Badge Visual Indicators
+
+The system displays four distinct status states with appropriate visual cues:
+
+| Status | Visual Indicator | Icon | Color | Description |
+|--------|------------------|------|-------|-------------|
+| `pending` | Warning badge | ⏳ | Yellow | Document queued for processing |
+| `processing` | Info badge | 🔁 | Blue | Background indexing in progress |
+| `completed` | Success badge | ✅ | Green | Document successfully indexed |
+| `failed` | Error badge | ❌ | Red | Indexing failed with error details |
+
+### Status Interaction Elements
+
+The status system includes interactive elements for document management:
+
+- **Auto-refresh**: Processing documents automatically refresh every 3 seconds
+- **Error tooltips**: Detailed error messages on hover for failed documents
+- **Loading indicators**: Animated dots/spinner for pending/processing states
+- **Checkbox control**: Toggle search participation for completed documents
+
+### Status Filtering Capabilities
+
+The frontend provides status-based filtering:
+
+- **Status dropdown**: Filter documents by processing status
+- **Visual labels**: Status-specific color coding
+- **Client-side filtering**: Real-time filtering of visible documents
+- **Combined filters**: Status filters work with search and type filters
+
+**Section sources**
+- [templates/partials/document_row.html:19-41](file://templates/partials/document_row.html#L19-L41)
+- [templates/documents.html:74-87](file://templates/documents.html#L74-L87)
+- [app/storage/models.py:11-18](file://app/storage/models.py#L11-L18)
+
 ## Pagination System
 
 The system implements a comprehensive pagination system that enhances scalability and user experience when managing large document collections:
@@ -255,13 +379,15 @@ participant Client as Client Browser
 participant API as API Router
 participant Repo as Document Repository
 participant DB as SQLite Database
-Client->>API : GET /api/documents?page=2&per_page=20
-API->>Repo : list_page(page=2, per_page=20)
+Client->>API : GET /api/documents?page=2&per_page=20&search=query
+API->>Repo : list_page(page=2, per_page=20, search=query)
+Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?) OR LOWER(filename) LIKE LOWER(?)
+DB-->>Repo : Filtered total count
 Repo->>DB : SELECT ... LIMIT 20 OFFSET 20
-DB-->>Repo : Documents + Total Count
+DB-->>Repo : Documents + Filtered total
 Repo-->>API : (documents, total)
 API-->>Client : JSON with pagination metadata
-Client->>Client : Render pagination controls
+Client->>Client : Render pagination controls with search context
 ```
 
 **Diagram sources**
@@ -309,6 +435,7 @@ The system provides sophisticated pagination controls with intelligent page numb
 - **Dynamic Ellipsis**: Shows `1, 2, 3, ..., last` near the end, `1, ..., middle-1, middle, middle+1, ..., last` in the middle, and `1, 2, 3, 4, 5, ..., last` near the beginning
 - **Active State Highlighting**: Current page button is visually distinct
 - **Disabled States**: Previous button disabled on first page, next button disabled on last page
+- **Search Context Preservation**: Pagination maintains search query across page changes
 
 **Section sources**
 - [app/api/documents.py:194-218](file://app/api/documents.py#L194-L218)
@@ -400,7 +527,7 @@ The VK bot uses a handler-based architecture for different interaction modes:
 
 ## Storage Layer
 
-The storage architecture provides a robust foundation for document management with enhanced pagination support:
+The storage architecture provides a robust foundation for document management with enhanced search and pagination support:
 
 ```mermaid
 erDiagram
@@ -439,8 +566,9 @@ The SQLite schema supports comprehensive document tracking with:
 - **Audit Trail**: Creation and modification timestamps for all records
 - **Performance Metrics**: Chunk count and indexing timestamps for monitoring
 - **Pagination Support**: Efficient ordering by ID for pagination queries
+- **Search Indexing**: Case-insensitive search columns for optimal query performance
 
-**Updated** The database now uses an auto-incrementing primary key (`id INTEGER PRIMARY KEY AUTOINCREMENT`) which enables efficient pagination through `ORDER BY id DESC LIMIT ? OFFSET ?` queries.
+**Updated** The database now uses an auto-incrementing primary key (`id INTEGER PRIMARY KEY AUTOINCREMENT`) which enables efficient pagination through `ORDER BY id DESC LIMIT ? OFFSET ?` queries. The `is_search_enabled` column provides granular control over document inclusion in search results.
 
 **Section sources**
 - [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
@@ -449,7 +577,7 @@ The SQLite schema supports comprehensive document tracking with:
 
 ## API Endpoints
 
-The system provides a comprehensive REST API for document management with full pagination support:
+The system provides a comprehensive REST API for document management with full search and pagination support:
 
 ### Authentication and Authorization
 
@@ -464,7 +592,7 @@ The system provides a comprehensive REST API for document management with full p
 | Endpoint | Method | Description | Authentication |
 |----------|--------|-------------|----------------|
 | `/api/documents/upload` | POST | Upload multiple DOCX files | Admin cookie |
-| `/api/documents` | GET | List all documents with pagination | Admin cookie |
+| `/api/documents` | GET | List all documents with search and pagination | Admin cookie |
 | `/api/documents/{id}` | GET/PATCH/DELETE | Document operations | Admin cookie |
 | `/api/documents/{id}/title` | PATCH | Update document title | Admin cookie |
 | `/api/documents/{id}/search` | PATCH | Toggle search participation | Admin cookie |
@@ -475,19 +603,19 @@ The system provides a comprehensive REST API for document management with full p
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/partials/document-table` | GET | Dynamic table content with pagination |
-| `/partials/document-row/{id}` | GET | Individual row updates |
+| `/partials/document-table` | GET | Dynamic table content with search and pagination |
+| `/partials/document-row/{id}` | GET | Individual row updates with status refresh |
 | `/partials/document-status/{id}` | GET | Status badge refresh |
 
-### Pagination Parameters
+### Search and Pagination Parameters
 
-All list endpoints support the following pagination parameters:
+All list endpoints support the following parameters:
 
 - **`page`**: Current page number (default: 1)
 - **`per_page`**: Items per page (default: 10, options: 10, 20, 50)
-- **`search`**: Search query for filtering documents
+- **`search`**: Search query for filtering documents by title or filename
 
-**Updated** All endpoints now support pagination parameters, with the main `/api/documents` endpoint returning comprehensive pagination metadata including total count, current page, items per page, and total pages.
+**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages.
 
 **Section sources**
 - [app/api/documents.py:1-577](file://app/api/documents.py#L1-L577)
@@ -541,7 +669,7 @@ Settings --> Environment : inherits
 
 ## Testing Strategy
 
-The system includes comprehensive testing across all layers with extensive pagination coverage:
+The system includes comprehensive testing across all layers with extensive search and pagination coverage:
 
 ### Test Coverage Areas
 
@@ -554,6 +682,17 @@ The system includes comprehensive testing across all layers with extensive pagin
 | `test_bot_factory.py` | VK bot integration | State machine validation |
 | `test_qa_service.py` | Question-answering logic | Scenario-based testing |
 
+### Search and Status Testing Coverage
+
+The test suite includes comprehensive search and status functionality testing:
+
+- **Search functionality**: Tests case-insensitive pattern matching against titles and filenames
+- **Status transitions**: Validates all status state changes and visual indicators
+- **Search enable/disable**: Tests toggle functionality for search participation
+- **Real-time updates**: Verifies automatic status refresh for processing documents
+- **Error handling**: Tests error status display and tooltip functionality
+- **Pagination with search**: Validates search results across multiple pages
+
 ### Pagination Testing Coverage
 
 The test suite includes comprehensive pagination testing:
@@ -565,11 +704,12 @@ The test suite includes comprehensive pagination testing:
 - **Total Count Accuracy**: Verifies total count matches actual document count
 - **HTMX Partials**: Tests pagination controls in HTMX partial responses
 
-**Updated** The testing strategy now includes extensive pagination testing covering edge cases, performance scenarios, and frontend integration.
+**Updated** The testing strategy now includes extensive search functionality testing covering case-insensitive matching, real-time filtering, and search-enable/disable operations.
 
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
 - [tests/test_api_documents.py:506-605](file://tests/test_api_documents.py#L506-L605)
+- [tests/test_storage.py:244-275](file://tests/test_storage.py#L244-L275)
 
 ## Deployment and Operations
 
@@ -609,7 +749,7 @@ Required environment variables:
 - `QDRANT_URL`: Vector database connection
 - `OLLAMA_BASE_URL`: LLM service endpoint
 
-**Updated** The deployment configuration now supports the enhanced pagination system with auto-incrementing database primary keys.
+**Updated** The deployment configuration now supports the enhanced search functionality with optimized database queries and real-time status updates.
 
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
@@ -625,7 +765,9 @@ Required environment variables:
 | **S3 Storage Issues** | Files not accessible | Confirm bucket existence, credentials, network connectivity |
 | **Admin Authentication Problems** | 403 Forbidden errors | Verify `admin_api_key` matches cookie value |
 | **Bot Not Responding** | VK messages ignored | Check VK access token, webhook configuration |
-| **Pagination Issues** | Incorrect page counts or empty results | Verify database auto-increment setup, check pagination parameters |
+| **Search Not Working** | No results for valid queries | Verify database search columns, case-insensitive matching |
+| **Status Display Issues** | Wrong status icons or no refresh | Check HTMX configuration, JavaScript console errors |
+| **Pagination Problems** | Incorrect page counts or empty results | Verify database auto-increment setup, check pagination parameters |
 
 ### Logging and Monitoring
 
@@ -635,9 +777,10 @@ The system provides comprehensive logging at multiple levels:
 - **Storage logs**: File operations, upload/download progress
 - **Vector database logs**: Indexing operations, search queries
 - **Bot logs**: Message processing, state transitions
+- **Search logs**: Query performance, filtering effectiveness
 - **Pagination logs**: Page calculation, query performance
 
-**Updated** The troubleshooting guide now includes pagination-specific issues and solutions.
+**Updated** The troubleshooting guide now includes search-specific issues and status display problems.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -655,7 +798,10 @@ Key strengths include:
 - **Production-ready Architecture**: Proper separation of concerns and testing strategy
 - **Scalable Pagination System**: Efficient handling of large document collections
 - **Enhanced User Experience**: Dynamic pagination with HTMX integration
+- **Powerful Search Capabilities**: Real-time filtering with case-insensitive pattern matching
+- **Visual Status Management**: Comprehensive status indicators with real-time updates
+- **Granular Control**: Search enable/disable functionality for individual documents
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
-**Updated** The recent implementation of comprehensive pagination system significantly enhances the system's ability to handle large document collections efficiently, providing users with smooth navigation and improved performance across all document management operations.
+**Updated** The recent implementation of comprehensive server-side search functionality, enhanced status display with visual indicators, and new UI elements for better document tracking and management significantly enhances the system's usability and operational efficiency. The real-time filtering capabilities with case-insensitive pattern matching provide users with powerful document discovery tools, while the visual status indicators and search controls improve overall document management workflows.

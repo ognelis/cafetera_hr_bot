@@ -119,42 +119,58 @@ class DocumentRepository:
 
     async def list_page(
         self, *, page: int = 1, per_page: int = 20, search: str | None = None,
+        date_from: datetime | None = None, date_to: datetime | None = None,
     ) -> tuple[list[DocumentRecord], int]:
-        """Return (documents, total_count) ordered by id DESC with pagination."""
+        """Return (documents, total_count) ordered by id DESC with pagination.
+
+        Args:
+            page: Page number (1-indexed)
+            per_page: Items per page
+            search: Search string for title/filename
+            date_from: Filter documents created on or after this date (inclusive)
+            date_to: Filter documents created on or before this date (inclusive)
+        """
         cols = ", ".join(_COLUMNS)
+
+        # Build WHERE clauses and parameters
+        where_clauses: list[str] = []
+        params: list[object] = []
+
+        if search:
+            search_pattern = f"%{search}%"
+            where_clauses.append("(LOWER(title) LIKE LOWER(?) OR LOWER(filename) LIKE LOWER(?))")
+            params.extend([search_pattern, search_pattern])
+
+        if date_from is not None:
+            where_clauses.append("created_at >= ?")
+            params.append(date_from.isoformat())
+
+        if date_to is not None:
+            # Set time to end of day for inclusive filtering
+            date_to_end = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
+            where_clauses.append("created_at <= ?")
+            params.append(date_to_end.isoformat())
+
+        where_sql = ""
+        if where_clauses:
+            where_sql = "WHERE " + " AND ".join(where_clauses)
+
         async with aiosqlite.connect(self._db_path) as db:
-            if search:
-                search_pattern = f"%{search}%"
-                count_sql = (
-                    "SELECT COUNT(*) FROM documents "
-                    "WHERE LOWER(title) LIKE LOWER(?) OR LOWER(filename) LIKE LOWER(?)"
-                )
-                cursor = await db.execute(count_sql, (search_pattern, search_pattern))
-                row = await cursor.fetchone()
-                total = row[0] if row else 0
+            # Count total
+            count_sql = f"SELECT COUNT(*) FROM documents {where_sql}"  # noqa: S608
+            cursor = await db.execute(count_sql, params)
+            row = await cursor.fetchone()
+            total = row[0] if row else 0
 
-                offset = (page - 1) * per_page
-                select_sql = (
-                    f"SELECT {cols} FROM documents "
-                    "WHERE LOWER(title) LIKE LOWER(?) OR LOWER(filename) LIKE LOWER(?) "
-                    "ORDER BY id DESC LIMIT ? OFFSET ?"  # noqa: S608
-                )
-                cursor = await db.execute(
-                    select_sql,
-                    (search_pattern, search_pattern, per_page, offset),
-                )
-                rows = await cursor.fetchall()
-            else:
-                cursor = await db.execute("SELECT COUNT(*) FROM documents")
-                row = await cursor.fetchone()
-                total = row[0] if row else 0
+            # Select page
+            offset = (page - 1) * per_page
+            select_sql = (
+                f"SELECT {cols} FROM documents {where_sql} "  # noqa: S608
+                "ORDER BY id DESC LIMIT ? OFFSET ?"
+            )
+            cursor = await db.execute(select_sql, params + [per_page, offset])
+            rows = await cursor.fetchall()
 
-                offset = (page - 1) * per_page
-                cursor = await db.execute(
-                    f"SELECT {cols} FROM documents ORDER BY id DESC LIMIT ? OFFSET ?",  # noqa: S608
-                    (per_page, offset),
-                )
-                rows = await cursor.fetchall()
         return [_row_to_record(r) for r in rows], total
 
     # ── Update ────────────────────────────────────────────────────

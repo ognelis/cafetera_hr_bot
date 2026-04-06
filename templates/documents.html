@@ -45,7 +45,7 @@
     <div class="flex items-center gap-2">
       <span class="text-sm text-base-content/60">Показать по:</span>
       <select x-model="perPage"
-              @change="currentPage = 1; htmx.ajax('GET', '/partials/document-table?page=1&per_page=' + perPage + (searchQuery ? '&search=' + encodeURIComponent(searchQuery) : ''), {target: '#document-table-container', swap: 'innerHTML'})"
+              @change="currentPage = 1; htmx.ajax('GET', '/partials/document-table?page=1&per_page=' + perPage + (searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '') + (dateFrom ? '&date_from=' + encodeURIComponent(dateFrom) : '') + (dateTo ? '&date_to=' + encodeURIComponent(dateTo) : ''), {target: '#document-table-container', swap: 'innerHTML'})"
               class="select select-sm select-bordered rounded-full bg-base-100">
         <option value="10">10</option>
         <option value="20">20</option>
@@ -84,6 +84,50 @@
         <li><a @click.prevent="statusFilter = 'pending'" :class="statusFilter === 'pending' ? 'active' : ''">Ожидание</a></li>
         <li><a @click.prevent="statusFilter = 'failed'" :class="statusFilter === 'failed' ? 'active' : ''">Ошибка</a></li>
       </ul>
+    </div>
+
+    {# Date range filter #}
+    <div class="dropdown">
+      <button tabindex="0" class="inline-flex items-center gap-1.5 h-7 px-3.5 text-xs rounded-full border border-base-300 bg-base-100 hover:bg-base-200 transition-colors cursor-pointer">
+        <span class="text-base-content/55">Дата добавления:</span>
+        <span class="font-semibold text-primary" x-text="dateFilterLabel"></span>
+      </button>
+      <div tabindex="0" class="dropdown-content bg-base-100 rounded-lg border border-base-300 shadow-sm z-10 w-72 p-3 mt-1">
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-base-content/60 mb-1">С</label>
+            <input
+              type="date"
+              x-model="dateFrom"
+              class="input input-sm input-bordered w-full"
+              @change="applyDateFilter()"
+            />
+          </div>
+          <div>
+            <label class="block text-xs text-base-content/60 mb-1">По</label>
+            <input
+              type="date"
+              x-model="dateTo"
+              class="input input-sm input-bordered w-full"
+              @change="applyDateFilter()"
+            />
+          </div>
+          <div class="flex justify-between items-center pt-1">
+            <button
+              @click.prevent="clearDateFilter()"
+              class="text-xs text-base-content/50 hover:text-primary transition-colors"
+            >
+              Сбросить
+            </button>
+            <button
+              @click.prevent="applyDateFilter()"
+              class="btn btn-xs btn-primary"
+            >
+              Применить
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -219,6 +263,8 @@
       searchQuery: '',
       statusFilter: 'all',
       sourceTypeFilter: 'all',
+      dateFrom: {{ date_from | default('') | tojson }},
+      dateTo: {{ date_to | default('') | tojson }},
 
       // Sort state
       sortField: 'title',
@@ -252,6 +298,27 @@
           other: 'Другие'
         };
         return labels[this.sourceTypeFilter] || 'Все';
+      },
+
+      get dateFilterLabel() {
+        // Normalize values and check for valid dates
+        const fromValue = String(this.dateFrom || '').trim();
+        const toValue = String(this.dateTo || '').trim();
+
+        // Validate dates - check not empty and is valid date
+        const fromDate = fromValue ? new Date(fromValue) : null;
+        const toDate = toValue ? new Date(toValue) : null;
+        const hasFrom = fromDate && !isNaN(fromDate.getTime());
+        const hasTo = toDate && !isNaN(toDate.getTime());
+
+        if (hasFrom && hasTo) {
+          return `${fromDate.toLocaleDateString('ru-RU')} – ${toDate.toLocaleDateString('ru-RU')}`;
+        } else if (hasFrom) {
+          return `С ${fromDate.toLocaleDateString('ru-RU')}`;
+        } else if (hasTo) {
+          return `По ${toDate.toLocaleDateString('ru-RU')}`;
+        }
+        return 'Все';
       },
 
       get visibleCount() {
@@ -366,6 +433,13 @@
         this.$watch('sourceTypeFilter', () => this.applyFilters());
         this.$nextTick(() => this.applySort());
 
+        // Sync date params from URL on page load
+        const urlParams = new URLSearchParams(window.location.search);
+        const df = urlParams.get('date_from');
+        const dt = urlParams.get('date_to');
+        if (df) this.dateFrom = df;
+        if (dt) this.dateTo = dt;
+
         // Sync Alpine state after HTMX pagination swaps
         document.addEventListener('htmx:afterSettle', (evt) => {
           if (evt.detail.target && evt.detail.target.id === 'document-table-container') {
@@ -388,6 +462,28 @@
             });
           }
         });
+      },
+
+      // Date filter methods
+      applyDateFilter() {
+        this.currentPage = 1;
+        let url = '/partials/document-table?page=1&per_page=' + this.perPage;
+        if (this.searchQuery) {
+          url += '&search=' + encodeURIComponent(this.searchQuery);
+        }
+        if (this.dateFrom) {
+          url += '&date_from=' + encodeURIComponent(this.dateFrom);
+        }
+        if (this.dateTo) {
+          url += '&date_to=' + encodeURIComponent(this.dateTo);
+        }
+        htmx.ajax('GET', url, {target: '#document-table-container', swap: 'innerHTML'});
+      },
+
+      clearDateFilter() {
+        this.dateFrom = '';
+        this.dateTo = '';
+        this.applyDateFilter();
       },
 
       // Upload methods
@@ -448,7 +544,11 @@
 
           // Refresh table to show new document, reset to page 1
           this.currentPage = 1;
-          htmx.ajax('GET', '/partials/document-table?page=1&per_page=' + this.perPage + (this.searchQuery ? '&search=' + encodeURIComponent(this.searchQuery) : ''), {target: '#document-table-container', swap: 'innerHTML'});
+          let refreshUrl = '/partials/document-table?page=1&per_page=' + this.perPage;
+          if (this.searchQuery) refreshUrl += '&search=' + encodeURIComponent(this.searchQuery);
+          if (this.dateFrom) refreshUrl += '&date_from=' + encodeURIComponent(this.dateFrom);
+          if (this.dateTo) refreshUrl += '&date_to=' + encodeURIComponent(this.dateTo);
+          htmx.ajax('GET', refreshUrl, {target: '#document-table-container', swap: 'innerHTML'});
 
           setTimeout(() => {
             this.uploads = this.uploads.filter(u => u.id !== id);
@@ -484,7 +584,11 @@
       }));
       // Refresh the entire table to update pagination and counts
       const alpineData = document.querySelector('[x-data="documentsPage()"]')._x_dataStack[0];
-      htmx.ajax('GET', `/partials/document-table?page=${alpineData.currentPage}&per_page=${alpineData.perPage}` + (alpineData.searchQuery ? '&search=' + encodeURIComponent(alpineData.searchQuery) : ''), {target: '#document-table-container', swap: 'innerHTML'});
+      let refreshUrl = `/partials/document-table?page=${alpineData.currentPage}&per_page=${alpineData.perPage}`;
+      if (alpineData.searchQuery) refreshUrl += '&search=' + encodeURIComponent(alpineData.searchQuery);
+      if (alpineData.dateFrom) refreshUrl += '&date_from=' + encodeURIComponent(alpineData.dateFrom);
+      if (alpineData.dateTo) refreshUrl += '&date_to=' + encodeURIComponent(alpineData.dateTo);
+      htmx.ajax('GET', refreshUrl, {target: '#document-table-container', swap: 'innerHTML'});
     });
 
     pendingDeleteId = null;

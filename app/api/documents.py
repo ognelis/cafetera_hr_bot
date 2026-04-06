@@ -200,8 +200,28 @@ async def documents_page(
     page: int = 1,
     per_page: int = 10,
     search: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ):
-    documents, total = await repo.list_page(page=page, per_page=per_page, search=search)
+    # Parse date strings to datetime objects
+    from datetime import datetime
+    dt_from = None
+    dt_to = None
+    if date_from:
+        try:
+            dt_from = datetime.fromisoformat(date_from)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.fromisoformat(date_to)
+        except ValueError:
+            pass
+
+    documents, total = await repo.list_page(
+        page=page, per_page=per_page, search=search,
+        date_from=dt_from, date_to=dt_to
+    )
     pages = math.ceil(total / per_page) if per_page > 0 else 0
     return templates.TemplateResponse(
         request,
@@ -214,6 +234,8 @@ async def documents_page(
             "pages": pages,
             "total": total,
             "search": search,
+            "date_from": date_from,
+            "date_to": date_to,
         },
     )
 
@@ -230,8 +252,28 @@ async def document_table_partial(
     page: int = 1,
     per_page: int = 10,
     search: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ):
-    documents, total = await repo.list_page(page=page, per_page=per_page, search=search)
+    # Parse date strings to datetime objects
+    from datetime import datetime
+    dt_from = None
+    dt_to = None
+    if date_from:
+        try:
+            dt_from = datetime.fromisoformat(date_from)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.fromisoformat(date_to)
+        except ValueError:
+            pass
+
+    documents, total = await repo.list_page(
+        page=page, per_page=per_page, search=search,
+        date_from=dt_from, date_to=dt_to
+    )
     pages = math.ceil(total / per_page) if per_page > 0 else 0
     return templates.TemplateResponse(
         request,
@@ -244,6 +286,8 @@ async def document_table_partial(
             "pages": pages,
             "total": total,
             "search": search,
+            "date_from": date_from,
+            "date_to": date_to,
         },
     )
 
@@ -394,8 +438,28 @@ async def list_documents(
     page: int = 1,
     per_page: int = 10,
     search: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ):
-    docs, total = await repo.list_page(page=page, per_page=per_page, search=search)
+    # Parse date strings to datetime objects
+    from datetime import datetime
+    dt_from = None
+    dt_to = None
+    if date_from:
+        try:
+            dt_from = datetime.fromisoformat(date_from)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.fromisoformat(date_to)
+        except ValueError:
+            pass
+
+    docs, total = await repo.list_page(
+        page=page, per_page=per_page, search=search,
+        date_from=dt_from, date_to=dt_to
+    )
     return {
         "items": [_doc_to_dict(d) for d in docs],
         "total": total,
@@ -403,6 +467,8 @@ async def list_documents(
         "per_page": per_page,
         "pages": math.ceil(total / per_page) if per_page > 0 else 0,
         "search": search,
+        "date_from": date_from,
+        "date_to": date_to,
     }
 
 
