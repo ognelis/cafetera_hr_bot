@@ -14,30 +14,35 @@
 - [admin_server.py](file://scripts/admin_server.py)
 - [docker-compose.yml](file://docker-compose.yml)
 - [pyproject.toml](file://pyproject.toml)
+- [base.html](file://templates/base.html)
+- [documents.html](file://templates/documents.html)
+- [login.html](file://templates/login.html)
+- [daisyui.css](file://static/css/daisyui.css)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added new section on Static File Serving Infrastructure
-- Updated Application Architecture Overview to include static file routing
-- Enhanced Development Server Setup with static file configuration
-- Updated Troubleshooting Guide with static file access issues
+- Updated CSS Design System section to reflect comprehensive implementation of the new 'cafetera' theme
+- Added detailed documentation of custom color palette and daisyUI integration
+- Updated Static File Serving Infrastructure section to include new theme-specific styling
+- Enhanced troubleshooting guide with CSS theme-related issues
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Application Architecture Overview](#application-architecture-overview)
 3. [Entry Point Analysis](#entry-point-analysis)
-4. [Static File Serving Infrastructure](#static-file-serving-infrastructure)
-5. [Configuration Management](#configuration-management)
-6. [Resource Lifecycle Management](#resource-lifecycle-management)
-7. [API Integration](#api-integration)
-8. [Dependency Injection System](#dependency-injection-system)
-9. [Domain Service Layer](#domain-service-layer)
-10. [Storage Layer](#storage-layer)
-11. [RAG Pipeline Components](#rag-pipeline-components)
-12. [Development Server Setup](#development-server-setup)
-13. [Production Deployment](#production-deployment)
-14. [Troubleshooting Guide](#troubleshooting-guide)
+4. [CSS Design System Implementation](#css-design-system-implementation)
+5. [Static File Serving Infrastructure](#static-file-serving-infrastructure)
+6. [Configuration Management](#configuration-management)
+7. [Resource Lifecycle Management](#resource-lifecycle-management)
+8. [API Integration](#api-integration)
+9. [Dependency Injection System](#dependency-injection-system)
+10. [Domain Service Layer](#domain-service-layer)
+11. [Storage Layer](#storage-layer)
+12. [RAG Pipeline Components](#rag-pipeline-components)
+13. [Development Server Setup](#development-server-setup)
+14. [Production Deployment](#production-deployment)
+15. [Troubleshooting Guide](#troubleshooting-guide)
 
 ## Introduction
 
@@ -55,6 +60,7 @@ subgraph "Presentation Layer"
 API[FastAPI Application]
 Static[Static File Router]
 Templates[Jinja2 Templates]
+Theme[Cafetera Theme System]
 end
 subgraph "Domain Layer"
 DocService[DocumentService]
@@ -76,6 +82,7 @@ end
 API --> DocService
 API --> Static
 API --> Templates
+Templates --> Theme
 DocService --> SQLite
 DocService --> S3
 DocService --> Qdrant
@@ -117,6 +124,7 @@ App->>S3 : Connect to S3 storage
 App->>Qdrant : Connect to Qdrant
 App->>Service : Initialize Document Service
 App->>App : Mount static file router
+App->>App : Mount theme system
 App->>App : Yield control to application
 Note over App,Qdrant : Application runs
 App->>S3 : Close connection
@@ -129,9 +137,129 @@ App->>Qdrant : Close connection
 **Section sources**
 - [main.py:23-124](file://app/main.py#L23-L124)
 
+## CSS Design System Implementation
+
+**Updated** The application now features a comprehensive CSS design system with a custom 'cafetera' theme replacing the previous 'corporate' theme. This implementation leverages daisyUI components with a custom color palette optimized for the Cafetera brand identity.
+
+### Theme Architecture
+
+The design system centers around the `cafetera` theme with a carefully crafted color palette that reflects the brand's warm, earthy aesthetic:
+
+```mermaid
+graph TB
+subgraph "Cafetera Theme System"
+Theme[Data Theme: cafetera]
+Base[Base Colors]
+Primary[Primary: Brand Green]
+Secondary[Secondary: Supporting Blue]
+Accent[Accent: CTA Yellow]
+Neutral[Neutral: Dark Green]
+Semantic[Semantic Tokens]
+DesignTokens[Primitive Design Tokens]
+end
+subgraph "daisyUI Integration"
+Daisy[daisyUI Framework]
+Components[UI Components]
+Utilities[Utility Classes]
+end
+Theme --> Base
+Base --> Primary
+Base --> Secondary
+Base --> Accent
+Base --> Neutral
+Theme --> Semantic
+Theme --> DesignTokens
+Semantic --> Components
+DesignTokens --> Components
+Components --> Utilities
+```
+
+**Diagram sources**
+- [base.html:26-80](file://templates/base.html#L26-L80)
+
+### Custom Color Palette
+
+The 'cafetera' theme implements a sophisticated color system using OKLCH color space for optimal color accuracy:
+
+| Color Category | OKLCH Value | HEX Equivalent | Usage |
+|----------------|-------------|----------------|-------|
+| **Base-100** | oklch(93.51% 0.014 67.7) | #F0E8E0 | Warm beige background |
+| **Base-200** | oklch(92.88% 0.011 106.6) | #E8E8E0 | Secondary surface |
+| **Base-300** | oklch(86.46% 0.015 70.9) | #D9D1C8 | Borders and dividers |
+| **Primary** | oklch(37.83% 0.103 148.6) | #085020 | Brand green (primary) |
+| **Secondary** | oklch(73.68% 0.091 245.3) | #78B0E0 | Supporting blue |
+| **Accent** | oklch(78.99% 0.167 74.8) | #F8A800 | CTA yellow |
+| **Neutral** | oklch(30.70% 0.067 143.7) | #183818 | Dark green |
+
+### Design Token System
+
+The theme implements a dual-token system combining primitive and semantic design tokens:
+
+**Primitive Tokens** (Direct color values):
+- `--green-900`: #085020 (brand primary)
+- `--green-700`: #183818 (dark green)
+- `--beige-100`: #F0E8E0 (warm background)
+- `--white-50`: #F8F8F8 (light surface)
+- `--yellow-500`: #F8A800 (accent)
+- `--blue-300`: #78B0E0 (secondary)
+- `--gray-900`: #282828 (text)
+- `--black`: #000000
+
+**Semantic Tokens** (Brand-specific values):
+- `--color-bg`: var(--beige-100)
+- `--color-surface`: var(--white-50)
+- `--color-text`: var(--gray-900)
+- `--color-primary-dark`: var(--green-700)
+- `--color-border`: #D9D1C8
+
+### daisyUI Integration
+
+The theme seamlessly integrates with daisyUI components through CSS custom properties:
+
+```css
+[data-theme=cafetera] {
+  color-scheme: light;
+  --color-base-100: oklch(93.51% 0.014 67.7);
+  --color-base-200: oklch(92.88% 0.011 106.6);
+  --color-base-300: oklch(86.46% 0.015 70.9);
+  --color-primary: oklch(37.83% 0.103 148.6);
+  --color-secondary: oklch(73.68% 0.091 245.3);
+  --color-accent: oklch(78.99% 0.167 74.8);
+  --color-neutral: oklch(30.70% 0.067 143.7);
+  --radius-selector: .5rem;
+  --radius-field: .25rem;
+  --radius-box: .75rem;
+}
+```
+
+### Component Styling Examples
+
+The theme system enables consistent styling across all UI components:
+
+**Navigation Elements**:
+- Sidebar active state: `bg-primary text-primary-content`
+- Hover effects: `hover:bg-base-200`
+- Disabled states: `text-base-content/40`
+
+**Form Elements**:
+- Input fields: `bg-base-100 border border-base-300`
+- Buttons: `btn btn-sm btn-primary`
+- Modals: `modal-box max-w-lg`
+
+**Status Indicators**:
+- Success: `alert-success`
+- Error: `alert-error`
+- Warning: `alert-warning`
+- Info: `alert-info`
+
+**Section sources**
+- [base.html:26-80](file://templates/base.html#L26-L80)
+- [base.html:14-24](file://templates/base.html#L14-L24)
+- [daisyui.css](file://static/css/daisyui.css)
+
 ## Static File Serving Infrastructure
 
-**Updated** The application now includes comprehensive static file serving infrastructure to replace CDN-based asset loading with local static file hosting.
+**Updated** The application now includes comprehensive static file serving infrastructure with theme-specific styling to replace CDN-based asset loading with local static file hosting.
 
 The FastAPI application mounts a static file router at the '/static' endpoint, enabling local hosting of CSS and JavaScript resources for improved reliability and offline accessibility.
 
@@ -171,6 +299,26 @@ Templates reference static assets using the mounted route prefix:
 <script defer src="/static/js/alpinejs.js"></script>
 ```
 
+### Theme Integration
+
+The base template integrates the cafetera theme system:
+
+```html
+<html lang="ru" data-theme="cafetera">
+<head>
+  <link href="/static/css/daisyui.css" rel="stylesheet" type="text/css" />
+  <!-- Custom theme styles -->
+  <style>
+    [data-theme=cafetera] {
+      --color-base-100: oklch(93.51% 0.014 67.7);
+      --color-primary: oklch(37.83% 0.103 148.6);
+      --color-accent: oklch(78.99% 167 74.8);
+      /* ... theme variables ... */
+    }
+  </style>
+</head>
+```
+
 ### Benefits Over CDN Approach
 
 - **Reliability**: Eliminates dependency on external CDNs that may be blocked or slow
@@ -182,6 +330,7 @@ Templates reference static assets using the mounted route prefix:
 **Section sources**
 - [main.py:110-112](file://app/main.py#L110-L112)
 - [base.html:7-10](file://templates/base.html#L7-L10)
+- [base.html:26-80](file://templates/base.html#L26-L80)
 
 ## Configuration Management
 
@@ -218,6 +367,7 @@ The lifespan context manager handles the complete lifecycle of all external reso
 3. **Qdrant Client**: Vector database client is established for RAG functionality
 4. **Document Service**: Core business logic service is created with all dependencies
 5. **Static File Router**: Local static file serving is mounted for asset delivery
+6. **Theme System**: Custom CSS theme is integrated for consistent styling
 
 ### Error Handling Strategy
 
@@ -443,6 +593,7 @@ The `admin_server.py` script provides:
 - **Local Configuration**: Easy setup for local development
 - **Health Checks**: Built-in server health monitoring
 - **Static File Serving**: Local hosting of CSS and JavaScript assets
+- **Theme Integration**: Real-time theme preview and testing
 
 ### Environment Configuration
 
@@ -536,6 +687,24 @@ In production deployments, static files are served efficiently through:
 - **Route Conflicts**: Ensure no other routes conflict with `/static` prefix
 - **Asset Loading Errors**: Verify template references match actual file paths
 
+### CSS Theme Issues
+
+**Theme Not Applying**
+- Verify `data-theme="cafetera"` attribute in HTML tag
+- Check browser developer tools for CSS loading errors
+- Ensure daisyUI CSS file loads successfully
+- Verify custom theme variables are properly defined
+
+**Color Inconsistencies**
+- Check OKLCH color values are supported by target browsers
+- Verify theme variable precedence in CSS cascade
+- Ensure custom design tokens override daisyUI defaults correctly
+
+**Component Styling Problems**
+- Verify daisyUI utility classes are applied correctly
+- Check component-specific theme overrides
+- Ensure responsive design breakpoints work with custom theme
+
 ### Performance Optimization
 
 **Memory Management**
@@ -567,7 +736,9 @@ The application provides comprehensive logging at multiple levels:
 - **Background Tasks**: Document processing status
 - **Error Conditions**: Exception handling and recovery
 - **Static File Access**: Asset loading and serving statistics
+- **Theme System**: CSS loading and theme application status
 
 **Section sources**
 - [main.py:23-96](file://app/main.py#L23-L96)
 - [admin_server.py:31-36](file://scripts/admin_server.py#L31-L36)
+- [base.html:26-80](file://templates/base.html#L26-L80)

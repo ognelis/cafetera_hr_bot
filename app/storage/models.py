@@ -20,6 +20,7 @@ class DocumentStatus(StrEnum):
 class DocumentRecord(BaseModel):
     """Metadata record for a single document stored in the knowledge base."""
 
+    id: int
     document_id: str
     filename: str
     title: str

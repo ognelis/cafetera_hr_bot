@@ -26,11 +26,10 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced admin interface documentation to reflect comprehensive sidebar navigation system
-- Updated document table layouts and row styling improvements
-- Added HX-Tags JavaScript framework integration details
-- Documented expanded row heights and improved document actions organization
-- Updated admin interface architecture with HTMX progressive enhancement
+- Updated file upload size restriction from 50MB to 10MB across server-side API validation and client-side JavaScript validation
+- Enhanced document row partial template with semantic color classes for file type indicators (DOCX, PDF, XLSX)
+- Streamlined interface by removing unused elements and improving visual organization
+- Updated operational considerations to reflect new 10MB file size limit
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -61,6 +60,8 @@ Key features include:
 - **Enhanced sidebar navigation system with icon-based interface**
 - **Improved document table layouts with expanded row heights**
 - **Modern styling with Tailwind CSS and DaisyUI framework**
+- **10MB file upload size restriction for optimal performance**
+- **Semantic color-coded file type indicators for better visual organization**
 
 ## System Architecture
 
@@ -73,26 +74,26 @@ UI[Web Interface]
 API[REST API]
 Sidebar[Sidebar Navigation]
 Partial[HTMX Partials]
-end
+End
 subgraph "Application Layer"
 Router[FastAPI Router]
 Service[DocumentService]
 Deps[Dependency Injection]
-end
+End
 subgraph "Domain Layer"
 Parser[Docx Parser]
 Indexer[Indexer]
 Retriever[Retriever]
-end
+End
 subgraph "Persistence Layer"
 SQLite[(SQLite Database)]
 S3[(S3/MinIO Storage)]
 Qdrant[(Qdrant Vector Store)]
-end
+End
 subgraph "External Services"
 LLM[LLM Provider]
 VKBot[VK Bot]
-end
+End
 UI --> API
 API --> Router
 Router --> Service
@@ -207,7 +208,7 @@ participant Service as DocumentService
 participant S3 as S3Storage
 participant DB as DocumentRepository
 participant Qdrant as QdrantClient
-User->>API : Upload .docx file
+User->>API : Upload .docx file (≤10MB)
 API->>S3 : Upload file
 API->>Service : create_document()
 Service->>DB : Create metadata record
@@ -361,7 +362,7 @@ The system exposes a comprehensive REST API for document management:
 
 ### Document Management Endpoints
 - `GET /documents` - Main admin page with document table
-- `POST /api/documents/upload` - Upload .docx files
+- `POST /api/documents/upload` - Upload .docx files (≤10MB)
 - `GET /api/documents` - List all documents (JSON)
 - `GET /api/documents/{id}` - Get document details
 - `PATCH /api/documents/{id}/title` - Update document title
@@ -388,18 +389,18 @@ subgraph "Admin Interface"
 Sidebar[Sidebar Navigation]
 Login[Login Page]
 Documents[Documents Table]
-Upload[Drag & Drop Upload]
+Upload[Drag & Drop Upload ≤10MB]
 Actions[Action Buttons]
 Modals[Dialog Modals]
 Partials[HTMX Partials]
-end
+End
 subgraph "HTMX Features"
 LiveUpdates[Live Table Updates]
 Progress[Upload Progress]
 Toast[Success/Error Messages]
 Realtime[Real-time Status]
 Polling[Automatic Polling]
-end
+End
 Sidebar --> Documents
 Login --> Documents
 Documents --> Upload
@@ -440,17 +441,24 @@ The admin interface features a comprehensive sidebar navigation system with icon
 | Expanded Row Heights | Custom CSS classes | Better organized document actions |
 | Status Badges | Dynamic HTMX updates | Real-time processing status |
 | Action Dropdowns | Interactive menus | Organized document operations |
+| **Semantic Color Coding** | **File type indicators** | **Visual file type identification** |
 
 ### Document Table Enhancements
 
-The document table features improved layouts and styling:
+The document table features improved layouts and styling with enhanced visual organization:
 
 - **Expanded row heights** for better visual organization
 - **Enhanced status indicators** with loading animations
 - **Improved action buttons** with dedicated dropdown menus
-- **Better source type visualization** with colored file icons
+- **Semantic color-coded file type indicators** with colored icons:
+  - DOCX files: secondary/70 opacity blue icons
+  - PDF files: error/70 opacity red icons  
+  - XLSX files: success/70 opacity green icons
+  - Other files: base-content/40 opacity gray icons
 - **Real-time status polling** for processing documents
 - **Dynamic filtering** with multiple filter criteria
+
+**Updated** Enhanced document row partial template now includes semantic color classes for file type indicators, providing better visual organization and immediate file type recognition.
 
 **Section sources**
 - [templates/documents.html:1-542](file://templates/documents.html#L1-L542)
@@ -603,18 +611,18 @@ LangChain[langchain]
 Qdrant[qdrant-client]
 SQLite[aiosqlite]
 S3[aiobotocore]
-end
+End
 subgraph "Optional Dependencies"
 Ollama[langchain-ollama]
 OpenAI[langchain-openai]
 VK[vkbottle]
 Telegram[aiogram]
-end
+End
 subgraph "Development Tools"
 Ruff[ruff]
 Mypy[mypy]
 PyTest[pytest]
-end
+End
 ```
 
 **Diagram sources**
@@ -624,12 +632,16 @@ end
 
 | Aspect | Recommendation |
 |--------|----------------|
-| File Size Limits | 50MB maximum per document |
+| **File Size Limits** | **10MB maximum per document (reduced from 50MB)** |
 | Concurrent Uploads | Limited by server resources |
 | Background Processing | CPU-intensive operations |
 | Memory Usage | Depends on document size and chunk count |
 | Network Latency | Affects S3 and LLM provider performance |
 
+**Updated** File upload size limit reduced from 50MB to 10MB across both server-side API validation and client-side JavaScript validation to improve system performance and resource utilization.
+
 **Section sources**
 - [pyproject.toml:1-61](file://pyproject.toml#L1-L61)
 - [app/api/documents.py:62-67](file://app/api/documents.py#L62-L67)
+- [app/api/documents.py:309-314](file://app/api/documents.py#L309-L314)
+- [templates/documents.html:415-424](file://templates/documents.html#L415-L424)

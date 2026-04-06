@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 _CREATE_DOCUMENTS_TABLE = """\
 CREATE TABLE IF NOT EXISTS documents (
-    document_id     TEXT PRIMARY KEY,
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    document_id     TEXT UNIQUE NOT NULL,
     filename        TEXT    NOT NULL,
     title           TEXT    NOT NULL,
     s3_key          TEXT    NOT NULL,

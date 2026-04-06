@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import re
 import secrets
 import tempfile
@@ -196,14 +197,21 @@ async def documents_page(
     _auth: AdminDep,
     templates: TemplatesDep,
     repo: RepoDep,
+    page: int = 1,
+    per_page: int = 10,
 ):
-    documents = await repo.list_all()
+    documents, total = await repo.list_page(page=page, per_page=per_page)
+    pages = math.ceil(total / per_page) if per_page > 0 else 0
     return templates.TemplateResponse(
         request,
         "documents.html",
         {
             "documents": documents,
             "human_size": _human_size,
+            "page": page,
+            "per_page": per_page,
+            "pages": pages,
+            "total": total,
         },
     )
 
@@ -217,14 +225,21 @@ async def document_table_partial(
     _auth: AdminDep,
     templates: TemplatesDep,
     repo: RepoDep,
+    page: int = 1,
+    per_page: int = 10,
 ):
-    documents = await repo.list_all()
+    documents, total = await repo.list_page(page=page, per_page=per_page)
+    pages = math.ceil(total / per_page) if per_page > 0 else 0
     return templates.TemplateResponse(
         request,
         "partials/document_table.html",
         {
             "documents": documents,
             "human_size": _human_size,
+            "page": page,
+            "per_page": per_page,
+            "pages": pages,
+            "total": total,
         },
     )
 
@@ -369,9 +384,20 @@ async def upload_documents(
 
 
 @router.get("/api/documents")
-async def list_documents(_auth: AdminDep, repo: RepoDep):
-    docs = await repo.list_all()
-    return [_doc_to_dict(d) for d in docs]
+async def list_documents(
+    _auth: AdminDep,
+    repo: RepoDep,
+    page: int = 1,
+    per_page: int = 10,
+):
+    docs, total = await repo.list_page(page=page, per_page=per_page)
+    return {
+        "items": [_doc_to_dict(d) for d in docs],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "pages": math.ceil(total / per_page) if per_page > 0 else 0,
+    }
 
 
 @router.get("/api/documents/{document_id}")

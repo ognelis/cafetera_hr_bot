@@ -16,6 +16,9 @@
 - [tests/test_states.py](file://tests/test_states.py)
 - [tests/test_ask_block9.py](file://tests/test_ask_block9.py)
 - [tests/test_storage.py](file://tests/test_storage.py)
+- [tests/test_api_documents.py](file://tests/test_api_documents.py)
+- [app/api/documents.py](file://app/api/documents.py)
+- [app/api/deps.py](file://app/api/deps.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
 - [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
 - [app/integrations/vk/rules.py](file://app/integrations/vk/rules.py)
@@ -37,19 +40,17 @@
 - [app/storage/models.py](file://app/storage/models.py)
 - [app/storage/database.py](file://app/storage/database.py)
 - [app/storage/document_repo.py](file://app/storage/document_repo.py)
+- [templates/login.html](file://templates/login.html)
+- [templates/documents.html](file://templates/documents.html)
 - [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced test coverage for comprehensive Block 9 functionality including scenario detection, background-topic disclaimer handling, and ask handler integration tests
-- Added dedicated test suite for topic hints detection with keyword-based scenario matching
-- Integrated QA service testing with RAG chain wrapper functionality
-- Expanded keyboard testing to include ask-specific keyboard builders and scenario navigation
-- Updated handler testing patterns to include Block 9 ask handler with state management and topic hint integration
-- **Added comprehensive test coverage for the new document storage system with 278 lines of new test code**
-- **Enhanced RAG infrastructure testing with llama.cpp provider dispatch logic, configuration parameter validation, and integration with existing RAG components**
-- **Expanded testing to include database initialization, CRUD operations, status transitions, and search enablement functionality**
+- Enhanced test infrastructure with new `auth_client` fixture that creates authenticated TestClient instances with pre-set admin_session cookies
+- Updated test assertions to use Russian localization strings ('HR-панель управления', 'Документы', 'Документов пока нет') instead of English equivalents
+- Added comprehensive admin document API testing with authentication, authorization, and localization validation
+- Expanded test coverage for Block 12 admin functionality including document management, authentication, and Russian UI validation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -64,12 +65,12 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly expanded to cover new domain content, entity definitions, keyboard builders, RAG stub functionality, custom rules, enhanced handler registration testing, and the comprehensive Block 9 functionality including scenario detection, background-topic disclaimer handling, and QA service integration. It explains how pytest is configured and used, how to test asynchronous bot components, and how to validate behavior without relying on live external services. Practical examples are provided via file references to the actual test suite and implementation.
+This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly expanded to cover new domain content, entity definitions, keyboard builders, RAG stub functionality, custom rules, enhanced handler registration testing, comprehensive Block 9 functionality including scenario detection, background-topic disclaimer handling, QA service integration, and the new Block 12 admin document API with authentication and Russian localization. It explains how pytest is configured and used, how to test asynchronous bot components, and how to validate behavior without relying on live external services. Practical examples are provided via file references to the actual test suite and implementation.
 
-**Updated** Enhanced with comprehensive test coverage for new RAG stub features, including dedicated test classes for FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) functionality, expanded handler registration verification with detailed count breakdown, comprehensive Block 9 testing infrastructure for scenario detection and QA service integration, extensive llama.cpp provider testing infrastructure, and **comprehensive document storage system testing with 278 lines of new test coverage**.
+**Updated** Enhanced with comprehensive test coverage for new RAG stub features, including dedicated test classes for FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) functionality, expanded handler registration verification with detailed count breakdown, comprehensive Block 9 testing infrastructure for scenario detection and QA service integration, extensive llama.cpp provider testing infrastructure, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
 
 ## Project Structure
-The testing effort is organized under the tests/ directory and targets all major components of the VK integration and the new document storage system:
+The testing effort is organized under the tests/ directory and targets all major components of the VK integration, the new document storage system, and the Block 12 admin functionality:
 - Configuration loading and defaults with explicit environment file control
 - Bot factory and handler registration order with detailed handler counting
 - Keyboard builders and payload constants (including Block 2 and Block 9 functionality)
@@ -82,7 +83,8 @@ The testing effort is organized under the tests/ directory and targets all major
 - Handler modules (start, sections, fallback, fire, vacation, ask)
 - Topic hints detection for scenario linking and disclaimer handling
 - **Document storage system testing with comprehensive database initialization, CRUD operations, status transitions, and search enablement functionality**
-- **Extensive RAG infrastructure testing with llama.cpp provider support and comprehensive configuration validation**
+- **Extensive RAG infrastructure testing with llama.cpp provider dispatch logic, configuration parameter validation, and integration with existing RAG components**
+- **Block 12 admin document API testing with authentication, authorization, and Russian localization validation**
 
 ```mermaid
 graph TB
@@ -100,6 +102,7 @@ T_RULES["test_rules.py"]
 T_STATES["test_states.py"]
 T_ASK["test_ask_block9.py"]
 T_STORAGE["test_storage.py"]
+T_DOCS["test_api_documents.py"]
 APP["app/integrations/vk/"]
 BOT["bot.py"]
 KB["keyboards.py"]
@@ -126,6 +129,12 @@ CFG["config.py"]
 RAG["app/rag/"]
 CHAIN["chain.py"]
 RETRIEVER["retriever.py"]
+API["app/api/"]
+DOCS_API["documents.py"]
+DOCS_DEPS["deps.py"]
+TEMPLATES["templates/"]
+LOGIN_HTML["login.html"]
+DOCS_HTML["documents.html"]
 SCRIPTS["scripts/"]
 RUN_LLAMA["run_llama_qwen.sh"]
 T --> T_CFG
@@ -141,6 +150,7 @@ T --> T_RULES
 T --> T_STATES
 T --> T_ASK
 T --> T_STORAGE
+T --> T_DOCS
 APP --> BOT
 APP --> KB
 APP --> RULES
@@ -154,6 +164,13 @@ DOMAIN --> DOCUMENT_SERVICE
 STORAGE --> MODELS
 STORAGE --> DATABASE
 STORAGE --> REPO
+APP --> CFG
+RAG --> CHAIN
+RAG --> RETRIEVER
+API --> DOCS_API
+API --> DOCS_DEPS
+TEMPLATES --> LOGIN_HTML
+TEMPLATES --> DOCS_HTML
 APP --> CFG
 RAG --> CHAIN
 RAG --> RETRIEVER
@@ -174,6 +191,7 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
+- [tests/test_api_documents.py:1-647](file://tests/test_api_documents.py#L1-L647)
 - [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
 - [app/integrations/vk/keyboards.py:1-322](file://app/integrations/vk/keyboards.py#L1-L322)
 - [app/integrations/vk/rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
@@ -195,6 +213,10 @@ SCRIPTS --> RUN_LLAMA
 - [app/config.py:1-23](file://app/config.py#L1-L23)
 - [app/rag/chain.py:1-95](file://app/rag/chain.py#L1-L95)
 - [app/rag/retriever.py:1-88](file://app/rag/retriever.py#L1-L88)
+- [app/api/documents.py:1-200](file://app/api/documents.py#L1-L200)
+- [app/api/deps.py:1-51](file://app/api/deps.py#L1-L51)
+- [templates/login.html:1-56](file://templates/login.html#L1-L56)
+- [templates/documents.html:1-553](file://templates/documents.html#L1-L553)
 - [scripts/run_llama_qwen.sh:1-60](file://scripts/run_llama_qwen.sh#L1-L60)
 
 **Section sources**
@@ -212,6 +234,7 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
+- [tests/test_api_documents.py:1-647](file://tests/test_api_documents.py#L1-L647)
 
 ## Core Components
 - Configuration tests validate default values and environment overrides with explicit environment file control.
@@ -228,6 +251,7 @@ SCRIPTS --> RUN_LLAMA
 - Ask handler tests validate state management, QA service integration, and scenario navigation.
 - **Document storage system tests validate database initialization, CRUD operations, status transitions, and search enablement functionality with comprehensive test coverage.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter validation, and error handling scenarios.**
+- **Block 12 admin document API tests validate authentication, authorization, and Russian localization with comprehensive test coverage.**
 
 Key testing characteristics:
 - Uses pytest with asyncio_mode set to auto for async-friendly tests.
@@ -245,8 +269,10 @@ Key testing characteristics:
 - Ask handler testing validates state management and integration with QA service and topic hints.
 - **Document storage system testing validates comprehensive database operations including timestamp management, status transitions, and search enablement toggling.**
 - **Llama.cpp provider testing validates provider selection logic, configuration parameter handling, import error scenarios, and integration with existing RAG components.**
+- **Admin document API testing validates authentication cookie handling, authorization enforcement, and Russian UI localization.**
+- **Auth client fixture provides authenticated TestClient instances with pre-set admin_session cookies for comprehensive admin functionality testing.**
 
-**Updated** Enhanced with comprehensive testing coverage for domain content, entity definitions, keyboard builders, RAG stub functionality, QA service integration, custom payload matching rules, topic hints detection, ask handler validation, document storage system testing, and extensive llama.cpp provider testing infrastructure.
+**Updated** Enhanced with comprehensive testing coverage for domain content, entity definitions, keyboard builders, RAG stub functionality, QA service integration, custom payload matching rules, topic hints detection, ask handler validation, document storage system testing, extensive llama.cpp provider testing infrastructure, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -263,9 +289,10 @@ Key testing characteristics:
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
+- [tests/test_api_documents.py:1-647](file://tests/test_api_documents.py#L1-L647)
 
 ## Architecture Overview
-The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with detailed breakdown by functional area. The expanded testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, and extensive RAG infrastructure testing with llama.cpp provider support.
+The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with detailed breakdown by functional area. The expanded testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, and **comprehensive Block 12 admin document API testing with authentication and Russian localization**.
 
 ```mermaid
 sequenceDiagram
@@ -568,6 +595,43 @@ Testing patterns:
 - [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
 - [app/storage/document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
 
+### Admin Document API Testing
+**New Section** - Comprehensive testing coverage for Block 12 admin functionality
+
+Purpose:
+- Validate authentication and authorization mechanisms for admin document API.
+- Test Russian localization strings in admin interface.
+- Validate authenticated client fixture with pre-set admin_session cookies.
+- Test document management operations with proper authentication.
+- Validate partial rendering with authentication requirements.
+
+Methodology:
+- Test login page renders with Russian title "HR-панель управления".
+- Test valid API key authentication and admin_session cookie setting.
+- Test invalid API key handling with proper error redirection.
+- Test authentication enforcement for protected routes (/documents, /api/documents).
+- Test logout functionality clears admin_session cookie.
+- Validate authenticated client fixture creates TestClient with pre-set cookies.
+- Test document listing, creation, update, deletion with authentication.
+- Test partial rendering (document-table, document-row) with authentication.
+- Validate Russian localization strings throughout admin interface.
+
+Testing patterns:
+- Use auth_client fixture for authenticated requests.
+- Validate cookie-based authentication mechanism.
+- Test localization strings in HTML templates.
+- Validate partial rendering with HTMX requests.
+- Test pagination with authentication and localization.
+
+**Updated** Added comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation. This includes the new auth_client fixture that creates authenticated TestClient instances with pre-set admin_session cookies, and validation of Russian UI strings throughout the admin interface.
+
+**Section sources**
+- [tests/test_api_documents.py:1-647](file://tests/test_api_documents.py#L1-L647)
+- [app/api/documents.py:1-200](file://app/api/documents.py#L1-L200)
+- [app/api/deps.py:1-51](file://app/api/deps.py#L1-L51)
+- [templates/login.html:1-56](file://templates/login.html#L1-L56)
+- [templates/documents.html:1-553](file://templates/documents.html#L1-L553)
+
 ### Handler Testing Patterns
 Current coverage:
 - Handlers are validated indirectly via bot wiring and keyboard payloads.
@@ -581,6 +645,7 @@ Current coverage:
 - Ask handler testing validates state management and integration with QA service.
 - **Document storage system testing validates comprehensive database operations and lifecycle management.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter handling, and error scenarios.**
+- **Admin document API testing validates authentication, authorization, and Russian localization with comprehensive test coverage.**
 
 Testing approach:
 - Since handlers are async and depend on message events, tests focus on wiring and keyboard payloads.
@@ -592,6 +657,8 @@ Testing approach:
 - Ask handler testing validates state management and scenario navigation.
 - **Document storage system testing validates repository operations and data integrity.**
 - **Llama.cpp provider testing validates provider selection logic, configuration parameter handling, import error scenarios, and integration with existing RAG components.**
+- **Admin document API testing validates authentication mechanisms, authorization enforcement, and Russian localization.**
+- **Auth client fixture testing validates authenticated TestClient creation with pre-set cookies.**
 
 Mocking external dependencies:
 - Replace VK API calls with mocks or fakes in higher-level integration tests.
@@ -600,6 +667,8 @@ Mocking external dependencies:
 - Use AsyncMock for QA service testing to simulate RAG chain responses.
 - **Use temporary SQLite databases for document storage system testing.**
 - **Use patch.dict for mocking module imports in llama.cpp provider testing.**
+- **Use auth_client fixture for authenticated admin API testing.**
+- **Use auth_cookies fixture for manual cookie manipulation in tests.**
 
 Validation tips:
 - Use keyboard payload assertions to confirm routing correctness.
@@ -618,8 +687,11 @@ Validation tips:
 - **Validate llama.cpp provider selection logic and configuration parameter handling.**
 - **Test import error scenarios and fallback mechanisms.**
 - **Validate integration with existing RAG components (chain.py, retriever.py).**
+- **Validate authentication cookie handling and session management.**
+- **Test Russian localization strings throughout admin interface.**
+- **Validate partial rendering with authentication requirements.**
 
-**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation, document storage system testing for comprehensive database operations, and extensive llama.cpp provider testing infrastructure.
+**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation, document storage system testing for comprehensive database operations, extensive llama.cpp provider testing infrastructure, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
 
 **Section sources**
 - [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
@@ -631,6 +703,7 @@ Validation tips:
 - [app/integrations/vk/handlers/vacation.py:79-88](file://app/integrations/vk/handlers/vacation.py#L79-L88)
 - [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
+- [tests/test_api_documents.py:1-647](file://tests/test_api_documents.py#L1-L647)
 
 ### Llama.cpp Provider Testing Infrastructure
 **New Section** - Extensive testing coverage for llama.cpp provider functionality
@@ -678,6 +751,8 @@ The test suite depends on:
 - unittest.mock for comprehensive mocking and patching scenarios.
 - **Temporary SQLite databases for document storage system testing.**
 - **Extended mocking infrastructure for module imports in llama.cpp provider testing.**
+- **Auth client fixture for authenticated admin API testing.**
+- **Cookie-based authentication testing infrastructure.**
 
 ```mermaid
 graph TB
@@ -695,6 +770,8 @@ QA["QA Service Testing"]
 TH["Topic Hints Testing"]
 DS["Document Storage Testing"]
 LP["Llama.cpp Provider Testing"]
+AD["Admin Document API Testing"]
+AC["Auth Client Fixture"]
 PY --> P
 PY --> PA
 PY --> VK
@@ -708,6 +785,8 @@ PY --> QA
 PY --> TH
 PY --> DS
 PY --> LP
+PY --> AD
+PY --> AC
 ```
 
 **Diagram sources**
@@ -734,8 +813,11 @@ PY --> LP
 - **Document storage testing should validate timestamp precision and data type conversions.**
 - **Llama.cpp provider testing should use lightweight mocking to avoid heavy initialization overhead.**
 - **Import error testing should use minimal mock setup to validate error scenarios efficiently.**
+- **Admin document API testing should leverage auth_client fixture for efficient authenticated testing.**
+- **Authentication testing should minimize cookie manipulation overhead.**
+- **Russian localization testing should validate strings efficiently without network dependencies.**
 
-**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with temporary databases, and llama.cpp provider testing optimization.
+**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with temporary databases, llama.cpp provider testing optimization, and **comprehensive admin document API testing with auth_client fixture optimization**.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -762,6 +844,10 @@ Common issues and resolutions:
 - **Llama.cpp provider failures: Validate provider selection logic and configuration parameter handling.**
 - **Import error scenarios: Test ImportError handling and fallback mechanisms.**
 - **Integration failures: Verify llama.cpp provider integration with existing RAG components.**
+- **Admin authentication failures: Validate cookie-based authentication and session management.**
+- **Admin authorization failures: Test protected route access with and without authentication.**
+- **Russian localization failures: Validate localization strings in admin interface templates.**
+- **Auth client fixture failures: Test authenticated TestClient creation and cookie handling.**
 
 Debugging tips:
 - Print or log parsed keyboard JSON during development to validate structure.
@@ -779,8 +865,12 @@ Debugging tips:
 - **Use patch.dict for mocking module imports in llama.cpp provider testing.**
 - **Test environment variable configuration for llama.cpp provider selection.**
 - **Validate provider-specific parameter defaults and overrides.**
+- **Use auth_client fixture for authenticated admin API testing.**
+- **Test cookie-based authentication with auth_cookies fixture.**
+- **Validate Russian localization strings in HTML templates.**
+- **Test partial rendering with authentication requirements.**
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation, keyboard validation failures, document storage system testing with comprehensive debugging strategies, and comprehensive llama.cpp provider testing scenarios.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation, keyboard validation failures, document storage system testing with comprehensive debugging strategies, llama.cpp provider testing scenarios, and **comprehensive admin document API testing with authentication, authorization, and Russian localization debugging strategies**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -794,6 +884,7 @@ Debugging tips:
 - [tests/test_ask_block9.py:8-87](file://tests/test_ask_block9.py#L8-L87)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [tests/test_rag_block6.py:75-83](file://tests/test_rag_block6.py#L75-L83)
+- [tests/test_api_documents.py:1-647](file://tests/test_api_documents.py#L1-L647)
 
 ## Conclusion
 The current testing strategy emphasizes comprehensive structural and wiring correctness for the expanded VK bot:
@@ -811,6 +902,7 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - Ask handler testing validates state management, QA service integration, and scenario navigation.
 - **Document storage system testing validates comprehensive database operations including timestamp management, status transitions, and search enablement functionality.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter handling, and error scenarios.**
+- **Admin document API testing validates authentication, authorization, and Russian localization with comprehensive test coverage.**
 
 To evolve the test suite:
 - Introduce event-driven tests for handlers to validate async behavior.
@@ -835,8 +927,12 @@ To evolve the test suite:
 - **Expand llama.cpp provider testing to cover additional configuration scenarios.**
 - **Add integration tests for llama.cpp provider with existing RAG components.**
 - **Implement comprehensive error scenario testing for provider selection failures.**
+- **Add comprehensive admin document API testing for authentication, authorization, and Russian localization.**
+- **Validate auth_client fixture for authenticated TestClient creation.**
+- **Test cookie-based authentication and session management.**
+- **Validate Russian localization strings throughout admin interface.**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, and extensive llama.cpp provider testing infrastructure.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, extensive llama.cpp provider testing infrastructure, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
 
 ## Appendices
 
@@ -849,6 +945,8 @@ To evolve the test suite:
 - Run topic hints tests for scenario detection validation (e.g., `pytest tests/test_ask_block9.py`).
 - **Run document storage tests for comprehensive database validation (e.g., `pytest tests/test_storage.py`).**
 - **Run llama.cpp provider tests for comprehensive provider validation (e.g., `pytest tests/test_rag_block6.py::TestBuildLlmLlamaCpp`).**
+- **Run admin document API tests for authentication and localization validation (e.g., `pytest tests/test_api_documents.py::TestAuth`).**
+- **Run auth client fixture tests for authenticated TestClient validation (e.g., `pytest tests/test_api_documents.py::TestAuth::test_login_with_valid_key`).**
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -878,5 +976,9 @@ To evolve the test suite:
 - **Validate provider selection logic and configuration parameter handling.**
 - **Test error scenarios including ImportError simulation.**
 - **Validate integration with existing RAG components (chain.py, retriever.py).**
+- **Use auth_client fixture for authenticated admin API testing.**
+- **Test cookie-based authentication and session management.**
+- **Validate Russian localization strings in admin interface templates.**
+- **Test partial rendering with authentication requirements.**
 
-**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, comprehensive feature testing strategies, QA service testing, topic hints detection validation, ask handler testing, keyboard validation testing, document storage system testing with temporary databases, and comprehensive llama.cpp provider testing strategies.
+**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, comprehensive feature testing strategies, QA service testing, topic hints detection validation, ask handler testing, keyboard validation testing, document storage system testing with temporary databases, llama.cpp provider testing strategies, and **comprehensive admin document API testing with auth_client fixture and Russian localization validation**.

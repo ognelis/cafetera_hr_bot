@@ -12,6 +12,7 @@ from app.storage.models import DocumentRecord, DocumentStatus
 logger = logging.getLogger(__name__)
 
 _COLUMNS = (
+    "id",
     "document_id",
     "filename",
     "title",
@@ -31,19 +32,20 @@ _COLUMNS = (
 def _row_to_record(row: aiosqlite.Row) -> DocumentRecord:
     """Convert a database row to a ``DocumentRecord``."""
     return DocumentRecord(
-        document_id=row[0],
-        filename=row[1],
-        title=row[2],
-        s3_key=row[3],
-        mime_type=row[4],
-        size_bytes=row[5],
-        status=DocumentStatus(row[6]),
-        is_search_enabled=bool(row[7]),
-        error=row[8],
-        created_at=datetime.fromisoformat(row[9]),
-        updated_at=datetime.fromisoformat(row[10]),
-        indexed_at=datetime.fromisoformat(row[11]) if row[11] else None,
-        chunk_count=row[12],
+        id=row[0],
+        document_id=row[1],
+        filename=row[2],
+        title=row[3],
+        s3_key=row[4],
+        mime_type=row[5],
+        size_bytes=row[6],
+        status=DocumentStatus(row[7]),
+        is_search_enabled=bool(row[8]),
+        error=row[9],
+        created_at=datetime.fromisoformat(row[10]),
+        updated_at=datetime.fromisoformat(row[11]),
+        indexed_at=datetime.fromisoformat(row[12]) if row[12] else None,
+        chunk_count=row[13],
     )
 
 
@@ -71,7 +73,7 @@ class DocumentRepository:
         now = datetime.now(UTC)
         record = record.model_copy(update={"created_at": now, "updated_at": now})
         async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
+            cursor = await db.execute(
                 """
                 INSERT INTO documents
                     (document_id, filename, title, s3_key, mime_type,
@@ -96,6 +98,8 @@ class DocumentRepository:
                 ),
             )
             await db.commit()
+            # Get the auto-generated id
+            record = record.model_copy(update={"id": cursor.lastrowid})
         return record
 
     # ── Read ──────────────────────────────────────────────────────
@@ -113,15 +117,23 @@ class DocumentRepository:
             return None
         return _row_to_record(row)
 
-    async def list_all(self) -> list[DocumentRecord]:
-        """Return all documents ordered by creation date (newest first)."""
+    async def list_page(
+        self, *, page: int = 1, per_page: int = 20,
+    ) -> tuple[list[DocumentRecord], int]:
+        """Return (documents, total_count) ordered by id DESC with pagination."""
         cols = ", ".join(_COLUMNS)
         async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute("SELECT COUNT(*) FROM documents")
+            row = await cursor.fetchone()
+            total = row[0] if row else 0
+
+            offset = (page - 1) * per_page
             cursor = await db.execute(
-                f"SELECT {cols} FROM documents ORDER BY created_at DESC",  # noqa: S608
+                f"SELECT {cols} FROM documents ORDER BY id DESC LIMIT ? OFFSET ?",  # noqa: S608
+                (per_page, offset),
             )
             rows = await cursor.fetchall()
-        return [_row_to_record(r) for r in rows]
+        return [_row_to_record(r) for r in rows], total
 
     # ── Update ────────────────────────────────────────────────────
 
