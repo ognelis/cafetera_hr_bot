@@ -34,6 +34,7 @@ from typing import Annotated
 from fastapi import (
     APIRouter,
     BackgroundTasks,
+    Cookie,
     Form,
     HTTPException,
     Request,
@@ -171,6 +172,19 @@ async def logout():
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie(key=_COOKIE_NAME)
     return response
+
+
+@router.get("/")
+async def root_redirect(
+    request: Request,
+    settings: SettingsDep,
+    admin_session: Annotated[str | None, Cookie()] = None,
+):
+    """Redirect to /documents if authenticated, otherwise to /login."""
+    if settings.admin_api_key and admin_session is not None:
+        if secrets.compare_digest(admin_session, settings.admin_api_key):
+            return RedirectResponse(url="/documents", status_code=303)
+    return RedirectResponse(url="/login", status_code=303)
 
 
 # ── Documents HTML page ───────────────────────────────────────────

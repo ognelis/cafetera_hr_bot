@@ -104,6 +104,15 @@ def auth_cookies():
 
 
 @pytest.fixture()
+def auth_client(app, auth_cookies):
+    """Authenticated client with cookies set on the instance."""
+    c = TestClient(app, raise_server_exceptions=False)
+    for key, value in auth_cookies.items():
+        c.cookies.set(key, value)
+    return c
+
+
+@pytest.fixture()
 async def repo(db_path):
     return DocumentRepository(db_path)
 
@@ -136,7 +145,7 @@ class TestAuth:
     def test_login_page_renders(self, client):
         resp = client.get("/login")
         assert resp.status_code == 200
-        assert "Cafetera HR Admin" in resp.text
+        assert "HR-панель управления" in resp.text
 
     def test_login_with_valid_key(self, client):
         resp = client.post(
@@ -175,22 +184,22 @@ class TestAuth:
 
 
 class TestDocumentsPage:
-    def test_documents_page_renders(self, client, auth_cookies):
-        resp = client.get("/documents", cookies=auth_cookies)
+    def test_documents_page_renders(self, auth_client):
+        resp = auth_client.get("/documents")
         assert resp.status_code == 200
         assert "Документы" in resp.text
 
-    def test_documents_page_shows_empty_state(self, client, auth_cookies):
-        resp = client.get("/documents", cookies=auth_cookies)
+    def test_documents_page_shows_empty_state(self, auth_client):
+        resp = auth_client.get("/documents")
         assert resp.status_code == 200
         assert "Документов пока нет" in resp.text
 
     async def test_documents_page_shows_documents(
-        self, client, auth_cookies, repo
+        self, auth_client, repo
     ):
         rec = _make_record()
         await repo.create(rec)
-        resp = client.get("/documents", cookies=auth_cookies)
+        resp = auth_client.get("/documents")
         assert resp.status_code == 200
         assert rec.title in resp.text
 
@@ -199,15 +208,15 @@ class TestDocumentsPage:
 
 
 class TestListDocuments:
-    def test_empty_list(self, client, auth_cookies):
-        resp = client.get("/api/documents", cookies=auth_cookies)
+    def test_empty_list(self, auth_client):
+        resp = auth_client.get("/api/documents")
         assert resp.status_code == 200
         assert resp.json() == []
 
-    async def test_returns_documents(self, client, auth_cookies, repo):
+    async def test_returns_documents(self, auth_client, repo):
         rec = _make_record()
         await repo.create(rec)
-        resp = client.get("/api/documents", cookies=auth_cookies)
+        resp = auth_client.get("/api/documents")
         assert resp.status_code == 200
         data = resp.json()
         assert len(data) == 1
@@ -219,17 +228,17 @@ class TestListDocuments:
 
 
 class TestGetDocument:
-    async def test_get_existing(self, client, auth_cookies, repo):
+    async def test_get_existing(self, auth_client, repo):
         rec = _make_record()
         await repo.create(rec)
-        resp = client.get(
-            f"/api/documents/{rec.document_id}", cookies=auth_cookies
+        resp = auth_client.get(
+            f"/api/documents/{rec.document_id}"
         )
         assert resp.status_code == 200
         assert resp.json()["title"] == rec.title
 
-    def test_get_nonexistent(self, client, auth_cookies):
-        resp = client.get("/api/documents/nonexistent", cookies=auth_cookies)
+    def test_get_nonexistent(self, auth_client):
+        resp = auth_client.get("/api/documents/nonexistent")
         assert resp.status_code == 404
 
 
@@ -237,42 +246,38 @@ class TestGetDocument:
 
 
 class TestUpdateTitle:
-    async def test_rename(self, client, auth_cookies, repo):
+    async def test_rename(self, auth_client, repo):
         rec = _make_record()
         await repo.create(rec)
-        resp = client.patch(
+        resp = auth_client.patch(
             f"/api/documents/{rec.document_id}/title",
             data={"title": "New Name"},
-            cookies=auth_cookies,
         )
         assert resp.status_code == 200
         assert resp.json()["title"] == "New Name"
 
-    async def test_rename_empty_rejected(self, client, auth_cookies, repo):
+    async def test_rename_empty_rejected(self, auth_client, repo):
         rec = _make_record()
         await repo.create(rec)
-        resp = client.patch(
+        resp = auth_client.patch(
             f"/api/documents/{rec.document_id}/title",
             data={"title": "   "},
-            cookies=auth_cookies,
         )
         assert resp.status_code == 422
 
-    def test_rename_nonexistent(self, client, auth_cookies):
-        resp = client.patch(
+    def test_rename_nonexistent(self, auth_client):
+        resp = auth_client.patch(
             "/api/documents/nonexistent/title",
             data={"title": "x"},
-            cookies=auth_cookies,
         )
         assert resp.status_code == 404
 
-    async def test_rename_htmx_returns_html(self, client, auth_cookies, repo):
+    async def test_rename_htmx_returns_html(self, auth_client, repo):
         rec = _make_record()
         await repo.create(rec)
-        resp = client.patch(
+        resp = auth_client.patch(
             f"/api/documents/{rec.document_id}/title",
             data={"title": "HTMX Title"},
-            cookies=auth_cookies,
             headers={"HX-Request": "true"},
         )
         assert resp.status_code == 200
@@ -284,35 +289,32 @@ class TestUpdateTitle:
 
 
 class TestToggleSearch:
-    async def test_disable_search(self, client, auth_cookies, repo):
+    async def test_disable_search(self, auth_client, repo):
         rec = _make_record(is_search_enabled=True)
         await repo.create(rec)
-        resp = client.patch(
+        resp = auth_client.patch(
             f"/api/documents/{rec.document_id}/search",
             data={"enabled": "false"},
-            cookies=auth_cookies,
         )
         assert resp.status_code == 200
         assert resp.json()["is_search_enabled"] is False
 
-    async def test_enable_search(self, client, auth_cookies, repo):
+    async def test_enable_search(self, auth_client, repo):
         rec = _make_record(is_search_enabled=False)
         await repo.create(rec)
-        resp = client.patch(
+        resp = auth_client.patch(
             f"/api/documents/{rec.document_id}/search",
             data={"enabled": "true"},
-            cookies=auth_cookies,
         )
         assert resp.status_code == 200
         assert resp.json()["is_search_enabled"] is True
 
-    async def test_toggle_htmx_returns_html(self, client, auth_cookies, repo):
+    async def test_toggle_htmx_returns_html(self, auth_client, repo):
         rec = _make_record(is_search_enabled=True)
         await repo.create(rec)
-        resp = client.patch(
+        resp = auth_client.patch(
             f"/api/documents/{rec.document_id}/search",
             data={"enabled": "false"},
-            cookies=auth_cookies,
             headers={"HX-Request": "true"},
         )
         assert resp.status_code == 200
@@ -323,12 +325,12 @@ class TestToggleSearch:
 
 
 class TestDeleteDocument:
-    async def test_delete_existing(self, client, auth_cookies, repo, mock_s3):
+    async def test_delete_existing(self, auth_client, repo, mock_s3):
         rec = _make_record()
         await repo.create(rec)
 
-        resp = client.delete(
-            f"/api/documents/{rec.document_id}", cookies=auth_cookies
+        resp = auth_client.delete(
+            f"/api/documents/{rec.document_id}"
         )
         assert resp.status_code == 200
         assert resp.json()["deleted"] is True
@@ -340,21 +342,20 @@ class TestDeleteDocument:
         # Verify S3 delete was called
         mock_s3.delete.assert_awaited_once_with(rec.s3_key)
 
-    def test_delete_nonexistent(self, client, auth_cookies):
-        resp = client.delete(
-            "/api/documents/nonexistent", cookies=auth_cookies
+    def test_delete_nonexistent(self, auth_client):
+        resp = auth_client.delete(
+            "/api/documents/nonexistent"
         )
         assert resp.status_code == 404
 
     async def test_delete_htmx_returns_empty(
-        self, client, auth_cookies, repo, mock_s3
+        self, auth_client, repo, mock_s3
     ):
         rec = _make_record()
         await repo.create(rec)
 
-        resp = client.delete(
+        resp = auth_client.delete(
             f"/api/documents/{rec.document_id}",
-            cookies=auth_cookies,
             headers={"HX-Request": "true"},
         )
         assert resp.status_code == 200
@@ -368,12 +369,11 @@ class TestUpload:
     @patch("app.api.documents.load_docx", return_value=[])
     @patch("app.api.documents._index_in_background", new_callable=AsyncMock)
     async def test_upload_valid_file(
-        self, mock_bg, mock_parse, client, auth_cookies, mock_s3
+        self, mock_bg, mock_parse, auth_client, mock_s3
     ):
         fake_docx = BytesIO(b"PK\x03\x04fake docx content")
-        resp = client.post(
+        resp = auth_client.post(
             "/api/documents/upload",
-            cookies=auth_cookies,
             files=[("files", ("test.docx", fake_docx, "application/octet-stream"))],
         )
         assert resp.status_code == 200
@@ -385,10 +385,9 @@ class TestUpload:
         # Verify S3 upload was called
         mock_s3.upload.assert_awaited_once()
 
-    def test_upload_rejects_non_docx(self, client, auth_cookies):
-        resp = client.post(
+    def test_upload_rejects_non_docx(self, auth_client):
+        resp = auth_client.post(
             "/api/documents/upload",
-            cookies=auth_cookies,
             files=[("files", ("test.pdf", BytesIO(b"fake"), "application/pdf"))],
         )
         assert resp.status_code == 200
@@ -397,10 +396,9 @@ class TestUpload:
         assert len(data["errors"]) == 1
         assert "Unsupported" in data["errors"][0]["error"]
 
-    def test_upload_rejects_empty_file(self, client, auth_cookies):
-        resp = client.post(
+    def test_upload_rejects_empty_file(self, auth_client):
+        resp = auth_client.post(
             "/api/documents/upload",
-            cookies=auth_cookies,
             files=[("files", ("empty.docx", BytesIO(b""), "application/octet-stream"))],
         )
         assert resp.status_code == 200
@@ -420,30 +418,30 @@ class TestUpload:
 
 
 class TestPartials:
-    def test_table_partial_empty(self, client, auth_cookies):
-        resp = client.get("/partials/document-table", cookies=auth_cookies)
+    def test_table_partial_empty(self, auth_client):
+        resp = auth_client.get("/partials/document-table")
         assert resp.status_code == 200
         assert "Документов пока нет" in resp.text
 
-    async def test_table_partial_with_docs(self, client, auth_cookies, repo):
+    async def test_table_partial_with_docs(self, auth_client, repo):
         rec = _make_record()
         await repo.create(rec)
-        resp = client.get("/partials/document-table", cookies=auth_cookies)
+        resp = auth_client.get("/partials/document-table")
         assert resp.status_code == 200
         assert rec.title in resp.text
 
-    async def test_row_partial(self, client, auth_cookies, repo):
+    async def test_row_partial(self, auth_client, repo):
         rec = _make_record()
         await repo.create(rec)
-        resp = client.get(
-            f"/partials/document-row/{rec.document_id}", cookies=auth_cookies
+        resp = auth_client.get(
+            f"/partials/document-row/{rec.document_id}"
         )
         assert resp.status_code == 200
         assert rec.title in resp.text
 
-    def test_row_partial_nonexistent(self, client, auth_cookies):
-        resp = client.get(
-            "/partials/document-row/nonexistent", cookies=auth_cookies
+    def test_row_partial_nonexistent(self, auth_client):
+        resp = auth_client.get(
+            "/partials/document-row/nonexistent"
         )
         assert resp.status_code == 200
         assert resp.text == ""
@@ -458,7 +456,7 @@ class TestPartials:
 
 class TestDownload:
     async def test_download_existing(
-        self, client, auth_cookies, repo, mock_s3
+        self, auth_client, repo, mock_s3
     ):
         rec = _make_record()
         await repo.create(rec)
@@ -467,22 +465,21 @@ class TestDownload:
         mock_s3.exists.return_value = True
         mock_s3.download.return_value = b"file content here"
 
-        resp = client.get(
+        resp = auth_client.get(
             f"/api/documents/{rec.document_id}/download",
-            cookies=auth_cookies,
         )
         assert resp.status_code == 200
         assert resp.content == b"file content here"
         mock_s3.download.assert_awaited_once_with(rec.s3_key)
 
-    def test_download_nonexistent(self, client, auth_cookies):
-        resp = client.get(
-            "/api/documents/nonexistent/download", cookies=auth_cookies
+    def test_download_nonexistent(self, auth_client):
+        resp = auth_client.get(
+            "/api/documents/nonexistent/download"
         )
         assert resp.status_code == 404
 
     async def test_download_missing_file(
-        self, client, auth_cookies, repo, mock_s3
+        self, auth_client, repo, mock_s3
     ):
         rec = _make_record()
         await repo.create(rec)
@@ -490,9 +487,8 @@ class TestDownload:
         # S3 reports file does not exist
         mock_s3.exists.return_value = False
 
-        resp = client.get(
+        resp = auth_client.get(
             f"/api/documents/{rec.document_id}/download",
-            cookies=auth_cookies,
         )
         assert resp.status_code == 404
 
@@ -503,7 +499,7 @@ class TestDownload:
 class TestReindex:
     @patch("app.api.documents.load_docx", return_value=[])
     async def test_reindex_starts(
-        self, mock_parse, client, auth_cookies, repo, mock_s3
+        self, mock_parse, auth_client, repo, mock_s3
     ):
         rec = _make_record()
         await repo.create(rec)
@@ -511,21 +507,20 @@ class TestReindex:
         # S3 reports file exists
         mock_s3.exists.return_value = True
 
-        resp = client.post(
+        resp = auth_client.post(
             f"/api/documents/{rec.document_id}/reindex",
-            cookies=auth_cookies,
         )
         assert resp.status_code == 200
         assert resp.json()["status"] == "reindexing"
 
-    def test_reindex_nonexistent(self, client, auth_cookies):
-        resp = client.post(
-            "/api/documents/nonexistent/reindex", cookies=auth_cookies
+    def test_reindex_nonexistent(self, auth_client):
+        resp = auth_client.post(
+            "/api/documents/nonexistent/reindex"
         )
         assert resp.status_code == 404
 
     async def test_reindex_missing_file(
-        self, client, auth_cookies, repo, mock_s3
+        self, auth_client, repo, mock_s3
     ):
         rec = _make_record()
         await repo.create(rec)
@@ -533,9 +528,8 @@ class TestReindex:
         # S3 reports file does not exist
         mock_s3.exists.return_value = False
 
-        resp = client.post(
+        resp = auth_client.post(
             f"/api/documents/{rec.document_id}/reindex",
-            cookies=auth_cookies,
         )
         assert resp.status_code == 404
         assert "storage" in resp.json()["detail"]
