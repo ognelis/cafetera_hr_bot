@@ -1,0 +1,479 @@
+# Main Application Entry Point
+
+<cite>
+**Referenced Files in This Document**
+- [main.py](file://app/main.py)
+- [config.py](file://app/config.py)
+- [documents.py](file://app/api/documents.py)
+- [deps.py](file://app/api/deps.py)
+- [document_service.py](file://app/domain/document_service.py)
+- [document_repo.py](file://app/storage/document_repo.py)
+- [indexer.py](file://app/rag/indexer.py)
+- [chain.py](file://app/rag/chain.py)
+- [bot.py](file://app/integrations/vk/bot.py)
+- [admin_server.py](file://scripts/admin_server.py)
+- [docker-compose.yml](file://docker-compose.yml)
+- [pyproject.toml](file://pyproject.toml)
+</cite>
+
+## Table of Contents
+1. [Introduction](#introduction)
+2. [Application Architecture Overview](#application-architecture-overview)
+3. [Entry Point Analysis](#entry-point-analysis)
+4. [Configuration Management](#configuration-management)
+5. [Resource Lifecycle Management](#resource-lifecycle-management)
+6. [API Integration](#api-integration)
+7. [Dependency Injection System](#dependency-injection-system)
+8. [Domain Service Layer](#domain-service-layer)
+9. [Storage Layer](#storage-layer)
+10. [RAG Pipeline Components](#rag-pipeline-components)
+11. [Development Server Setup](#development-server-setup)
+12. [Production Deployment](#production-deployment)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+
+## Introduction
+
+The Cafetera HR Bot is a comprehensive RAG (Retrieval-Augmented Generation) application designed to manage HR-related documents and provide intelligent Q&A capabilities through VKontakte integration. This document focuses specifically on the main application entry point and its surrounding infrastructure, explaining how the FastAPI application is initialized, configured, and integrated with various services.
+
+The application serves as both a document management system for HR policies and procedures, and an AI-powered assistant that can answer employee questions about company policies using a Retrieval-Augmented Generation pipeline.
+
+## Application Architecture Overview
+
+The application follows a layered architecture pattern with clear separation of concerns:
+
+```mermaid
+graph TB
+subgraph "Presentation Layer"
+API[FastAPI Application]
+Templates[Jinja2 Templates]
+end
+subgraph "Domain Layer"
+DocService[DocumentService]
+QAService[QA Service]
+end
+subgraph "Integration Layer"
+VKBot[VK Bot]
+Handlers[Handler Modules]
+end
+subgraph "Storage Layer"
+SQLite[(SQLite Database)]
+S3[(S3 Storage)]
+Qdrant[(Qdrant Vector Store)]
+end
+subgraph "External Services"
+LLM[LLM Provider]
+Embeddings[Embedding Model]
+end
+API --> DocService
+API --> Templates
+DocService --> SQLite
+DocService --> S3
+DocService --> Qdrant
+DocService --> Embeddings
+Embeddings --> LLM
+VKBot --> Handlers
+Handlers --> DocService
+```
+
+**Diagram sources**
+- [main.py:98-119](file://app/main.py#L98-L119)
+- [document_service.py:35-53](file://app/domain/document_service.py#L35-L53)
+
+## Entry Point Analysis
+
+The main application entry point is defined in the `app/main.py` file, which serves as the central factory for creating and configuring the FastAPI application instance.
+
+### Application Factory Pattern
+
+The application uses a factory pattern with the `create_app()` function, which encapsulates all initialization logic and configuration. This approach provides several benefits:
+
+- **Testability**: Different configurations can be easily injected for testing
+- **Flexibility**: The application can be configured differently for various environments
+- **Separation of Concerns**: Initialization logic is isolated from the main application logic
+
+### Lifespan Management
+
+The application implements sophisticated lifespan management through the `lifespan` async context manager, which handles resource initialization and cleanup:
+
+```mermaid
+sequenceDiagram
+participant App as Application
+participant DB as SQLite
+participant S3 as S3 Storage
+participant Qdrant as Qdrant Client
+participant Service as Document Service
+App->>DB : Initialize database
+App->>S3 : Connect to S3 storage
+App->>Qdrant : Connect to Qdrant
+App->>Service : Initialize Document Service
+App->>App : Yield control to application
+Note over App,Qdrant : Application runs
+App->>S3 : Close connection
+App->>Qdrant : Close connection
+```
+
+**Diagram sources**
+- [main.py:23-96](file://app/main.py#L23-L96)
+
+**Section sources**
+- [main.py:23-119](file://app/main.py#L23-L119)
+
+## Configuration Management
+
+The application uses Pydantic's BaseSettings for robust configuration management through environment variables and `.env` files.
+
+### Configuration Structure
+
+The `Settings` class defines all configurable parameters organized into logical groups:
+
+| Category | Parameters | Purpose |
+|----------|------------|---------|
+| **VK Integration** | `vk_access_token`, `vk_group_id` | VKontakte bot authentication |
+| **RAG/Qdrant** | `qdrant_url`, `qdrant_api_key`, `qdrant_collection` | Vector database configuration |
+| **LLM** | `llm_provider`, `llm_model`, `llm_base_url`, `llm_api_key` | Language model settings |
+| **Embeddings** | `embedding_model` | Text embedding configuration |
+| **Storage** | `db_path`, `s3_endpoint_url`, `s3_access_key`, `s3_secret_key`, `s3_bucket` | Storage backend configuration |
+| **Admin** | `admin_api_key` | Administrative access control |
+
+### Environment Variable Loading
+
+Configuration is loaded from `.env` files with UTF-8 encoding support, allowing for flexible deployment across different environments.
+
+**Section sources**
+- [config.py:4-33](file://app/config.py#L4-L33)
+
+## Resource Lifecycle Management
+
+The lifespan context manager handles the complete lifecycle of all external resources, ensuring proper initialization and cleanup.
+
+### Resource Initialization Order
+
+1. **Database Initialization**: SQLite database is initialized first to ensure persistent storage is available
+2. **S3 Storage**: Object storage is configured for document file management
+3. **Qdrant Client**: Vector database client is established for RAG functionality
+4. **Document Service**: Core business logic service is created with all dependencies
+
+### Error Handling Strategy
+
+Each resource initialization includes comprehensive error handling:
+- Non-critical failures (like S3 unavailability) log warnings but don't prevent application startup
+- Critical failures (like database initialization) would prevent the application from starting
+- Graceful degradation allows partial functionality when some services are unavailable
+
+**Section sources**
+- [main.py:23-96](file://app/main.py#L23-L96)
+
+## API Integration
+
+The application exposes a comprehensive REST API for document management through the `documents.py` router.
+
+### Authentication System
+
+The API implements cookie-based authentication with secure session management:
+
+```mermaid
+flowchart TD
+Login[Login Request] --> Validate[Validate API Key]
+Validate --> Valid{Valid Key?}
+Valid --> |Yes| SetCookie[Set Secure Cookie]
+Valid --> |No| Error[Return Error]
+SetCookie --> Success[Authentication Success]
+Error --> Login
+```
+
+**Diagram sources**
+- [documents.py:146-173](file://app/api/documents.py#L146-L173)
+
+### Document Management Operations
+
+The API supports complete document lifecycle management:
+
+| Operation | Endpoint | Method | Description |
+|-----------|----------|--------|-------------|
+| Upload | `/api/documents/upload` | POST | Upload documents to S3 storage |
+| List | `/api/documents` | GET | Retrieve all documents |
+| Detail | `/api/documents/{id}` | GET | Get document metadata |
+| Update Title | `/api/documents/{id}/title` | PATCH | Modify document title |
+| Toggle Search | `/api/documents/{id}/search` | PATCH | Enable/disable RAG search |
+| Reindex | `/api/documents/{id}/reindex` | POST | Rebuild vector embeddings |
+| Delete | `/api/documents/{id}` | DELETE | Remove document completely |
+
+**Section sources**
+- [documents.py:1-531](file://app/api/documents.py#L1-L531)
+
+## Dependency Injection System
+
+The application implements a comprehensive dependency injection system through FastAPI's dependency mechanism.
+
+### Dependency Types
+
+| Dependency Type | Purpose | Implementation |
+|----------------|---------|----------------|
+| `AdminDep` | Authentication | Validates admin session cookie |
+| `SettingsDep` | Configuration | Provides application settings |
+| `TemplatesDep` | Template Rendering | Jinja2 template engine |
+| `RepoDep` | Data Access | DocumentRepository instance |
+| `ServiceDep` | Business Logic | DocumentService instance |
+| `S3Dep` | Storage Access | S3Storage instance |
+
+### Security Considerations
+
+All dependencies implement proper error handling:
+- Missing or invalid admin sessions return 403 Forbidden
+- Unavailable services return 503 Service Unavailable
+- Sensitive operations require proper authentication
+
+**Section sources**
+- [deps.py:1-74](file://app/api/deps.py#L1-L74)
+
+## Domain Service Layer
+
+The `DocumentService` class serves as the central coordinator for all document-related operations, implementing the domain service pattern.
+
+### Service Responsibilities
+
+```mermaid
+classDiagram
+class DocumentService {
+-DocumentRepository _repo
+-QdrantClient _qdrant
+-Embeddings _embeddings
+-string _collection
++create_document() DocumentRecord
++index_document() DocumentRecord
++update_metadata() DocumentRecord
++toggle_search() DocumentRecord
++reindex_document() DocumentRecord
++delete_document() bool
+}
+class DocumentRepository {
++create() DocumentRecord
++get() DocumentRecord
++list_all() DocumentRecord[]
++update() DocumentRecord
++toggle_search() DocumentRecord
++delete() bool
+}
+class S3Storage {
++upload() void
++download() bytes
++exists() bool
++delete() void
+}
+DocumentService --> DocumentRepository : uses
+DocumentService --> S3Storage : uses
+```
+
+**Diagram sources**
+- [document_service.py:35-280](file://app/domain/document_service.py#L35-L280)
+- [document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
+
+### Business Logic Orchestration
+
+The service coordinates between three distinct systems:
+1. **Metadata Management**: SQLite for document records and status tracking
+2. **File Storage**: S3-compatible storage for document files
+3. **Vector Indexing**: Qdrant for semantic search capabilities
+
+**Section sources**
+- [document_service.py:35-280](file://app/domain/document_service.py#L35-L280)
+
+## Storage Layer
+
+The storage layer implements a clean separation between metadata persistence and file storage.
+
+### Document Repository Pattern
+
+The `DocumentRepository` implements the repository pattern for SQLite operations:
+
+```mermaid
+erDiagram
+DOCUMENTS {
+string document_id PK
+string filename
+string title
+string s3_key
+string mime_type
+integer size_bytes
+enum status
+boolean is_search_enabled
+string error
+datetime created_at
+datetime updated_at
+datetime indexed_at
+integer chunk_count
+}
+DOCUMENTS ||--o{ VECOR_CHUNKS : contains
+```
+
+**Diagram sources**
+- [document_repo.py:14-47](file://app/storage/document_repo.py#L14-L47)
+
+### Status Management
+
+Documents progress through four distinct states during processing:
+
+1. **Pending**: Document registered but not processed
+2. **Processing**: Active indexing operation
+3. **Completed**: Successfully indexed and searchable
+4. **Failed**: Processing encountered errors
+
+**Section sources**
+- [document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
+
+## RAG Pipeline Components
+
+The RAG pipeline integrates multiple components to provide intelligent document search and retrieval.
+
+### Chain Architecture
+
+```mermaid
+flowchart LR
+subgraph "Input Processing"
+Question[User Question]
+Retriever[Vector Store Retriever]
+end
+subgraph "Context Assembly"
+Formatter[Document Formatter]
+Context[Context Window]
+end
+subgraph "Generation"
+Prompt[System Prompt]
+LLM[Language Model]
+Answer[Answer]
+end
+Question --> Retriever
+Retriever --> Formatter
+Formatter --> Context
+Context --> Prompt
+Question --> Prompt
+Prompt --> LLM
+LLM --> Answer
+```
+
+**Diagram sources**
+- [chain.py:76-95](file://app/rag/chain.py#L76-L95)
+
+### Provider Support
+
+The system supports multiple LLM providers through a unified interface:
+- **Ollama**: Local model inference
+- **OpenAI**: Cloud-based API
+- **Llama.cpp**: Alternative local inference
+
+**Section sources**
+- [chain.py:30-95](file://app/rag/chain.py#L30-L95)
+
+## Development Server Setup
+
+The application includes a dedicated development server script for local testing and development.
+
+### Development Features
+
+The `admin_server.py` script provides:
+
+- **Hot Reloading**: Automatic restarts on code changes
+- **Debug Logging**: Comprehensive logging for development
+- **Local Configuration**: Easy setup for local development
+- **Health Checks**: Built-in server health monitoring
+
+### Environment Configuration
+
+Development requires minimal setup with the following environment variables:
+
+| Variable | Purpose | Default Value |
+|----------|---------|---------------|
+| `ADMIN_API_KEY` | Admin authentication | Required |
+| `DB_PATH` | SQLite database location | `data/cafetera.db` |
+| `S3_ENDPOINT_URL` | MinIO/S3 endpoint | `http://localhost:9000` |
+| `QDRANT_URL` | Qdrant service URL | `http://localhost:6333` |
+
+**Section sources**
+- [admin_server.py:1-63](file://scripts/admin_server.py#L1-L63)
+
+## Production Deployment
+
+The application is designed for containerized deployment using Docker Compose.
+
+### Container Configuration
+
+The `docker-compose.yml` defines two essential services:
+
+```mermaid
+graph TB
+subgraph "Container Services"
+Qdrant[Qdrant Vector DB]
+MinIO[MinIO Object Storage]
+end
+subgraph "Application Containers"
+App[FastAPI Application]
+Worker[Background Workers]
+end
+Qdrant --> App
+MinIO --> App
+Qdrant --> Worker
+MinIO --> Worker
+```
+
+**Diagram sources**
+- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
+
+### Service Dependencies
+
+| Service | Port | Purpose | Persistence |
+|---------|------|---------|-------------|
+| Qdrant | 6333/tcp, 6334/tcp | Vector database | Volume mounted |
+| MinIO | 9000/tcp, 9001/tcp | Object storage | Volume mounted |
+| FastAPI | 8000/tcp | Web application | No persistence |
+| Background Workers | N/A | Document processing | No persistence |
+
+**Section sources**
+- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
+
+## Troubleshooting Guide
+
+### Common Startup Issues
+
+**Database Connection Problems**
+- Verify SQLite file permissions
+- Check database path configuration
+- Ensure write permissions for data directory
+
+**S3 Storage Issues**
+- Confirm endpoint URL and credentials
+- Verify bucket existence and permissions
+- Check network connectivity to storage service
+
+**Qdrant Connection Failures**
+- Verify service availability on configured port
+- Check API key configuration (if required)
+- Ensure sufficient memory allocation
+
+### Performance Optimization
+
+**Memory Management**
+- Monitor Qdrant memory usage
+- Optimize embedding model selection
+- Implement proper connection pooling
+
+**Database Performance**
+- Regular maintenance of SQLite database
+- Optimize queries for large document collections
+- Consider database vacuum operations
+
+**Background Processing**
+- Monitor background task queue
+- Implement proper error handling for failed tasks
+- Set appropriate retry limits for failed operations
+
+### Monitoring and Logging
+
+The application provides comprehensive logging at multiple levels:
+- **Startup/Shutdown**: Resource initialization and cleanup
+- **API Operations**: Request processing and response generation
+- **Background Tasks**: Document processing status
+- **Error Conditions**: Exception handling and recovery
+
+**Section sources**
+- [main.py:23-96](file://app/main.py#L23-L96)
+- [admin_server.py:31-36](file://scripts/admin_server.py#L31-L36)

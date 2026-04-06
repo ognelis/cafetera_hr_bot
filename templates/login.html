@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Login{% endblock %}
 
-{% block body %}
-<div class="flex items-center justify-center min-h-screen">
-  <div class="card bg-base-100 shadow-xl w-full max-w-sm">
-    <div class="card-body">
-      <h2 class="card-title justify-center text-2xl mb-4">Cafetera HR Admin</h2>
+{% block layout %}
+<div class="flex items-center justify-center min-h-screen bg-base-100">
+  <div class="w-full max-w-xs">
+    <div class="border border-base-300/70 rounded-xl bg-base-100 p-7 shadow-sm">
+      <h2 class="text-lg font-bold text-center mb-6">Cafetera HR Admin</h2>
 
       {% if error %}
-      <div class="alert alert-error mb-4">
+      <div class="alert alert-error text-sm mb-4 rounded-lg">
         <span>
           {% if error == "invalid_key" %}
             Неверный ключ доступа.
@@ -20,21 +20,21 @@
       {% endif %}
 
       <form method="post" action="/login">
-        <div class="form-control mb-4">
-          <label class="label" for="api_key">
-            <span class="label-text">Ключ доступа</span>
+        <div class="form-control mb-5">
+          <label class="text-sm font-medium text-base-content/70 mb-1.5" for="api_key">
+            Ключ доступа
           </label>
           <input
             type="password"
             id="api_key"
             name="api_key"
             placeholder="Введите ключ"
-            class="input input-bordered w-full"
+            class="input input-sm input-bordered w-full rounded-lg"
             required
             autofocus
           />
         </div>
-        <button type="submit" class="btn btn-primary w-full">Войти</button>
+        <button type="submit" class="btn btn-sm btn-primary w-full rounded-lg">Войти</button>
       </form>
     </div>
   </div>
