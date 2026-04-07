@@ -47,7 +47,18 @@ wait_for_service() {
   return 1
 }
 
+# PIDs of background processes to kill on exit
+BG_PIDS=()
+
 cleanup() {
+  log "Shutting down..."
+  for pid in "${BG_PIDS[@]}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      log "Stopping background process (PID=$pid)"
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+    fi
+  done
   log "Stopping docker services..."
   docker compose down 2>/dev/null || true
 }
@@ -131,7 +142,8 @@ select_embedding_provider() {
   log "Select Embedding provider:"
   echo "  1) ollama (default)"
   echo "  2) openai"
-  read -r -p "[admin] Enter choice [1-2, Enter=1]: " embed_choice
+  echo "  3) llamacpp"
+  read -r -p "[admin] Enter choice [1-3, Enter=1]: " embed_choice
 
   case "${embed_choice:-1}" in
     1|ollama)
@@ -142,9 +154,15 @@ select_embedding_provider() {
       ;;
     2|openai)
       EMBEDDING_PROVIDER="openai"
-      EMBEDDING_MODEL="qwen3-embedding:4b-q4_K_M"
+      EMBEDDING_MODEL="text-embedding-3-small"
       EMBEDDING_BASE_URL="https://api.openai.com/v1"
       read -r -p "[admin] Enter OpenAI API key: " EMBEDDING_API_KEY
+      ;;
+    3|llamacpp)
+      EMBEDDING_PROVIDER="llamacpp"
+      EMBEDDING_MODEL="qwen3-embedding"
+      EMBEDDING_BASE_URL="http://localhost:8090/v1"
+      EMBEDDING_API_KEY=""
       ;;
     *)
       log "Invalid choice, using ollama"
@@ -201,31 +219,147 @@ if ! wait_for_service "MinIO" "${MINIO_URL}/minio/health/live"; then
   exit 1
 fi
 
-# Check Ollama (only if needed)
-if [[ "$LLM_PROVIDER" == "ollama" || "$EMBEDDING_PROVIDER" == "ollama" ]]; then
+# Start local LLM and embedding providers if needed
+start_ollama_providers() {
   log "Checking Ollama at $OLLAMA_URL..."
-  if curl -sf "$OLLAMA_URL" >/dev/null 2>&1; then
-    log "Ollama is running"
+  if ! curl -sf "$OLLAMA_URL" >/dev/null 2>&1; then
+    if ! command_exists ollama; then
+      log "ERROR: Ollama is not installed and not running at $OLLAMA_URL"
+      log "FIX:   Install Ollama: https://ollama.com/download"
+      log "       Then re-run this script."
+      exit 1
+    fi
+    log "Ollama is not running. Starting Ollama server..."
+    OLLAMA_HOST="${OLLAMA_HOST:-127.0.0.1:11434}" ollama serve >/tmp/ollama.log 2>&1 &
+    BG_PIDS+=("$!")
+    if ! wait_for_service "Ollama" "$OLLAMA_URL" 30 1; then
+      log "ERROR: Ollama failed to start. Check /tmp/ollama.log"
+      exit 1
+    fi
   else
-    log "WARNING: Ollama is not running at $OLLAMA_URL"
-    log "WARNING: RAG features (document Q&A) will not work"
-    log "FIX:    Start Ollama: ./scripts/run_ollama_qwen.sh"
-    log "        Or install: https://ollama.com/download"
+    log "Ollama is already running"
   fi
+
+  # Pull LLM model if ollama is used for LLM
+  if [[ "$LLM_PROVIDER" == "ollama" ]]; then
+    log "Ensuring LLM model '$LLM_MODEL' is available..."
+    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$LLM_MODEL"; then
+      log "Pulling LLM model '$LLM_MODEL'..."
+      if ! ollama pull "$LLM_MODEL"; then
+        log "ERROR: Failed to pull LLM model '$LLM_MODEL'"
+        log "FIX:   Check model name is correct: ollama list"
+        log "       Available models: https://ollama.com/library"
+        exit 1
+      fi
+    fi
+    # Verify model is usable
+    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$LLM_MODEL"; then
+      log "ERROR: LLM model '$LLM_MODEL' not found in Ollama after pull"
+      log "FIX:   Check model name spelling (must include quantization suffix)"
+      log "       Run: ollama list  — to see available models"
+      exit 1
+    fi
+    log "LLM model '$LLM_MODEL' is ready"
+  fi
+
+  # Pull embedding model if ollama is used for embeddings
+  if [[ "$EMBEDDING_PROVIDER" == "ollama" ]]; then
+    log "Ensuring embedding model '$EMBEDDING_MODEL' is available..."
+    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$EMBEDDING_MODEL"; then
+      log "Pulling embedding model '$EMBEDDING_MODEL'..."
+      if ! ollama pull "$EMBEDDING_MODEL"; then
+        log "ERROR: Failed to pull embedding model '$EMBEDDING_MODEL'"
+        log "FIX:   Check model name is correct: ollama list"
+        log "       Available models: https://ollama.com/library"
+        exit 1
+      fi
+    fi
+    # Verify model is usable
+    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$EMBEDDING_MODEL"; then
+      log "ERROR: Embedding model '$EMBEDDING_MODEL' not found in Ollama after pull"
+      log "FIX:   Check model name spelling (must include quantization suffix)"
+      log "       Run: ollama list  — to see available models"
+      exit 1
+    fi
+    log "Embedding model '$EMBEDDING_MODEL' is ready"
+  fi
+}
+
+start_llamacpp_providers() {
+  if ! command_exists llama-server; then
+    log "ERROR: llama-server not found in PATH"
+    log "FIX:   Install llama.cpp: https://github.com/ggerganov/llama.cpp"
+    exit 1
+  fi
+
+  LLAMACPP_LLM_URL="http://localhost:8080"
+  LLAMACPP_EMBED_URL="http://localhost:8090"
+
+  # Start LLM server if not running
+  if [[ "$LLM_PROVIDER" == "llamacpp" ]]; then
+    log "Checking llamacpp LLM server at $LLAMACPP_LLM_URL..."
+    if ! curl -sf "$LLAMACPP_LLM_URL" >/dev/null 2>&1; then
+      log "Starting llamacpp LLM server in background..."
+      "$SCRIPT_DIR/run_llama_llm.sh" >/tmp/llama_llm.log 2>&1 &
+      BG_PIDS+=("$!")
+      if ! wait_for_service "llamacpp LLM" "$LLAMACPP_LLM_URL" 30 2; then
+        log "ERROR: llamacpp LLM server failed to start. Check /tmp/llama_llm.log"
+        exit 1
+      fi
+    else
+      log "llamacpp LLM server is already running"
+    fi
+    # Verify LLM server loaded model and responds
+    log "Verifying llamacpp LLM server has a loaded model..."
+    if ! curl -sf "${LLAMACPP_LLM_URL}/v1/models" >/dev/null 2>&1; then
+      log "WARNING: Could not verify model on llamacpp LLM server"
+      log "FIX:    Check /tmp/llama_llm.log for errors"
+      log "        Ensure model file exists in models/"
+    else
+      log "llamacpp LLM server model verified"
+    fi
+  fi
+
+  # Start embedding server if not running
+  if [[ "$EMBEDDING_PROVIDER" == "llamacpp" ]]; then
+    log "Checking llamacpp embedding server at $LLAMACPP_EMBED_URL..."
+    if ! curl -sf "$LLAMACPP_EMBED_URL" >/dev/null 2>&1; then
+      log "Starting llamacpp embedding server in background..."
+      "$SCRIPT_DIR/run_llama_embeddings.sh" >/tmp/llama_embed.log 2>&1 &
+      BG_PIDS+=("$!")
+      if ! wait_for_service "llamacpp Embedding" "$LLAMACPP_EMBED_URL" 30 2; then
+        log "ERROR: llamacpp embedding server failed to start. Check /tmp/llama_embed.log"
+        exit 1
+      fi
+    else
+      log "llamacpp embedding server is already running"
+    fi
+    # Verify embedding server loaded model and responds
+    log "Verifying llamacpp embedding server has a loaded model..."
+    if ! curl -sf "${LLAMACPP_EMBED_URL}/v1/models" >/dev/null 2>&1; then
+      log "WARNING: Could not verify model on llamacpp embedding server"
+      log "FIX:    Check /tmp/llama_embed.log for errors"
+      log "        Ensure embedding model file exists in models/"
+    else
+      log "llamacpp embedding server model verified"
+    fi
+  fi
+}
+
+# Launch providers based on selection
+if [[ "$LLM_PROVIDER" == "ollama" || "$EMBEDDING_PROVIDER" == "ollama" ]]; then
+  start_ollama_providers
 fi
 
-# Check llamacpp (only if needed)
-if [[ "$LLM_PROVIDER" == "llamacpp" ]]; then
-  LLAMACPP_URL="http://localhost:8080"
-  log "Checking llamacpp server at $LLAMACPP_URL..."
-  if curl -sf "$LLAMACPP_URL" >/dev/null 2>&1; then
-    log "llamacpp server is running"
-  else
-    log "WARNING: llamacpp server is not running at $LLAMACPP_URL"
-    log "WARNING: LLM features (document Q&A) will not work"
-    log "FIX:    Start llama-server: ./scripts/run_llama_qwen.sh"
-    log "        Make sure the model file exists in models/"
-  fi
+if [[ "$LLM_PROVIDER" == "llamacpp" || "$EMBEDDING_PROVIDER" == "llamacpp" ]]; then
+  start_llamacpp_providers
+fi
+
+if [[ "$LLM_PROVIDER" == "openai" ]]; then
+  log "LLM provider: OpenAI (remote, no local server needed)"
+fi
+if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
+  log "Embedding provider: OpenAI (remote, no local server needed)"
 fi
 
 # Print startup info
