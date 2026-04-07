@@ -47,6 +47,7 @@ from pydantic import BaseModel
 
 from app.api.deps import (
     AdminDep,
+    IndexingSemaphoreDep,
     RepoDep,
     S3Dep,
     ServiceDep,
@@ -122,24 +123,25 @@ def _doc_to_dict(doc: DocumentRecord) -> dict:
 
 
 async def _index_in_background(
-    service, s3: S3Storage, document_id: str, s3_key: str
+    service, s3: S3Storage, document_id: str, s3_key: str, semaphore: asyncio.Semaphore
 ) -> None:
     """Download from S3, parse, and index a document.  Runs as a background task."""
-    try:
-        data = await s3.download(s3_key)
-        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
-            tmp.write(data)
-            tmp_path = Path(tmp.name)
+    async with semaphore:
         try:
-            chunks = await asyncio.to_thread(load_document, tmp_path)
-            await service.index_document(document_id, chunks)
-            logger.info("Background indexing completed for %s", document_id)
-        finally:
-            await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-    except Exception:
-        logger.error(
-            "Background indexing failed for %s", document_id, exc_info=True
-        )
+            data = await s3.download(s3_key)
+            with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+                tmp.write(data)
+                tmp_path = Path(tmp.name)
+            try:
+                chunks = await asyncio.to_thread(load_document, tmp_path)
+                await service.index_document(document_id, chunks)
+                logger.info("Background indexing completed for %s", document_id)
+            finally:
+                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+        except Exception:
+            logger.error(
+                "Background indexing failed for %s", document_id, exc_info=True
+            )
 
 
 # ── Auth pages ────────────────────────────────────────────────────
@@ -427,7 +429,12 @@ async def upload_documents(
 
         # Schedule background indexing
         background_tasks.add_task(
-            _index_in_background, service, s3, record.document_id, s3_key
+            _index_in_background,
+            service,
+            s3,
+            record.document_id,
+            s3_key,
+            request.app.state.indexing_semaphore,
         )
 
         results.append(_doc_to_dict(record))
@@ -577,6 +584,7 @@ async def bulk_reindex_documents(
     repo: RepoDep,
     templates: TemplatesDep,
     background_tasks: BackgroundTasks,
+    semaphore: IndexingSemaphoreDep,
     body: BulkIdsRequest,
 ):
     """Reindex multiple documents by ID. Returns refreshed document table partial."""
@@ -609,7 +617,7 @@ async def bulk_reindex_documents(
             await repo.update(document_id, status=DocumentStatus.processing, error=None)
 
             background_tasks.add_task(
-                _reindex_in_background, service, s3, document_id, record.s3_key
+                _reindex_in_background, service, s3, document_id, record.s3_key, semaphore
             )
         except Exception as exc:
             logger.error("Bulk reindex failed for %s", document_id, exc_info=True)
@@ -761,6 +769,7 @@ async def reindex_document(
     templates: TemplatesDep,
     repo: RepoDep,
     background_tasks: BackgroundTasks,
+    semaphore: IndexingSemaphoreDep,
 ):
     record = await repo.get(document_id)
     if record is None:
@@ -776,7 +785,7 @@ async def reindex_document(
     await repo.update(document_id, status=DocumentStatus.processing, error=None)
 
     background_tasks.add_task(
-        _reindex_in_background, service, s3, document_id, record.s3_key
+        _reindex_in_background, service, s3, document_id, record.s3_key, semaphore
     )
 
     is_htmx = request.headers.get("HX-Request") == "true"
@@ -791,23 +800,24 @@ async def reindex_document(
 
 
 async def _reindex_in_background(
-    service, s3: S3Storage, document_id: str, s3_key: str
+    service, s3: S3Storage, document_id: str, s3_key: str, semaphore: asyncio.Semaphore
 ):
-    try:
-        data = await s3.download(s3_key)
-        with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
-            tmp.write(data)
-            tmp_path = Path(tmp.name)
+    async with semaphore:
         try:
-            chunks = await asyncio.to_thread(load_document, tmp_path)
-            await service.reindex_document(document_id, chunks)
-            logger.info("Background reindex completed for %s", document_id)
-        finally:
-            await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-    except Exception:
-        logger.error(
-            "Background reindex failed for %s", document_id, exc_info=True
-        )
+            data = await s3.download(s3_key)
+            with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+                tmp.write(data)
+                tmp_path = Path(tmp.name)
+            try:
+                chunks = await asyncio.to_thread(load_document, tmp_path)
+                await service.reindex_document(document_id, chunks)
+                logger.info("Background reindex completed for %s", document_id)
+            finally:
+                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+        except Exception:
+            logger.error(
+                "Background reindex failed for %s", document_id, exc_info=True
+            )
 
 
 @router.delete("/api/documents/{document_id}")

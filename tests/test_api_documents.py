@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime
 from io import BytesIO
@@ -89,6 +90,7 @@ def app(settings, mock_qdrant, mock_embeddings, mock_s3, db_path):
     application.state.doc_repo = repo
     application.state.doc_service = service
     application.state.s3 = mock_s3
+    application.state.indexing_semaphore = asyncio.Semaphore(2)
 
     return application
 

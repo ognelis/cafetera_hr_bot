@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -82,6 +83,9 @@ async def lifespan(app: FastAPI):
         app.state.embeddings = None
         app.state.doc_repo = repo
         app.state.doc_service = None
+
+    # Semaphore to limit concurrent document indexing
+    app.state.indexing_semaphore = asyncio.Semaphore(settings.max_concurrent_indexing)
 
     yield
 

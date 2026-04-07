@@ -30,3 +30,6 @@ class Settings(BaseSettings):
 
     # Admin
     admin_api_key: str = ""
+
+    # Indexing concurrency
+    max_concurrent_indexing: int = 2

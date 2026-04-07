@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 from typing import Annotated
 
@@ -65,9 +66,14 @@ def require_admin(
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
+def get_indexing_semaphore(request: Request) -> asyncio.Semaphore:
+    return request.app.state.indexing_semaphore
+
+
 AdminDep = Annotated[None, Depends(require_admin)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 TemplatesDep = Annotated[Jinja2Templates, Depends(get_templates)]
 RepoDep = Annotated[DocumentRepository, Depends(get_doc_repo)]
 ServiceDep = Annotated[DocumentService, Depends(get_doc_service)]
 S3Dep = Annotated[S3Storage, Depends(get_s3)]
+IndexingSemaphoreDep = Annotated[asyncio.Semaphore, Depends(get_indexing_semaphore)]
