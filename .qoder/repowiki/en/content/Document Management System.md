@@ -31,6 +31,7 @@
 - [templates/partials/document_table.html](file://templates/partials/document_table.html)
 - [templates/partials/document_row.html](file://templates/partials/document_row.html)
 - [templates/partials/pagination.html](file://templates/partials/pagination.html)
+- [templates/base.html](file://templates/base.html)
 - [scripts/ingest.py](file://scripts/ingest.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
 - [tests/test_storage.py](file://tests/test_storage.py)
@@ -39,12 +40,12 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced concurrency control with semaphore-based throttling for document indexing operations
-- Improved error handling and consistency guarantees with atomic state updates and rollback mechanisms
-- Implemented concurrent fetching for bulk operations using asyncio.gather
-- Added comprehensive logging improvements for document indexing operations
-- Updated dependency injection to support configurable semaphore limits
-- Enhanced background task coordination with proper semaphore management
+- Enhanced user interface experience with improved table styling, rounded corners, and background styling
+- Implemented modern rounded corner design for document table container and upload modal
+- Added sophisticated background styling with primary/secondary color combinations
+- Improved visual presentation with enhanced status badges and interactive elements
+- Refined pagination controls with better spacing and responsive design
+- Enhanced bulk actions toolbar with improved styling and visual hierarchy
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -76,7 +77,7 @@ The Document Management System is a comprehensive RAG (Retrieval-Augmented Gener
 
 The system supports multiple document formats (both DOCX and legacy DOC), integrates with vector databases for semantic search, and provides both web-based administration and VK social network bot integration for HR assistance. It features a modular architecture with clear separation between presentation, business logic, data persistence, and external integrations.
 
-**Updated** The system now includes comprehensive support for both modern DOCX and legacy DOC document formats, enhanced concurrency control with semaphore-based throttling, improved error handling with atomic consistency guarantees, concurrent bulk operations with asyncio.gather, and enhanced logging for document indexing operations. The RAG pipeline has been optimized for better performance with proper resource management and error recovery mechanisms.
+**Updated** The system now includes comprehensive support for both modern DOCX and legacy DOC document formats, enhanced concurrency control with semaphore-based throttling, improved error handling with atomic consistency guarantees, concurrent bulk operations with asyncio.gather, and enhanced logging for document indexing operations. The RAG pipeline has been optimized for better performance with proper resource management and error recovery mechanisms. The user interface has been significantly enhanced with modern rounded corner styling, sophisticated background treatments, and improved visual presentation throughout the document management experience.
 
 ## System Architecture
 
@@ -93,6 +94,10 @@ Status[Visual Status Indicators]
 BulkToolbar[Bulk Actions Toolbar]
 DateFilter[Enhanced Date Filters]
 FormatIcons[Format Type Icons]
+TableStyling[Enhanced Table Styling]
+BackgroundStyling[Background Styling]
+RoundedCorners[Rounded Corners]
+VisualHierarchy[Visual Hierarchy]
 end
 subgraph "Application Layer"
 API[FastAPI Router]
@@ -129,6 +134,10 @@ WebUI --> Status
 WebUI --> BulkToolbar
 WebUI --> DateFilter
 WebUI --> FormatIcons
+WebUI --> TableStyling
+WebUI --> BackgroundStyling
+WebUI --> RoundedCorners
+WebUI --> VisualHierarchy
 VKBot --> API
 API --> Service
 Service --> Repo
@@ -158,7 +167,7 @@ FormatHandler --> Parser
 
 The architecture consists of five main layers with enhanced concurrency control, comprehensive document type handling, and modernized frontend capabilities:
 
-1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, and format-specific icon display
+1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display, enhanced table styling with rounded corners, sophisticated background styling, and improved visual hierarchy
 2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management, comprehensive operation orchestration, dual-format processing capabilities, and semaphore-based concurrency control for background tasks
 3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models and format detection mechanisms
 4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, and format-specific metadata tracking
@@ -307,7 +316,7 @@ The system implements comprehensive validation for uploaded documents with enhan
 | Duplicate Prevention | Unique S3 keys | Append counter suffix |
 | Concurrency Control | Semaphore-based throttling | Limit concurrent indexing operations |
 
-**Updated** The validation system now supports both DOCX and DOC formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files while maintaining modern DOCX processing capabilities. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion.
+**Updated** The validation system now supports both DOCX and DOC formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files while maintaining modern DOCX processing capabilities. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The user interface has been enhanced with improved visual feedback during upload validation and processing.
 
 **Section sources**
 - [app/api/documents.py:307-366](file://app/api/documents.py#L307-L366)
@@ -679,6 +688,10 @@ UI --> Search[Improved Search]
 UI --> Pagination[Enhanced Pagination]
 UI --> Status[Visual Status Indicators]
 UI --> FormatIcons[Format Type Icons]
+UI --> TableStyling[Enhanced Table Styling]
+UI --> BackgroundStyling[Background Styling]
+UI --> RoundedCorners[Rounded Corners]
+UI --> VisualHierarchy[Visual Hierarchy]
 BulkToolbar --> DeleteBtn[Delete Button]
 BulkToolbar --> ReindexBtn[Reindex Button]
 BulkToolbar --> ToggleBtn[Toggle Search Button]
@@ -694,6 +707,18 @@ Status --> AutoRefresh[Auto-refresh]
 Status --> Tooltips[Error Tooltips]
 FormatIcons --> DocIcon[DOC Format Icon]
 FormatIcons --> DocxIcon[DOCX Format Icon]
+TableStyling --> BorderStyling[Border Styling]
+TableStyling --> BackgroundStyling[Background Treatment]
+TableStyling --> RoundedCorners[Corner Radius]
+BackgroundStyling --> PrimaryBackground[Primary Background]
+BackgroundStyling --> SecondaryBackground[Secondary Background]
+BackgroundStyling --> SurfaceBackground[Surface Background]
+RoundedCorners --> TableContainer[Table Container]
+RoundedCorners --> UploadModal[Upload Modal]
+RoundedCorners --> FilterChips[Filter Chips]
+VisualHierarchy --> ColorHierarchy[Color Hierarchy]
+VisualHierarchy --> SpacingHierarchy[Spacing Hierarchy]
+VisualHierarchy --> TypographyHierarchy[Typography Hierarchy]
 ```
 
 **Diagram sources**
@@ -706,12 +731,19 @@ FormatIcons --> DocxIcon[DOCX Format Icon]
 
 The modernized interface includes several key interactive elements:
 
-#### Bulk Actions Toolbar
-- **Persistent Display**: Appears when documents are selected
-- **Visual Feedback**: Shows selected count with badge styling
-- **Action Buttons**: Delete, Reindex, Include/Exclude from search
-- **Selection Controls**: Clear selection button
-- **Responsive Layout**: Adapts to different screen sizes
+#### Enhanced Table Container Styling
+- **Rounded Corners**: `rounded-xl` for all table containers and modals
+- **Sophisticated Borders**: `border border-base-300/70` with transparency effects
+- **Background Treatment**: `bg-base-100` with subtle surface styling
+- **Shadow Effects**: Subtle shadows for depth perception
+- **Padding Optimization**: `pb-24` for proper bottom spacing
+
+#### Bulk Actions Toolbar Enhancement
+- **Primary Background**: `bg-primary/10` for subtle accent treatment
+- **Rounded Design**: `rounded-lg` for modern appearance
+- **Visual Hierarchy**: Proper spacing and alignment
+- **Interactive States**: Hover effects and transitions
+- **Badge Integration**: Visual feedback for selection count
 
 #### Enhanced Date Filters
 - **Dropdown Interface**: Collapsible filter panel with smooth animations
@@ -955,7 +987,7 @@ The SQLite schema supports comprehensive document tracking with:
 - **Date Filtering**: Precise timestamp fields for temporal queries
 - **Format Support**: MIME type tracking for different document formats
 
-**Updated** The database now tracks MIME types for both DOC and DOCX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries.
+**Updated** The database now tracks MIME types for both DOC and DOCX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments.
 
 **Section sources**
 - [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
@@ -1012,7 +1044,7 @@ All list endpoints support the following parameters:
 - **`date_from`**: ISO date string for minimum creation date (inclusive)
 - **`date_to`**: ISO date string for maximum creation date (inclusive)
 
-**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion.
+**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments.
 
 **Section sources**
 - [app/api/documents.py:1-806](file://app/api/documents.py#L1-L806)
@@ -1232,7 +1264,7 @@ The test suite includes comprehensive concurrency control testing:
 - **Error Recovery**: Tests recovery from concurrent operation failures
 - **Performance Testing**: Validates system performance under load
 
-**Updated** The testing strategy now includes extensive concurrency control testing covering semaphore-based throttling, concurrent bulk operations with asyncio.gather, proper resource management, and comprehensive error recovery mechanisms. The test suite validates all concurrency-aware endpoints with proper load testing and ensures system stability under various concurrency scenarios.
+**Updated** The testing strategy now includes extensive concurrency control testing covering semaphore-based throttling, concurrent bulk operations with asyncio.gather, proper resource management, and comprehensive error recovery mechanisms. The test suite validates all concurrency-aware endpoints with proper load testing and ensures system stability under various concurrency scenarios. The enhanced user interface styling is validated through visual regression testing and responsive design verification.
 
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
@@ -1278,7 +1310,7 @@ Required environment variables:
 - `OLLAMA_BASE_URL`: LLM service endpoint
 - `MAX_CONCURRENT_INDEXING`: Semaphore limit for concurrency control
 
-**Updated** The deployment configuration now supports the enhanced concurrency control system with proper semaphore configuration, comprehensive background task management, and robust error handling mechanisms. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes.
+**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations.
 
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
@@ -1303,7 +1335,9 @@ Required environment variables:
 | **Frontend Not Updating** | UI not reflecting changes | Check HTMX configuration, verify partial endpoint responses |
 | **Concurrency Issues** | Background tasks failing or delayed | Check `MAX_CONCURRENT_INDEXING` setting, verify semaphore configuration |
 | **Memory Leaks** | Increasing memory usage | Monitor background task cleanup, check temporary file handling |
-| **Mixed Format Display Issues** | DOC/DOCX format icons not showing | Verify template rendering, check format detection logic |
+| **Rounded Corner Rendering Issues** | Poor visual appearance | Verify CSS framework integration, check Tailwind configuration |
+| **Background Styling Problems** | Inconsistent visual treatment | Check color scheme configuration, verify daisyUI theme settings |
+| **Enhanced UI Not Loading** | Missing modern styling | Verify static asset serving, check CSS file paths |
 
 ### Logging and Monitoring
 
@@ -1321,8 +1355,9 @@ The system provides comprehensive logging at multiple levels:
 - **Parser logs**: Text extraction, chunk generation, metadata processing
 - **Concurrency logs**: Semaphore acquisition/release, task queuing
 - **Background task logs**: Resource management, error recovery
+- **UI Styling logs**: Component rendering, visual hierarchy validation
 
-**Updated** The troubleshooting guide now includes comprehensive concurrency control issues, semaphore configuration problems, and background task management failures. The logging system provides detailed coverage for all new features including semaphore-based throttling, concurrent bulk operations, and enhanced error recovery mechanisms.
+**Updated** The troubleshooting guide now includes comprehensive UI styling issues, rounded corner rendering problems, background treatment inconsistencies, and enhanced interface component failures. The logging system provides detailed coverage for all new features including enhanced user interface styling, proper CSS framework integration, responsive design validation, and visual hierarchy maintenance.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -1351,7 +1386,8 @@ Key strengths include:
 - **Robust Concurrency Control**: Semaphore-based throttling for background operations
 - **Enhanced Error Handling**: Atomic consistency guarantees and comprehensive error recovery
 - **Comprehensive Logging**: Detailed monitoring and debugging capabilities
+- **Enhanced Visual Presentation**: Modern rounded corner styling, sophisticated background treatments, and improved visual hierarchy throughout the interface
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
-**Updated** The recent implementation of comprehensive dual-format support for both DOCX and DOC documents, enhanced concurrency control with semaphore-based throttling, improved error handling with atomic consistency guarantees, concurrent bulk operations with asyncio.gather, and enhanced logging for document indexing operations significantly strengthens the system's reliability and performance. The robust concurrency control system with configurable limits prevents resource exhaustion during peak loads, while the enhanced error handling ensures data consistency even in failure scenarios. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments.
+**Updated** The recent implementation of comprehensive dual-format support for both DOCX and DOC documents, enhanced concurrency control with semaphore-based throttling, improved error handling with atomic consistency guarantees, concurrent bulk operations with asyncio.gather, and enhanced logging for document indexing operations significantly strengthens the system's reliability and performance. The most notable enhancement is the comprehensive user interface modernization featuring sophisticated rounded corner styling, enhanced background treatments, improved visual hierarchy, and better overall visual presentation. The robust concurrency control system with configurable limits prevents resource exhaustion during peak loads, while the enhanced error handling ensures data consistency even in failure scenarios. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles.

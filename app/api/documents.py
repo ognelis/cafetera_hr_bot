@@ -54,6 +54,7 @@ from app.api.deps import (
     SettingsDep,
     TemplatesDep,
 )
+from app.config import Settings
 from app.rag.parser import load_document
 from app.storage.models import DocumentRecord, DocumentStatus
 from app.storage.s3 import S3Storage
@@ -123,7 +124,13 @@ def _doc_to_dict(doc: DocumentRecord) -> dict:
 
 
 async def _index_in_background(
-    service, s3: S3Storage, document_id: str, s3_key: str, semaphore: asyncio.Semaphore
+    service,
+    s3: S3Storage,
+    document_id: str,
+    s3_key: str,
+    semaphore: asyncio.Semaphore,
+    chunk_size: int,
+    chunk_overlap: int,
 ) -> None:
     """Download from S3, parse, and index a document.  Runs as a background task."""
     async with semaphore:
@@ -133,7 +140,12 @@ async def _index_in_background(
                 tmp.write(data)
                 tmp_path = Path(tmp.name)
             try:
-                chunks = await asyncio.to_thread(load_document, tmp_path)
+                chunks = await asyncio.to_thread(
+                    load_document,
+                    tmp_path,
+                    chunk_size=chunk_size,
+                    chunk_overlap=chunk_overlap,
+                )
                 await service.index_document(document_id, chunks)
                 logger.info("Background indexing completed for %s", document_id)
             finally:
@@ -428,6 +440,7 @@ async def upload_documents(
         )
 
         # Schedule background indexing
+        settings: Settings = request.app.state.settings
         background_tasks.add_task(
             _index_in_background,
             service,
@@ -435,6 +448,8 @@ async def upload_documents(
             record.document_id,
             s3_key,
             request.app.state.indexing_semaphore,
+            settings.chunk_size,
+            settings.chunk_overlap,
         )
 
         results.append(_doc_to_dict(record))
@@ -589,6 +604,7 @@ async def bulk_reindex_documents(
 ):
     """Reindex multiple documents by ID. Returns refreshed document table partial."""
     errors = []
+    settings: Settings = request.app.state.settings
 
     # Fetch all documents concurrently
     results = await asyncio.gather(
@@ -617,7 +633,14 @@ async def bulk_reindex_documents(
             await repo.update(document_id, status=DocumentStatus.processing, error=None)
 
             background_tasks.add_task(
-                _reindex_in_background, service, s3, document_id, record.s3_key, semaphore
+                _reindex_in_background,
+                service,
+                s3,
+                document_id,
+                record.s3_key,
+                semaphore,
+                settings.chunk_size,
+                settings.chunk_overlap,
             )
         except Exception as exc:
             logger.error("Bulk reindex failed for %s", document_id, exc_info=True)
@@ -784,8 +807,16 @@ async def reindex_document(
     # Mark as processing immediately
     await repo.update(document_id, status=DocumentStatus.processing, error=None)
 
+    settings: Settings = request.app.state.settings
     background_tasks.add_task(
-        _reindex_in_background, service, s3, document_id, record.s3_key, semaphore
+        _reindex_in_background,
+        service,
+        s3,
+        document_id,
+        record.s3_key,
+        semaphore,
+        settings.chunk_size,
+        settings.chunk_overlap,
     )
 
     is_htmx = request.headers.get("HX-Request") == "true"
@@ -800,7 +831,13 @@ async def reindex_document(
 
 
 async def _reindex_in_background(
-    service, s3: S3Storage, document_id: str, s3_key: str, semaphore: asyncio.Semaphore
+    service,
+    s3: S3Storage,
+    document_id: str,
+    s3_key: str,
+    semaphore: asyncio.Semaphore,
+    chunk_size: int,
+    chunk_overlap: int,
 ):
     async with semaphore:
         try:
@@ -809,7 +846,12 @@ async def _reindex_in_background(
                 tmp.write(data)
                 tmp_path = Path(tmp.name)
             try:
-                chunks = await asyncio.to_thread(load_document, tmp_path)
+                chunks = await asyncio.to_thread(
+                    load_document,
+                    tmp_path,
+                    chunk_size=chunk_size,
+                    chunk_overlap=chunk_overlap,
+                )
                 await service.reindex_document(document_id, chunks)
                 logger.info("Background reindex completed for %s", document_id)
             finally:

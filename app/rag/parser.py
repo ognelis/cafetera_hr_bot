@@ -52,15 +52,17 @@ def _extract_sections(path: Path) -> list[tuple[str, str]]:
     return sections
 
 
-def load_docx(path: Path) -> list[LCDocument]:
+def load_docx(
+    path: Path, *, chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP
+) -> list[LCDocument]:
     """Parse a .docx file into chunked LangChain ``Document`` objects.
 
     Each chunk carries metadata: ``source`` (filename) and ``section``
     (nearest heading above the chunk).
     """
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
         separators=["\n\n", "\n", ". ", " "],
     )
 
@@ -83,7 +85,9 @@ def load_docx(path: Path) -> list[LCDocument]:
     return documents
 
 
-def load_doc(path: Path) -> list[LCDocument]:
+def load_doc(
+    path: Path, *, chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP
+) -> list[LCDocument]:
     """Parse a legacy .doc file into chunked LangChain ``Document`` objects.
 
     Since .doc files lack structured heading styles, the entire text is treated
@@ -93,8 +97,8 @@ def load_doc(path: Path) -> list[LCDocument]:
     (filename stem).
     """
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
         separators=["\n\n", "\n", ". ", " "],
     )
 
@@ -118,7 +122,9 @@ def load_doc(path: Path) -> list[LCDocument]:
 
 
 
-def load_document(path: Path) -> list[LCDocument]:
+def load_document(
+    path: Path, *, chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP
+) -> list[LCDocument]:
     """Parse a document file into chunked LangChain ``Document`` objects.
 
     Dispatches to the appropriate loader based on file extension:
@@ -130,8 +136,8 @@ def load_document(path: Path) -> list[LCDocument]:
     """
     suffix = path.suffix.lower()
     if suffix == ".docx":
-        return load_docx(path)
+        return load_docx(path, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     elif suffix == ".doc":
-        return load_doc(path)
+        return load_doc(path, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     else:
         raise ValueError(f"Unsupported file extension: {suffix}")

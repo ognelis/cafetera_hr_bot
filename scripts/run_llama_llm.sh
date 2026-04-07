@@ -1,12 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ── GPU detection ─────────────────────────────────────────────────────────
+detect_gpu() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    # macOS — Apple Silicon uses Metal automatically
+    if [[ "$(uname -m)" == "arm64" ]]; then
+      echo "metal"
+    else
+      echo "cpu"
+    fi
+  elif command -v nvidia-smi &>/dev/null; then
+    echo "cuda"
+  else
+    echo "cpu"
+  fi
+}
+
+DETECTED_GPU=$(detect_gpu)
+
+case "$DETECTED_GPU" in
+  metal|cuda) _DEFAULT_GPU_LAYERS=99 ;;
+  *)          _DEFAULT_GPU_LAYERS=0  ;;
+esac
+
 LLM_MODEL_PATH="${LLM_MODEL_PATH:-./models/Qwen3.5-4B-Q4_K_M.gguf}"
 LLM_MODEL_URL="${LLM_MODEL_URL:-https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf}"
 LLM_HOST="${LLM_HOST:-127.0.0.1}"
 LLM_PORT="${LLM_PORT:-8080}"
 LLM_CTX_SIZE="${LLM_CTX_SIZE:-4096}"
-LLM_N_GPU_LAYERS="${LLM_N_GPU_LAYERS:-0}"
+LLM_N_GPU_LAYERS="${LLM_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
 
 detect_cpu_count() {
   if command -v nproc >/dev/null 2>&1; then
@@ -63,7 +86,7 @@ echo "PORT=$LLM_PORT"
 echo "CTX_SIZE=$LLM_CTX_SIZE"
 echo "CPU_COUNT=$CPU_COUNT"
 echo "THREADS=$THREADS"
-echo "N_GPU_LAYERS=$LLM_N_GPU_LAYERS"
+echo "GPU: $DETECTED_GPU → offloading $LLM_N_GPU_LAYERS layers"
 
 exec llama-server \
   --model "$LLM_MODEL_PATH" \

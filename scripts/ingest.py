@@ -77,7 +77,9 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
 
     for path in all_files:
         logger.info("Processing %s ...", path.name)
-        raw_chunks = load_document(path)
+        raw_chunks = load_document(
+            path, chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap
+        )
         logger.info("  -> %d chunk(s)", len(raw_chunks))
 
         doc_id = uuid.uuid4().hex

@@ -1,6 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ── GPU detection ─────────────────────────────────────────────────────────
+detect_gpu() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    # macOS — Apple Silicon uses Metal automatically
+    if [[ "$(uname -m)" == "arm64" ]]; then
+      echo "metal"
+    else
+      echo "cpu"
+    fi
+  elif command -v nvidia-smi &>/dev/null; then
+    echo "cuda"
+  else
+    echo "cpu"
+  fi
+}
+
+DETECTED_GPU=$(detect_gpu)
+
+case "$DETECTED_GPU" in
+  metal|cuda) _DEFAULT_NUM_GPU=99 ;;
+  *)          _DEFAULT_NUM_GPU=0  ;;
+esac
+
+OLLAMA_NUM_GPU="${OLLAMA_NUM_GPU:-$_DEFAULT_NUM_GPU}"
+
 LLM_MODEL_NAME="${LLM_MODEL_NAME:-qwen3.5:4b-q4_K_M}"
 OLLAMA_HOST="${OLLAMA_HOST:-127.0.0.1:11434}"
 OLLAMA_BASE_URL="http://${OLLAMA_HOST}"
@@ -37,7 +62,8 @@ echo "Checking Ollama server at ${OLLAMA_BASE_URL}..."
 
 if ! curl -s "${OLLAMA_BASE_URL}/api/tags" >/dev/null 2>&1; then
   echo "Ollama server is not running. Starting it in background..."
-  OLLAMA_HOST="${OLLAMA_HOST}" ollama serve >/tmp/ollama.log 2>&1 &
+  echo "GPU: $DETECTED_GPU → OLLAMA_NUM_GPU=$OLLAMA_NUM_GPU"
+  OLLAMA_NUM_GPU="${OLLAMA_NUM_GPU}" OLLAMA_HOST="${OLLAMA_HOST}" ollama serve >/tmp/ollama.log 2>&1 &
   OLLAMA_PID=$!
 
   if ! wait_for_ollama; then

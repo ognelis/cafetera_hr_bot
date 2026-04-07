@@ -1,12 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ── GPU detection ─────────────────────────────────────────────────────────
+detect_gpu() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    # macOS — Apple Silicon uses Metal automatically
+    if [[ "$(uname -m)" == "arm64" ]]; then
+      echo "metal"
+    else
+      echo "cpu"
+    fi
+  elif command -v nvidia-smi &>/dev/null; then
+    echo "cuda"
+  else
+    echo "cpu"
+  fi
+}
+
+DETECTED_GPU=$(detect_gpu)
+
+case "$DETECTED_GPU" in
+  metal|cuda) _DEFAULT_GPU_LAYERS=99 ;;
+  *)          _DEFAULT_GPU_LAYERS=0  ;;
+esac
+
 EMBED_MODEL_PATH="${EMBED_MODEL_PATH:-./models/Qwen3-Embedding-4B-Q4_K_M.gguf}"
 EMBED_MODEL_URL="${EMBED_MODEL_URL:-https://huggingface.co/Qwen/Qwen3-Embedding-4B-GGUF/resolve/main/Qwen3-Embedding-4B-Q4_K_M.gguf}"
 EMBED_HOST="${EMBED_HOST:-127.0.0.1}"
 EMBED_PORT="${EMBED_PORT:-8090}"
 EMBED_CTX_SIZE="${EMBED_CTX_SIZE:-2048}"
-EMBED_N_GPU_LAYERS="${EMBED_N_GPU_LAYERS:-0}"
+EMBED_N_GPU_LAYERS="${EMBED_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
 
 detect_cpu_count() {
   if command -v nproc >/dev/null 2>&1; then
@@ -63,7 +86,7 @@ echo "PORT=$EMBED_PORT"
 echo "CTX_SIZE=$EMBED_CTX_SIZE"
 echo "CPU_COUNT=$CPU_COUNT"
 echo "THREADS=$THREADS"
-echo "N_GPU_LAYERS=$EMBED_N_GPU_LAYERS"
+echo "GPU: $DETECTED_GPU → offloading $EMBED_N_GPU_LAYERS layers"
 
 exec llama-server \
   --model "$EMBED_MODEL_PATH" \

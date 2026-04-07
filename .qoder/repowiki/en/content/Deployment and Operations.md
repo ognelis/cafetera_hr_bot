@@ -26,11 +26,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated to reflect new modular script architecture with run_admin.sh as centralized orchestration script
-- Updated llama.cpp and Ollama deployment scripts to specialized components (separate LLM and embeddings scripts)
-- Enhanced Docker Compose integration with comprehensive health checking
-- Updated embedding model configuration to use 'qwen3-embedding:4b-q4_K_M' default
-- Improved provider selection and dependency management through centralized orchestration
+- Enhanced error handling and verification in administration scripts with comprehensive model validation
+- Automated model downloading capabilities for llama.cpp providers with intelligent fallback mechanisms
+- Improved provider verification steps for Ollama and llamacpp providers with health checks and smoke tests
+- Strengthened dependency management with provider-specific extras and automated cleanup procedures
+- Enhanced monitoring and troubleshooting capabilities with detailed error reporting and fix suggestions
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -50,7 +50,7 @@
 ## Introduction
 This document provides comprehensive guidance for deploying and operating cafetera_hr_bot in production. It covers containerized infrastructure using Docker Compose, operational controls for VK bot long-polling versus webhook-based production operation, planned Telegram integration, and future webhook deployment. The system now supports multiple LLM providers including llama.cpp with optimized embedding capabilities crucial for Retrieval-Augmented Generation (RAG) functionality. The production server utilizes Hypercorn with HTTP/2 support, replacing Uvicorn for improved performance and modern protocol support. It also documents monitoring and logging strategies, secrets management, scaling approaches, performance optimization, disaster recovery planning, and practical deployment playbooks.
 
-**Updated**: The system now features a centralized orchestration script (run_admin.sh) that manages all deployment aspects including provider selection, dependency installation, infrastructure provisioning, and service coordination.
+**Updated**: The system now features a centralized orchestration script (run_admin.sh) with enhanced error handling, automated model verification, and comprehensive provider management capabilities that significantly improve deployment reliability and operational efficiency.
 
 ## Project Structure
 The repository organizes runtime concerns into layered modules with a new centralized orchestration approach:
@@ -108,7 +108,7 @@ Orchestrator --> OllamaEmbed
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 - [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
 - [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
-- [app/config.py:1-39](file://app/config.py#L1-L39)
+- [app/config.py:1-43](file://app/config.py#L1-L43)
 - [app/rag/retriever.py:1-103](file://app/rag/retriever.py#L1-L103)
 - [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
 - [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
@@ -122,7 +122,7 @@ Orchestrator --> OllamaEmbed
 **Section sources**
 - [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
 - [pyproject.toml:1-62](file://pyproject.toml#L1-L62)
-- [app/config.py:1-39](file://app/config.py#L1-L39)
+- [app/config.py:1-43](file://app/config.py#L1-L43)
 - [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
 - [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
 - [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
@@ -144,31 +144,31 @@ Orchestrator --> OllamaEmbed
 - Config: Pydantic Settings with environment file support and multiple LLM provider configuration.
 - Dev Long Poll Script: Local development entry-point for VK bot using long polling.
 - Hypercorn Server: Production-grade ASGI server with HTTP/2 support and configurable worker classes.
-- Centralized Orchestrator: run_admin.sh manages provider selection, dependency installation, infrastructure provisioning, and service coordination.
-- Specialized Deployment Scripts: Separate scripts for LLM and embedding servers for llama.cpp and Ollama providers.
+- Centralized Orchestrator: run_admin.sh manages provider selection, dependency installation, infrastructure provisioning, and service coordination with enhanced error handling.
+- Specialized Deployment Scripts: Separate scripts for LLM and embedding servers for llama.cpp and Ollama providers with automated model downloading and verification.
 - Modular Infrastructure: Docker Compose services with comprehensive health checking for Qdrant and MinIO.
 
-**Updated**: The centralized orchestrator (run_admin.sh) provides interactive provider selection, automated dependency management, and coordinated service startup for seamless deployment across different LLM providers.
+**Updated**: The centralized orchestrator (run_admin.sh) provides interactive provider selection, automated dependency management, comprehensive service startup with health checks, and robust error handling with detailed fix suggestions for seamless deployment across different LLM providers.
 
 **Section sources**
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
 - [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
-- [app/config.py:15-39](file://app/config.py#L15-L39)
+- [app/config.py:15-43](file://app/config.py#L15-L43)
 - [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
 - [scripts/admin_server.py:55-68](file://scripts/admin_server.py#L55-L68)
-- [scripts/run_llama_embeddings.sh:68-77](file://scripts/run_llama_embeddings.sh#L68-L77)
-- [scripts/run_llama_llm.sh:68-75](file://scripts/run_llama_llm.sh#L68-L75)
-- [scripts/run_ollama_embeddings.sh:64-73](file://scripts/run_ollama_embeddings.sh#L64-L73)
-- [scripts/run_ollama_llm.sh:64-74](file://scripts/run_ollama_llm.sh#L64-L74)
+- [scripts/run_llama_embeddings.sh:39-77](file://scripts/run_llama_embeddings.sh#L39-L77)
+- [scripts/run_llama_llm.sh:39-75](file://scripts/run_llama_llm.sh#L39-L75)
+- [scripts/run_ollama_embeddings.sh:26-73](file://scripts/run_ollama_embeddings.sh#L26-L73)
+- [scripts/run_ollama_llm.sh:26-74](file://scripts/run_ollama_llm.sh#L26-L74)
 - [scripts/run_admin.sh:100-181](file://scripts/run_admin.sh#L100-L181)
 - [AGENTS.md:16-18](file://AGENTS.md#L16-L18)
 - [PLAN.md:132-135](file://PLAN.md#L132-L135)
 
 ## Architecture Overview
-The system runs a VK bot with optional RAG capabilities backed by Qdrant and MinIO. The RAG system supports multiple embedding providers including llama.cpp with optimized server flags for document embedding tasks. In production, the VK bot operates via FastAPI webhook transport with Hypercorn server supporting HTTP/2; long polling is for local development only. The centralized orchestrator manages all deployment aspects and provider-specific configurations.
+The system runs a VK bot with optional RAG capabilities backed by Qdrant and MinIO. The RAG system supports multiple embedding providers including llama.cpp with optimized server flags for document embedding tasks. In production, the VK bot operates via FastAPI webhook transport with Hypercorn server supporting HTTP/2; long polling is for local development only. The centralized orchestrator manages all deployment aspects and provider-specific configurations with enhanced error handling and verification.
 
-**Updated**: The architecture now features modular deployment scripts that separate LLM and embedding server responsibilities, enabling more flexible and maintainable deployment configurations.
+**Updated**: The architecture now features modular deployment scripts that separate LLM and embedding server responsibilities, enabling more flexible and maintainable deployment configurations with automated model management and comprehensive verification.
 
 ```mermaid
 graph TB
@@ -212,7 +212,7 @@ Orchestrator --> OllamaEmbed
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
 - [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
-- [app/config.py:15-39](file://app/config.py#L15-L39)
+- [app/config.py:15-43](file://app/config.py#L15-L43)
 - [docker-compose.yml:2-34](file://docker-compose.yml#L2-L34)
 - [scripts/run_llama_embeddings.sh:68-77](file://scripts/run_llama_embeddings.sh#L68-L77)
 - [scripts/run_llama_llm.sh:68-75](file://scripts/run_llama_llm.sh#L68-L75)
@@ -232,20 +232,20 @@ Orchestrator --> OllamaEmbed
 
 ## Detailed Component Analysis
 
-### Centralized Orchestrator and Provider Management
-The run_admin.sh script serves as the central orchestration point, providing interactive provider selection, automated dependency management, and coordinated service startup.
+### Centralized Orchestrator and Enhanced Provider Management
+The run_admin.sh script serves as the central orchestration point, providing interactive provider selection, automated dependency management, comprehensive service startup with health checks, and robust error handling with detailed fix suggestions.
 
 ```mermaid
 flowchart TD
-Start(["run_admin.sh"]) --> PrereqCheck["Check Prerequisites<br/>docker, uv, .env"]
+Start(["run_admin.sh"]) --> PrereqCheck["Check Prerequisites<br/>docker, uv, .env<br/>Enhanced Error Handling"]
 PrereqCheck --> ProviderSelection["Interactive Provider Selection<br/>LLM & Embedding Providers"]
-ProviderSelection --> DependencySync["Sync Dependencies<br/>uv sync with extras"]
-DependencySync --> StartInfra["Start Infrastructure<br/>docker compose up -d"]
-StartInfra --> HealthChecks["Health Checks<br/>Qdrant & MinIO"]
-HealthChecks --> ProviderSetup["Setup Providers<br/>Ollama or llama.cpp"]
-ProviderSetup --> ModelManagement["Model Management<br/>Pull/Pull if needed"]
-ModelManagement --> StartupInfo["Display Startup Info<br/>UI URLs & Service Status"]
-StartupInfo --> AdminServer["Start Admin Server<br/>uv run python scripts/admin_server.py"]
+ProviderSelection --> DependencySync["Sync Dependencies<br/>uv sync with extras<br/>Automated Verification"]
+DependencySync --> StartInfra["Start Infrastructure<br/>docker compose up -d<br/>Health Checks Enabled"]
+StartInfra --> HealthChecks["Health Checks<br/>Qdrant & MinIO<br/>Comprehensive Monitoring"]
+HealthChecks --> ProviderSetup["Setup Providers<br/>Ollama or llama.cpp<br/>Enhanced Verification Steps"]
+ProviderSetup --> ModelManagement["Model Management<br/>Pull/Pull if needed<br/>Automated Download Capabilities"]
+ModelManagement --> StartupInfo["Display Startup Info<br/>UI URLs & Service Status<br/>Detailed Logs"]
+StartupInfo --> AdminServer["Start Admin Server<br/>uv run python scripts/admin_server.py<br/>Robust Error Handling"]
 ```
 
 **Diagram sources**
@@ -258,6 +258,72 @@ StartupInfo --> AdminServer["Start Admin Server<br/>uv run python scripts/admin_
 
 **Section sources**
 - [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
+
+### Enhanced Error Handling and Verification in Administration Scripts
+The administration scripts now feature comprehensive error handling, model verification, and automated cleanup procedures to ensure reliable deployment and operation.
+
+**Updated**: The run_admin.sh script includes enhanced error handling with detailed fix suggestions, comprehensive health checks, and automated model verification for both Ollama and llama.cpp providers.
+
+**Section sources**
+- [scripts/run_admin.sh:243-321](file://scripts/run_admin.sh#L243-L321)
+- [scripts/run_admin.sh:323-347](file://scripts/run_admin.sh#L323-L347)
+- [scripts/run_ollama_embeddings.sh:26-73](file://scripts/run_ollama_embeddings.sh#L26-L73)
+- [scripts/run_ollama_llm.sh:26-74](file://scripts/run_ollama_llm.sh#L26-L74)
+- [scripts/run_llama_embeddings.sh:39-77](file://scripts/run_llama_embeddings.sh#L39-L77)
+- [scripts/run_llama_llm.sh:39-75](file://scripts/run_llama_llm.sh#L39-L75)
+
+### Automated Model Downloading Capabilities for llama.cpp Providers
+The llama.cpp deployment scripts now include intelligent model downloading with fallback mechanisms and progress indicators for improved user experience.
+
+**Updated**: Both run_llama_embeddings.sh and run_llama_llm.sh scripts now feature automated model downloading capabilities with curl/wget fallback support, progress indicators, and comprehensive error handling for model acquisition failures.
+
+```mermaid
+flowchart TD
+ModelCheck["Check Model File<br/>run_llama_embeddings.sh"] --> ModelExists{"Model Exists?"}
+ModelExists --> |Yes| StartServer["Start llama-server<br/>with embedding flags"]
+ModelExists --> |No| DownloadModel["Download Model<br/>curl/wget fallback"]
+DownloadModel --> DownloadSuccess{"Download Success?"}
+DownloadSuccess --> |Yes| StartServer
+DownloadSuccess --> |No| ErrorExit["Error: Download Failed<br/>Exit with detailed message"]
+StartServer --> ServerReady["Server Ready<br/>Verification Steps"]
+```
+
+**Diagram sources**
+- [scripts/run_llama_embeddings.sh:39-77](file://scripts/run_llama_embeddings.sh#L39-L77)
+- [scripts/run_llama_llm.sh:39-75](file://scripts/run_llama_llm.sh#L39-L75)
+
+**Section sources**
+- [scripts/run_llama_embeddings.sh:39-77](file://scripts/run_llama_embeddings.sh#L39-L77)
+- [scripts/run_llama_llm.sh:39-75](file://scripts/run_llama_llm.sh#L39-L75)
+
+### Enhanced Provider Verification Steps for Ollama and llamacpp
+Both Ollama and llama.cpp providers now include comprehensive verification steps with health checks, model validation, and smoke tests to ensure reliable operation.
+
+**Updated**: The provider verification system now includes health checks, model validation, and smoke tests for both Ollama and llama.cpp providers, with detailed error reporting and fix suggestions.
+
+```mermaid
+flowchart TD
+ProviderCheck["Provider Check<br/>start_ollama_providers"] --> OllamaCheck{"Ollama Running?"}
+OllamaCheck --> |No| StartOllama["Start Ollama Server<br/>Background Process"]
+StartOllama --> HealthCheck["Health Check<br/>wait_for_service"]
+HealthCheck --> ModelPull["Pull Models<br/>LLM & Embedding"]
+ModelPull --> VerifyModels["Verify Models<br/>ollama list validation"]
+VerifyModels --> ModelsReady["Models Ready<br/>Detailed Logging"]
+ProviderCheck2["Provider Check<br/>start_llamacpp_providers"] --> LlamaCheck{"llama-server Available?"}
+LlamaCheck --> |No| ErrorLlama["Error: llama-server not found<br/>Exit with fix suggestion"]
+LlamaCheck --> |Yes| CheckServers["Check LLM & Embedding Servers"]
+CheckServers --> VerifyLLM["Verify LLM Server<br/>curl -sf /v1/models"]
+VerifyLLM --> VerifyEmbed["Verify Embedding Server<br/>curl -sf /v1/models"]
+VerifyEmbed --> ServersReady["Servers Ready<br/>Model Verification"]
+```
+
+**Diagram sources**
+- [scripts/run_admin.sh:223-286](file://scripts/run_admin.sh#L223-L286)
+- [scripts/run_admin.sh:288-347](file://scripts/run_admin.sh#L288-L347)
+
+**Section sources**
+- [scripts/run_admin.sh:223-286](file://scripts/run_admin.sh#L223-L286)
+- [scripts/run_admin.sh:288-347](file://scripts/run_admin.sh#L288-L347)
 
 ### VK Bot Factory and Handler Registration
 The VK bot factory constructs a Bot instance and loads labelers in a specific order to ensure the fallback handler captures unmatched messages last.
@@ -297,13 +363,13 @@ BotFactory --> Settings : "reads"
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
 - [app/integrations/vk/handlers/start.py:12-55](file://app/integrations/vk/handlers/start.py#L12-L55)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
-- [app/config.py:15-39](file://app/config.py#L15-L39)
+- [app/config.py:15-43](file://app/config.py#L15-L43)
 
 **Section sources**
 - [app/integrations/vk/bot.py:14-56](file://app/integrations/vk/bot.py#L14-L56)
 - [app/integrations/vk/handlers/start.py:12-55](file://app/integrations/vk/handlers/start.py#L12-L55)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
-- [app/config.py:15-39](file://app/config.py#L15-L39)
+- [app/config.py:15-43](file://app/config.py#L15-L43)
 
 ### Hypercorn Server Configuration and HTTP/2 Support
 The production server uses Hypercorn with HTTP/2 support, providing improved performance and modern protocol features compared to Uvicorn.
@@ -327,62 +393,71 @@ ServeHTTP2 --> Ready(["Ready for production"])
 **Section sources**
 - [scripts/admin_server.py:1-74](file://scripts/admin_server.py#L1-L74)
 
-### Modular Llama.cpp Deployment Architecture
-The llama.cpp deployment now uses specialized scripts for LLM and embedding servers, each with optimized configurations for their specific roles.
+### Modular Llama.cpp Deployment Architecture with Enhanced Features
+The llama.cpp deployment now uses specialized scripts for LLM and embedding servers, each with optimized configurations, automated model downloading, and comprehensive verification capabilities.
+
+**Updated**: The llama.cpp deployment scripts now include automated model downloading with curl/wget fallback support, progress indicators, and comprehensive error handling for improved user experience and reliability.
 
 ```mermaid
 flowchart TD
 Start(["run_llama_qwen.sh"]) --> SplitScripts["Split into Specialized Scripts"]
-SplitScripts --> Embeddings["run_llama_embeddings.sh<br/>--embedding --pooling mean"]
-SplitScripts --> LLM["run_llama_llm.sh<br/>--no-embedding"]
-Embeddings --> EmbeddingFlag["--embedding flag enabled"]
-Embeddings --> PoolingMean["--pooling mean for document embeddings"]
+SplitScripts --> Embeddings["run_llama_embeddings.sh<br/>--embedding --pooling mean<br/>Automated Model Download"]
+SplitScripts --> LLM["run_llama_llm.sh<br/>--no-embedding<br/>Automated Model Download"]
+Embeddings --> ModelCheck["Check Model File<br/>Download if Missing"]
+ModelCheck --> DownloadSuccess{"Download Success?"}
+DownloadSuccess --> |Yes| EmbeddingFlag["--embedding flag enabled"]
+DownloadSuccess --> |No| ErrorExit["Error: Download Failed"]
+EmbeddingFlag --> PoolingMean["--pooling mean for document embeddings"]
 LLM --> NoEmbedding["--no-embedding flag for inference"]
-EmbeddingFlag --> Ready(["Ready for RAG operations"])
-PoolingMean --> Ready
-NoEmbedding --> Ready
+NoEmbedding --> ModelCheck2["Check Model File<br/>Download if Missing"]
+PoolingMean --> Ready(["Ready for RAG operations"])
+ModelCheck2 --> Ready
 ```
 
 **Diagram sources**
 - [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
-- [scripts/run_llama_embeddings.sh:68-77](file://scripts/run_llama_embeddings.sh#L68-L77)
-- [scripts/run_llama_llm.sh:68-75](file://scripts/run_llama_llm.sh#L68-L75)
+- [scripts/run_llama_embeddings.sh:39-77](file://scripts/run_llama_embeddings.sh#L39-L77)
+- [scripts/run_llama_llm.sh:39-75](file://scripts/run_llama_llm.sh#L39-L75)
 
 **Section sources**
 - [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
 - [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
 - [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
 
-### Modular Ollama Deployment Architecture
-The Ollama deployment uses specialized scripts for LLM and embedding servers, with automatic model management and verification.
+### Modular Ollama Deployment Architecture with Comprehensive Verification
+The Ollama deployment uses specialized scripts for LLM and embedding servers, with automatic model management, verification, and comprehensive error handling.
+
+**Updated**: The Ollama deployment scripts now include comprehensive model verification, health checks, and detailed error reporting with fix suggestions for improved reliability and user experience.
 
 ```mermaid
 flowchart TD
 Start(["run_ollama_qwen.sh"]) --> SplitScripts["Split into Specialized Scripts"]
-SplitScripts --> Embeddings["run_ollama_embeddings.sh<br/>Model: qwen3-embedding:4b-q4_K_M"]
-SplitScripts --> LLM["run_ollama_llm.sh<br/>Model: qwen3.5:4b-q4_K_M"]
-Embeddings --> CheckOllama["Check Ollama Server"]
-CheckOllama --> PullModel["Pull Embedding Model if needed"]
-PullModel --> VerifyEmbedding["Verify Embedding Model"]
-LLM --> CheckOllama2["Check Ollama Server"]
-CheckOllama2 --> PullModel2["Pull LLM Model if needed"]
-PullModel2 --> VerifyLLM["Verify LLM Model"]
-VerifyEmbedding --> Ready(["Ready for RAG operations"])
+SplitScripts --> Embeddings["run_ollama_embeddings.sh<br/>Model: qwen3-embedding:4b-q4_K_M<br/>Health Check & Verification"]
+SplitScripts --> LLM["run_ollama_llm.sh<br/>Model: qwen3.5:4b-q4_K_M<br/>Health Check & Verification"]
+Embeddings --> CheckOllama["Check Ollama Server<br/>wait_for_ollama Function"]
+CheckOllama --> PullModel["Pull Embedding Model if needed<br/>ollama pull"]
+PullModel --> VerifyEmbedding["Verify Embedding Model<br/>ollama list validation"]
+LLM --> CheckOllama2["Check Ollama Server<br/>wait_for_ollama Function"]
+CheckOllama2 --> PullModel2["Pull LLM Model if needed<br/>ollama pull"]
+PullModel2 --> VerifyLLM["Verify LLM Model<br/>ollama list validation"]
+VerifyEmbedding --> Ready(["Ready for RAG operations<br/>Detailed Logging"])
 VerifyLLM --> Ready
 ```
 
 **Diagram sources**
 - [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
-- [scripts/run_ollama_embeddings.sh:54-61](file://scripts/run_ollama_embeddings.sh#L54-L61)
-- [scripts/run_ollama_llm.sh:54-61](file://scripts/run_ollama_llm.sh#L54-L61)
+- [scripts/run_ollama_embeddings.sh:12-73](file://scripts/run_ollama_embeddings.sh#L12-L73)
+- [scripts/run_ollama_llm.sh:12-74](file://scripts/run_ollama_llm.sh#L12-L74)
 
 **Section sources**
 - [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
 - [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
 - [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
 
-### LLM Provider Configuration and Embedding Selection
-The system supports multiple LLM providers with automatic embedding model selection based on configuration. The default embedding model is now 'qwen3-embedding:4b-q4_K_M'.
+### LLM Provider Configuration and Enhanced Embedding Selection
+The system supports multiple LLM providers with automatic embedding model selection based on configuration. The default embedding model is now 'qwen3-embedding:4b-q4_K_M' with enhanced verification capabilities.
+
+**Updated**: The embedding configuration now includes enhanced verification steps and comprehensive error handling for model validation and provider compatibility.
 
 ```mermaid
 classDiagram
@@ -397,19 +472,23 @@ class Settings {
 }
 class EmbeddingFactory {
 +build_embeddings(settings) Embeddings
++enhanced_verification(settings) Embeddings
 }
 class LlamaCppProvider {
 +OpenAIEmbeddings with llama.cpp
 +Custom base_url http : //localhost : 8090/v1
 +Default model : qwen3-embedding
++Enhanced Error Handling
 }
 class OllamaProvider {
 +OllamaEmbeddings with custom base_url
 +Default model : qwen3-embedding : 4b-q4_K_M
++Health Checks & Verification
 }
 class OpenAIProvider {
 +OpenAIEmbeddings with API key
 +Default model : text-embedding-3-small
++Import Error Handling
 }
 Settings --> EmbeddingFactory : "provides config"
 EmbeddingFactory --> LlamaCppProvider : "when embedding_provider='llamacpp'"
@@ -418,11 +497,11 @@ EmbeddingFactory --> OpenAIProvider : "when embedding_provider='openai'"
 ```
 
 **Diagram sources**
-- [app/config.py:15-39](file://app/config.py#L15-L39)
+- [app/config.py:15-43](file://app/config.py#L15-L43)
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 
 **Section sources**
-- [app/config.py:15-39](file://app/config.py#L15-L39)
+- [app/config.py:15-43](file://app/config.py#L15-L43)
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 
 ### VK Long Polling Development Flow
@@ -444,24 +523,26 @@ Note over Script,Bot : "Long polling loop for VK updates"
 
 **Diagram sources**
 - [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
-- [app/config.py:15-39](file://app/config.py#L15-L39)
+- [app/config.py:15-43](file://app/config.py#L15-L43)
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
 
 **Section sources**
 - [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
-- [app/config.py:15-39](file://app/config.py#L15-L39)
+- [app/config.py:15-43](file://app/config.py#L15-L43)
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
 
 ### Enhanced Containerized Infrastructure Setup
 Docker Compose provisions Qdrant and MinIO with comprehensive health checks and persistent volumes.
 
+**Updated**: The Docker Compose configuration now includes comprehensive health checks with retry mechanisms, start periods, and detailed monitoring capabilities for improved infrastructure reliability.
+
 ```mermaid
 flowchart TD
 Start(["Compose Up"]) --> Services["Start qdrant and minio"]
-Services --> Health["Health checks enabled<br/>Qdrant: /healthz<br/>MinIO: /minio/health/live"]
+Services --> Health["Health checks enabled<br/>Qdrant: /healthz<br/>MinIO: /minio/health/live<br/>Retry Mechanisms"]
 Health --> Ports["Expose ports:<br/>Qdrant 6333,6334<br/>MinIO 9000,9001"]
 Ports --> Volumes["Bind volumes:<br/>qdrant_storage<br/>minio_data"]
-Volumes --> Ready(["Infra Ready"])
+Volumes --> Ready(["Infra Ready<br/>Comprehensive Monitoring"])
 ```
 
 **Diagram sources**
@@ -473,7 +554,7 @@ Volumes --> Ready(["Infra Ready"])
 ## Dependency Analysis
 External dependencies include FastAPI, Hypercorn, LangChain stack, Qdrant client, VK and Telegram adapters, and testing tools. Optional extras enable Ollama or OpenAI-compatible LLMs. The system now supports llama.cpp with optimized embedding server flags and uses Hypercorn as the production ASGI server instead of Uvicorn.
 
-**Updated**: The centralized orchestrator manages dependency installation through uv sync with provider-specific extras, eliminating manual dependency management complexity.
+**Updated**: The centralized orchestrator manages dependency installation through uv sync with provider-specific extras, eliminates manual dependency management complexity, and includes comprehensive error handling for dependency resolution failures.
 
 ```mermaid
 graph LR
@@ -517,7 +598,8 @@ App --> Uv
 - **Updated**: Monitor HTTP/2 connection metrics including stream concurrency, connection reuse, and multiplexing efficiency.
 - **Updated**: The modular llama.cpp deployment allows separate optimization of LLM inference and embedding servers for better resource utilization.
 - **Updated**: Enhanced Docker Compose health checking ensures reliable infrastructure provisioning and faster failure detection.
-- **Updated**: Centralized orchestrator provides optimized startup sequences and dependency management for improved deployment performance.
+- **Updated**: Centralized orchestrator provides optimized startup sequences, comprehensive dependency management, and robust error handling for improved deployment performance.
+- **Updated**: Automated model downloading capabilities eliminate manual intervention and reduce deployment downtime.
 
 ## Monitoring and Logging
 - Logging: Configure structured logging at INFO level for operational visibility. Use consistent log formatting and include correlation IDs where applicable.
@@ -528,7 +610,8 @@ App --> Uv
 - **Updated**: Monitor Hypercorn HTTP/2 performance metrics including active connections, concurrent streams, and connection pooling efficiency.
 - **Updated**: Track HTTP/2 stream statistics and connection reuse rates to optimize server configuration.
 - **Updated**: Monitor llama.cpp embedding server performance including memory usage, GPU utilization, and embedding throughput for RAG operations.
-- **Updated**: The centralized orchestrator provides comprehensive service status monitoring and automated cleanup on shutdown.
+- **Updated**: The centralized orchestrator provides comprehensive service status monitoring, automated cleanup on shutdown, and detailed error reporting with fix suggestions.
+- **Updated**: Enhanced provider verification includes health checks, model validation, and smoke tests for improved observability.
 
 ## Security Considerations
 - Secrets management: Store all secrets in environment variables managed by pydantic-settings. Provide a template file with placeholders (.env.example) and never commit secrets.
@@ -539,7 +622,8 @@ App --> Uv
 - **Updated**: Secure Hypercorn server with proper TLS configuration and HTTP/2 security headers for production deployments.
 - **Updated**: Monitor HTTP/2 connections for security compliance and detect potential abuse patterns.
 - **Updated**: Secure llama.cpp embedding server with proper network isolation and access controls for production deployments.
-- **Updated**: The centralized orchestrator enforces ADMIN_API_KEY requirement and provides secure service coordination.
+- **Updated**: The centralized orchestrator enforces ADMIN_API_KEY requirement, provides secure service coordination, and includes comprehensive error handling for security-related issues.
+- **Updated**: Enhanced provider verification includes health checks and model validation to prevent deployment of compromised or incompatible models.
 
 ## Scaling Approaches
 - Horizontal scaling: Run multiple replicas behind a load balancer; ensure stateless workers and shared storage/backends.
@@ -550,6 +634,7 @@ App --> Uv
 - **Updated**: Configure appropriate h2_max_concurrent_streams values based on workload characteristics and available resources.
 - **Updated**: Scale llama.cpp embedding server horizontally if embedding workload exceeds single instance capacity; monitor embedding queue depth and processing latency.
 - **Updated**: The modular deployment architecture enables independent scaling of LLM and embedding services based on workload characteristics.
+- **Updated**: Enhanced error handling and verification capabilities enable more reliable scaling operations with automated failover and recovery.
 
 ## Production Deployment Playbooks
 
@@ -577,10 +662,11 @@ App --> Uv
 - Rotate secrets regularly and invalidate old keys after migration.
 - **Updated**: Configure llamacpp provider settings including llm_provider='llamacpp', llm_base_url='http://localhost:8080', and embedding_model='qwen3-embedding'.
 - **Updated**: Set up Hypercorn configuration with appropriate worker class and HTTP/2 settings for production deployment.
-- **Updated**: The centralized orchestrator manages provider-specific configurations and ensures proper model setup.
+- **Updated**: The centralized orchestrator manages provider-specific configurations, ensures proper model setup, and includes comprehensive error handling.
+- **Updated**: Enhanced error handling includes detailed fix suggestions and automated recovery procedures for common configuration issues.
 
 **Section sources**
-- [app/config.py:15-39](file://app/config.py#L15-L39)
+- [app/config.py:15-43](file://app/config.py#L15-L43)
 - [AGENTS.md:20-50](file://AGENTS.md#L20-L50)
 - [scripts/admin_server.py:55-68](file://scripts/admin_server.py#L55-L68)
 - [scripts/run_admin.sh:100-181](file://scripts/run_admin.sh#L100-L181)
@@ -590,20 +676,40 @@ App --> Uv
 - Backups: Snapshot Qdrant storage and MinIO buckets; automate and test restore procedures.
 - Maintenance windows: Schedule updates during low-traffic periods; use blue/green deployments.
 - **Updated**: Monitor and manage Hypercorn server lifecycle, including automatic restarts, HTTP/2 connection monitoring, and worker class optimization.
-- **Updated**: Monitor and manage llama.cpp embedding server lifecycle, including automatic restarts and resource monitoring.
-- **Updated**: The centralized orchestrator provides automated cleanup and graceful shutdown procedures.
+- **Updated**: Monitor and manage llama.cpp embedding server lifecycle, including automatic restarts, resource monitoring, and model verification.
+- **Updated**: The centralized orchestrator provides automated cleanup, graceful shutdown procedures, and comprehensive error handling for operational tasks.
+- **Updated**: Enhanced provider verification includes health checks, model validation, and automated recovery procedures for improved operational reliability.
 
 ### Centralized Orchestrator Deployment
 - Install prerequisites: Docker, uv, and Python 3.11+.
 - Configure .env file with required settings including ADMIN_API_KEY.
 - Run the centralized orchestrator: `./scripts/run_admin.sh`.
-- The orchestrator will handle provider selection, dependency management, infrastructure provisioning, and service coordination.
+- The orchestrator will handle provider selection, dependency management, infrastructure provisioning, service coordination, and comprehensive error handling.
+
+**Updated**: The centralized orchestrator now includes enhanced error handling with detailed fix suggestions, comprehensive health checks, automated model verification, and robust cleanup procedures for reliable production operations.
 
 **Section sources**
 - [scripts/run_admin.sh:69-98](file://scripts/run_admin.sh#L69-L98)
 - [scripts/run_admin.sh:183-200](file://scripts/run_admin.sh#L183-L200)
 - [scripts/run_admin.sh:202-221](file://scripts/run_admin.sh#L202-L221)
 - [scripts/run_admin.sh:365-385](file://scripts/run_admin.sh#L365-L385)
+
+### Enhanced Error Handling and Verification Procedures
+- Implement comprehensive error handling with detailed fix suggestions for common deployment issues.
+- Configure health checks for all services with appropriate retry mechanisms and timeouts.
+- Set up automated model verification for Ollama and llama.cpp providers.
+- Establish monitoring and alerting for critical system components.
+- **Updated**: The orchestrator now includes enhanced error handling with detailed fix suggestions, comprehensive health checks, and automated recovery procedures.
+- **Updated**: Provider verification includes health checks, model validation, and smoke tests for improved reliability.
+- **Updated**: Automated model downloading capabilities eliminate manual intervention and reduce deployment downtime.
+
+**Section sources**
+- [scripts/run_admin.sh:243-321](file://scripts/run_admin.sh#L243-L321)
+- [scripts/run_admin.sh:323-347](file://scripts/run_admin.sh#L323-L347)
+- [scripts/run_ollama_embeddings.sh:26-73](file://scripts/run_ollama_embeddings.sh#L26-L73)
+- [scripts/run_ollama_llm.sh:26-74](file://scripts/run_ollama_llm.sh#L26-L74)
+- [scripts/run_llama_embeddings.sh:39-77](file://scripts/run_llama_embeddings.sh#L39-L77)
+- [scripts/run_llama_llm.sh:39-75](file://scripts/run_llama_llm.sh#L39-L75)
 
 ### Hypercorn Server Configuration
 - Install Hypercorn as the production ASGI server (version >= 0.18.0).
@@ -616,25 +722,29 @@ App --> Uv
 - [pyproject.toml:9](file://pyproject.toml#L9)
 - [scripts/admin_server.py:55-68](file://scripts/admin_server.py#L55-L68)
 
-### Modular Llama.cpp Deployment
+### Enhanced Modular Llama.cpp Deployment
 - Install llama.cpp and ensure llama-server binary is available in PATH.
 - Use specialized scripts for LLM and embedding servers:
   - LLM inference: `./scripts/run_llama_llm.sh`
   - Embedding: `./scripts/run_llama_embeddings.sh`
 - Configure HOST, PORT, CTX_SIZE, N_GPU_LAYERS, and THREADS environment variables as needed.
 - Start servers with optimized flags for their specific roles.
+- **Updated**: The scripts now include automated model downloading with curl/wget fallback support, progress indicators, and comprehensive error handling.
+- **Updated**: Enhanced verification includes model validation and smoke tests for improved reliability.
 
 **Section sources**
 - [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
 - [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
 
-### Modular Ollama Deployment
+### Enhanced Modular Ollama Deployment
 - Install Ollama and ensure it's available in PATH.
 - Use specialized scripts for LLM and embedding servers:
   - LLM inference: `./scripts/run_ollama_llm.sh`
   - Embedding: `./scripts/run_ollama_embeddings.sh`
-- The scripts automatically handle model pulling and verification.
+- The scripts automatically handle model pulling, verification, and comprehensive error handling.
 - Configure OLLAMA_HOST environment variable if using a different host/port.
+- **Updated**: The scripts now include comprehensive health checks, model verification, and detailed error reporting with fix suggestions.
+- **Updated**: Enhanced verification includes model validation and smoke tests for improved reliability.
 
 **Section sources**
 - [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
@@ -651,6 +761,7 @@ App --> Uv
 - Qdrant or MinIO unhealthy:
   - Review health check endpoints and logs.
   - Check volume mounts and disk space.
+  - Verify Docker Compose health checks are functioning properly.
 - Slow responses:
   - Profile vector search and LLM calls; optimize prompts and chunk sizes.
 - **Updated**: Hypercorn HTTP/2 connection issues:
@@ -664,26 +775,34 @@ App --> Uv
   - Monitor server logs for embedding initialization errors.
   - Ensure sufficient memory allocation for embedding operations.
   - Verify --embedding and --pooling mean flags are properly configured.
+  - Check automated model download logs for download failures.
 - **Updated**: Centralized orchestrator issues:
   - Check prerequisite installation (docker, uv).
   - Verify .env file exists and contains required settings.
-  - Review orchestrator logs for detailed error messages.
+  - Review orchestrator logs for detailed error messages with fix suggestions.
   - Ensure proper provider selection and dependency installation.
-- **Updated**: Provider-specific deployment issues:
-  - For Ollama: Verify server is running and models are properly pulled.
+  - Check automated cleanup procedures for proper shutdown.
+- **Updated**: Enhanced provider-specific deployment issues:
+  - For Ollama: Verify server is running and models are properly pulled with verification.
   - For llama.cpp: Check model file downloads and server startup logs.
   - Ensure separate LLM and embedding servers are properly configured.
+  - Verify automated model verification and health checks are functioning.
+- **Updated**: Automated model downloading failures:
+  - Check curl/wget availability for model downloads.
+  - Verify network connectivity to model repositories.
+  - Check disk space for model storage.
+  - Review download logs for specific error messages.
 
 **Section sources**
 - [scripts/polling_vk.py:17-38](file://scripts/polling_vk.py#L17-L38)
 - [docker-compose.yml:11-16](file://docker-compose.yml#L11-L16)
 - [AGENTS.md:16-18](file://AGENTS.md#L16-L18)
-- [scripts/run_llama_embeddings.sh:33-57](file://scripts/run_llama_embeddings.sh#L33-L57)
-- [scripts/run_ollama_embeddings.sh:26-52](file://scripts/run_ollama_embeddings.sh#L26-L52)
+- [scripts/run_llama_embeddings.sh:39-77](file://scripts/run_llama_embeddings.sh#L39-L77)
+- [scripts/run_ollama_embeddings.sh:26-73](file://scripts/run_ollama_embeddings.sh#L26-L73)
 - [scripts/admin_server.py:55-68](file://scripts/admin_server.py#L55-L68)
 - [scripts/run_admin.sh:69-98](file://scripts/run_admin.sh#L69-L98)
 
 ## Conclusion
-cafetera_hr_bot is designed for production-grade operations with a clear separation between VK bot orchestration, RAG infrastructure, and storage. The system now features a centralized orchestration approach through run_admin.sh that manages provider selection, dependency installation, infrastructure provisioning, and service coordination. The system supports multiple LLM providers including llama.cpp with optimized embedding capabilities for enhanced RAG functionality. The production server utilizes Hypercorn with HTTP/2 support, providing improved performance and modern protocol features compared to traditional ASGI servers. The modular deployment architecture enables flexible and maintainable configurations for different provider setups. By adopting webhook-based transport, securing secrets, monitoring health, implementing robust scaling and backup strategies, properly managing the llama.cpp embedding server, and optimizing Hypercorn HTTP/2 configuration, teams can operate the bot reliably in production while preparing for future Telegram integration and advanced webhook deployments.
+cafetera_hr_bot is designed for production-grade operations with a clear separation between VK bot orchestration, RAG infrastructure, and storage. The system now features a centralized orchestration approach through run_admin.sh that manages provider selection, dependency installation, infrastructure provisioning, service coordination, and comprehensive error handling. The system supports multiple LLM providers including llama.cpp with optimized embedding capabilities for enhanced RAG functionality. The production server utilizes Hypercorn with HTTP/2 support, providing improved performance and modern protocol features compared to traditional ASGI servers. The modular deployment architecture enables flexible and maintainable configurations for different provider setups. By adopting webhook-based transport, securing secrets, monitoring health, implementing robust scaling and backup strategies, properly managing the llama.cpp embedding server with automated model downloading, and optimizing Hypercorn HTTP/2 configuration, teams can operate the bot reliably in production while preparing for future Telegram integration and advanced webhook deployments.
 
-**Updated**: The centralized orchestrator significantly simplifies deployment complexity, automates provider-specific configurations, and provides comprehensive service management capabilities for reliable production operations.
+**Updated**: The centralized orchestrator significantly simplifies deployment complexity, automates provider-specific configurations, provides comprehensive service management capabilities, and includes enhanced error handling with detailed fix suggestions for reliable production operations. The enhanced error handling, verification, and automated model downloading capabilities ensure improved deployment reliability and operational efficiency.

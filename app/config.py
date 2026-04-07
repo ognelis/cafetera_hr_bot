@@ -36,3 +36,7 @@ class Settings(BaseSettings):
 
     # Indexing concurrency
     max_concurrent_indexing: int = 2
+
+    # Chunking (smaller chunks = faster embedding on local models)
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
