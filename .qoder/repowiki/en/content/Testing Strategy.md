@@ -11,13 +11,13 @@
 - [tests/test_entities.py](file://tests/test_entities.py)
 - [tests/test_rag_stub_block3.py](file://tests/test_rag_stub_block3.py)
 - [tests/test_rag_block6.py](file://tests/test_rag_block6.py)
+- [tests/test_parser.py](file://tests/test_parser.py)
 - [tests/test_qa_service.py](file://tests/test_qa_service.py)
 - [tests/test_rules.py](file://tests/test_rules.py)
 - [tests/test_states.py](file://tests/test_states.py)
 - [tests/test_ask_block9.py](file://tests/test_ask_block9.py)
 - [tests/test_storage.py](file://tests/test_storage.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
-- [tests/test_parser.py](file://tests/test_parser.py)
 - [app/api/documents.py](file://app/api/documents.py)
 - [app/api/deps.py](file://app/api/deps.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
@@ -45,10 +45,12 @@
 - [templates/login.html](file://templates/login.html)
 - [templates/documents.html](file://templates/documents.html)
 - [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
+- [scripts/admin_server.py](file://scripts/admin_server.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
+- Updated embedding model default configuration from 'nomic-embed-text' to 'qwen3-embedding:4b-q4_K_M'
 - Enhanced test infrastructure with comprehensive parser testing covering .docx and .doc file processing validation
 - Added new tests/test_parser.py containing 93 lines of unit tests for parser functionality
 - Integrated parser testing with dispatcher testing for file extension handling
@@ -211,9 +213,9 @@ SCRIPTS --> RUN_LLAMA
 - [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
 - [app/storage/document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
 - [app/rag/parser.py:1-138](file://app/rag/parser.py#L1-L138)
-- [app/config.py:1-23](file://app/config.py#L1-L23)
+- [app/config.py:1-39](file://app/config.py#L1-L39)
 - [app/rag/chain.py:1-95](file://app/rag/chain.py#L1-L95)
-- [app/rag/retriever.py:1-88](file://app/rag/retriever.py#L1-L88)
+- [app/rag/retriever.py:1-103](file://app/rag/retriever.py#L1-L103)
 - [app/api/documents.py:1-200](file://app/api/documents.py#L1-L200)
 - [app/api/deps.py:1-51](file://app/api/deps.py#L1-L51)
 - [templates/login.html:1-56](file://templates/login.html#L1-L56)
@@ -344,7 +346,7 @@ Best practices:
 - Prefer explicit Settings construction with `_env_file=None` for deterministic tests that don't rely on external environment files.
 - Use monkeypatch for environment variable testing to avoid modifying system-wide environment.
 
-**Updated** Enhanced with explicit `_env_file=None` parameter usage for improved test isolation and reliability. This prevents tests from accidentally loading environment files from the project directory, ensuring consistent and predictable test behavior.
+**Updated** Enhanced with explicit `_env_file=None` parameter usage for improved test isolation and reliability. This prevents tests from accidentally loading environment files from the project directory, ensuring consistent and predictable test behavior. The embedding model default is now verified to be 'qwen3-embedding:4b-q4_K_M' instead of 'nomic-embed-text'.
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
@@ -788,6 +790,36 @@ Testing patterns:
 - [app/rag/chain.py:47-60](file://app/rag/chain.py#L47-L60)
 - [app/rag/retriever.py:38-50](file://app/rag/retriever.py#L38-L50)
 
+### Embedding Model Configuration Testing
+**New Section** - Testing coverage for embedding model configuration changes
+
+Purpose:
+- Validate the new default embedding model 'qwen3-embedding:4b-q4_K_M'.
+- Test embedding model selection across different providers (ollama, openai, llamacpp).
+- Ensure backward compatibility with previous embedding model configurations.
+- Validate embedding model parameter handling in retriever module.
+
+Methodology:
+- Test Settings embedding_model default value is 'qwen3-embedding:4b-q4_K_M'.
+- Test embedding model selection for ollama provider with 'qwen3-embedding:4b-q4_K_M'.
+- Test embedding model selection for openai provider with 'text-embedding-3-small'.
+- Test embedding model selection for llamacpp provider with 'qwen3-embedding'.
+- Validate embedding model parameter is passed correctly to embedding functions.
+- Test error handling for missing embedding models in different providers.
+
+Testing patterns:
+- Use Settings constructor with explicit overrides for provider-specific testing.
+- Validate embedding model parameter in build_embeddings function.
+- Test provider-specific embedding model defaults and overrides.
+- Validate error messages for missing dependencies in different providers.
+
+**Updated** Added comprehensive embedding model configuration testing to validate the change from 'nomic-embed-text' to 'qwen3-embedding:4b-q4_K_M' as the new default embedding model, with provider-specific model validation and error handling scenarios.
+
+**Section sources**
+- [tests/test_rag_block6.py:50-53](file://tests/test_rag_block6.py#L50-L53)
+- [app/config.py:22-25](file://app/config.py#L22-L25)
+- [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
+
 ## Dependency Analysis
 The test suite depends on:
 - pytest and pytest-asyncio for async-friendly test execution.
@@ -804,6 +836,7 @@ The test suite depends on:
 - **Cookie-based authentication testing infrastructure.**
 - **TemporaryDirectory fixtures for parser testing with isolated file operations.**
 - **Patch decorators for mocking docx2txt.process in .doc file processing.**
+- **Comprehensive embedding model configuration testing infrastructure.**
 
 ```mermaid
 graph TB
@@ -824,6 +857,7 @@ LP["Llama.cpp Provider Testing"]
 PARSER["Parser Testing"]
 AD["Admin Document API Testing"]
 AC["Auth Client Fixture"]
+EM["Embedding Model Testing"]
 PY --> P
 PY --> PA
 PY --> VK
@@ -840,6 +874,7 @@ PY --> LP
 PY --> PARSER
 PY --> AD
 PY --> AC
+PY --> EM
 ```
 
 **Diagram sources**
@@ -872,8 +907,10 @@ PY --> AC
 - **Parser testing should use TemporaryDirectory fixtures for isolated file operations.**
 - **Mock docx2txt.process to avoid external dependencies in .doc file processing tests.**
 - **Chunking validation should test performance with large text inputs.**
+- **Embedding model testing should validate provider-specific model selection efficiently.**
+- **Configuration testing should validate default values without external dependencies.**
 
-**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with temporary databases, llama.cpp provider testing optimization, **comprehensive parser testing with TemporaryDirectory fixtures**, and **comprehensive admin document API testing with auth_client fixture optimization**.
+**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with temporary databases, llama.cpp provider testing optimization, **comprehensive parser testing with TemporaryDirectory fixtures**, **comprehensive embedding model configuration testing**, and **comprehensive admin document API testing with auth_client fixture optimization**.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -908,6 +945,9 @@ Common issues and resolutions:
 - **Admin authorization failures: Test protected route access with and without authentication.**
 - **Russian localization failures: Validate localization strings in admin interface templates.**
 - **Auth client fixture failures: Test authenticated TestClient creation and cookie handling.**
+- **Embedding model configuration failures: Validate provider-specific model selection and defaults.**
+- **Embedding model default failures: Test that qwen3-embedding:4b-q4_K_M is used as default.**
+- **Embedding model parameter failures: Validate model parameter passing to embedding functions.**
 
 Debugging tips:
 - Print or log parsed keyboard JSON during development to validate structure.
@@ -933,8 +973,11 @@ Debugging tips:
 - **Use patch for mocking docx2txt.process in .doc file processing tests.**
 - **Validate section extraction preserves paragraph structure and handles empty paragraphs.**
 - **Test chunking logic with configurable chunk size and overlap constraints.**
+- **Validate embedding model selection across different providers.**
+- **Test embedding model parameter passing to build_embeddings function.**
+- **Validate error handling for missing embedding models in different providers.**
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation, keyboard validation failures, document storage system testing with comprehensive debugging strategies, llama.cpp provider testing scenarios, **comprehensive parser testing with TemporaryDirectory fixtures**, and **comprehensive admin document API testing with authentication, authorization, and Russian localization debugging strategies**.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation, keyboard validation failures, document storage system testing with comprehensive debugging strategies, llama.cpp provider testing scenarios, **comprehensive parser testing with TemporaryDirectory fixtures**, **comprehensive embedding model configuration testing**, and **comprehensive admin document API testing with authentication, authorization, and Russian localization debugging strategies**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -969,6 +1012,7 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter handling, and error scenarios.**
 - **Comprehensive parser testing validates document ingestion pipeline with section extraction, chunking, and metadata handling.**
 - **Admin document API testing validates authentication, authorization, and Russian localization with comprehensive test coverage.**
+- **Comprehensive embedding model configuration testing validates the new default 'qwen3-embedding:4b-q4_K_M' and provider-specific model selection.**
 
 To evolve the test suite:
 - Introduce event-driven tests for handlers to validate async behavior.
@@ -1001,8 +1045,11 @@ To evolve the test suite:
 - **Test section extraction, chunking logic, and metadata handling for both .docx and .doc formats.**
 - **Validate dispatcher functionality for file extension-based routing.**
 - **Test error handling for unsupported file formats.**
+- **Add comprehensive embedding model configuration testing for provider-specific model validation.**
+- **Test embedding model parameter passing to build_embeddings function.**
+- **Validate error handling for missing embedding models in different providers.**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, extensive llama.cpp provider testing infrastructure, **comprehensive parser testing for document ingestion pipeline**, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, extensive llama.cpp provider testing infrastructure, **comprehensive parser testing for document ingestion pipeline**, **comprehensive embedding model configuration testing**, and **comprehensive Block 12 admin document API testing with authentication, authorization, and Russian localization validation**.
 
 ## Appendices
 
@@ -1018,6 +1065,7 @@ To evolve the test suite:
 - **Run llama.cpp provider tests for comprehensive provider validation (e.g., `pytest tests/test_rag_block6.py::TestBuildLlmLlamaCpp`).**
 - **Run admin document API tests for authentication and localization validation (e.g., `pytest tests/test_api_documents.py::TestAuth`).**
 - **Run auth client fixture tests for authenticated TestClient validation (e.g., `pytest tests/test_api_documents.py::TestAuth::test_login_with_valid_key`).**
+- **Run embedding model configuration tests for provider-specific model validation (e.g., `pytest tests/test_rag_block6.py::TestSettingsFromEnv::test_defaults_for_embeddings`).**
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1056,6 +1104,9 @@ To evolve the test suite:
 - **Validate section extraction preserves paragraph structure and handles empty paragraphs.**
 - **Test chunking logic with configurable chunk size and overlap constraints.**
 - **Validate metadata handling for source and section information.**
-- **Test dispatcher functionality for file extension-based routing.**
+- **Validate dispatcher functionality for file extension-based routing.**
+- **Use comprehensive embedding model configuration testing for provider-specific model validation.**
+- **Test embedding model parameter passing to build_embeddings function.**
+- **Validate error handling for missing embedding models in different providers.**
 
-**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, comprehensive feature testing strategies, QA service testing, topic hints detection validation, ask handler testing, keyboard validation testing, document storage system testing with temporary databases, llama.cpp provider testing strategies, **comprehensive parser testing with TemporaryDirectory fixtures**, and **comprehensive admin document API testing with auth_client fixture and Russian localization validation**.
+**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, comprehensive feature testing strategies, QA service testing, topic hints detection validation, ask handler testing, keyboard validation testing, document storage system testing with temporary databases, llama.cpp provider testing strategies, **comprehensive parser testing with TemporaryDirectory fixtures**, **comprehensive embedding model configuration testing**, and **comprehensive admin document API testing with auth_client fixture and Russian localization validation**.

@@ -23,6 +23,13 @@
 - [scripts/polling_vk.py](file://scripts/polling_vk.py)
 - [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
 - [scripts/run_ollama_qwen.sh](file://scripts/run_ollama_qwen.sh)
+- [scripts/run_llama_llm.sh](file://scripts/run_llama_llm.sh)
+- [scripts/run_llama_embeddings.sh](file://scripts/run_llama_embeddings.sh)
+- [scripts/run_ollama_llm.sh](file://scripts/run_ollama_llm.sh)
+- [scripts/run_ollama_embeddings.sh](file://scripts/run_ollama_embeddings.sh)
+- [scripts/run_admin.sh](file://scripts/run_admin.sh)
+- [scripts/admin_server.py](file://scripts/admin_server.py)
+- [docker-compose.yml](file://docker-compose.yml)
 - [pyproject.toml](file://pyproject.toml)
 - [tests/test_qa_service.py](file://tests/test_qa_service.py)
 - [tests/test_rag_block6.py](file://tests/test_rag_block6.py)
@@ -32,16 +39,13 @@
 
 ## Update Summary
 **Changes Made**
-- Complete RAG system implementation delivered with DocumentService orchestration
-- Enhanced indexer module for Qdrant chunk management and document operations
-- Comprehensive parser module for Word document processing and chunking
-- Full document lifecycle management through DocumentService with SQLite integration
-- Enhanced retriever with search filtering and Qdrant integration
-- Complete ingestion pipeline with bulk processing and metadata tracking
-- Robust QA service with singleton pattern and error handling
-- Topic hints detection system with scenario and disclaimer logic
-- Enhanced VK ask handler with typing indicators and contextual navigation
-- Comprehensive testing framework covering all components
+- Restructured RAG script architecture from monolithic run_llama_qwen.sh and run_ollama_qwen.sh to specialized components
+- Added comprehensive multi-provider orchestration via run_admin.sh script with interactive provider selection
+- Updated embedding model default from 'nomic-embed-text' to 'qwen3-embedding:4b-q4_K_M'
+- Enhanced Docker Compose health checking with comprehensive service monitoring
+- Improved CPU detection capabilities across all deployment scripts
+- Added separate LLM and embedding server management for llama.cpp
+- Enhanced dependency management with provider-specific extras
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -58,19 +62,20 @@
 12. [Configuration Management](#configuration-management)
 13. [Document Ingestion Pipeline](#document-ingestion-pipeline)
 14. [LangChain Integration](#langchain-integration)
-15. [Local LLM Deployment Support](#local-llm-deployment-support)
-16. [Testing Framework](#testing-framework)
-17. [Performance Considerations](#performance-considerations)
-18. [Troubleshooting Guide](#troubleshooting-guide)
-19. [Conclusion](#conclusion)
+15. [Multi-Provider Orchestration](#multi-provider-orchestration)
+16. [Local LLM Deployment Support](#local-llm-deployment-support)
+17. [Testing Framework](#testing-framework)
+18. [Performance Considerations](#performance-considerations)
+19. [Troubleshooting Guide](#troubleshooting-guide)
+20. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the comprehensive Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. The implementation includes a complete LangChain-based processing pipeline, Qdrant vector database integration, document ingestion capabilities, and specialized HR prompts. The system enhances the bot's HR assistance capabilities by providing contextual, reliable answers drawn from HR documents while maintaining seamless integration with the existing VK bot architecture.
 
-**Updated** The RAG implementation now includes a fully functional infrastructure with LangChain integration, Qdrant vector store, document processing workflows, comprehensive QA service with singleton pattern, topic hints detection system, extensive testing coverage, SQLite-based document storage system, and enhanced user experience features. The system now supports three LLM providers: Ollama, OpenAI-compatible, and llama.cpp, providing maximum flexibility for local and cloud deployments.
+**Updated** The RAG implementation now includes a fully functional infrastructure with LangChain integration, Qdrant vector store, document processing workflows, comprehensive QA service with singleton pattern, topic hints detection system, extensive testing coverage, SQLite-based document storage system, and enhanced user experience features. The system now supports three LLM providers: Ollama, OpenAI-compatible, and llama.cpp, providing maximum flexibility for local and cloud deployments. The architecture has been restructured to support specialized deployment scripts and comprehensive multi-provider orchestration.
 
 ## Project Structure
-The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, document ingestion capabilities, comprehensive QA service layer with enhanced ask handler implementation, SQLite-based document storage system, and dedicated deployment scripts for local LLM serving.
+The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, document ingestion capabilities, comprehensive QA service layer with enhanced ask handler implementation, SQLite-based document storage system, and dedicated deployment scripts for local LLM serving with comprehensive orchestration capabilities.
 
 ```mermaid
 graph TB
@@ -99,7 +104,7 @@ subgraph "Document Processing"
 Ingest["Ingestion Script<br/>scripts/ingest.py"]
 Docx["Word Document Processing<br/>.docx files"]
 Chunking["Recursive Character Chunking<br/>1000 chars + 200 overlap"]
-Embeddings["Embedding Generation<br/>nomic-embed-text / OpenAI / Ollama"]
+Embeddings["Embedding Generation<br/>qwen3-embedding:4b-q4_K_M"]
 end
 subgraph "Vector Database"
 Qdrant["Qdrant Vector Store<br/>hr_documents collection"]
@@ -109,10 +114,15 @@ subgraph "Integration"
 VKBot["VK Bot Integration<br/>app/integrations/vk/bot.py"]
 Content["Content Module<br/>app/domain/content.py"]
 Polling["Polling Script<br/>scripts/polling_vk.py"]
+AdminServer["Admin Server<br/>scripts/admin_server.py"]
 end
-subgraph "Local LLM Deployment"
-LlamaScript["llama.cpp Server Script<br/>scripts/run_llama_qwen.sh"]
-OllamaScript["Ollama Server Script<br/>scripts/run_ollama_qwen.sh"]
+subgraph "Multi-Provider Orchestration"
+RunAdmin["run_admin.sh<br/>Interactive Provider Selection"]
+LlamaLLM["run_llama_llm.sh<br/>LLM Server"]
+LlamaEmbed["run_llama_embeddings.sh<br/>Embedding Server"]
+OllamaLLM["run_ollama_llm.sh<br/>Ollama LLM Setup"]
+OllamaEmbed["run_ollama_embeddings.sh<br/>Ollama Embeddings Setup"]
+HealthChecks["Docker Compose Health Checks"]
 end
 Config --> Chain
 Chain --> QAService
@@ -140,8 +150,12 @@ VKBot --> AskHandler
 AskHandler --> Content
 QAService --> AskHandler
 Polling --> QAService
-LlamaScript --> QAService
-OllamaScript --> QAService
+RunAdmin --> AdminServer
+LlamaLLM --> QAService
+LlamaEmbed --> QAService
+OllamaLLM --> QAService
+OllamaEmbed --> QAService
+HealthChecks --> RunAdmin
 ```
 
 **Diagram sources**
@@ -164,8 +178,14 @@ OllamaScript --> QAService
 - [app/integrations/vk/bot.py:44-56](file://app/integrations/vk/bot.py#L44-L56)
 - [app/domain/content.py:127-136](file://app/domain/content.py#L127-L136)
 - [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
-- [scripts/run_llama_qwen.sh:1-61](file://scripts/run_llama_qwen.sh#L1-L61)
-- [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
+- [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
+- [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
+- [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
+- [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
+- [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
+- [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
+- [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
+- [docker-compose.yml:11-16](file://docker-compose.yml#L11-L16)
 
 **Section sources**
 - [app/config.py:4-23](file://app/config.py#L4-L23)
@@ -187,29 +207,36 @@ OllamaScript --> QAService
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 - [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
 - [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
-- [scripts/run_llama_qwen.sh:1-61](file://scripts/run_llama_qwen.sh#L1-L61)
-- [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
+- [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
+- [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
+- [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
+- [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
+- [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
+- [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
+- [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
 
 ## Core Components
 The RAG infrastructure consists of several interconnected components that work together to provide intelligent document retrieval and response generation with enhanced user experience and comprehensive LLM provider support:
 
-- **Configuration Management**: Centralized settings for Qdrant connection, LLM providers (Ollama, OpenAI-compatible, llama.cpp), and embedding models
+- **Configuration Management**: Centralized settings for Qdrant connection, LLM providers (Ollama, OpenAI-compatible, llama.cpp), and embedding models with provider-specific configuration
 - **RAG Chain Builder**: LangChain pipeline that orchestrates retrieval, prompting, and LLM generation with provider-specific configuration
 - **Vector Store Integration**: Qdrant-backed vector store with dense retrieval capabilities and embedding model support
 - **Document Storage System**: SQLite-based metadata storage with comprehensive CRUD operations and document lifecycle management
 - **Document Processing**: Word document ingestion with section extraction and chunking
-- **Embedding Models**: Support for local Ollama embeddings, OpenAI-compatible embeddings, and llama.cpp embeddings
+- **Embedding Models**: Support for local Ollama embeddings, OpenAI-compatible embeddings, and llama.cpp embeddings with enhanced model management
 - **System Prompts**: Specialized HR-focused prompts with Russian language instructions
 - **QA Service Layer**: Singleton pattern implementation with error handling, text truncation, and comprehensive provider support
 - **Topic Hints Detection**: Keyword-based detection system for contextual navigation and disclaimers
 - **Enhanced Ask Handler**: Multi-step dialog flow with typing indicators and contextual navigation
-- **Local LLM Deployment**: Dedicated scripts for llama.cpp and Ollama server deployment
+- **Multi-Provider Orchestration**: Comprehensive deployment management via run_admin.sh with interactive provider selection
+- **Specialized Deployment Scripts**: Separate LLM and embedding server management for llama.cpp with CPU detection and model downloading
 - **Application Integration**: Seamless integration with VK bot handlers and state management
 - **Document Service**: Central orchestration service managing document lifecycle across all systems
 - **Chunk Indexer**: Qdrant-specific operations for chunk management, deletion, and search filtering
 - **Document Parser**: Word document processing with section extraction and recursive character chunking
+- **Docker Compose Health Checking**: Comprehensive service monitoring with health checks for Qdrant and MinIO
 
-**Updated** The RAG infrastructure now provides a complete, production-ready solution with comprehensive LangChain integration, Qdrant vector store capabilities, robust document storage system with SQLite, comprehensive QA service layer, topic hints detection system, enhanced user experience features, and support for three LLM providers including the new llama.cpp option.
+**Updated** The RAG infrastructure now provides a complete, production-ready solution with comprehensive LangChain integration, Qdrant vector store capabilities, robust document storage system with SQLite, comprehensive QA service layer, topic hints detection system, enhanced user experience features, and support for three LLM providers including the new llama.cpp option with specialized deployment scripts and comprehensive orchestration capabilities.
 
 **Section sources**
 - [app/config.py:10-23](file://app/config.py#L10-L23)
@@ -225,11 +252,16 @@ The RAG infrastructure consists of several interconnected components that work t
 - [app/domain/document_service.py:34-279](file://app/domain/document_service.py#L34-L279)
 - [app/rag/indexer.py:23-72](file://app/rag/indexer.py#L23-L72)
 - [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
-- [scripts/run_llama_qwen.sh:1-61](file://scripts/run_llama_qwen.sh#L1-L61)
-- [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
+- [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
+- [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
+- [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
+- [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
+- [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
+- [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
+- [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
 
 ## Architecture Overview
-The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience and comprehensive LLM provider support. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant, generates contextualized responses using the selected LLM provider, detects topic scenarios for navigation, and provides typing indicators for improved UX, all managed through a centralized QA service layer with integrated document storage.
+The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience and comprehensive LLM provider support. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant, generates contextualized responses using the selected LLM provider, detects topic scenarios for navigation, and provides typing indicators for improved UX, all managed through a centralized QA service layer with integrated document storage and comprehensive multi-provider orchestration.
 
 ```mermaid
 sequenceDiagram
@@ -403,7 +435,10 @@ class Settings {
 +llm_model : str
 +llm_base_url : str
 +llm_api_key : str
++embedding_provider : str
 +embedding_model : str
++embedding_base_url : str
++embedding_api_key : str
 }
 class RAGConfig {
 +build_llm()
@@ -944,6 +979,106 @@ The system prompts provide specialized instructions for HR-focused RAG:
 **Section sources**
 - [app/rag/prompts.py:5-19](file://app/rag/prompts.py#L5-L19)
 
+## Multi-Provider Orchestration
+
+### Interactive Provider Selection
+The run_admin.sh script provides comprehensive multi-provider orchestration with interactive selection and automated dependency management:
+
+- **Provider Selection**: Interactive menu for choosing LLM and embedding providers
+- **Automated Setup**: Automatic dependency installation with provider-specific extras
+- **Service Management**: Comprehensive Docker Compose orchestration with health checks
+- **Model Management**: Automated model pulling and verification for Ollama providers
+- **Local Server Management**: Integrated llama.cpp server management with CPU detection
+- **Health Monitoring**: Comprehensive service health checking with retry logic
+
+**Updated** Complete multi-provider orchestration with interactive selection, automated dependency management, comprehensive service monitoring, and integrated deployment management for all three LLM providers.
+
+```mermaid
+flowchart TD
+Start(["run_admin.sh"]) --> PrereqCheck["Check Prerequisites"]
+PrereqCheck --> ProviderSelect["Interactive Provider Selection"]
+ProviderSelect --> DependencySync["Sync Dependencies (Extras)"]
+DependencySync --> DockerCompose["Start Docker Services"]
+DockerCompose --> HealthChecks["Service Health Checks"]
+HealthChecks --> OllamaSetup["Setup Ollama Providers"]
+HealthChecks --> LlamaCPPSetup["Setup llama.cpp Providers"]
+OllamaSetup --> AdminServer["Start Admin Server"]
+LlamaCPPSetup --> AdminServer
+HealthChecks --> AdminServer
+```
+
+**Diagram sources**
+- [scripts/run_admin.sh:100-138](file://scripts/run_admin.sh#L100-L138)
+- [scripts/run_admin.sh:183-200](file://scripts/run_admin.sh#L183-L200)
+- [scripts/run_admin.sh:202-221](file://scripts/run_admin.sh#L202-L221)
+- [scripts/run_admin.sh:222-286](file://scripts/run_admin.sh#L222-L286)
+- [scripts/run_admin.sh:288-356](file://scripts/run_admin.sh#L288-L356)
+
+### Specialized Deployment Scripts
+The new specialized deployment scripts provide granular control over LLM and embedding server management:
+
+- **run_llama_llm.sh**: Dedicated llama.cpp LLM server with model downloading and CPU detection
+- **run_llama_embeddings.sh**: Dedicated llama.cpp embedding server with separate configuration
+- **run_ollama_llm.sh**: Ollama LLM setup with server management and model verification
+- **run_ollama_embeddings.sh**: Ollama embedding setup with separate model management
+- **CPU Detection**: Intelligent CPU core detection with fallback mechanisms
+- **Model Management**: Automated model downloading with progress indication
+
+**Updated** Comprehensive specialized deployment scripts with separate LLM and embedding management, CPU detection capabilities, automated model downloading, and provider-specific configuration for optimal performance.
+
+```mermaid
+classDiagram
+class LlamaDeployment {
++MODEL_PATH : str
++MODEL_URL : str
++HOST : str
++PORT : str
++CTX_SIZE : str
++N_GPU_LAYERS : str
++detect_cpu_count()
++download_model()
++start_server()
+}
+class OllamaDeployment {
++MODEL_NAME : str
++BASE_URL : str
++wait_for_ollama()
++pull_model()
++verify_model()
+}
+LlamaDeployment <|-- LlamaLLM : "specialized"
+LlamaDeployment <|-- LlamaEmbeddings : "specialized"
+OllamaDeployment <|-- OllamaLLM : "specialized"
+OllamaDeployment <|-- OllamaEmbeddings : "specialized"
+```
+
+**Diagram sources**
+- [scripts/run_llama_llm.sh:11-28](file://scripts/run_llama_llm.sh#L11-L28)
+- [scripts/run_llama_embeddings.sh:11-28](file://scripts/run_llama_embeddings.sh#L11-L28)
+- [scripts/run_ollama_llm.sh:12-24](file://scripts/run_ollama_llm.sh#L12-L24)
+- [scripts/run_ollama_embeddings.sh:12-24](file://scripts/run_ollama_embeddings.sh#L12-L24)
+
+**Section sources**
+- [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
+- [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
+- [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
+- [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
+- [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
+
+### Enhanced Docker Compose Health Checking
+The Docker Compose configuration now includes comprehensive health checking for all services:
+
+- **Qdrant Health Check**: Dedicated health endpoint monitoring with retry logic
+- **MinIO Health Check**: Live endpoint monitoring for object storage
+- **Service Dependencies**: Proper service startup ordering and dependency management
+- **Volume Management**: Persistent volume configuration for data persistence
+- **Port Mapping**: Comprehensive port exposure for all services
+
+**Updated** Enhanced Docker Compose configuration with comprehensive health checking, service dependencies, persistent volume management, and proper port mapping for all RAG infrastructure services.
+
+**Section sources**
+- [docker-compose.yml:11-16](file://docker-compose.yml#L11-L16)
+
 ## Local LLM Deployment Support
 
 ### llama.cpp Integration
@@ -959,7 +1094,7 @@ The RAG system now includes comprehensive support for llama.cpp as a local LLM p
 
 ```mermaid
 flowchart TD
-LlamaScript["run_llama_qwen.sh"] --> CheckPrerequisites["Check llama-server availability"]
+LlamaScript["run_llama_llm.sh"] --> CheckPrerequisites["Check llama-server availability"]
 CheckPrerequisites --> VerifyModel["Verify model file exists"]
 VerifyModel --> DetectCPU["Detect CPU cores"]
 DetectCPU --> StartServer["Start llama-server with parameters"]
@@ -969,7 +1104,7 @@ LangChain --> RAGPipeline["Complete RAG Pipeline"]
 ```
 
 **Diagram sources**
-- [scripts/run_llama_qwen.sh:32-61](file://scripts/run_llama_qwen.sh#L32-L61)
+- [scripts/run_llama_llm.sh:32-61](file://scripts/run_llama_llm.sh#L32-L61)
 - [app/rag/chain.py:47-60](file://app/rag/chain.py#L47-L60)
 
 ### Ollama Integration
@@ -983,8 +1118,12 @@ The system maintains comprehensive Ollama support for local LLM deployments:
 **Updated** Enhanced Ollama integration with automated server management, model validation, and smoke testing capabilities.
 
 **Section sources**
-- [scripts/run_llama_qwen.sh:1-61](file://scripts/run_llama_qwen.sh#L1-L61)
-- [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
+- [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
+- [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
+- [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
+- [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
+- [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
+- [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
 - [app/rag/chain.py:62-73](file://app/rag/chain.py#L62-L73)
 
 ## Testing Framework
@@ -1116,6 +1255,8 @@ The RAG infrastructure includes comprehensive error handling and debugging capab
 - **Ollama Issues**: Server connectivity, model availability, or base URL configuration problems
 - **SQLite Issues**: Database connection problems, table creation failures, or constraint violations
 - **Document Lifecycle Errors**: Status transitions failing or metadata inconsistencies
+- **Health Check Failures**: Docker service startup issues or port conflicts
+- **CPU Detection Errors**: Missing system utilities or incorrect core count detection
 
 **Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, enhanced ask handler, document storage system, and all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features.
 
@@ -1131,6 +1272,7 @@ Available debugging and monitoring capabilities:
 - **Provider Health Checks**: Specific monitoring for llama.cpp server, Ollama server, and OpenAI-compatible endpoints
 - **Database Monitoring**: SQLite connection status, query performance, and transaction logging
 - **Document Lifecycle Monitoring**: Status transitions, metadata consistency, and error tracking
+- **Docker Service Monitoring**: Container health status and service dependency tracking
 
 **Section sources**
 - [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
@@ -1142,8 +1284,11 @@ Available debugging and monitoring capabilities:
 - [scripts/run_ollama_qwen.sh:36-52](file://scripts/run_ollama_qwen.sh#L36-L52)
 - [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
 - [app/storage/document_repo.py:69-99](file://app/storage/document_repo.py#L69-L99)
+- [scripts/run_admin.sh:28-48](file://scripts/run_admin.sh#L28-L48)
+- [scripts/run_llama_llm.sh:11-28](file://scripts/run_llama_llm.sh#L11-L28)
+- [scripts/run_ollama_llm.sh:12-24](file://scripts/run_ollama_llm.sh#L12-L24)
 
 ## Conclusion
 The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities and enhanced user experience. The implementation includes complete LangChain integration, Qdrant vector store setup, document ingestion pipelines, comprehensive QA service with singleton pattern, topic hints detection system, contextual navigation features, extensive testing frameworks, SQLite-based document storage system, and support for three LLM providers including the new llama.cpp option. The system seamlessly integrates with the existing VK bot architecture while providing powerful contextual response generation capabilities that significantly enhance HR assistance functionality.
 
-**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer, topic hints detection system, enhanced ask handler with typing indicators and contextual navigation, comprehensive user experience improvements, SQLite-based document storage system with comprehensive CRUD operations, document lifecycle management, and support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment. The singleton pattern ensures efficient resource utilization, while comprehensive error handling, text truncation, user experience features, SQLite database integration, and llama.cpp integration provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of llama.cpp support through OpenAI-compatible API interface enables seamless local model serving with GPU acceleration, making the system suitable for enterprise environments with strict data privacy requirements. The comprehensive document storage system with SQLite provides reliable metadata management, complete test coverage, and efficient CRUD operations that form the backbone of the document lifecycle management system.
+**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer, topic hints detection system, enhanced ask handler with typing indicators and contextual navigation, comprehensive user experience improvements, SQLite-based document storage system with comprehensive CRUD operations, document lifecycle management, and support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment. The singleton pattern ensures efficient resource utilization, while comprehensive error handling, text truncation, user experience features, SQLite database integration, and llama.cpp integration provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of llama.cpp support through OpenAI-compatible API interface enables seamless local model serving with GPU acceleration, making the system suitable for enterprise environments with strict data privacy requirements. The comprehensive document storage system with SQLite provides reliable metadata management, complete test coverage, and efficient CRUD operations that form the backbone of the document lifecycle management system. The new multi-provider orchestration via run_admin.sh script with interactive selection and comprehensive health checking provides operational excellence for production deployments, while the specialized deployment scripts offer granular control over LLM and embedding server management with CPU detection capabilities and automated model downloading.

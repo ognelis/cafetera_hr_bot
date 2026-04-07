@@ -1,8 +1,8 @@
-<div class="border border-base-300/70 rounded-xl overflow-hidden" data-total="{{ total }}">
+<div class="border border-base-300/70 rounded-xl pb-24" data-total="{{ total }}">
   <table class="table table-sm w-full">
     <thead>
       <tr class="border-b border-base-200 bg-base-100">
-        <th class="w-10 px-3">
+        <th class="w-10 px-3 rounded-tl-xl bg-base-100">
           <input type="checkbox" class="checkbox checkbox-sm" @change="toggleSelectAll" :checked="allSelected" />
         </th>
         <th class="w-28 px-2 text-xs font-semibold uppercase tracking-wide text-base-content/50">
@@ -21,7 +21,7 @@
         </th>
         <th class="w-36 px-3 text-xs font-semibold uppercase tracking-wide text-base-content/50">Добавлен</th>
         <th class="w-40 px-3 text-right text-xs font-semibold uppercase tracking-wide text-base-content/50">Тип источника</th>
-        <th class="w-10"></th>
+        <th class="w-10 rounded-tr-xl bg-base-100"></th>
       </tr>
     </thead>
     <tbody id="document-table-body">
