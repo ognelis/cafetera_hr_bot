@@ -350,10 +350,10 @@ class TestBuildEmbeddingsLlamaCpp:
     def _settings(self, **overrides):
         defaults = dict(
             vk_access_token="t",
-            llm_provider="llamacpp",
+            embedding_provider="llamacpp",
             embedding_model="test-embed",
-            llm_base_url="",
-            llm_api_key="",
+            embedding_base_url="",
+            embedding_api_key="",
             _env_file=None,
         )
         defaults.update(overrides)
@@ -382,7 +382,7 @@ class TestBuildEmbeddingsLlamaCpp:
         from app.rag.retriever import build_embeddings
 
         fake = self._fake_langchain_openai()
-        s = self._settings(llm_api_key="real-key")
+        s = self._settings(embedding_api_key="real-key")
         with patch.dict(sys.modules, {"langchain_openai": fake}):
             build_embeddings(s)
             fake.OpenAIEmbeddings.assert_called_once_with(

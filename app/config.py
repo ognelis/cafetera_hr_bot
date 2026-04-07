@@ -19,7 +19,10 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
 
     # Embeddings
+    embedding_provider: str = "ollama"
     embedding_model: str = "nomic-embed-text"
+    embedding_base_url: str = "http://localhost:11434"
+    embedding_api_key: str = ""
 
     # Storage
     db_path: str = "data/cafetera.db"

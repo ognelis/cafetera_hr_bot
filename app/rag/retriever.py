@@ -20,8 +20,8 @@ COLLECTION_NAME = "hr_documents"
 
 
 def build_embeddings(settings: Settings) -> Embeddings:
-    """Create an embedding model based on ``settings.llm_provider``."""
-    if settings.llm_provider == "openai":
+    """Create an embedding model based on ``settings.embedding_provider``."""
+    if settings.embedding_provider == "openai":
         try:
             from langchain_openai import OpenAIEmbeddings
         except ImportError as exc:
@@ -31,11 +31,11 @@ def build_embeddings(settings: Settings) -> Embeddings:
             ) from exc
         return OpenAIEmbeddings(
             model=settings.embedding_model,
-            openai_api_key=settings.llm_api_key,
-            openai_api_base=settings.llm_base_url or None,
+            openai_api_key=settings.embedding_api_key,
+            openai_api_base=settings.embedding_base_url or None,
         )
 
-    if settings.llm_provider == "llamacpp":
+    if settings.embedding_provider == "llamacpp":
         try:
             from langchain_openai import OpenAIEmbeddings
         except ImportError as exc:
@@ -45,8 +45,8 @@ def build_embeddings(settings: Settings) -> Embeddings:
             ) from exc
         return OpenAIEmbeddings(
             model=settings.embedding_model,
-            openai_api_key=settings.llm_api_key or "no-key",
-            openai_api_base=settings.llm_base_url or "http://localhost:8080/v1",
+            openai_api_key=settings.embedding_api_key or "no-key",
+            openai_api_base=settings.embedding_base_url or "http://localhost:8080/v1",
         )
 
     # Default: Ollama
@@ -58,7 +58,7 @@ def build_embeddings(settings: Settings) -> Embeddings:
         ) from exc
     return OllamaEmbeddings(
         model=settings.embedding_model,
-        base_url=settings.llm_base_url,
+        base_url=settings.embedding_base_url,
     )
 
 
