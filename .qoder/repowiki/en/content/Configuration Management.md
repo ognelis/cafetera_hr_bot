@@ -7,6 +7,10 @@
 - [app/main.py](file://app/main.py)
 - [app/api/deps.py](file://app/api/deps.py)
 - [app/api/documents.py](file://app/api/documents.py)
+- [app/rag/retriever.py](file://app/rag/retriever.py)
+- [app/domain/qa_service.py](file://app/domain/qa_service.py)
+- [scripts/admin_server.py](file://scripts/admin_server.py)
+- [scripts/run_admin.sh](file://scripts/run_admin.sh)
 - [tests/test_config.py](file://tests/test_config.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
 - [templates/login.html](file://templates/login.html)
@@ -15,12 +19,12 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive documentation for new S3 storage configuration with endpoint URL, access keys, and bucket settings
-- Documented admin authentication system with API key-based security
-- Updated storage configuration section to include S3-compatible storage integration
-- Enhanced security best practices to cover admin authentication and S3 credential management
-- Added new configuration examples for S3 storage and admin access
-- Updated dependency analysis to include S3 storage and admin authentication components
+- Separated LLM and embeddings provider configuration logic with distinct settings for each
+- Updated retriever.py to use separate embedding provider settings with independent configuration
+- Enhanced admin server cleanup mechanisms with proper resource management
+- Added comprehensive embedding provider configuration options including OpenAI, Ollama, and llama.cpp
+- Updated configuration examples to demonstrate independent provider settings
+- Enhanced security and resource management for admin server operations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -37,24 +41,28 @@
 12. [S3 Storage Configuration](#s3-storage-configuration)
 13. [Admin Authentication Configuration](#admin-authentication-configuration)
 14. [LLM Provider Configuration](#llm-provider-configuration)
-15. [Troubleshooting Guide](#troubleshooting-guide)
-16. [Conclusion](#conclusion)
+15. [Embedding Provider Configuration](#embedding-provider-configuration)
+16. [Resource Management and Cleanup](#resource-management-and-cleanup)
+17. [Troubleshooting Guide](#troubleshooting-guide)
+18. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the configuration management system used in cafetera_hr_bot. It focuses on the Pydantic Settings implementation, environment variable loading and validation, configuration structure, and security best practices. The system now supports multiple LLM providers including llama.cpp with backward compatibility, alongside VK API credentials, Qdrant database connections, SQLite database integration for document storage, S3-compatible storage for document files, and admin authentication with API key-based security. It documents all current configuration options and provides examples of development versus production configurations along with templates for different deployment environments.
+This document explains the configuration management system used in cafetera_hr_bot. It focuses on the Pydantic Settings implementation, environment variable loading and validation, configuration structure, and security best practices. The system now supports separate LLM and embedding provider configurations, multiple LLM providers including llama.cpp with backward compatibility, alongside VK API credentials, Qdrant database connections, SQLite database integration for document storage, S3-compatible storage for document files, and admin authentication with API key-based security. It documents all current configuration options and provides examples of development versus production configurations along with templates for different deployment environments.
 
 ## Project Structure
-The configuration system centers around a single Pydantic Settings class that loads environment variables from a .env file. The system supports multiple LLM providers (ollama, openai, llama.cpp) with automatic fallback mechanisms, VK API integration, Qdrant vector storage, SQLite database integration for document metadata, S3-compatible storage for document files, and admin authentication with API key security. The storage components consume these settings to initialize database connections, manage document lifecycle, and handle file uploads/downloads. Tests validate the loading behavior across different providers, storage configurations, and authentication systems, while scripts demonstrate runtime usage.
+The configuration system centers around a single Pydantic Settings class that loads environment variables from a .env file. The system supports separate LLM and embedding provider configurations with multiple LLM providers (ollama, openai, llama.cpp) and embedding providers (ollama, openai) with automatic fallback mechanisms, VK API integration, Qdrant vector storage, SQLite database integration for document metadata, S3-compatible storage for document files, and admin authentication with API key security. The storage components consume these settings to initialize database connections, manage document lifecycle, and handle file uploads/downloads. Tests validate the loading behavior across different providers, storage configurations, and authentication systems, while scripts demonstrate runtime usage with enhanced cleanup mechanisms.
 
 ```mermaid
 graph TB
 subgraph "Configuration Layer"
 SettingsClass["Settings (Pydantic BaseSettings)"]
 EnvFile[".env file"]
-LLMProvider["LLM Provider Selection"]
+LLMProvider["LLM Provider Configuration"]
+EmbeddingProvider["Embedding Provider Configuration"]
 StorageConfig["Storage Configuration"]
 S3Config["S3 Storage Configuration"]
 AdminConfig["Admin Authentication"]
+CleanupMechanism["Resource Cleanup Mechanism"]
 end
 subgraph "Application Layer"
 VKBot["VK Bot Factory"]
@@ -62,83 +70,101 @@ RAGChain["RAG Chain Builder"]
 IngestScript["Document Ingestion Script"]
 StorageLayer["Storage Layer"]
 AdminAuth["Admin Authentication"]
+CleanupServer["Admin Server Cleanup"]
 end
 subgraph "Testing"
 TestConfig["Test Suite"]
 TestStorage["Storage Tests"]
 TestAuth["Authentication Tests"]
+TestEmbeddings["Embedding Tests"]
 end
 EnvFile --> SettingsClass
 SettingsClass --> LLMProvider
+SettingsClass --> EmbeddingProvider
 SettingsClass --> VKBot
 SettingsClass --> RAGChain
 SettingsClass --> StorageConfig
 SettingsClass --> S3Config
 SettingsClass --> AdminConfig
+SettingsClass --> CleanupMechanism
 SettingsClass --> StorageLayer
 SettingsClass --> AdminAuth
+SettingsClass --> CleanupServer
 TestConfig --> SettingsClass
 TestStorage --> StorageLayer
 TestAuth --> AdminAuth
+TestEmbeddings --> EmbeddingProvider
 ```
 
 **Diagram sources**
-- [app/config.py:4-33](file://app/config.py#L4-L33)
+- [app/config.py:4-39](file://app/config.py#L4-L39)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
+- [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
+- [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
+- [scripts/admin_server.py:42-68](file://scripts/admin_server.py#L42-L68)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 **Section sources**
-- [app/config.py:4-33](file://app/config.py#L4-L33)
+- [app/config.py:4-39](file://app/config.py#L4-L39)
 - [app/main.py:30-47](file://app/main.py#L30-L47)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Core Components
-- **Settings class**: Defines typed configuration fields, environment file binding, and default values for all system components including the new S3 storage and admin authentication settings.
+- **Settings class**: Defines typed configuration fields, environment file binding, and default values for all system components including separate LLM and embedding provider settings, storage configuration, S3 storage settings, and admin authentication settings.
 - **LLM Provider System**: Supports multiple providers (ollama, openai, llama.cpp) with automatic fallback and backward compatibility.
+- **Embedding Provider System**: Supports separate embedding providers (ollama, openai) with independent configuration from LLM providers.
 - **VK integration**: Uses Settings to configure the VK bot token and handler registration.
-- **RAG Components**: Build LLM chains and embeddings based on provider selection.
+- **RAG Components**: Build LLM chains and embeddings based on provider selection with separate embedding configuration.
 - **Storage System**: Manages SQLite database for document metadata with comprehensive CRUD operations.
 - **S3 Storage System**: Provides S3-compatible file storage using MinIO/AWS S3 with async operations.
 - **Admin Authentication**: Implements API key-based authentication with secure cookie management.
-- **Tests**: Verify defaults, environment variable precedence, provider-specific behavior, storage functionality, and authentication security.
-- **Scripts**: Demonstrate runtime initialization using Settings for different providers, storage operations, and admin access.
+- **Resource Cleanup**: Enhanced cleanup mechanisms for admin server and QA service resources.
+- **Tests**: Verify defaults, environment variable precedence, provider-specific behavior, storage functionality, authentication security, and embedding configuration.
+- **Scripts**: Demonstrate runtime initialization using Settings for different providers, storage operations, admin access, and cleanup procedures.
 
 Key implementation details:
 - Settings class inherits from Pydantic BaseSettings and binds to a .env file with UTF-8 encoding.
-- Current fields include VK access token, group ID, Qdrant configuration, comprehensive LLM settings, storage configuration, S3 storage settings, and admin authentication settings.
+- Current fields include VK access token, group ID, Qdrant configuration, separate LLM and embedding provider settings, comprehensive storage configuration, S3 storage settings, and admin authentication settings.
 - The LLM system automatically selects providers based on LLM_PROVIDER environment variable with sensible defaults.
+- The embedding system automatically selects providers based on EMBEDDING_PROVIDER environment variable with independent configuration.
 - The storage system uses db_path to configure SQLite database location with automatic table initialization.
 - The S3 storage system uses endpoint_url, access_key, secret_key, and bucket to configure S3-compatible storage.
 - The admin authentication system uses admin_api_key for secure access to administrative functions.
 - The VK bot factory reads the token from Settings to construct the bot instance.
+- The admin server includes enhanced cleanup mechanisms using atexit for proper resource management.
 
 **Section sources**
-- [app/config.py:4-33](file://app/config.py#L4-L33)
+- [app/config.py:4-39](file://app/config.py#L4-L39)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
+- [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
+- [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
+- [scripts/admin_server.py:42-68](file://scripts/admin_server.py#L42-L68)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Architecture Overview
-The configuration architecture follows a layered approach with provider-aware components, integrated storage, and secure admin access:
-- **Configuration layer**: Settings class encapsulates environment-driven configuration with provider selection, storage settings, S3 configuration, and admin authentication.
+The configuration architecture follows a layered approach with provider-aware components, integrated storage, and secure admin access with enhanced cleanup mechanisms:
+- **Configuration layer**: Settings class encapsulates environment-driven configuration with separate provider selections, storage settings, S3 configuration, and admin authentication.
 - **Application layer**: Integrations consume Settings to initialize services with appropriate provider backends, database connections, S3 storage, and authentication mechanisms.
-- **Runtime layer**: Scripts and handlers access Settings at startup or during operation with automatic provider detection, storage initialization, and authentication verification.
+- **Runtime layer**: Scripts and handlers access Settings at startup or during operation with automatic provider detection, storage initialization, authentication verification, and proper resource cleanup.
 
 ```mermaid
 sequenceDiagram
 participant Script as "main.py"
 participant Settings as "Settings"
 participant Provider as "LLM Provider"
+participant EmbeddingProvider as "Embedding Provider"
 participant Storage as "SQLite Database"
 participant S3Storage as "S3 Storage"
 participant AdminAuth as "Admin Authentication"
+participant Cleanup as "Resource Cleanup"
 participant VKBot as "VK Bot Factory"
 participant VK as "VK Bot"
 Script->>Settings : Initialize Settings()
@@ -147,32 +173,38 @@ Settings->>Storage : Configure db_path
 Storage-->>Script : Database ready
 Settings->>S3Storage : Configure S3 settings
 S3Storage-->>Script : S3 client ready
-Settings->>Provider : Select provider based on LLM_PROVIDER
-Provider-->>Script : Provider-specific configuration
+Settings->>EmbeddingProvider : Select embedding provider
+EmbeddingProvider-->>Script : Embedding-specific configuration
+Settings->>Provider : Select LLM provider
+Provider-->>Script : LLM-specific configuration
 Script->>AdminAuth : Initialize admin auth
 AdminAuth-->>Script : Admin ready
 Script->>VKBot : create_bot(Settings)
 VKBot->>VK : Construct with token from Settings
 VKBot-->>Script : Bot instance
+Script->>Cleanup : Register cleanup handlers
+Cleanup-->>Script : Cleanup ready
 Script->>VK : run_polling()
 ```
 
 **Diagram sources**
 - [app/main.py:23-82](file://app/main.py#L23-L82)
-- [app/config.py:15-33](file://app/config.py#L15-L33)
+- [app/config.py:15-39](file://app/config.py#L15-L39)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/s3.py:38-48](file://app/storage/s3.py#L38-L48)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 - [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
+- [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
+- [scripts/admin_server.py:64-68](file://scripts/admin_server.py#L64-L68)
 
 ## Detailed Component Analysis
 
 ### Settings Class
-The Settings class defines the comprehensive configuration contract:
+The Settings class defines the comprehensive configuration contract with separate provider configurations:
 - **Environment file binding**: Loads variables from .env with UTF-8 encoding.
-- **Fields**: vk_access_token (str), vk_group_id (int), Qdrant configuration, LLM settings, embedding configuration, storage configuration, S3 storage configuration, and admin authentication settings.
+- **Fields**: vk_access_token (str), vk_group_id (int), Qdrant configuration, LLM settings, separate embedding configuration, storage configuration, S3 storage configuration, and admin authentication settings.
 - **Type safety**: Pydantic ensures type conversion and validation.
-- **Provider awareness**: LLM_PROVIDER field controls which backend to use.
+- **Provider awareness**: LLM_PROVIDER and EMBEDDING_PROVIDER fields control which backend to use independently.
 - **Storage awareness**: db_path field controls SQLite database location.
 - **S3 awareness**: s3_endpoint_url, s3_access_key, s3_secret_key, and s3_bucket control S3-compatible storage configuration.
 - **Admin awareness**: admin_api_key controls access to administrative functions.
@@ -190,21 +222,25 @@ class Settings {
 +llm_model : str
 +llm_base_url : str
 +llm_api_key : str
++embedding_provider : str
 +embedding_model : str
++embedding_base_url : str
++embedding_api_key : str
 +db_path : str
 +s3_endpoint_url : str
 +s3_access_key : str
 +s3_secret_key : str
 +s3_bucket : str
 +admin_api_key : str
++max_concurrent_indexing : int
 }
 ```
 
 **Diagram sources**
-- [app/config.py:4-33](file://app/config.py#L4-L33)
+- [app/config.py:4-39](file://app/config.py#L4-L39)
 
 **Section sources**
-- [app/config.py:4-33](file://app/config.py#L4-L33)
+- [app/config.py:4-39](file://app/config.py#L4-L39)
 
 ### VK Bot Factory and Settings Usage
 The VK bot factory constructs a vkbottle Bot using the VK access token from Settings. This demonstrates how configuration flows into application components.
@@ -237,6 +273,7 @@ The test suite validates:
 - Storage configuration defaults and validation.
 - S3 storage configuration defaults and validation.
 - Admin authentication configuration behavior.
+- Separate embedding provider configuration defaults and validation.
 
 ```mermaid
 flowchart TD
@@ -246,7 +283,8 @@ Defaults --> EnvOverride{"Environment variables present?"}
 EnvOverride --> |Yes| ApplyEnv["Apply environment values"]
 EnvOverride --> |No| KeepDefaults["Keep defaults"]
 ApplyEnv --> ProviderSelect["Select LLM Provider"]
-ProviderSelect --> StorageConfig["Configure Storage"]
+ProviderSelect --> EmbeddingSelect["Select Embedding Provider"]
+EmbeddingSelect --> StorageConfig["Configure Storage"]
 StorageConfig --> S3Config["Configure S3 Storage"]
 S3Config --> AdminConfig["Configure Admin Auth"]
 AdminConfig --> Validate["Type validation"]
@@ -256,12 +294,12 @@ Validate --> Done(["Settings ready"])
 
 **Diagram sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
-- [app/config.py:4-33](file://app/config.py#L4-L33)
+- [app/config.py:4-39](file://app/config.py#L4-L39)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
-- [app/config.py:4-33](file://app/config.py#L4-L33)
+- [app/config.py:4-39](file://app/config.py#L4-L39)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Dependency Analysis
@@ -269,10 +307,12 @@ The configuration system has minimal external dependencies with provider-specifi
 - **Pydantic Settings**: Provides environment file loading and type validation.
 - **VK integration**: Depends on Settings for bot initialization.
 - **LLM Providers**: Optional dependencies for different provider backends.
+- **Embedding Providers**: Independent optional dependencies for embedding generation.
 - **Qdrant**: Vector store integration with configurable connection settings.
 - **SQLite Storage**: Document metadata persistence with automatic table initialization.
 - **S3 Storage**: S3-compatible file storage with async operations using aiobotocore.
 - **Admin Authentication**: Secure API key-based authentication with cookie management.
+- **Resource Cleanup**: Enhanced cleanup mechanisms for proper resource management.
 - **Storage Dependencies**: aiosqlite for asynchronous database operations, aiobotocore for S3 operations.
 - **Authentication Dependencies**: secrets module for secure comparison, cryptography for cookie security.
 
@@ -289,6 +329,7 @@ S3Storage["S3 Storage"]
 Aiobotocore["aiobotocore"]
 AdminAuth["Admin Authentication"]
 Secrets["secrets module"]
+Cleanup["Resource Cleanup"]
 Pyproject["pyproject.toml"]
 Pydantic --> Settings
 Settings --> VKIntegration
@@ -296,11 +337,13 @@ Settings --> Qdrant
 Settings --> SQLite
 Settings --> S3Storage
 Settings --> AdminAuth
+Settings --> Cleanup
 VKIntegration --> VKLib
 Qdrant --> Settings
 SQLite --> Aiosqlite
 S3Storage --> Aiobotocore
 AdminAuth --> Secrets
+Cleanup --> Settings
 Pyproject --> Aiosqlite
 Pyproject --> Aiobotocore
 ```
@@ -313,6 +356,7 @@ Pyproject --> Aiobotocore
 - [app/integrations/vk/bot.py:7](file://app/integrations/vk/bot.py#L7)
 - [app/storage/s3.py:9](file://app/storage/s3.py#L9)
 - [app/api/deps.py:5](file://app/api/deps.py#L5)
+- [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 
 **Section sources**
 - [pyproject.toml:10-11](file://pyproject.toml#L10-L11)
@@ -322,18 +366,22 @@ Pyproject --> Aiobotocore
 - [app/integrations/vk/bot.py:7](file://app/integrations/vk/bot.py#L7)
 - [app/storage/s3.py:9](file://app/storage/s3.py#L9)
 - [app/api/deps.py:5](file://app/api/deps.py#L5)
+- [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 
 ## Performance Considerations
 - Environment file loading occurs at import-time when Settings is instantiated. This is lightweight and suitable for application startup.
 - Type conversion and validation are handled by Pydantic, adding negligible overhead during normal operation.
-- Provider selection happens at runtime when building LLM instances, with minimal performance impact.
+- Provider selection happens at runtime when building LLM and embedding instances, with minimal performance impact.
+- Separate provider configurations allow for independent optimization of LLM and embedding performance.
 - SQLite database operations use asynchronous connections to minimize blocking.
 - S3 storage operations use async client sessions with connection pooling for efficient file operations.
 - Admin authentication uses constant-time comparison to prevent timing attacks.
+- Resource cleanup mechanisms ensure proper shutdown of connections and clients.
 - Keep the number of environment variables minimal to reduce startup parsing overhead.
 - LLM provider switching is handled efficiently with conditional imports and fallback mechanisms.
 - Storage operations are optimized with proper indexing on document_id and timestamps.
 - S3 operations benefit from connection reuse and proper error handling for network failures.
+- Concurrent indexing operations are controlled by max_concurrent_indexing setting.
 
 ## Security Best Practices
 - Never hardcode secrets. Use environment variables and the .env file.
@@ -342,6 +390,7 @@ Pyproject --> Aiobotocore
 - Use strong tokens and rotate them periodically.
 - Avoid printing sensitive values in logs.
 - For LLM providers, consider API key rotation and secure storage for production deployments.
+- For embedding providers, ensure separate API key management for different services.
 - Validate provider URLs and ensure they use HTTPS in production environments.
 - Secure database file permissions and consider encryption for sensitive document metadata.
 - Regularly backup database files and implement proper access controls.
@@ -349,24 +398,28 @@ Pyproject --> Aiobotocore
 - **Admin Authentication Security**: Use strong API keys, implement rate limiting, monitor login attempts, and use HTTPS for all admin endpoints.
 - **Cookie Security**: Use httponly cookies, secure flags, and proper SameSite settings for admin sessions.
 - **Environment Variable Security**: Store sensitive configuration in secure vaults, not in plain text files.
+- **Resource Cleanup Security**: Ensure proper cleanup mechanisms prevent resource leaks and unauthorized access.
+- **Provider Isolation**: Separate LLM and embedding providers to minimize security impact if one provider is compromised.
 
 ## Development vs Production Configurations
-- **Development**: Use local LLM providers (ollama, llama.cpp) with localhost URLs and local SQLite database. Use local S3-compatible storage with MinIO for development. The VK polling script initializes Settings and runs the bot locally.
-- **Production**: Use cloud LLM providers with proper authentication and managed database services. Use production S3-compatible storage with proper IAM policies and HTTPS endpoints. Use strong admin API keys with rotation policies.
+- **Development**: Use local LLM providers (ollama, llama.cpp) with localhost URLs and local SQLite database. Use local S3-compatible storage with MinIO for development. The VK polling script initializes Settings and runs the bot locally. Separate embedding provider can use Ollama for development.
+- **Production**: Use cloud LLM providers with proper authentication and managed database services. Use production S3-compatible storage with proper IAM policies and HTTPS endpoints. Use strong admin API keys with rotation policies. Separate embedding provider can use OpenAI for production quality embeddings.
 
 Operational differences:
 - VK polling script demonstrates Settings usage at runtime.
 - Production requires webhook configuration and transport setup.
 - LLM provider selection affects dependency requirements and resource allocation.
+- Separate embedding provider configuration allows for independent optimization.
 - Storage configuration requires proper database permissions and backup strategies.
 - S3 storage configuration requires proper IAM policies and network security groups.
 - Admin authentication requires HTTPS enforcement and rate limiting.
 - Production databases should use managed services with proper monitoring and scaling.
 - S3 storage should use managed services with proper backup and disaster recovery.
+- Resource cleanup mechanisms ensure proper shutdown in production environments.
 
 **Section sources**
 - [app/main.py:23-82](file://app/main.py#L23-L82)
-- [app/config.py:26-33](file://app/config.py#L26-L33)
+- [app/config.py:26-39](file://app/config.py#L26-L39)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 
 ## Adding New Configuration Variables
@@ -379,6 +432,7 @@ To add new configuration variables:
 6. Consider provider-specific behavior if applicable.
 7. For storage-related configurations, ensure proper initialization and cleanup procedures.
 8. For security-sensitive configurations, implement proper validation and error handling.
+9. For cleanup-related configurations, ensure proper resource management and error handling.
 
 Example steps:
 - Add a new field to the Settings class.
@@ -388,9 +442,10 @@ Example steps:
 - Implement proper validation and error handling for the new configuration.
 - For S3 storage, ensure proper bucket management and access control.
 - For admin authentication, implement proper cookie security and rate limiting.
+- For resource cleanup, implement proper error handling and logging.
 
 **Section sources**
-- [app/config.py:4-33](file://app/config.py#L4-L33)
+- [app/config.py:4-39](file://app/config.py#L4-L39)
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
 
 ## Storage Configuration
@@ -462,7 +517,7 @@ Log --> End(["Database ready"])
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 
 **Section sources**
-- [app/config.py:25-26](file://app/config.py#L25-L26)
+- [app/config.py:28-29](file://app/config.py#L28-L29)
 - [app/storage/database.py:12-28](file://app/storage/database.py#L12-L28)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
@@ -525,7 +580,7 @@ Ready --> Operations["Ready for file operations"]
 - [app/storage/s3.py:71-77](file://app/storage/s3.py#L71-L77)
 
 **Section sources**
-- [app/config.py:26-29](file://app/config.py#L26-L29)
+- [app/config.py:29-32](file://app/config.py#L29-L32)
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [app/main.py:30-47](file://app/main.py#L30-L47)
 
@@ -583,7 +638,7 @@ Success --> End
 - [app/api/documents.py:146-166](file://app/api/documents.py#L146-L166)
 
 **Section sources**
-- [app/config.py:32-33](file://app/config.py#L32-L33)
+- [app/config.py:35](file://app/config.py#L35)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 - [app/api/documents.py:146-166](file://app/api/documents.py#L146-L166)
 - [templates/login.html:22-38](file://templates/login.html#L22-L38)
@@ -602,22 +657,22 @@ The system supports multiple LLM providers through the LLM_PROVIDER environment 
 
 #### Ollama Provider (Default)
 - **LLM_PROVIDER**: "ollama"
-- **LLM_BASE_URL**: "http://localhost:11434" (default)
 - **LLM_MODEL**: "qwen3.5:4b-q4_K_M" (default)
+- **LLM_BASE_URL**: "http://localhost:11434" (default)
 - **LLM_API_KEY**: "" (no key required)
 - **Embedding model**: "nomic-embed-text"
 
 #### OpenAI Provider
 - **LLM_PROVIDER**: "openai"
+- **LLM_MODEL**: OpenAI model name (e.g., "gpt-4o-mini")
 - **LLM_BASE_URL**: Custom OpenAI-compatible endpoint
-- **LLM_MODEL**: OpenAI model name (e.g., "gpt-4-turbo")
 - **LLM_API_KEY**: Required API key
 - **Embedding model**: OpenAI-compatible embeddings
 
 #### Llama.cpp Provider
 - **LLM_PROVIDER**: "llamacpp"
-- **LLM_BASE_URL**: "http://localhost:8080/v1" (default fallback)
 - **LLM_MODEL**: Local model name (e.g., "Qwen3.5-4B-Q4_K_M")
+- **LLM_BASE_URL**: "http://localhost:8080/v1" (default fallback)
 - **LLM_API_KEY**: "no-key" when empty (fallback behavior)
 - **Embedding model**: "nomic-embed-text"
 
@@ -679,12 +734,144 @@ The project includes a script for managing Ollama models:
 - **Model management**: Pulls models if not found locally
 
 **Section sources**
-- [app/config.py:15-23](file://app/config.py#L15-L23)
-- [app/rag/chain.py:30-60](file://app/rag/chain.py#L30-L60)
-- [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
+- [app/config.py:15-25](file://app/config.py#L15-L25)
+- [app/rag/retriever.py:30-62](file://app/rag/retriever.py#L30-L62)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [scripts/run_llama_qwen.sh:1-60](file://scripts/run_llama_qwen.sh#L1-L60)
 - [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
+
+## Embedding Provider Configuration
+
+### Embedding Provider Selection and Independence
+The system supports separate embedding providers through the EMBEDDING_PROVIDER environment variable with independent configuration from LLM providers:
+
+- **Default**: "ollama" (independent from LLM provider)
+- **Supported values**: "ollama", "openai"
+- **Automatic fallback**: If EMBEDDING_PROVIDER is not set, defaults to "ollama"
+- **Independent configuration**: Can use different providers than LLM providers
+
+### Configuration Options by Provider
+
+#### Ollama Provider (Default)
+- **EMBEDDING_PROVIDER**: "ollama"
+- **EMBEDDING_MODEL**: "nomic-embed-text" (default)
+- **EMBEDDING_BASE_URL**: "http://localhost:11434" (default)
+- **EMBEDDING_API_KEY**: "" (no key required)
+- **LLM Provider**: Can be independent (e.g., OpenAI for LLM, Ollama for embeddings)
+
+#### OpenAI Provider
+- **EMBEDDING_PROVIDER**: "openai"
+- **EMBEDDING_MODEL**: "text-embedding-3-small" (default)
+- **EMBEDDING_BASE_URL**: "https://api.openai.com/v1" (default)
+- **EMBEDDING_API_KEY**: Required API key
+- **LLM Provider**: Can be independent (e.g., Ollama for LLM, OpenAI for embeddings)
+
+### Embedding Provider-Specific Behavior
+
+#### Automatic Base URL Resolution
+- If EMBEDDING_BASE_URL is empty for OpenAI provider, uses "https://api.openai.com/v1"
+- If EMBEDDING_BASE_URL is empty for llama.cpp provider, uses "http://localhost:8080/v1"
+- For Ollama provider, uses the configured base URL
+
+#### API Key Handling
+- OpenAI embedding provider requires a valid API key
+- Ollama embedding provider typically doesn't require API keys
+- Llama.cpp embedding provider uses "no-key" when empty for local development
+
+### Environment Variable Configuration
+
+```bash
+# Embedding configuration (independent from LLM)
+EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_BASE_URL=https://api.openai.com/v1
+EMBEDDING_API_KEY=your_openai_api_key
+
+# Alternative configuration for Ollama embeddings
+EMBEDDING_PROVIDER=ollama
+EMBEDDING_MODEL=nomic-embed-text
+EMBEDDING_BASE_URL=http://localhost:11434
+
+# LLM configuration (can be independent)
+LLM_PROVIDER=llamacpp
+LLM_MODEL=Qwen3.5-4B-Q4_K_M
+LLM_BASE_URL=http://localhost:8080/v1
+```
+
+### Embedding Provider Setup Scripts
+
+#### Admin Server Integration
+The admin server includes enhanced setup for embedding providers:
+- **Independent provider selection**: Allows separate configuration for admin UI
+- **Enhanced cleanup**: Proper resource management for embedding clients
+- **HTTP/2 support**: Improved performance for admin interface
+
+**Section sources**
+- [app/config.py:21-25](file://app/config.py#L21-L25)
+- [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
+- [scripts/admin_server.py:16-18](file://scripts/admin_server.py#L16-L18)
+- [scripts/run_admin.sh:129-159](file://scripts/run_admin.sh#L129-L159)
+
+## Resource Management and Cleanup
+
+### Enhanced Admin Server Cleanup Mechanisms
+The admin server includes comprehensive cleanup mechanisms for proper resource management:
+
+- **atexit Registration**: Registers cleanup handlers for graceful shutdown
+- **QA Service Cleanup**: Calls close_qa() to release RAG chain resources
+- **Qdrant Client Cleanup**: Properly closes Qdrant connections
+- **Error Handling**: Graceful handling of cleanup errors
+- **Resource Tracking**: Monitors active connections and clients
+
+### Cleanup Process Flow
+
+```mermaid
+flowchart TD
+Start(["Admin Server Shutdown"]) --> CheckResources{"Active Resources?"}
+CheckResources --> |Yes| CloseQA["Call close_qa()"]
+CheckResources --> |No| SkipQA["Skip QA cleanup"]
+CloseQA --> CloseQdrant["Close Qdrant client"]
+SkipQA --> CloseQdrant
+CloseQdrant --> ResetState["Reset module state"]
+ResetState --> LogCleanup["Log cleanup completion"]
+LogCleanup --> End(["Shutdown complete"])
+```
+
+**Diagram sources**
+- [scripts/admin_server.py:64-68](file://scripts/admin_server.py#L64-L68)
+- [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
+
+### QA Service Cleanup Implementation
+The QA service provides robust cleanup mechanisms:
+
+- **Global State Reset**: Resets chain and client references
+- **Qdrant Client Safety**: Catches and logs cleanup errors
+- **Graceful Degradation**: Continues shutdown even if cleanup fails
+- **Resource Tracking**: Maintains references for proper cleanup
+
+### Cleanup Error Handling
+- **Non-blocking**: Cleanup failures don't prevent shutdown
+- **Logging**: Errors are logged with context information
+- **State Recovery**: Ensures state is reset even if errors occur
+- **Resource Safety**: Prevents resource leaks during cleanup
+
+### Environment Variable Configuration
+
+```bash
+# Resource management configuration
+MAX_CONCURRENT_INDEXING=2
+```
+
+### Cleanup Configuration Options
+- **MAX_CONCURRENT_INDEXING**: Controls concurrent document indexing operations
+- **Cleanup Triggers**: atexit handlers for proper shutdown
+- **Error Resilience**: Graceful handling of cleanup failures
+- **Resource Monitoring**: Active tracking of connections and clients
+
+**Section sources**
+- [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
+- [scripts/admin_server.py:64-68](file://scripts/admin_server.py#L64-L68)
+- [app/config.py:38](file://app/config.py#L38)
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -693,8 +880,9 @@ Common issues and resolutions:
 - **Type conversion errors**: Ensure environment values match the expected types (e.g., integers for numeric fields).
 - **VK token invalid**: Verify the VK access token is correct and has sufficient permissions.
 - **LLM provider errors**: Check provider-specific configuration and dependencies.
-- **Base URL connectivity**: Verify LLM service is running and accessible at the configured URL.
-- **Provider switching issues**: Ensure the correct extras are installed for the selected provider.
+- **Embedding provider errors**: Check embedding-specific configuration and dependencies.
+- **Base URL connectivity**: Verify LLM and embedding services are running and accessible at the configured URLs.
+- **Provider switching issues**: Ensure the correct extras are installed for the selected providers.
 - **Database connection issues**: Verify SQLite file permissions and disk space availability.
 - **Storage initialization failures**: Check database path permissions and parent directory creation.
 - **Document metadata corruption**: Implement proper database backup and recovery procedures.
@@ -703,23 +891,29 @@ Common issues and resolutions:
 - **Admin authentication failures**: Verify API key configuration and cookie security settings.
 - **Admin route access denied**: Ensure proper authentication cookie and session validity.
 - **S3 file upload/download errors**: Check network connectivity and file permissions.
+- **Resource cleanup failures**: Check cleanup mechanisms and error handling.
+- **Concurrent indexing issues**: Adjust MAX_CONCURRENT_INDEXING setting based on system resources.
 
 Validation tips:
 - Use the test suite to verify defaults and environment precedence.
 - Temporarily log Settings values during startup to confirm loaded values.
 - Test LLM provider connectivity separately from the main application.
+- Test embedding provider connectivity independently.
 - Verify provider-specific dependencies are installed.
 - Test storage initialization independently from main application.
 - Monitor database file growth and implement cleanup procedures.
 - Test S3 connectivity with simple bucket listing operations.
 - Verify admin authentication with test login attempts.
 - Implement proper error handling for all configuration failures.
+- Test resource cleanup mechanisms during shutdown.
+- Validate concurrent indexing limits with system capabilities.
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
-- [app/config.py:4-33](file://app/config.py#L4-L33)
+- [app/config.py:4-39](file://app/config.py#L4-L39)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 - [app/storage/s3.py:71-77](file://app/storage/s3.py#L71-L77)
+- [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 
 ## Conclusion
-The configuration management system in cafetera_hr_bot uses Pydantic Settings to load environment variables from a .env file, providing type-safe configuration for the VK integration, comprehensive LLM provider support, SQLite database integration for document storage, S3-compatible storage for document files, and admin authentication with API key-based security. The system now supports multiple LLM providers (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, covering VK API credentials, Qdrant database connections, flexible LLM configuration, robust storage management, secure S3 file operations, and comprehensive admin access control. By following the documented patterns and security practices, teams can safely manage configuration across development and production environments while maintaining flexibility for different LLM backends, reliable operation with clear provider-specific behaviors, comprehensive document metadata persistence with proper storage configuration and security measures, secure S3 file storage with proper access controls, and robust admin authentication with proper security protocols.
+The configuration management system in cafetera_hr_bot uses Pydantic Settings to load environment variables from a .env file, providing type-safe configuration for the VK integration, separate LLM and embedding provider support, SQLite database integration for document storage, S3-compatible storage for document files, and admin authentication with API key-based security. The system now supports independent LLM and embedding provider configurations (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, covering VK API credentials, Qdrant database connections, flexible provider-specific behaviors, robust storage management, secure S3 file operations, comprehensive admin access control, and enhanced resource cleanup mechanisms. By following the documented patterns and security practices, teams can safely manage configuration across development and production environments while maintaining flexibility for different LLM and embedding backends, reliable operation with clear provider-specific behaviors, comprehensive document metadata persistence with proper storage configuration and security measures, secure S3 file storage with proper access controls, robust admin authentication with proper security protocols, and proper resource management with enhanced cleanup mechanisms.

@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Embeddings
     embedding_provider: str = "ollama"
-    embedding_model: str = "nomic-embed-text"
+    embedding_model: str = "qwen3-embedding:4b-q4_K_M"
     embedding_base_url: str = "http://localhost:11434"
     embedding_api_key: str = ""
 

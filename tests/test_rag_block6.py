@@ -49,7 +49,7 @@ class TestRagSettings:
 
     def test_defaults_for_embeddings(self):
         s = Settings(vk_access_token="t", _env_file=None)
-        assert s.embedding_model == "nomic-embed-text"
+        assert s.embedding_model == "qwen3-embedding:4b-q4_K_M"
 
     def test_qdrant_settings_from_env(self, monkeypatch):
         monkeypatch.setenv("VK_ACCESS_TOKEN", "t")
