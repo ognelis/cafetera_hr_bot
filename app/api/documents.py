@@ -56,6 +56,7 @@ from app.api.deps import (
     TemplatesDep,
 )
 from app.config import Settings
+from app.domain import qa_service
 from app.rag.parser import load_document
 from app.storage.models import DocumentRecord, DocumentStatus
 from app.storage.s3 import S3Storage
@@ -824,6 +825,34 @@ async def bulk_toggle_search(
     )
 
 
+@router.post("/api/qa/ask-global")
+async def ask_global_question(
+    _: AdminDep,
+    question: str = Form(...),
+):
+    """Ask a question across the entire knowledge base. Returns SSE stream."""
+
+    async def event_generator():
+        """Generate SSE events with tokens from the LLM."""
+        try:
+            async for token in qa_service.stream_ask(question):
+                escaped_token = token.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                yield f'data: {{"token": "{escaped_token}"}}\n\n'
+            yield 'data: {"done": true}\n\n'
+        except Exception as exc:
+            logger.error("Error in SSE stream for global question: %s", exc, exc_info=True)
+            yield 'data: {"error": "Ошибка при получении ответа"}\n\n'
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+
 @router.post("/api/documents/{document_id}/ask")
 async def ask_about_document(
     document_id: str,
@@ -838,8 +867,6 @@ async def ask_about_document(
 
     if doc.status.value != "completed" or not doc.is_search_enabled:
         raise HTTPException(status_code=400, detail="Документ не готов для вопросов")
-
-    from app.domain import qa_service
 
     async def event_generator():
         """Generate SSE events with tokens from the LLM."""

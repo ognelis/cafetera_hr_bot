@@ -11,6 +11,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from app.domain.content import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
+from app.rag.prompts import GLOBAL_EXPERTS_PROMPT
 
 # Settings reference for document-scoped queries
 _settings: Settings | None = None
@@ -88,7 +89,7 @@ def init_qa(settings: Settings) -> None:
             settings.qdrant_collection,
         )
         llm = build_llm(settings)
-        chain = build_rag_chain(retriever, llm)
+        chain = build_rag_chain(retriever, llm, system_prompt=GLOBAL_EXPERTS_PROMPT)
 
         _qdrant_client = client
         _chain = chain
@@ -155,6 +156,28 @@ async def ask_about_document(question: str, document_id: str) -> str:
         return ERR_NO_ANSWER
 
     return _truncate(answer.strip())
+
+
+async def stream_ask(question: str):
+    """Stream tokens from the global RAG chain.
+
+    Yields each token string as it arrives from the LLM.
+    """
+    if _chain is None:
+        yield ERR_NO_ANSWER
+        return
+
+    try:
+        async for token in _chain.astream(question):
+            if isinstance(token, str):
+                yield token
+            elif hasattr(token, 'content'):
+                yield str(token.content)
+            else:
+                yield str(token)
+    except Exception:
+        logger.error("RAG chain streaming failed for global question: %s", question, exc_info=True)
+        yield ERR_DOCUMENT_UNAVAILABLE
 
 
 async def stream_about_document(question: str, document_id: str):
