@@ -258,6 +258,56 @@
     <form method="dialog" class="modal-backdrop"><button>close</button></form>
   </dialog>
 
+  {# ── Document Question Modal ──────────────────────────────── #}
+  <dialog x-ref="docQuestionModal" class="modal">
+    <div class="modal-box max-w-2xl">
+      <h3 class="font-bold text-lg mb-4">
+        Вопрос по документу: <span x-text="docQuestionTitle"></span>
+      </h3>
+
+      <div class="form-control mb-4">
+        <textarea
+          class="textarea textarea-bordered w-full h-24"
+          placeholder="Введите ваш вопрос..."
+          x-model="docQuestionText"
+          @keydown.ctrl.enter="submitDocQuestion()"
+          :disabled="docQuestionLoading"
+        ></textarea>
+      </div>
+
+      <div class="flex justify-end mb-4">
+        <button
+          class="btn btn-primary"
+          @click="submitDocQuestion()"
+          :disabled="docQuestionLoading || !docQuestionText.trim()"
+        >
+          <span x-show="docQuestionLoading" class="loading loading-spinner loading-sm"></span>
+          <span x-show="!docQuestionLoading">Спросить</span>
+          <span x-show="docQuestionLoading">Обработка...</span>
+        </button>
+      </div>
+
+      <!-- Error -->
+      <template x-if="docQuestionError">
+        <div class="alert alert-error mb-4">
+          <span x-text="docQuestionError"></span>
+        </div>
+      </template>
+
+      <!-- Answer -->
+      <template x-if="docQuestionAnswer">
+        <div class="bg-base-200 rounded-lg p-4 whitespace-pre-wrap" x-text="docQuestionAnswer"></div>
+      </template>
+
+      <div class="modal-action">
+        <button class="btn" @click="closeDocQuestion()">Закрыть</button>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button @click="closeDocQuestion()">close</button>
+    </form>
+  </dialog>
+
 </div>
 
 {# ── Confirm delete dialog ──────────────────────────────────── #}
@@ -329,6 +379,15 @@
 
       // Selection state
       selectedIds: [],
+
+      // Document question state
+      docQuestionOpen: false,
+      docQuestionId: '',
+      docQuestionTitle: '',
+      docQuestionText: '',
+      docQuestionAnswer: '',
+      docQuestionLoading: false,
+      docQuestionError: '',
 
       // Pagination state
       currentPage: {{ page | default(1) }},
@@ -601,6 +660,52 @@
         this.applyDateFilter();
       },
 
+      // Document question methods
+      openDocQuestion(id, title) {
+        this.docQuestionId = id;
+        this.docQuestionTitle = title;
+        this.docQuestionText = '';
+        this.docQuestionAnswer = '';
+        this.docQuestionError = '';
+        this.docQuestionLoading = false;
+        this.$refs.docQuestionModal.showModal();
+      },
+
+      closeDocQuestion() {
+        this.$refs.docQuestionModal.close();
+        this.docQuestionId = '';
+        this.docQuestionTitle = '';
+        this.docQuestionText = '';
+        this.docQuestionAnswer = '';
+        this.docQuestionError = '';
+        this.docQuestionLoading = false;
+      },
+
+      async submitDocQuestion() {
+        if (!this.docQuestionText.trim()) return;
+        this.docQuestionLoading = true;
+        this.docQuestionAnswer = '';
+        this.docQuestionError = '';
+        try {
+          const formData = new FormData();
+          formData.append('question', this.docQuestionText.trim());
+          const resp = await fetch(`/api/documents/${this.docQuestionId}/ask`, {
+            method: 'POST',
+            body: formData,
+          });
+          if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.detail || 'Ошибка при получении ответа');
+          }
+          const data = await resp.json();
+          this.docQuestionAnswer = data.answer;
+        } catch (e) {
+          this.docQuestionError = e.message || 'Произошла ошибка';
+        } finally {
+          this.docQuestionLoading = false;
+        }
+      },
+
       // Upload methods
       handleDrop(event) {
         this.dragOver = false;
@@ -739,6 +844,13 @@
     });
 
     pendingRenameId = null;
+  }
+  // ── Document question (global bridge into Alpine component) ───
+  function openDocQuestion(docId, title) {
+    const el = document.querySelector('[x-data="documentsPage()"]');
+    if (el && el._x_dataStack && el._x_dataStack[0]) {
+      el._x_dataStack[0].openDocQuestion(docId, title);
+    }
   }
 </script>
 {% endblock %}

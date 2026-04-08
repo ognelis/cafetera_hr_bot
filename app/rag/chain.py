@@ -12,6 +12,10 @@ from langchain_core.runnables import RunnablePassthrough
 
 from app.rag.prompts import SYSTEM_PROMPT
 
+
+def _default_system_prompt() -> str:
+    return SYSTEM_PROMPT
+
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
     from langchain_core.runnables import Runnable
@@ -76,10 +80,13 @@ def build_llm(settings: Settings) -> BaseChatModel:
 def build_rag_chain(
     retriever: VectorStoreRetriever,
     llm: BaseChatModel,
+    *,
+    system_prompt: str | None = None,
 ) -> Runnable:
     """Build a RAG chain: retrieve -> format context -> prompt -> LLM -> text."""
+    prompt_template = system_prompt if system_prompt is not None else SYSTEM_PROMPT
     prompt = ChatPromptTemplate.from_messages([
-        ("system", SYSTEM_PROMPT),
+        ("system", prompt_template),
         ("human", "{question}"),
     ])
 

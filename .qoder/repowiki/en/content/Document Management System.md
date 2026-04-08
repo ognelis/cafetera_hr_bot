@@ -31,6 +31,7 @@
 - [templates/partials/document_table.html](file://templates/partials/document_table.html)
 - [templates/partials/document_row.html](file://templates/partials/document_row.html)
 - [templates/partials/pagination.html](file://templates/partials/pagination.html)
+- [templates/partials/status_poller.html](file://templates/partials/status_poller.html)
 - [templates/base.html](file://templates/base.html)
 - [scripts/ingest.py](file://scripts/ingest.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
@@ -40,14 +41,13 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced filtering and sorting capabilities with comprehensive server-side processing implementation
-- Implemented sophisticated dual-format support for both DOCX and legacy DOC document formats
-- Added modernized user interface with enhanced styling, rounded corners, and improved visual hierarchy
-- Introduced comprehensive test coverage for new functionality including filtering, sorting, and concurrency control
-- Enhanced text chunking algorithms with improved token-based processing and metadata enrichment
-- Implemented robust concurrency control with semaphore-based throttling for background operations
-- Added sophisticated pagination system with intelligent page numbering and URL synchronization
-- Enhanced bulk operations system with concurrent processing and atomic operation guarantees
+- Enhanced with new batch status polling system that replaces individual row polling with centralized batch processing
+- Improved mobile responsiveness with enhanced sidebar navigation and responsive design patterns
+- Optimized backend processing with async operations and semaphore-based concurrency control
+- Enhanced frontend interactivity with HTMX partial endpoints and out-of-band swaps
+- Reduced server load by implementing centralized status polling instead of N concurrent requests
+- Added new batch endpoint '/partials/documents-status' for efficient status updates
+- Implemented sophisticated mobile-first responsive design with overlay sidebar and toast notifications
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -79,7 +79,7 @@
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-**Updated** The system now features comprehensive dual-format support for both modern DOCX and legacy DOC document formats, enhanced concurrency control with semaphore-based throttling, improved error handling with atomic consistency guarantees, concurrent bulk operations with asyncio.gather, and enhanced logging for document indexing operations. The RAG pipeline has been optimized for better performance with proper resource management and error recovery mechanisms. The user interface has been significantly enhanced with modern rounded corner styling, sophisticated background treatments, and improved visual presentation throughout the document management experience.
+**Updated** The system now features a revolutionary batch status polling system that dramatically reduces server load by replacing individual row polling with centralized batch processing. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The new '/partials/documents-status' endpoint efficiently manages status updates for all pending and processing documents in a single request, significantly improving performance and reducing resource consumption.
 
 ## System Architecture
 
@@ -89,10 +89,11 @@ The Document Management System follows a layered architecture pattern with clear
 graph TB
 subgraph "Presentation Layer"
 WebUI[Web Interface]
-VKBot[VK Bot]
-Search[Real-time Search]
+MobileSidebar[Overlay Mobile Sidebar]
+ToastNotifications[Toast Notifications]
+StatusPoller[Batch Status Poller]
 Pagination[Dynamic Pagination]
-Status[Visual Status Indicators]
+Search[Real-time Search]
 BulkToolbar[Bulk Actions Toolbar]
 DateFilter[Enhanced Date Filters]
 FormatIcons[Format Type Icons]
@@ -110,6 +111,8 @@ BulkOps[Bulk Operations Controller]
 FormatHandler[Format Detection Handler]
 Semaphore[Asyncio Semaphore]
 FilterSortAPI[Filter & Sort API]
+BatchPoller[Batch Status Poller]
+OOBSwapper[Out-of-Band Swapper]
 end
 subgraph "Domain Layer"
 Entities[Domain Entities]
@@ -133,18 +136,9 @@ LLM[LLM Provider]
 Parser[Enhanced Parser]
 end
 WebUI --> API
-WebUI --> Search
-WebUI --> Pagination
-WebUI --> Status
-WebUI --> BulkToolbar
-WebUI --> DateFilter
-WebUI --> FormatIcons
-WebUI --> TableStyling
-WebUI --> BackgroundStyling
-WebUI --> RoundedCorners
-WebUI --> VisualHierarchy
-WebUI --> FilterSort
-VKBot --> API
+MobileSidebar --> API
+ToastNotifications --> API
+StatusPoller --> API
 API --> Service
 Service --> Repo
 Service --> Qdrant
@@ -161,6 +155,7 @@ QAService --> LLM
 BulkOps --> Service
 BulkOps --> Repo
 BulkOps --> Semaphore
+BatchPoller --> OOBSwapper
 FormatHandler --> FormatDispatch
 FormatHandler --> Parser
 FilterSortAPI --> FilterSortDB
@@ -169,14 +164,14 @@ FilterSortAPI --> FilterSortDB
 **Diagram sources**
 - [app/main.py:87-90](file://app/main.py#L87-L90)
 - [app/api/documents.py:125-145](file://app/api/documents.py#L125-L145)
-- [app/api/documents.py:578-643](file://app/api/documents.py#L578-L643)
+- [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
 - [app/api/deps.py:69-70](file://app/api/deps.py#L69-L70)
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
 
 The architecture consists of five main layers with enhanced concurrency control, comprehensive document type handling, and modernized frontend capabilities:
 
-1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display, enhanced table styling with rounded corners, sophisticated background styling, and improved visual hierarchy
-2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management, comprehensive operation orchestration, dual-format processing capabilities, and semaphore-based concurrency control for background tasks
+1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, and toast notification system
+2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system, and out-of-band HTML swapping for efficient updates
 3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models and format detection mechanisms
 4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking, and enhanced filtering/sorting database operations
 5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for both DOC and DOCX formats and proper resource management
@@ -303,13 +298,19 @@ Indexed --> Release[Release Semaphore]
 Failed --> Release
 Release --> Cleanup[Cleanup Temp Files]
 end
+subgraph "Batch Status Polling System"
+Complete --> BatchPoller[Centralized Batch Poller]
+BatchPoller --> OOBSwap[Out-of-Band HTML Swap]
+OOBSwap --> StatusUpdate[Individual Row Updates]
+StatusUpdate --> End
+end
 ```
 
 **Diagram sources**
 - [app/api/documents.py:294-381](file://app/api/documents.py#L294-L381)
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
 - [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
-- [app/api/documents.py:125-145](file://app/api/documents.py#L125-L145)
+- [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
 
 ### Upload Validation and Processing
 
@@ -324,7 +325,7 @@ The system implements comprehensive validation for uploaded documents with enhan
 | Duplicate Prevention | Unique S3 keys | Append counter suffix |
 | Concurrency Control | Semaphore-based throttling | Limit concurrent indexing operations |
 
-**Updated** The validation system now supports both DOCX and DOC formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files while maintaining modern DOCX processing capabilities. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The user interface has been enhanced with improved visual feedback during upload validation and processing.
+**Updated** The validation system now supports both DOCX and DOC formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files while maintaining modern DOCX processing capabilities. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The new batch status polling system efficiently manages status updates for all pending and processing documents through centralized batch processing, significantly reducing server load and improving performance.
 
 **Section sources**
 - [app/api/documents.py:307-366](file://app/api/documents.py#L307-L366)
@@ -415,7 +416,9 @@ The system features a modernized frontend interface with enhanced user experienc
 
 ```mermaid
 flowchart TD
-UI[Modernized Interface] --> BulkToolbar[Bulk Actions Toolbar]
+UI[Modernized Interface] --> MobileSidebar[Overlay Mobile Sidebar]
+UI --> ToastNotifications[Toast Notification System]
+UI --> BulkToolbar[Bulk Actions Toolbar]
 UI --> DateFilter[Enhanced Date Filters]
 UI --> Search[Improved Search]
 UI --> Pagination[Enhanced Pagination]
@@ -426,6 +429,14 @@ UI --> BackgroundStyling[Background Styling]
 UI --> RoundedCorners[Rounded Corners]
 UI --> VisualHierarchy[Visual Hierarchy]
 UI --> FilterSort[Enhanced Filtering & Sorting]
+UI --> BatchStatusPoller[Batch Status Poller]
+MobileSidebar --> SidebarContent[Navigation Content]
+MobileSidebar --> CloseButton[Close Button]
+MobileSidebar --> OverlayBackdrop[Backdrop Overlay]
+ToastNotifications --> SuccessToast[Success Toasts]
+ToastNotifications --> ErrorToast[Error Toasts]
+ToastNotifications --> WarningToast[Warning Toasts]
+ToastNotifications --> InfoToast[Info Toasts]
 BulkToolbar --> DeleteBtn[Delete Button]
 BulkToolbar --> ReindexBtn[Reindex Button]
 BulkToolbar --> ToggleBtn[Toggle Search Button]
@@ -456,6 +467,8 @@ VisualHierarchy --> TypographyHierarchy[Typography Hierarchy]
 FilterSort --> SortIndicators[Sort Direction Indicators]
 FilterSort --> FilterChips[Filter Chips]
 FilterSort --> RealtimeFiltering[Real-time Filtering]
+BatchStatusPoller --> CentralizedPolling[Centralized Polling]
+BatchStatusPoller --> OOBSwapping[Out-of-Band Swapping]
 ```
 
 **Diagram sources**
@@ -463,10 +476,24 @@ FilterSort --> RealtimeFiltering[Real-time Filtering]
 - [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
 - [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
 - [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
+- [templates/partials/status_poller.html:1-14](file://templates/partials/status_poller.html#L1-L14)
+- [templates/base.html:86-279](file://templates/base.html#L86-L279)
 
 ### Interactive Features
 
 The modernized interface includes several key interactive elements:
+
+#### Enhanced Mobile Responsiveness
+- **Overlay Sidebar**: Mobile-friendly sidebar with slide-in animation and backdrop overlay
+- **Responsive Breakpoints**: MD breakpoint for desktop/tablet adaptation
+- **Touch-Friendly Controls**: Large touch targets and appropriate spacing
+- **Mobile Navigation**: Hamburger menu with smooth transitions and backdrop clicking
+
+#### Toast Notification System
+- **Centralized Toast Manager**: Global toast management with automatic dismissal
+- **Multiple Toast Types**: Success, error, warning, and info notifications
+- **Automatic Dismissal**: 5-second timeout for non-blocking user experience
+- **Custom Event Handling**: HTMX-compatible toast triggering via custom events
 
 #### Enhanced Table Container Styling
 - **Rounded Corners**: `rounded-xl` for all table containers and modals
@@ -515,6 +542,12 @@ The modernized interface includes several key interactive elements:
 - **Real-time Filtering**: Immediate updates when filters change
 - **Parameter Persistence**: Filter and sort parameters maintained across navigation
 
+#### Batch Status Polling System
+- **Centralized Polling**: Single endpoint '/partials/documents-status' for all active documents
+- **Out-of-Band Swapping**: Efficient HTML updates without full page reloads
+- **Automatic Polling Control**: Starts/stops polling based on active document count
+- **Reduced Server Load**: Eliminates N concurrent requests for individual row polling
+
 ### Frontend State Management
 
 The interface uses Alpine.js for comprehensive state management:
@@ -525,6 +558,7 @@ The interface uses Alpine.js for comprehensive state management:
 - **Upload State**: Track file upload progress and status
 - **Modal State**: Manage dialog visibility and user interactions
 - **Format State**: Track document format types and display preferences
+- **Mobile State**: Sidebar open/close state and responsive breakpoints
 
 **Section sources**
 - [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
@@ -532,6 +566,8 @@ The interface uses Alpine.js for comprehensive state management:
 - [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
 - [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
 - [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
+- [templates/partials/status_poller.html:1-14](file://templates/partials/status_poller.html#L1-L14)
+- [templates/base.html:86-279](file://templates/base.html#L86-L279)
 
 ## Dual-Format Document Support
 
@@ -672,6 +708,7 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Real-time updates**: Verifies automatic status refresh for processing documents
 - **Error handling**: Tests error status display and tooltip functionality
 - **Pagination with search**: Validates search results across multiple pages
+- **Batch status polling**: Tests centralized status updates and out-of-band swapping
 
 #### Pagination Testing Coverage
 - **Default Pagination**: Tests default page size (10 items)
@@ -710,6 +747,20 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Sort Directions**: Tests ascending and descending sort orders
 - **Combined Filters**: Tests multiple filters applied simultaneously
 - **URL Parameter Persistence**: Validates filter parameters in URLs
+
+#### Mobile Responsiveness Testing Coverage
+- **Overlay Sidebar**: Tests mobile sidebar functionality and animations
+- **Responsive Breakpoints**: Validates MD breakpoint behavior
+- **Touch Interactions**: Tests mobile touch controls and gestures
+- **Navigation Flow**: Validates mobile navigation patterns
+- **Toast Notifications**: Tests toast behavior on mobile devices
+
+#### Batch Status Polling Testing Coverage
+- **Centralized Polling**: Tests '/partials/documents-status' endpoint functionality
+- **Out-of-Band Swapping**: Validates HTML replacement without full page reloads
+- **Polling Control**: Tests automatic start/stop of polling based on active documents
+- **Performance Impact**: Validates reduced server load compared to individual polling
+- **Error Handling**: Tests graceful handling of polling failures
 
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
@@ -852,10 +903,20 @@ The frontend provides status-based filtering:
 - **Client-side filtering**: Real-time filtering of visible documents
 - **Combined filters**: Status filters work with search and type filters
 
+### Batch Status Polling Integration
+
+The enhanced status system now includes centralized batch polling:
+
+- **Centralized Endpoint**: '/partials/documents-status' manages all active document updates
+- **Out-of-Band Swapping**: Efficient HTML replacement without full page reloads
+- **Automatic Polling Control**: Starts/stops polling based on active document count
+- **Reduced Server Load**: Eliminates N concurrent requests for individual row updates
+
 **Section sources**
 - [templates/partials/document_row.html:19-41](file://templates/partials/document_row.html#L19-L41)
 - [templates/documents.html:74-87](file://templates/documents.html#L74-L87)
 - [app/storage/models.py:11-18](file://app/storage/models.py#L11-L18)
+- [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
 
 ## Advanced Pagination System
 
@@ -1279,7 +1340,8 @@ The system provides a comprehensive REST API for document management with full s
 |----------|--------|-------------|
 | `/partials/document-table` | GET | Dynamic table content with search, pagination, and date filtering |
 | `/partials/document-row/{id}` | GET | Individual row updates with status refresh |
-| `/partials/document-status/{id}` | GET | Status badge refresh |
+| `/partials/document-status/{id}` | GET | Status badge refresh for individual documents |
+| `/partials/documents-status` | GET | Centralized batch status updates for all active documents |
 
 ### Search and Pagination Parameters
 
@@ -1295,7 +1357,7 @@ All list endpoints support the following parameters:
 - **`sort_field`**: Field to sort by (title, created_at, status)
 - **`sort_dir`**: Sort direction (asc, desc)
 
-**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments.
+**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new `/partials/documents-status` endpoint provides centralized batch status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling.
 
 **Section sources**
 - [app/api/documents.py:1-806](file://app/api/documents.py#L1-L806)
@@ -1441,7 +1503,7 @@ Required environment variables:
 - `CHUNK_SIZE`: Token-based chunk size for text processing
 - `CHUNK_OVERLAP`: Token-based chunk overlap for context preservation
 
-**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations.
+**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The new batch status polling system reduces server load and improves performance, making the deployment more scalable and efficient.
 
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
@@ -1471,6 +1533,10 @@ Required environment variables:
 | **Enhanced UI Not Loading** | Missing modern styling | Verify static asset serving, check CSS file paths |
 | **Filtering Not Working** | Filters not applying | Check server-side filter implementation, verify parameter passing |
 | **Sorting Issues** | Wrong sort order or direction | Verify sort field validation, check database ordering |
+| **Mobile Sidebar Not Working** | Overlay sidebar not appearing | Check Alpine.js configuration, verify mobile breakpoint |
+| **Toast Notifications Not Showing** | No toast messages | Verify toast manager initialization, check custom event handling |
+| **Batch Status Polling Failing** | Status not updating | Check '/partials/documents-status' endpoint, verify out-of-band swapping |
+| **Reduced Server Load** | Performance improvements | Verify batch polling implementation, check server resource usage |
 
 ### Logging and Monitoring
 
@@ -1491,8 +1557,11 @@ The system provides comprehensive logging at multiple levels:
 - **UI Styling logs**: Component rendering, visual hierarchy validation
 - **Filtering logs**: Server-side filtering implementation, parameter validation
 - **Sorting logs**: Sort field processing, database ordering
+- **Mobile Responsiveness logs**: Responsive behavior, breakpoint handling
+- **Toast Notification logs**: Toast management, event handling
+- **Batch Status Polling logs**: Centralized polling, out-of-band swapping
 
-**Updated** The troubleshooting guide now includes comprehensive UI styling issues, rounded corner rendering problems, background treatment inconsistencies, and enhanced interface component failures. The logging system provides detailed coverage for all new features including enhanced user interface styling, proper CSS framework integration, responsive design validation, and visual hierarchy maintenance. The enhanced filtering and sorting system includes comprehensive logging for filter parameter validation and query execution.
+**Updated** The troubleshooting guide now includes comprehensive UI styling issues, rounded corner rendering problems, background treatment inconsistencies, and enhanced interface component failures. The logging system provides detailed coverage for all new features including enhanced user interface styling, proper CSS framework integration, responsive design validation, visual hierarchy maintenance, mobile sidebar functionality, toast notification system, and the revolutionary batch status polling system. The enhanced filtering and sorting system includes comprehensive logging for filter parameter validation and query execution.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -1502,22 +1571,23 @@ The system provides comprehensive logging at multiple levels:
 
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
 
-**Updated** The system has been significantly enhanced with comprehensive dual-format support for both DOCX and DOC documents, enhanced concurrency control with semaphore-based throttling, improved error handling with atomic consistency guarantees, concurrent bulk operations with asyncio.gather, and enhanced logging for document indexing operations. The most notable enhancement is the comprehensive user interface modernization featuring sophisticated rounded corner styling, enhanced background treatments, improved visual hierarchy, and better overall visual presentation. The robust concurrency control system with configurable limits prevents resource exhaustion during peak loads, while the enhanced error handling ensures data consistency even in failure scenarios. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles.
+**Updated** The system has been significantly enhanced with a revolutionary batch status polling system that dramatically reduces server load by replacing individual row polling with centralized batch processing. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The new '/partials/documents-status' endpoint efficiently manages status updates for all pending and processing documents in a single request, significantly improving performance and reducing resource consumption. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles.
 
 Key strengths include:
+- **Revolutionary Batch Status Polling**: Centralized batch processing eliminates N concurrent requests, dramatically reducing server load
 - **Comprehensive Document Lifecycle Management**: From upload to searchable state with dual format support
 - **Flexible Storage Backend**: Support for multiple storage providers
 - **Advanced RAG Pipeline**: Semantic search and question-answering capabilities with enhanced format handling
 - **Multi-channel Integration**: Web interface and VK social network bot
 - **Production-ready Architecture**: Proper separation of concerns and testing strategy
 - **Scalable Pagination System**: Efficient handling of large document collections
-- **Enhanced User Experience**: Dynamic pagination with HTMX integration
+- **Enhanced User Experience**: Dynamic pagination with HTMX integration, mobile-responsive design
 - **Powerful Search Capabilities**: Real-time filtering with case-insensitive pattern matching
 - **Visual Status Management**: Comprehensive status indicators with real-time updates
 - **Granular Control**: Search enable/disable functionality for individual documents
 - **Comprehensive Bulk Operations**: Atomic operations for efficient document management with concurrency control
 - **Advanced Date Filtering**: Precise temporal querying with inclusive boundaries
-- **Modernized Interface**: Interactive toolbar and enhanced user experience
+- **Modernized Interface**: Interactive toolbar, enhanced user experience, overlay mobile sidebar
 - **Dual Format Support**: Comprehensive handling of both DOCX and legacy DOC documents
 - **Enhanced Parser Architecture**: Robust processing pipeline for diverse document formats
 - **Robust Concurrency Control**: Semaphore-based throttling for background operations
@@ -1525,6 +1595,7 @@ Key strengths include:
 - **Comprehensive Logging**: Detailed monitoring and debugging capabilities
 - **Enhanced Visual Presentation**: Modern rounded corner styling, sophisticated background treatments, and improved visual hierarchy throughout the interface
 - **Advanced Filtering and Sorting**: Comprehensive server-side processing with real-time updates
-- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, and concurrency control
+- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, and batch status polling
+- **Mobile-First Responsive Design**: Overlay sidebar, toast notifications, and adaptive layouts for all device sizes
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.

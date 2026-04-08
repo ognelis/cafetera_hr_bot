@@ -14,6 +14,7 @@ from qdrant_client import QdrantClient
 
 from app.config import Settings
 from app.domain.document_service import DocumentService
+from app.domain.qa_service import close_qa, init_qa
 from app.rag.retriever import build_embeddings
 from app.storage.database import init_db
 from app.storage.document_repo import DocumentRepository
@@ -87,6 +88,9 @@ async def lifespan(app: FastAPI):
     # Semaphore to limit concurrent document indexing
     app.state.indexing_semaphore = asyncio.Semaphore(settings.max_concurrent_indexing)
 
+    # QA service (for document-scoped questions in admin UI)
+    init_qa(settings)
+
     yield
 
     # Teardown
@@ -95,6 +99,8 @@ async def lifespan(app: FastAPI):
             await s3.close()
         except Exception:
             logger.warning("Error closing S3 client", exc_info=True)
+
+    close_qa()
 
     if qdrant_client is not None:
         try:

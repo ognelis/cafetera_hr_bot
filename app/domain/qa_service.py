@@ -12,6 +12,9 @@ from typing import TYPE_CHECKING
 
 from app.domain.content import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
 
+# Settings reference for document-scoped queries
+_settings: Settings | None = None
+
 if TYPE_CHECKING:
     from langchain_core.runnables import Runnable
     from qdrant_client import QdrantClient
@@ -55,7 +58,7 @@ def init_qa(settings: Settings) -> None:
     logs a warning and leaves the chain as *None* so the bot can still
     start (handlers will return a user-friendly fallback).
     """
-    global _chain, _qdrant_client  # noqa: PLW0603
+    global _chain, _qdrant_client, _settings  # noqa: PLW0603
 
     if _qdrant_client is not None:
         _qdrant_client.close()
@@ -83,6 +86,7 @@ def init_qa(settings: Settings) -> None:
 
         _qdrant_client = client
         _chain = chain
+        _settings = settings
         logger.info("RAG chain initialised successfully")
     except Exception:
         logger.warning("RAG chain not available — handlers will use fallback", exc_info=True)
@@ -110,9 +114,46 @@ async def ask(question: str) -> str:
     return _truncate(answer.strip())
 
 
+async def ask_about_document(question: str, document_id: str) -> str:
+    """Query the RAG chain scoped to a specific document and return a displayable answer string.
+
+    * If the QA service was not initialised → ``ERR_NO_ANSWER``.
+    * If the chain raises at runtime → ``ERR_DOCUMENT_UNAVAILABLE``.
+    * Long answers are truncated to fit the VK message limit.
+    """
+    if _qdrant_client is None or _settings is None:
+        return ERR_NO_ANSWER
+
+    try:
+        from app.rag.chain import build_llm, build_rag_chain
+        from app.rag.prompts import DOCUMENT_EXPERTS_PROMPT
+        from app.rag.retriever import build_embeddings, build_retriever_for_document
+
+        embeddings = build_embeddings(_settings)
+        retriever = build_retriever_for_document(
+            _qdrant_client,
+            embeddings,
+            document_id,
+            _settings.qdrant_collection,
+        )
+        llm = build_llm(_settings)
+        chain = build_rag_chain(retriever, llm, system_prompt=DOCUMENT_EXPERTS_PROMPT)
+        answer: str = await chain.ainvoke(question)
+    except Exception:
+        logger.error(
+            "RAG chain failed for document %s question: %s", document_id, question, exc_info=True
+        )
+        return ERR_DOCUMENT_UNAVAILABLE
+
+    if not answer or not answer.strip():
+        return ERR_NO_ANSWER
+
+    return _truncate(answer.strip())
+
+
 def close_qa() -> None:
     """Release resources held by the QA service."""
-    global _chain, _qdrant_client  # noqa: PLW0603
+    global _chain, _qdrant_client, _settings  # noqa: PLW0603
 
     if _qdrant_client is not None:
         try:
@@ -122,3 +163,4 @@ def close_qa() -> None:
 
     _chain = None
     _qdrant_client = None
+    _settings = None

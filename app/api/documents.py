@@ -813,6 +813,27 @@ async def bulk_toggle_search(
     )
 
 
+@router.post("/api/documents/{document_id}/ask")
+async def ask_about_document(
+    document_id: str,
+    _auth: AdminDep,
+    repo: RepoDep,
+    question: Annotated[str, Form()],
+):
+    """Ask a question about a specific document."""
+    doc = await repo.get(document_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Документ не найден")
+
+    if doc.status.value != "completed" or not doc.is_search_enabled:
+        raise HTTPException(status_code=400, detail="Документ не готов для вопросов")
+
+    from app.domain import qa_service
+
+    answer = await qa_service.ask_about_document(question, document_id)
+    return {"answer": answer}
+
+
 @router.get("/api/documents/{document_id}")
 async def get_document(document_id: str, _auth: AdminDep, repo: RepoDep):
     doc = await repo.get(document_id)

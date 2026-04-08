@@ -100,3 +100,37 @@ def build_retriever(
         ]
     )
     return vs.as_retriever(search_kwargs={"k": k, "filter": search_filter})
+
+
+def build_retriever_for_document(
+    client: QdrantClient,
+    embeddings: Embeddings,
+    document_id: str,
+    collection_name: str = COLLECTION_NAME,
+    *,
+    k: int = 4,
+) -> VectorStoreRetriever:
+    """Build a dense retriever scoped to a single document.
+
+    Returns only chunks that:
+    - belong to ``document_id`` (``metadata.document_id`` must match), and
+    - are not explicitly excluded from search (``is_search_enabled`` != ``False``).
+    """
+    from qdrant_client import models
+
+    vs = build_vectorstore(client, embeddings, collection_name)
+    search_filter = models.Filter(
+        must=[
+            models.FieldCondition(
+                key="metadata.document_id",
+                match=models.MatchValue(value=document_id),
+            )
+        ],
+        must_not=[
+            models.FieldCondition(
+                key="metadata.is_search_enabled",
+                match=models.MatchValue(value=False),
+            )
+        ],
+    )
+    return vs.as_retriever(search_kwargs={"k": k, "filter": search_filter})
