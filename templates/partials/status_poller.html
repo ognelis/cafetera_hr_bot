@@ -1,0 +1,13 @@
+{# Status poller div - triggers batch status updates via HTMX
+   This is swapped in/out to control polling. When has_active is false,
+   the empty div stops polling (no hx-trigger attribute).
+#}
+{% if has_active %}
+<div id="status-poller"
+     hx-get="/partials/documents-status"
+     hx-trigger="every 3s"
+     hx-swap="innerHTML">
+</div>
+{% else %}
+<div id="status-poller"></div>
+{% endif %}

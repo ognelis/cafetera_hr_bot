@@ -387,6 +387,60 @@ async def document_status_partial(
     )
 
 
+@router.get("/partials/documents-status", response_class=HTMLResponse)
+async def documents_status_partial(
+    request: Request,
+    _auth: AdminDep,
+    templates: TemplatesDep,
+    repo: RepoDep,
+):
+    """Return OOB-swapped rows for all pending/processing documents + poller div.
+
+    This batch endpoint replaces per-row polling to avoid N concurrent requests.
+    """
+    # Get all pending and processing documents
+    pending_docs, _ = await repo.list_page(
+        page=1, per_page=1000, status="pending"
+    )
+    processing_docs, _ = await repo.list_page(
+        page=1, per_page=1000, status="processing"
+    )
+    active_docs = pending_docs + processing_docs
+
+    # Render OOB rows for each active document
+    row_html_parts = []
+    for doc in active_docs:
+        row_response = templates.TemplateResponse(
+            request,
+            "partials/document_row.html",
+            {
+                "doc": doc,
+                "human_size": _human_size,
+            },
+        )
+        # Extract the HTML content from the response
+        row_html = row_response.body.decode("utf-8")
+        # Add hx-swap-oob="true" attribute to the tr element
+        # The row already has id="row-{document_id}" from the template
+        row_html = row_html.replace(
+            f'id="row-{doc.document_id}"',
+            f'id="row-{doc.document_id}" hx-swap-oob="true"'
+        )
+        row_html_parts.append(row_html)
+
+    # Render the poller div - continues polling if there are active docs
+    has_active = len(active_docs) > 0
+    poller_response = templates.TemplateResponse(
+        request,
+        "partials/status_poller.html",
+        {"has_active": has_active},
+    )
+    poller_html = poller_response.body.decode("utf-8")
+    row_html_parts.append(poller_html)
+
+    return HTMLResponse(content="\n".join(row_html_parts))
+
+
 # ── Upload ────────────────────────────────────────────────────────
 
 

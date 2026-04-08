@@ -40,44 +40,46 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced user interface experience with improved table styling, rounded corners, and background styling
-- Implemented modern rounded corner design for document table container and upload modal
-- Added sophisticated background styling with primary/secondary color combinations
-- Improved visual presentation with enhanced status badges and interactive elements
-- Refined pagination controls with better spacing and responsive design
-- Enhanced bulk actions toolbar with improved styling and visual hierarchy
+- Enhanced filtering and sorting capabilities with comprehensive server-side processing implementation
+- Implemented sophisticated dual-format support for both DOCX and legacy DOC document formats
+- Added modernized user interface with enhanced styling, rounded corners, and improved visual hierarchy
+- Introduced comprehensive test coverage for new functionality including filtering, sorting, and concurrency control
+- Enhanced text chunking algorithms with improved token-based processing and metadata enrichment
+- Implemented robust concurrency control with semaphore-based throttling for background operations
+- Added sophisticated pagination system with intelligent page numbering and URL synchronization
+- Enhanced bulk operations system with concurrent processing and atomic operation guarantees
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [System Architecture](#system-architecture)
 3. [Core Components](#core-components)
 4. [Document Management Workflow](#document-management-workflow)
-5. [Server-Side Search Functionality](#server-side-search-functionality)
-6. [Enhanced Status Display System](#enhanced-status-display-system)
-7. [Pagination System](#pagination-system)
-8. [Bulk Operations System](#bulk-operations-system)
-9. [Enhanced Date Range Filtering](#enhanced-date-range-filtering)
-10. [Modernized Frontend Interface](#modernized-frontend-interface)
-11. [Enhanced Document Format Support](#enhanced-document-format-support)
-12. [RAG Pipeline](#rag-pipeline)
-13. [VK Bot Integration](#vk-bot-integration)
-14. [Storage Layer](#storage-layer)
-15. [API Endpoints](#api-endpoints)
-16. [Configuration Management](#configuration-management)
-17. [Concurrency Control and Throttling](#concurrency-control-and-throttling)
-18. [Enhanced Error Handling and Consistency](#enhanced-error-handling-and-consistency)
-19. [Testing Strategy](#testing-strategy)
-20. [Deployment and Operations](#deployment-and-operations)
-21. [Troubleshooting Guide](#troubleshooting-guide)
-22. [Conclusion](#conclusion)
+5. [Enhanced Filtering and Sorting System](#enhanced-filtering-and-sorting-system)
+6. [Modernized User Interface](#modernized-user-interface)
+7. [Dual-Format Document Support](#dual-format-document-support)
+8. [Enhanced Concurrency Control](#enhanced-concurrency-control)
+9. [Comprehensive Test Coverage](#comprehensive-test-coverage)
+10. [Improved Text Chunking Algorithms](#improved-text-chunking-algorithms)
+11. [Server-Side Processing Implementation](#server-side-processing-implementation)
+12. [Enhanced Status Display System](#enhanced-status-display-system)
+13. [Advanced Pagination System](#advanced-pagination-system)
+14. [Bulk Operations System](#bulk-operations-system)
+15. [Enhanced Date Range Filtering](#enhanced-date-range-filtering)
+16. [RAG Pipeline](#rag-pipeline)
+17. [VK Bot Integration](#vk-bot-integration)
+18. [Storage Layer](#storage-layer)
+19. [API Endpoints](#api-endpoints)
+20. [Configuration Management](#configuration-management)
+21. [Enhanced Error Handling and Consistency](#enhanced-error-handling-and-consistency)
+22. [Deployment and Operations](#deployment-and-operations)
+23. [Troubleshooting Guide](#troubleshooting-guide)
+24. [Conclusion](#conclusion)
 
 ## Introduction
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-The system supports multiple document formats (both DOCX and legacy DOC), integrates with vector databases for semantic search, and provides both web-based administration and VK social network bot integration for HR assistance. It features a modular architecture with clear separation between presentation, business logic, data persistence, and external integrations.
-
-**Updated** The system now includes comprehensive support for both modern DOCX and legacy DOC document formats, enhanced concurrency control with semaphore-based throttling, improved error handling with atomic consistency guarantees, concurrent bulk operations with asyncio.gather, and enhanced logging for document indexing operations. The RAG pipeline has been optimized for better performance with proper resource management and error recovery mechanisms. The user interface has been significantly enhanced with modern rounded corner styling, sophisticated background treatments, and improved visual presentation throughout the document management experience.
+**Updated** The system now features comprehensive dual-format support for both modern DOCX and legacy DOC document formats, enhanced concurrency control with semaphore-based throttling, improved error handling with atomic consistency guarantees, concurrent bulk operations with asyncio.gather, and enhanced logging for document indexing operations. The RAG pipeline has been optimized for better performance with proper resource management and error recovery mechanisms. The user interface has been significantly enhanced with modern rounded corner styling, sophisticated background treatments, and improved visual presentation throughout the document management experience.
 
 ## System Architecture
 
@@ -98,6 +100,7 @@ TableStyling[Enhanced Table Styling]
 BackgroundStyling[Background Styling]
 RoundedCorners[Rounded Corners]
 VisualHierarchy[Visual Hierarchy]
+FilterSort[Enhanced Filtering & Sorting]
 end
 subgraph "Application Layer"
 API[FastAPI Router]
@@ -106,6 +109,7 @@ QAService[QA Service]
 BulkOps[Bulk Operations Controller]
 FormatHandler[Format Detection Handler]
 Semaphore[Asyncio Semaphore]
+FilterSortAPI[Filter & Sort API]
 end
 subgraph "Domain Layer"
 Entities[Domain Entities]
@@ -120,6 +124,7 @@ Search[Case-insensitive Search]
 Pagination[Database Pagination]
 DateRange[Date Range Filtering]
 FormatSupport[Format Support Tracking]
+FilterSortDB[Filter & Sort Database]
 end
 subgraph "External Services"
 S3[MinIO/S3 Storage]
@@ -138,6 +143,7 @@ WebUI --> TableStyling
 WebUI --> BackgroundStyling
 WebUI --> RoundedCorners
 WebUI --> VisualHierarchy
+WebUI --> FilterSort
 VKBot --> API
 API --> Service
 Service --> Repo
@@ -148,6 +154,7 @@ Repo --> Search
 Repo --> Pagination
 Repo --> DateRange
 Repo --> FormatSupport
+Repo --> FilterSortDB
 Service --> LLM
 QAService --> Service
 QAService --> LLM
@@ -156,6 +163,7 @@ BulkOps --> Repo
 BulkOps --> Semaphore
 FormatHandler --> FormatDispatch
 FormatHandler --> Parser
+FilterSortAPI --> FilterSortDB
 ```
 
 **Diagram sources**
@@ -170,7 +178,7 @@ The architecture consists of five main layers with enhanced concurrency control,
 1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display, enhanced table styling with rounded corners, sophisticated background styling, and improved visual hierarchy
 2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management, comprehensive operation orchestration, dual-format processing capabilities, and semaphore-based concurrency control for background tasks
 3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models and format detection mechanisms
-4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, and format-specific metadata tracking
+4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking, and enhanced filtering/sorting database operations
 5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for both DOC and DOCX formats and proper resource management
 
 ## Core Components
@@ -322,9 +330,9 @@ The system implements comprehensive validation for uploaded documents with enhan
 - [app/api/documents.py:307-366](file://app/api/documents.py#L307-L366)
 - [app/api/documents.py:111-130](file://app/api/documents.py#L111-L130)
 
-## Server-Side Search Functionality
+## Enhanced Filtering and Sorting System
 
-The system implements comprehensive server-side search functionality with real-time filtering capabilities:
+The system implements comprehensive server-side filtering and sorting capabilities with real-time processing:
 
 ```mermaid
 sequenceDiagram
@@ -332,56 +340,469 @@ participant Client as Client Browser
 participant API as API Router
 participant Repo as Document Repository
 participant DB as SQLite Database
-Client->>API : GET /api/documents?search=query&page=1&per_page=10
-API->>Repo : list_page(page=1, per_page=10, search=query)
-Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?)
+Client->>API : GET /api/documents?search=query&status=completed&source_type=docx&sort_field=title&sort_dir=asc&page=1&per_page=10
+API->>Repo : list_page(search=query, status=completed, source_type=docx, sort_field=title, sort_dir=asc, page=1, per_page=10)
+Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.doc') ORDER BY LOWER(title) ASC
 DB-->>Repo : Total count
-Repo->>DB : SELECT ... WHERE LOWER(title) LIKE LOWER(?) OR LOWER(filename) LIKE LOWER(?)
+Repo->>DB : SELECT ... WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.doc') ORDER BY LOWER(title) ASC LIMIT 10 OFFSET 0
 DB-->>Repo : Documents with pagination
 Repo-->>API : (documents, total)
-API-->>Client : JSON with search results and pagination
-Client->>Client : Render filtered table with search highlighting
+API-->>Client : JSON with filtered and sorted results
+Client->>Client : Render filtered table with search highlighting and sort indicators
 ```
 
 **Diagram sources**
-- [app/api/documents.py:390-406](file://app/api/documents.py#L390-L406)
-- [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
+- [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
+- [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
 
-### Search Implementation Details
+### Filtering Implementation Details
 
-The search functionality provides comprehensive filtering capabilities:
+The filtering system provides comprehensive filtering capabilities across multiple dimensions:
 
 - **Case-insensitive matching**: Uses `LOWER()` function for case-insensitive pattern matching
 - **Dual-field search**: Searches both document titles and filenames simultaneously
-- **Real-time filtering**: Integrated with HTMX for immediate search results
+- **Status filtering**: Filters by processing status (pending, processing, completed, failed)
+- **Source type filtering**: Distinguishes between DOCX, DOC, and other document types
+- **Real-time filtering**: Integrated with HTMX for immediate filtered results
 - **Pattern matching**: Supports partial matches with wildcard patterns
 - **Performance optimization**: Efficient LIKE queries with proper indexing considerations
 
-### Search Parameters
+### Sorting Implementation Details
 
-The search system supports the following parameters:
+The sorting system provides flexible ordering capabilities:
+
+- **Multiple sort fields**: Supports sorting by title, created_at, and status
+- **Bidirectional sorting**: Ascending and descending order for all sortable fields
+- **Case-insensitive text sorting**: Uses `LOWER()` for title sorting
+- **Timestamp sorting**: Direct sorting by created_at timestamps
+- **Enum sorting**: Direct sorting by status enum values
+- **URL parameter preservation**: Sort parameters persist across pagination
+
+### Filter and Sort Parameters
+
+The system supports the following parameters:
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `search` | String | Search query for filtering documents by title or filename |
+| `status` | String | Filter by processing status (all, completed, processing, pending, failed) |
+| `source_type` | String | Filter by document type (all, docx, doc, other) |
+| `sort_field` | String | Field to sort by (title, created_at, status) |
+| `sort_dir` | String | Sort direction (asc, desc) |
 | `page` | Integer | Current page number (1-indexed) |
 | `per_page` | Integer | Number of items per page (10, 20, 50) |
 
-### Search UI Integration
+### Filter and Sort UI Integration
 
-The frontend provides intuitive search capabilities:
+The frontend provides intuitive filtering and sorting capabilities:
 
-- **Real-time search**: Debounced input with 300ms delay for performance
-- **Search icon**: Visual indicator with magnifying glass icon
-- **Placeholder text**: "Search" for user guidance
+- **Real-time filtering**: Debounced input with 300ms delay for performance
+- **Filter chips**: Visual filter indicators with active state highlighting
+- **Sort indicators**: Arrow icons showing current sort direction
+- **Dropdown filters**: Status and source type filters with visual labels
 - **HTMX integration**: Automatic AJAX requests for filtered results
-- **Pagination preservation**: Search maintains current pagination state
+- **Pagination preservation**: Filter and sort parameters maintain current pagination state
 
 **Section sources**
-- [app/api/documents.py:194-218](file://app/api/documents.py#L194-L218)
-- [app/api/documents.py:390-406](file://app/api/documents.py#L390-L406)
-- [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
-- [templates/documents.html:25-42](file://templates/documents.html#L25-L42)
+- [app/api/documents.py:221-279](file://app/api/documents.py#L221-L279)
+- [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
+- [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
+- [templates/documents.html:59-136](file://templates/documents.html#L59-L136)
+
+## Modernized User Interface
+
+The system features a modernized frontend interface with enhanced user experience and interactive capabilities:
+
+```mermaid
+flowchart TD
+UI[Modernized Interface] --> BulkToolbar[Bulk Actions Toolbar]
+UI --> DateFilter[Enhanced Date Filters]
+UI --> Search[Improved Search]
+UI --> Pagination[Enhanced Pagination]
+UI --> Status[Visual Status Indicators]
+UI --> FormatIcons[Format Type Icons]
+UI --> TableStyling[Enhanced Table Styling]
+UI --> BackgroundStyling[Background Styling]
+UI --> RoundedCorners[Rounded Corners]
+UI --> VisualHierarchy[Visual Hierarchy]
+UI --> FilterSort[Enhanced Filtering & Sorting]
+BulkToolbar --> DeleteBtn[Delete Button]
+BulkToolbar --> ReindexBtn[Reindex Button]
+BulkToolbar --> ToggleBtn[Toggle Search Button]
+DateFilter --> FromInput[From Date Input]
+DateFilter --> ToInput[To Date Input]
+DateFilter --> ApplyBtn[Apply Button]
+DateFilter --> ClearBtn[Clear Button]
+Search --> RealtimeSearch[Real-time Search]
+Search --> Debounce[300ms Debounce]
+Pagination --> HTMX[HTMX Integration]
+Pagination --> Ellipsis[Smart Ellipsis]
+Status --> AutoRefresh[Auto-refresh]
+Status --> Tooltips[Error Tooltips]
+FormatIcons --> DocIcon[DOC Format Icon]
+FormatIcons --> DocxIcon[DOCX Format Icon]
+TableStyling --> BorderStyling[Border Styling]
+TableStyling --> BackgroundStyling[Background Treatment]
+TableStyling --> RoundedCorners[Corner Radius]
+BackgroundStyling --> PrimaryBackground[Primary Background]
+BackgroundStyling --> SecondaryBackground[Secondary Background]
+BackgroundStyling --> SurfaceBackground[Surface Background]
+RoundedCorners --> TableContainer[Table Container]
+RoundedCorners --> UploadModal[Upload Modal]
+RoundedCorners --> FilterChips[Filter Chips]
+VisualHierarchy --> ColorHierarchy[Color Hierarchy]
+VisualHierarchy --> SpacingHierarchy[Spacing Hierarchy]
+VisualHierarchy --> TypographyHierarchy[Typography Hierarchy]
+FilterSort --> SortIndicators[Sort Direction Indicators]
+FilterSort --> FilterChips[Filter Chips]
+FilterSort --> RealtimeFiltering[Real-time Filtering]
+```
+
+**Diagram sources**
+- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
+- [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
+- [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
+- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
+
+### Interactive Features
+
+The modernized interface includes several key interactive elements:
+
+#### Enhanced Table Container Styling
+- **Rounded Corners**: `rounded-xl` for all table containers and modals
+- **Sophisticated Borders**: `border border-base-300/70` with transparency effects
+- **Background Treatment**: `bg-base-100` with subtle surface styling
+- **Shadow Effects**: Subtle shadows for depth perception
+- **Padding Optimization**: `pb-24` for proper bottom spacing
+
+#### Bulk Actions Toolbar Enhancement
+- **Primary Background**: `bg-primary/10` for subtle accent treatment
+- **Rounded Design**: `rounded-lg` for modern appearance
+- **Visual Hierarchy**: Proper spacing and alignment
+- **Interactive States**: Hover effects and transitions
+- **Badge Integration**: Visual feedback for selection count
+
+#### Enhanced Date Filters
+- **Dropdown Interface**: Collapsible filter panel with smooth animations
+- **Two-Date Selection**: Separate inputs for start and end dates
+- **Real-time Updates**: Automatic filtering on input changes
+- **Clear Functionality**: One-click reset of all date filters
+- **Apply Button**: Explicit apply mechanism for complex workflows
+- **URL Parameter Sync**: Date filters persist in URL for sharing and bookmarking
+- **Responsive Design**: Mobile-friendly date picker interface
+
+#### Improved Search Experience
+- **Debounced Input**: 300ms delay for performance optimization
+- **Real-time Results**: Instant filtering without page reloads
+- **Visual Indicators**: Clear display of active search terms
+- **Search Icon**: Intuitive magnifying glass icon
+
+#### Advanced Pagination
+- **HTMX Integration**: Seamless partial updates without full reloads
+- **Smart Ellipsis**: Intelligent page number display for large datasets
+- **URL Synchronization**: Pagination state preserved in URL
+- **Responsive Design**: Mobile-optimized pagination controls
+
+#### Format Type Display
+- **Visual Icons**: Distinct icons for DOC and DOCX formats
+- **Color Coding**: Different visual treatments for different formats
+- **Tooltip Information**: Hover details showing exact format type
+- **Filtering Support**: Separate filters for DOC and DOCX formats
+
+#### Enhanced Filtering and Sorting
+- **Filter Chips**: Visual filter indicators with active state highlighting
+- **Sort Indicators**: Arrow icons showing current sort direction
+- **Real-time Filtering**: Immediate updates when filters change
+- **Parameter Persistence**: Filter and sort parameters maintained across navigation
+
+### Frontend State Management
+
+The interface uses Alpine.js for comprehensive state management:
+
+- **Filter State**: Search query, status filter, source type filter, date range, sort parameters
+- **Selection State**: Track selected document IDs across operations
+- **Pagination State**: Current page, items per page, total counts
+- **Upload State**: Track file upload progress and status
+- **Modal State**: Manage dialog visibility and user interactions
+- **Format State**: Track document format types and display preferences
+
+**Section sources**
+- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
+- [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
+- [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
+- [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
+- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
+
+## Dual-Format Document Support
+
+The system now provides comprehensive support for both modern DOCX and legacy DOC document formats:
+
+```mermaid
+flowchart TD
+FormatDetection[Format Detection] --> DocxCheck{Is .docx?}
+DocxCheck --> |Yes| DocxParser[DOCX Parser]
+DocxCheck --> |No| DocCheck{Is .doc?}
+DocCheck --> |Yes| DocParser[Legacy DOC Parser]
+DocCheck --> |No| Unsupported[Unsupported Format]
+DocxParser --> DocxChunks[Generate DOCX Chunks]
+DocParser --> DocChunks[Generate DOC Chunks]
+DocxChunks --> CombinedChunks[Combined Chunks]
+DocChunks --> CombinedChunks
+CombinedChunks --> VectorStore[Vector Store Indexing]
+Unsupported --> Error[Format Error Response]
+```
+
+**Diagram sources**
+- [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
+- [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
+
+### Format Detection and Validation
+
+The system implements comprehensive format detection and validation:
+
+- **Allowed Extensions**: Both `.docx` and `.doc` are supported
+- **MIME Type Validation**: Comprehensive MIME type checking for both formats
+- **Automatic Routing**: Format detection determines appropriate parsing strategy
+- **Error Handling**: Graceful handling of unsupported formats with clear error messages
+
+### Parser Architecture
+
+The enhanced parser system supports both document formats:
+
+#### DOCX Parser
+- **Structured Content**: Preserves document structure with heading-based sections
+- **Metadata Enrichment**: Maintains source filename and section information
+- **Chunk Processing**: Generates semantic chunks with proper metadata
+- **Vector Embedding**: Creates embeddings for semantic search
+
+#### Legacy DOC Parser
+- **Text Extraction**: Uses `docx2txt` for reliable text extraction
+- **Single Section**: Treats entire document as single section
+- **Filename-Based Section**: Uses document stem as section heading
+- **Consistent Processing**: Mirrors DOCX processing approach for uniform results
+
+### Format-Specific Features
+
+Both formats benefit from enhanced processing capabilities:
+
+- **Unified Metadata**: Consistent metadata structure regardless of format
+- **Chunk Size Optimization**: Same chunk size and overlap for both formats
+- **Vector Database Integration**: Seamless integration with Qdrant vector store
+- **Search Compatibility**: Identical search behavior for both document types
+
+**Section sources**
+- [app/rag/parser.py:55-138](file://app/rag/parser.py#L55-L138)
+- [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
+- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
+
+## Enhanced Concurrency Control
+
+The system implements comprehensive concurrency control with semaphore-based throttling for document indexing operations:
+
+### Semaphore-Based Throttling
+
+The system uses asyncio.Semaphore to limit concurrent document indexing operations:
+
+```mermaid
+sequenceDiagram
+participant API as API Handler
+participant Semaphore as Asyncio Semaphore
+participant BackgroundTask as Background Task
+participant Indexing as Indexing Process
+API->>Semaphore : acquire()
+Semaphore->>BackgroundTask : schedule task
+BackgroundTask->>Indexing : download + parse + index
+Indexing-->>BackgroundTask : completion
+BackgroundTask->>Semaphore : release()
+Semaphore-->>API : permit available
+```
+
+**Diagram sources**
+- [app/main.py:87-89](file://app/main.py#L87-L89)
+- [app/api/deps.py:69-70](file://app/api/deps.py#L69-L70)
+- [app/api/documents.py:125-145](file://app/api/documents.py#L125-L145)
+
+### Concurrency Control Implementation
+
+The semaphore-based throttling system provides:
+
+- **Resource Protection**: Limits concurrent indexing operations to prevent resource exhaustion
+- **Fair Queuing**: First-come-first-served ordering for background tasks
+- **Graceful Degradation**: Tasks wait for available permits rather than failing immediately
+- **Configurable Limits**: Adjustable concurrency based on system resources
+- **Atomic Operations**: Semaphore acquisition/release wraps the entire indexing process
+
+### Background Task Coordination
+
+Background tasks are coordinated through enhanced functions:
+
+- **`_index_in_background`**: Handles single document indexing with semaphore protection
+- **`_reindex_in_background`**: Handles bulk reindexing with proper error handling
+- **Concurrent Processing**: Multiple background tasks can run simultaneously within limits
+- **Error Recovery**: Failed tasks don't block other operations
+
+**Section sources**
+- [app/main.py:87-89](file://app/main.py#L87-L89)
+- [app/api/documents.py:125-145](file://app/api/documents.py#L125-L145)
+- [app/api/documents.py:802-821](file://app/api/documents.py#L802-L821)
+
+## Comprehensive Test Coverage
+
+The system includes comprehensive testing across all layers with extensive search, pagination, bulk operation, and concurrency control coverage:
+
+### Test Coverage Areas
+
+| Test Module | Focus Area | Testing Approach |
+|-------------|------------|------------------|
+| `test_api_documents.py` | API endpoint functionality | Unit and integration tests |
+| `test_document_service.py` | Domain service logic | Mock-based testing |
+| `test_storage.py` | Database operations | SQLite in-memory testing |
+| `test_rag_block6.py` | RAG pipeline components | End-to-end testing |
+| `test_bot_factory.py` | VK bot integration | State machine validation |
+| `test_qa_service.py` | Question-answering logic | Scenario-based testing |
+
+### Enhanced Test Coverage Areas
+
+**Updated** The testing strategy now includes extensive coverage for the newly enhanced features:
+
+#### Search and Status Testing Coverage
+- **Search functionality**: Tests case-insensitive pattern matching against titles and filenames
+- **Status transitions**: Validates all status state changes and visual indicators
+- **Search enable/disable**: Tests toggle functionality for search participation
+- **Real-time updates**: Verifies automatic status refresh for processing documents
+- **Error handling**: Tests error status display and tooltip functionality
+- **Pagination with search**: Validates search results across multiple pages
+
+#### Pagination Testing Coverage
+- **Default Pagination**: Tests default page size (10 items)
+- **Custom Pagination**: Tests custom page sizes (3 items per page)
+- **Large Collections**: Tests pagination with 7 documents across 3 pages
+- **Beyond Range**: Tests pagination beyond available data
+- **Total Count Accuracy**: Verifies total count matches actual document count
+- **HTMX Partials**: Tests pagination controls in HTMX partial responses
+
+#### Bulk Operations Testing Coverage
+- **Bulk Delete**: Tests deletion of multiple documents with concurrent fetching
+- **Bulk Reindex**: Tests background reindexing initiation for multiple documents with semaphore protection
+- **Bulk Search Toggle**: Tests enabling/disabling search participation for multiple documents
+- **Error Handling**: Validates graceful handling of non-existent documents
+- **HTMX Responses**: Tests partial HTML responses for seamless updates
+- **Background Processing**: Validates background task scheduling and execution with proper concurrency limits
+
+#### Enhanced Format Testing Coverage
+- **DOCX Upload**: Tests upload and processing of modern DOCX files
+- **DOC Upload**: Tests upload and processing of legacy DOC files
+- **Format Detection**: Validates automatic format detection and routing
+- **Parser Compatibility**: Ensures both formats produce identical chunk structures
+- **Metadata Consistency**: Verifies consistent metadata across formats
+
+#### Concurrency Control Testing Coverage
+- **Semaphore Limits**: Tests maximum concurrent indexing operations
+- **Task Queueing**: Validates proper queuing when limits are reached
+- **Resource Cleanup**: Ensures proper cleanup of temporary files
+- **Error Recovery**: Tests recovery from concurrent operation failures
+- **Performance Testing**: Validates system performance under load
+
+#### Filtering and Sorting Testing Coverage
+- **Status Filter**: Tests filtering by processing status
+- **Source Type Filter**: Tests filtering by document type (DOCX, DOC, other)
+- **Sort Fields**: Tests sorting by title, created_at, and status
+- **Sort Directions**: Tests ascending and descending sort orders
+- **Combined Filters**: Tests multiple filters applied simultaneously
+- **URL Parameter Persistence**: Validates filter parameters in URLs
+
+**Section sources**
+- [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
+- [tests/test_api_documents.py:506-605](file://tests/test_api_documents.py#L506-L605)
+- [tests/test_storage.py:244-275](file://tests/test_storage.py#L244-L275)
+
+## Improved Text Chunking Algorithms
+
+The system employs intelligent chunking for optimal retrieval performance with enhanced token-based processing:
+
+### Document Chunking Strategy
+
+The system uses sophisticated chunking algorithms:
+
+- **Chunk Size**: 500 characters with 50-character overlap
+- **Splitting Strategy**: Hierarchical splitting by paragraphs, sentences, and words
+- **Token-Based Processing**: Uses tiktoken encoder for accurate token counting
+- **Section Preservation**: Maintains semantic boundaries using heading-based sections for DOCX
+- **Legacy Support**: Single-section processing for DOC files with filename-based sectioning
+- **Metadata Enrichment**: Each chunk carries document ID, chunk ID, filename, and search enablement status
+
+### Enhanced Chunk Processing
+
+The enhanced chunking system provides:
+
+- **Token-Accurate Sizing**: Uses tiktoken encoding for precise character-to-token conversion
+- **Hierarchical Splitting**: Multi-level splitting strategy for optimal semantic boundaries
+- **Overlap Management**: Consistent 10% overlap between chunks for context preservation
+- **Metadata Integration**: Rich metadata embedded in each chunk for retrieval optimization
+- **Format-Aware Processing**: Different handling for DOCX headings vs DOC text structure
+
+### Format-Aware Processing
+
+The enhanced pipeline handles both document formats appropriately:
+
+- **DOCX Processing**: Structured section extraction with heading preservation
+- **DOC Processing**: Text extraction with single-section approach
+- **Unified Output**: Consistent chunk structure for both formats
+- **Metadata Consistency**: Same metadata schema regardless of source format
+
+**Section sources**
+- [app/rag/parser.py:15-17](file://app/rag/parser.py#L15-L17)
+- [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
+- [app/rag/indexer.py:23-46](file://app/rag/indexer.py#L23-L46)
+
+## Server-Side Processing Implementation
+
+The system implements comprehensive server-side processing with enhanced filtering, sorting, and pagination capabilities:
+
+### Server-Side Architecture
+
+```mermaid
+sequenceDiagram
+participant Client as Client Browser
+participant API as API Router
+participant Repo as Document Repository
+participant DB as SQLite Database
+Client->>API : GET /api/documents with filters and pagination
+API->>Repo : list_page() with filter parameters
+Repo->>DB : Execute parameterized SQL with WHERE clauses
+DB-->>Repo : Filtered results with total count
+Repo-->>API : (documents, total)
+API-->>Client : JSON response with pagination metadata
+```
+
+**Diagram sources**
+- [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
+- [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
+
+### Enhanced Database Operations
+
+The server-side processing provides:
+
+- **Parameterized Queries**: Prevents SQL injection with proper parameter binding
+- **Dynamic WHERE Clauses**: Builds WHERE conditions based on provided filters
+- **Efficient Counting**: Separate COUNT query for pagination metadata
+- **Optimized Ordering**: Supports multiple sort fields with proper indexing
+- **Pagination Calculation**: Accurate page count calculation with total items
+- **Filter Validation**: Validates filter parameters before query execution
+
+### Database Query Optimization
+
+The enhanced query system provides:
+
+- **Selective Column Loading**: Only loads required columns for performance
+- **Index-Friendly Patterns**: Uses LIKE with leading wildcards carefully
+- **Parameter Binding**: All user input is properly parameterized
+- **Query Planning**: Optimizes query execution plans for common filter combinations
+- **Memory Efficiency**: Streams results for large datasets
+
+**Section sources**
+- [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
+- [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
 
 ## Enhanced Status Display System
 
@@ -436,7 +857,7 @@ The frontend provides status-based filtering:
 - [templates/documents.html:74-87](file://templates/documents.html#L74-L87)
 - [app/storage/models.py:11-18](file://app/storage/models.py#L11-L18)
 
-## Pagination System
+## Advanced Pagination System
 
 The system implements a comprehensive pagination system that enhances scalability and user experience when managing large document collections:
 
@@ -676,180 +1097,6 @@ The date filtering system supports:
 - [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
 - [templates/documents.html:489-494](file://templates/documents.html#L489-L494)
 
-## Modernized Frontend Interface
-
-The system features a modernized frontend interface with enhanced user experience and interactive capabilities:
-
-```mermaid
-flowchart TD
-UI[Modernized Interface] --> BulkToolbar[Bulk Actions Toolbar]
-UI --> DateFilter[Enhanced Date Filters]
-UI --> Search[Improved Search]
-UI --> Pagination[Enhanced Pagination]
-UI --> Status[Visual Status Indicators]
-UI --> FormatIcons[Format Type Icons]
-UI --> TableStyling[Enhanced Table Styling]
-UI --> BackgroundStyling[Background Styling]
-UI --> RoundedCorners[Rounded Corners]
-UI --> VisualHierarchy[Visual Hierarchy]
-BulkToolbar --> DeleteBtn[Delete Button]
-BulkToolbar --> ReindexBtn[Reindex Button]
-BulkToolbar --> ToggleBtn[Toggle Search Button]
-DateFilter --> FromInput[From Date Input]
-DateFilter --> ToInput[To Date Input]
-DateFilter --> ApplyBtn[Apply Button]
-DateFilter --> ClearBtn[Clear Button]
-Search --> RealtimeSearch[Real-time Search]
-Search --> Debounce[300ms Debounce]
-Pagination --> HTMX[HTMX Integration]
-Pagination --> Ellipsis[Smart Ellipsis]
-Status --> AutoRefresh[Auto-refresh]
-Status --> Tooltips[Error Tooltips]
-FormatIcons --> DocIcon[DOC Format Icon]
-FormatIcons --> DocxIcon[DOCX Format Icon]
-TableStyling --> BorderStyling[Border Styling]
-TableStyling --> BackgroundStyling[Background Treatment]
-TableStyling --> RoundedCorners[Corner Radius]
-BackgroundStyling --> PrimaryBackground[Primary Background]
-BackgroundStyling --> SecondaryBackground[Secondary Background]
-BackgroundStyling --> SurfaceBackground[Surface Background]
-RoundedCorners --> TableContainer[Table Container]
-RoundedCorners --> UploadModal[Upload Modal]
-RoundedCorners --> FilterChips[Filter Chips]
-VisualHierarchy --> ColorHierarchy[Color Hierarchy]
-VisualHierarchy --> SpacingHierarchy[Spacing Hierarchy]
-VisualHierarchy --> TypographyHierarchy[Typography Hierarchy]
-```
-
-**Diagram sources**
-- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
-- [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
-- [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
-- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
-
-### Interactive Features
-
-The modernized interface includes several key interactive elements:
-
-#### Enhanced Table Container Styling
-- **Rounded Corners**: `rounded-xl` for all table containers and modals
-- **Sophisticated Borders**: `border border-base-300/70` with transparency effects
-- **Background Treatment**: `bg-base-100` with subtle surface styling
-- **Shadow Effects**: Subtle shadows for depth perception
-- **Padding Optimization**: `pb-24` for proper bottom spacing
-
-#### Bulk Actions Toolbar Enhancement
-- **Primary Background**: `bg-primary/10` for subtle accent treatment
-- **Rounded Design**: `rounded-lg` for modern appearance
-- **Visual Hierarchy**: Proper spacing and alignment
-- **Interactive States**: Hover effects and transitions
-- **Badge Integration**: Visual feedback for selection count
-
-#### Enhanced Date Filters
-- **Dropdown Interface**: Collapsible filter panel with smooth animations
-- **Two-Date Selection**: Separate inputs for start and end dates
-- **Real-time Updates**: Automatic filtering on input changes
-- **Clear Functionality**: One-click reset of all date filters
-- **Apply/Clear Buttons**: Explicit control over filter application
-
-#### Improved Search Experience
-- **Debounced Input**: 300ms delay for performance optimization
-- **Real-time Results**: Instant filtering without page reloads
-- **Visual Indicators**: Clear display of active search terms
-- **Search Icon**: Intuitive magnifying glass icon
-
-#### Advanced Pagination
-- **HTMX Integration**: Seamless partial updates without full reloads
-- **Smart Ellipsis**: Intelligent page number display for large datasets
-- **URL Synchronization**: Pagination state preserved in URL
-- **Responsive Design**: Mobile-optimized pagination controls
-
-#### Format Type Display
-- **Visual Icons**: Distinct icons for DOC and DOCX formats
-- **Color Coding**: Different visual treatments for different formats
-- **Tooltip Information**: Hover details showing exact format type
-- **Filtering Support**: Separate filters for DOC and DOCX formats
-
-### Frontend State Management
-
-The interface uses Alpine.js for comprehensive state management:
-
-- **Filter State**: Search query, status filter, source type filter, date range
-- **Selection State**: Track selected document IDs across operations
-- **Pagination State**: Current page, items per page, total counts
-- **Upload State**: Track file upload progress and status
-- **Modal State**: Manage dialog visibility and user interactions
-- **Format State**: Track document format types and display preferences
-
-**Section sources**
-- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
-- [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
-- [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
-- [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
-- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
-
-## Enhanced Document Format Support
-
-The system now provides comprehensive support for both modern DOCX and legacy DOC document formats:
-
-```mermaid
-flowchart TD
-FormatDetection[Format Detection] --> DocxCheck{Is .docx?}
-DocxCheck --> |Yes| DocxParser[DOCX Parser]
-DocxCheck --> |No| DocCheck{Is .doc?}
-DocCheck --> |Yes| DocParser[Legacy DOC Parser]
-DocCheck --> |No| Unsupported[Unsupported Format]
-DocxParser --> DocxChunks[Generate DOCX Chunks]
-DocParser --> DocChunks[Generate DOC Chunks]
-DocxChunks --> CombinedChunks[Combined Chunks]
-DocChunks --> CombinedChunks
-CombinedChunks --> VectorStore[Vector Store Indexing]
-Unsupported --> Error[Format Error Response]
-```
-
-**Diagram sources**
-- [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
-- [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
-
-### Format Detection and Validation
-
-The system implements comprehensive format detection and validation:
-
-- **Allowed Extensions**: Both `.docx` and `.doc` are supported
-- **MIME Type Validation**: Comprehensive MIME type checking for both formats
-- **Automatic Routing**: Format detection determines appropriate parsing strategy
-- **Error Handling**: Graceful handling of unsupported formats with clear error messages
-
-### Parser Architecture
-
-The enhanced parser system supports both document formats:
-
-#### DOCX Parser
-- **Structured Content**: Preserves document structure with heading-based sections
-- **Metadata Enrichment**: Maintains source filename and section information
-- **Chunk Processing**: Generates semantic chunks with proper metadata
-- **Vector Embedding**: Creates embeddings for semantic search
-
-#### Legacy DOC Parser
-- **Text Extraction**: Uses `docx2txt` for reliable text extraction
-- **Single Section**: Treats entire document as single section
-- **Filename-Based Section**: Uses document stem as section heading
-- **Consistent Processing**: Mirrors DOCX processing approach for uniform results
-
-### Format-Specific Features
-
-Both formats benefit from enhanced processing capabilities:
-
-- **Unified Metadata**: Consistent metadata structure regardless of format
-- **Chunk Size Optimization**: Same chunk size and overlap for both formats
-- **Vector Database Integration**: Seamless integration with Qdrant vector store
-- **Search Compatibility**: Identical search behavior for both document types
-
-**Section sources**
-- [app/rag/parser.py:55-138](file://app/rag/parser.py#L55-L138)
-- [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
-- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
-
 ## RAG Pipeline
 
 The Retrieval-Augmented Generation pipeline processes documents through multiple stages with enhanced format support and concurrency control:
@@ -877,7 +1124,7 @@ VectorDB->>Retriever : Enable semantic search
 
 The system employs intelligent chunking for optimal retrieval performance:
 
-- **Chunk Size**: 1000 characters with 200-character overlap
+- **Chunk Size**: 500 characters with 50-character overlap
 - **Splitting Strategy**: Hierarchical splitting by paragraphs, sentences, and words
 - **Section Preservation**: Maintains semantic boundaries using heading-based sections for DOCX
 - **Legacy Support**: Single-section processing for DOC files with filename-based sectioning
@@ -1015,7 +1262,7 @@ The system provides a comprehensive REST API for document management with full s
 | `/api/documents/{id}` | GET/PATCH/DELETE | Document operations | Admin cookie |
 | `/api/documents/{id}/title` | PATCH | Update document title | Admin cookie |
 | `/api/documents/{id}/search` | PATCH | Toggle search participation | Admin cookie |
-| `/api/documents/{id}/reindex` | POST | Re-index document with semaphore protection | Admin cookie |
+| `/api/documents/{id}/reindex` | POST | Re-index document | Admin cookie |
 | `/api/documents/{id}/download` | GET | Download original file | Admin cookie |
 
 ### Bulk Operations API
@@ -1043,6 +1290,10 @@ All list endpoints support the following parameters:
 - **`search`**: Search query for filtering documents by title or filename
 - **`date_from`**: ISO date string for minimum creation date (inclusive)
 - **`date_to`**: ISO date string for maximum creation date (inclusive)
+- **`status`**: Filter by processing status (all, completed, processing, pending, failed)
+- **`source_type`**: Filter by document type (all, docx, doc, other)
+- **`sort_field`**: Field to sort by (title, created_at, status)
+- **`sort_dir`**: Sort direction (asc, desc)
 
 **Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments.
 
@@ -1073,6 +1324,8 @@ class Settings {
 +string s3_bucket
 +string admin_api_key
 +int max_concurrent_indexing
++int chunk_size
++int chunk_overlap
 }
 class Environment {
 +string env_file
@@ -1094,60 +1347,11 @@ Settings --> Environment : inherits
 | **Storage** | `db_path` | `data/cafetera.db` | SQLite database location |
 | **Admin Security** | `admin_api_key` | Empty string | Administrative access |
 | **Concurrency Control** | `max_concurrent_indexing` | `2` | Semaphore limit for indexing |
+| **Chunking** | `chunk_size` | `500` | Token-based chunk size |
+| **Chunking** | `chunk_overlap` | `50` | Token-based chunk overlap |
 
 **Section sources**
 - [app/config.py:1-39](file://app/config.py#L1-L39)
-
-## Concurrency Control and Throttling
-
-The system implements comprehensive concurrency control with semaphore-based throttling for document indexing operations:
-
-### Semaphore-Based Throttling
-
-The system uses asyncio.Semaphore to limit concurrent document indexing operations:
-
-```mermaid
-sequenceDiagram
-participant API as API Handler
-participant Semaphore as Asyncio Semaphore
-participant BackgroundTask as Background Task
-participant Indexing as Indexing Process
-API->>Semaphore : acquire()
-Semaphore->>BackgroundTask : schedule task
-BackgroundTask->>Indexing : download + parse + index
-Indexing-->>BackgroundTask : completion
-BackgroundTask->>Semaphore : release()
-Semaphore-->>API : permit available
-```
-
-**Diagram sources**
-- [app/main.py:87-89](file://app/main.py#L87-L89)
-- [app/api/deps.py:69-70](file://app/api/deps.py#L69-L70)
-- [app/api/documents.py:125-145](file://app/api/documents.py#L125-L145)
-
-### Concurrency Control Implementation
-
-The semaphore-based throttling system provides:
-
-- **Resource Protection**: Limits concurrent indexing operations to prevent resource exhaustion
-- **Fair Queuing**: First-come-first-served ordering for background tasks
-- **Graceful Degradation**: Tasks wait for available permits rather than failing immediately
-- **Configurable Limits**: Adjustable concurrency based on system resources
-- **Atomic Operations**: Semaphore acquisition/release wraps the entire indexing process
-
-### Background Task Coordination
-
-Background tasks are coordinated through enhanced functions:
-
-- **`_index_in_background`**: Handles single document indexing with semaphore protection
-- **`_reindex_in_background`**: Handles bulk reindexing with proper error handling
-- **Concurrent Processing**: Multiple background tasks can run simultaneously within limits
-- **Error Recovery**: Failed tasks don't block other operations
-
-**Section sources**
-- [app/main.py:87-89](file://app/main.py#L87-L89)
-- [app/api/documents.py:125-145](file://app/api/documents.py#L125-L145)
-- [app/api/documents.py:802-821](file://app/api/documents.py#L802-L821)
 
 ## Enhanced Error Handling and Consistency
 
@@ -1196,81 +1400,6 @@ Background tasks implement robust error recovery:
 - [app/domain/document_service.py:147-181](file://app/domain/document_service.py#L147-L181)
 - [app/domain/document_service.py:184-234](file://app/domain/document_service.py#L184-L234)
 
-## Testing Strategy
-
-The system includes comprehensive testing across all layers with extensive search, pagination, bulk operation, and concurrency control coverage:
-
-### Test Coverage Areas
-
-| Test Module | Focus Area | Testing Approach |
-|-------------|------------|------------------|
-| `test_api_documents.py` | API endpoint functionality | Unit and integration tests |
-| `test_document_service.py` | Domain service logic | Mock-based testing |
-| `test_storage.py` | Database operations | SQLite in-memory testing |
-| `test_rag_block6.py` | RAG pipeline components | End-to-end testing |
-| `test_bot_factory.py` | VK bot integration | State machine validation |
-| `test_qa_service.py` | Question-answering logic | Scenario-based testing |
-
-### Search and Status Testing Coverage
-
-The test suite includes comprehensive search and status functionality testing:
-
-- **Search functionality**: Tests case-insensitive pattern matching against titles and filenames
-- **Status transitions**: Validates all status state changes and visual indicators
-- **Search enable/disable**: Tests toggle functionality for search participation
-- **Real-time updates**: Verifies automatic status refresh for processing documents
-- **Error handling**: Tests error status display and tooltip functionality
-- **Pagination with search**: Validates search results across multiple pages
-
-### Pagination Testing Coverage
-
-The test suite includes comprehensive pagination testing:
-
-- **Default Pagination**: Tests default page size (10 items)
-- **Custom Pagination**: Tests custom page sizes (3 items per page)
-- **Large Collections**: Tests pagination with 7 documents across 3 pages
-- **Beyond Range**: Tests pagination beyond available data
-- **Total Count Accuracy**: Verifies total count matches actual document count
-- **HTMX Partials**: Tests pagination controls in HTMX partial responses
-
-### Bulk Operations Testing Coverage
-
-The test suite includes comprehensive bulk operation testing with concurrency control:
-
-- **Bulk Delete**: Tests deletion of multiple documents with concurrent fetching
-- **Bulk Reindex**: Tests background reindexing initiation for multiple documents with semaphore protection
-- **Bulk Search Toggle**: Tests enabling/disabling search participation for multiple documents
-- **Error Handling**: Validates graceful handling of non-existent documents
-- **HTMX Responses**: Tests partial HTML responses for seamless updates
-- **Background Processing**: Validates background task scheduling and execution with proper concurrency limits
-
-### Enhanced Format Testing Coverage
-
-The test suite includes comprehensive format-specific testing:
-
-- **DOCX Upload**: Tests upload and processing of modern DOCX files
-- **DOC Upload**: Tests upload and processing of legacy DOC files
-- **Format Detection**: Validates automatic format detection and routing
-- **Parser Compatibility**: Ensures both formats produce identical chunk structures
-- **Metadata Consistency**: Verifies consistent metadata across formats
-
-### Concurrency Control Testing Coverage
-
-The test suite includes comprehensive concurrency control testing:
-
-- **Semaphore Limits**: Tests maximum concurrent indexing operations
-- **Task Queueing**: Validates proper queuing when limits are reached
-- **Resource Cleanup**: Ensures proper cleanup of temporary files
-- **Error Recovery**: Tests recovery from concurrent operation failures
-- **Performance Testing**: Validates system performance under load
-
-**Updated** The testing strategy now includes extensive concurrency control testing covering semaphore-based throttling, concurrent bulk operations with asyncio.gather, proper resource management, and comprehensive error recovery mechanisms. The test suite validates all concurrency-aware endpoints with proper load testing and ensures system stability under various concurrency scenarios. The enhanced user interface styling is validated through visual regression testing and responsive design verification.
-
-**Section sources**
-- [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
-- [tests/test_api_documents.py:506-605](file://tests/test_api_documents.py#L506-L605)
-- [tests/test_storage.py:244-275](file://tests/test_storage.py#L244-L275)
-
 ## Deployment and Operations
 
 ### Docker Compose Configuration
@@ -1309,6 +1438,8 @@ Required environment variables:
 - `QDRANT_URL`: Vector database connection
 - `OLLAMA_BASE_URL`: LLM service endpoint
 - `MAX_CONCURRENT_INDEXING`: Semaphore limit for concurrency control
+- `CHUNK_SIZE`: Token-based chunk size for text processing
+- `CHUNK_OVERLAP`: Token-based chunk overlap for context preservation
 
 **Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations.
 
@@ -1338,6 +1469,8 @@ Required environment variables:
 | **Rounded Corner Rendering Issues** | Poor visual appearance | Verify CSS framework integration, check Tailwind configuration |
 | **Background Styling Problems** | Inconsistent visual treatment | Check color scheme configuration, verify daisyUI theme settings |
 | **Enhanced UI Not Loading** | Missing modern styling | Verify static asset serving, check CSS file paths |
+| **Filtering Not Working** | Filters not applying | Check server-side filter implementation, verify parameter passing |
+| **Sorting Issues** | Wrong sort order or direction | Verify sort field validation, check database ordering |
 
 ### Logging and Monitoring
 
@@ -1356,8 +1489,10 @@ The system provides comprehensive logging at multiple levels:
 - **Concurrency logs**: Semaphore acquisition/release, task queuing
 - **Background task logs**: Resource management, error recovery
 - **UI Styling logs**: Component rendering, visual hierarchy validation
+- **Filtering logs**: Server-side filtering implementation, parameter validation
+- **Sorting logs**: Sort field processing, database ordering
 
-**Updated** The troubleshooting guide now includes comprehensive UI styling issues, rounded corner rendering problems, background treatment inconsistencies, and enhanced interface component failures. The logging system provides detailed coverage for all new features including enhanced user interface styling, proper CSS framework integration, responsive design validation, and visual hierarchy maintenance.
+**Updated** The troubleshooting guide now includes comprehensive UI styling issues, rounded corner rendering problems, background treatment inconsistencies, and enhanced interface component failures. The logging system provides detailed coverage for all new features including enhanced user interface styling, proper CSS framework integration, responsive design validation, and visual hierarchy maintenance. The enhanced filtering and sorting system includes comprehensive logging for filter parameter validation and query execution.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -1366,6 +1501,8 @@ The system provides comprehensive logging at multiple levels:
 ## Conclusion
 
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
+
+**Updated** The system has been significantly enhanced with comprehensive dual-format support for both DOCX and DOC documents, enhanced concurrency control with semaphore-based throttling, improved error handling with atomic consistency guarantees, concurrent bulk operations with asyncio.gather, and enhanced logging for document indexing operations. The most notable enhancement is the comprehensive user interface modernization featuring sophisticated rounded corner styling, enhanced background treatments, improved visual hierarchy, and better overall visual presentation. The robust concurrency control system with configurable limits prevents resource exhaustion during peak loads, while the enhanced error handling ensures data consistency even in failure scenarios. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles.
 
 Key strengths include:
 - **Comprehensive Document Lifecycle Management**: From upload to searchable state with dual format support
@@ -1387,7 +1524,7 @@ Key strengths include:
 - **Enhanced Error Handling**: Atomic consistency guarantees and comprehensive error recovery
 - **Comprehensive Logging**: Detailed monitoring and debugging capabilities
 - **Enhanced Visual Presentation**: Modern rounded corner styling, sophisticated background treatments, and improved visual hierarchy throughout the interface
+- **Advanced Filtering and Sorting**: Comprehensive server-side processing with real-time updates
+- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, and concurrency control
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
-
-**Updated** The recent implementation of comprehensive dual-format support for both DOCX and DOC documents, enhanced concurrency control with semaphore-based throttling, improved error handling with atomic consistency guarantees, concurrent bulk operations with asyncio.gather, and enhanced logging for document indexing operations significantly strengthens the system's reliability and performance. The most notable enhancement is the comprehensive user interface modernization featuring sophisticated rounded corner styling, enhanced background treatments, improved visual hierarchy, and better overall visual presentation. The robust concurrency control system with configurable limits prevents resource exhaustion during peak loads, while the enhanced error handling ensures data consistency even in failure scenarios. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles.

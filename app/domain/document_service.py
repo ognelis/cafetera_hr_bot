@@ -8,6 +8,7 @@ of implementing business logic themselves.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
@@ -107,7 +108,8 @@ class DocumentService:
                 s3_key=record.s3_key,
                 is_search_enabled=record.is_search_enabled,
             )
-            count = index_chunks(
+            count = await asyncio.to_thread(
+                index_chunks,
                 self._qdrant,
                 self._embeddings,
                 self._collection,
@@ -161,7 +163,8 @@ class DocumentService:
 
         # Update Qdrant chunks first to ensure consistency
         try:
-            set_search_enabled(
+            await asyncio.to_thread(
+                set_search_enabled,
                 self._qdrant,
                 self._collection,
                 document_id,
@@ -200,7 +203,9 @@ class DocumentService:
         )
 
         try:
-            delete_document_chunks(self._qdrant, self._collection, document_id)
+            await asyncio.to_thread(
+                delete_document_chunks, self._qdrant, self._collection, document_id
+            )
 
             enriched = prepare_chunks(
                 chunks,
@@ -209,7 +214,8 @@ class DocumentService:
                 s3_key=record.s3_key,
                 is_search_enabled=record.is_search_enabled,
             )
-            count = index_chunks(
+            count = await asyncio.to_thread(
+                index_chunks,
                 self._qdrant,
                 self._embeddings,
                 self._collection,
@@ -258,7 +264,9 @@ class DocumentService:
 
         # Delete Qdrant chunks
         try:
-            delete_document_chunks(self._qdrant, self._collection, document_id)
+            await asyncio.to_thread(
+                delete_document_chunks, self._qdrant, self._collection, document_id
+            )
         except Exception:
             logger.warning(
                 "Failed to delete Qdrant chunks for document %s",

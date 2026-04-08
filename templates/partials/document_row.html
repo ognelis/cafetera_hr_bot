@@ -5,11 +5,6 @@
   data-title="{{ doc.title | lower }}"
   data-status="{{ doc.status.value }}"
   data-source-type="{% if doc.filename.endswith('.docx') %}docx{% elif doc.filename.endswith('.doc') %}doc{% else %}other{% endif %}"
-  {% if doc.status.value in ('pending', 'processing') %}
-    hx-get="/partials/document-row/{{ doc.document_id }}"
-    hx-trigger="every 3s"
-    hx-swap="outerHTML"
-  {% endif %}
 >
   {# Checkbox #}
   <td class="px-3 py-3">
