@@ -1,6 +1,6 @@
-<div class="border border-base-300/70 rounded-xl pb-24" data-total="{{ total }}">
+<div class="border border-base-300/70 rounded-xl pb-24 overflow-x-auto" data-total="{{ total }}">
   <table class="table table-sm w-full">
-    <thead>
+    <thead class="hidden md:table-header-group">
       <tr class="border-b border-base-200 bg-base-100">
         <th class="w-10 px-3 rounded-tl-xl bg-base-100">
           <input type="checkbox" class="checkbox checkbox-sm" @change="toggleSelectAll" :checked="allSelected" />
@@ -19,8 +19,8 @@
             <svg x-show="sortField !== 'title'" xmlns="http://www.w3.org/2000/svg" class="size-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
           </button>
         </th>
-        <th class="w-36 px-3 text-xs font-semibold uppercase tracking-wide text-base-content/50">Добавлен</th>
-        <th class="w-40 px-3 text-right text-xs font-semibold uppercase tracking-wide text-base-content/50">Тип источника</th>
+        <th class="w-36 px-3 text-xs font-semibold uppercase tracking-wide text-base-content/50 hidden md:table-cell">Добавлен</th>
+        <th class="w-40 px-3 text-right text-xs font-semibold uppercase tracking-wide text-base-content/50 hidden md:table-cell">Тип источника</th>
         <th class="w-10 rounded-tr-xl bg-base-100"></th>
       </tr>
     </thead>

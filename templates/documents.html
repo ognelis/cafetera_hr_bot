@@ -2,7 +2,7 @@
 {% block title %}Документы{% endblock %}
 
 {% block body %}
-<div class="px-8 py-6 max-w-7xl" x-data="documentsPage()">
+<div class="px-4 md:px-8 py-6 max-w-7xl" x-data="documentsPage()">
 
   {# ── Header ───────────────────────────────────────────────── #}
   <div class="mb-6">
@@ -11,18 +11,19 @@
   </div>
 
   {# ── Toolbar: Add + Search + Per Page ─────────────────────── #}
-  <div class="flex items-center gap-3 mb-4">
+  <div class="flex flex-wrap items-center gap-3 mb-4">
     <button
       class="btn btn-sm bg-base-100 border border-base-300 text-base-content font-medium hover:bg-base-200 gap-1.5 rounded-full px-5"
       @click="$refs.uploadModal.showModal()"
     >
-      Добавить
-      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+      <span class="hidden sm:inline">Добавить</span>
+      <span class="sm:hidden">+</span>
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5 opacity-50 sm:block hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
       </svg>
     </button>
 
-    <div class="relative flex-1 max-w-sm">
+    <div class="relative flex-1 w-full sm:w-auto sm:max-w-sm order-last sm:order-none">
       <svg xmlns="http://www.w3.org/2000/svg" class="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/35 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
@@ -42,8 +43,9 @@
     </div>
 
     {# Per-page selector #}
-    <div class="flex items-center gap-2">
-      <span class="text-sm text-base-content/60">Показать по:</span>
+    <div class="flex items-center gap-2 ml-auto sm:ml-0">
+      <span class="text-sm text-base-content/60 hidden sm:inline">Показать по:</span>
+      <span class="text-sm text-base-content/60 sm:hidden">По:</span>
       <select x-model="perPage"
               @change="currentPage = 1; htmx.ajax('GET', buildTableUrl(), {target: '#document-table-container', swap: 'innerHTML'})"
               class="select select-sm select-bordered rounded-full bg-base-100">
@@ -59,7 +61,8 @@
     {# Source type filter #}
     <div class="dropdown">
       <button tabindex="0" class="inline-flex items-center gap-1.5 h-7 px-3.5 text-xs rounded-full border border-base-300 bg-base-100 hover:bg-base-200 transition-colors cursor-pointer">
-        <span class="text-base-content/55">Тип источника:</span>
+        <span class="text-base-content/55 hidden sm:inline">Тип источника:</span>
+        <span class="text-base-content/55 sm:hidden">Тип:</span>
         <span class="font-semibold text-primary" x-text="sourceTypeFilterLabel"></span>
       </button>
       <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-lg border border-base-300 shadow-sm z-10 w-40 p-1 mt-1">
@@ -72,7 +75,8 @@
     {# Status filter #}
     <div class="dropdown">
       <button tabindex="0" class="inline-flex items-center gap-1.5 h-7 px-3.5 text-xs rounded-full border border-base-300 bg-base-100 hover:bg-base-200 transition-colors cursor-pointer">
-        <span class="text-base-content/55">Статус:</span>
+        <span class="text-base-content/55 hidden sm:inline">Статус:</span>
+        <span class="text-base-content/55 sm:hidden">Стат:</span>
         <span class="font-semibold text-primary" x-text="statusFilterLabel"></span>
       </button>
       <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-lg border border-base-300 shadow-sm z-10 w-40 p-1 mt-1">
@@ -85,12 +89,13 @@
     </div>
 
     {# Date range filter #}
-    <div class="dropdown">
-      <button tabindex="0" class="inline-flex items-center gap-1.5 h-7 px-3.5 text-xs rounded-full border border-base-300 bg-base-100 hover:bg-base-200 transition-colors cursor-pointer">
-        <span class="text-base-content/55">Дата добавления:</span>
+    <div class="dropdown dropdown-end">
+      <button tabindex="0" class="inline-flex items-center gap-1.5 min-h-[44px] h-7 px-3.5 text-xs rounded-full border border-base-300 bg-base-100 hover:bg-base-200 transition-colors cursor-pointer touch-manipulation">
+        <span class="text-base-content/55 hidden sm:inline">Дата добавления:</span>
+        <span class="text-base-content/55 sm:hidden">Дата:</span>
         <span class="font-semibold text-primary" x-text="dateFilterLabel"></span>
       </button>
-      <div tabindex="0" class="dropdown-content bg-base-100 rounded-lg border border-base-300 shadow-sm z-10 w-72 p-3 mt-1">
+      <div tabindex="0" class="dropdown-content bg-base-100 rounded-lg border border-base-300 shadow-sm z-10 w-[calc(100vw-2rem)] max-w-72 p-3 mt-1 right-0">
         <div class="space-y-3">
           <div>
             <label class="block text-xs text-base-content/60 mb-1">С</label>
@@ -110,10 +115,10 @@
               @change="applyDateFilter()"
             />
           </div>
-          <div class="flex justify-between items-center pt-1">
+          <div class="flex flex-col sm:flex-row justify-between items-stretch sm:items-center pt-1 gap-2">
             <button
               @click.prevent="clearDateFilter()"
-              class="text-xs text-base-content/50 hover:text-primary transition-colors"
+              class="text-xs text-base-content/50 hover:text-primary transition-colors py-2 sm:py-0"
             >
               Сбросить
             </button>
@@ -131,60 +136,61 @@
   </div>
 
   {# ── Bulk actions toolbar ─────────────────────────────────── #}
-  <div x-show="selectedIds.length > 0" x-transition class="bg-primary/10 rounded-lg p-3 mb-4 flex items-center gap-3 flex-wrap">
-    <span class="badge badge-primary badge-sm">Выбрано: <span x-text="selectedIds.length"></span></span>
+  <div x-show="selectedIds.length > 0" x-transition class="bg-primary/10 rounded-lg p-3 mb-4 flex items-center gap-2 sm:gap-3 flex-wrap">
+    <span class="badge badge-primary badge-sm"><span x-text="selectedIds.length"></span></span>
 
     <button
       class="btn btn-sm btn-error"
       @click="if(confirm('Удалить выбранные документы? Это действие нельзя отменить.')) { executeBulkDelete(); }"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 sm:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
       </svg>
-      Удалить
+      <span class="hidden sm:inline">Удалить</span>
     </button>
 
     <button
       class="btn btn-sm btn-warning"
       @click="if(confirm('Переиндексировать выбранные документы? Текущие чанки будут заменены.')) { executeBulkReindex(); }"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 sm:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
       </svg>
-      Переиндексировать
+      <span class="hidden sm:inline">Переиндексировать</span>
     </button>
 
     <button
       class="btn btn-sm btn-success"
       @click="executeBulkSearch(true)"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 sm:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
         <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
       </svg>
-      Вкл. в ответы
+      <span class="hidden sm:inline">Вкл. в ответы</span>
     </button>
 
     <button
       class="btn btn-sm btn-neutral"
       @click="executeBulkSearch(false)"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-4 sm:mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
       </svg>
-      Выкл. из ответов
+      <span class="hidden sm:inline">Выкл. из ответов</span>
     </button>
 
     <button
-      class="btn btn-sm btn-ghost ml-auto"
+      class="btn btn-sm btn-ghost sm:ml-auto"
       @click="selectedIds = []"
     >
-      Снять выделение
+      <span class="hidden sm:inline">Снять выделение</span>
+      <span class="sm:hidden">×</span>
     </button>
   </div>
 
   {# ── Document count ───────────────────────────────────────── #}
-  <div class="text-sm font-semibold text-base-content/60 mb-3">
+  <div class="text-sm font-semibold text-base-content/60 mb-3 truncate">
     Всего <span x-text="total"></span> документов
   </div>
 
@@ -195,7 +201,7 @@
 
   {# ── Upload modal ─────────────────────────────────────────── #}
   <dialog id="upload-modal" class="modal" x-ref="uploadModal">
-    <div class="modal-box max-w-lg">
+    <div class="modal-box w-full max-w-lg mx-4">
       <h3 class="text-base font-semibold mb-3">Загрузка документов</h3>
 
       <div
