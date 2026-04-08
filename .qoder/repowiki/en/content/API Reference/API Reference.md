@@ -9,13 +9,26 @@
 - [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
 - [app/integrations/vk/handlers/sections.py](file://app/integrations/vk/handlers/sections.py)
 - [app/integrations/vk/handlers/fallback.py](file://app/integrations/vk/handlers/fallback.py)
+- [app/api/documents.py](file://app/api/documents.py)
+- [app/domain/qa_service.py](file://app/domain/qa_service.py)
+- [app/rag/prompts.py](file://app/rag/prompts.py)
 - [scripts/polling_vk.py](file://scripts/polling_vk.py)
 - [tests/test_config.py](file://tests/test_config.py)
 - [tests/test_bot_factory.py](file://tests/test_bot_factory.py)
 - [tests/test_keyboards.py](file://tests/test_keyboards.py)
 - [tests/test_states.py](file://tests/test_states.py)
+- [tests/test_api_documents.py](file://tests/test_api_documents.py)
+- [tests/test_qa_service.py](file://tests/test_qa_service.py)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added new Document Question Answering API section documenting the `/api/documents/{document_id}/ask` endpoint
+- Updated Document Admin API section to include the new ask endpoint
+- Added validation logic and error handling documentation for document query requests
+- Updated architecture overview to include the QA service integration
+- Enhanced error handling documentation for document-specific operations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -36,6 +49,7 @@ This document provides a comprehensive API reference for cafetera_hr_bot. It cov
 - State management API for multi-step dialogs
 - Handler registration API for routing user interactions
 - Configuration settings API and environment-driven loading
+- **NEW** Document administration API including document-specific question answering capabilities
 
 It includes parameter specifications, return value descriptions, usage examples, integration patterns, and versioning considerations.
 
@@ -46,8 +60,10 @@ The VK integration resides under app/integrations/vk/, with the following key mo
 - Keyboard builders: app/integrations/vk/keyboards.py
 - States: app/integrations/vk/states.py
 - Handlers: app/integrations/vk/handlers/start.py, sections.py, fallback.py
+- **NEW** Document administration: app/api/documents.py
+- **NEW** QA service: app/domain/qa_service.py
 - Local development entrypoint: scripts/polling_vk.py
-- Tests validating APIs: tests/test_config.py, tests/test_bot_factory.py, tests/test_keyboards.py, tests/test_states.py
+- Tests validating APIs: tests/test_config.py, tests/test_bot_factory.py, tests/test_keyboards.py, tests/test_states.py, tests/test_api_documents.py, tests/test_qa_service.py
 - Project metadata and dependencies: pyproject.toml
 
 ```mermaid
@@ -61,6 +77,11 @@ HD_START["handlers/start.py"]
 HD_SECTIONS["handlers/sections.py"]
 HD_FALL["handlers/fallback.py"]
 end
+subgraph "Document Administration"
+DOC_API["documents.py"]
+QA_SERVICE["qa_service.py"]
+PROMPTS["prompts.py"]
+end
 DEV["scripts/polling_vk.py"]
 CFG --> BOT
 BOT --> HD_START
@@ -70,6 +91,8 @@ HD_START --> KB
 HD_SECTIONS --> KB
 HD_FALL --> KB
 BOT --> ST
+DOC_API --> QA_SERVICE
+QA_SERVICE --> PROMPTS
 DEV --> BOT
 ```
 
@@ -80,6 +103,9 @@ DEV --> BOT
 - [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
 - [app/integrations/vk/handlers/sections.py:1-82](file://app/integrations/vk/handlers/sections.py#L1-L82)
 - [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
+- [app/api/documents.py:1-1046](file://app/api/documents.py#L1-L1046)
+- [app/domain/qa_service.py:1-167](file://app/domain/qa_service.py#L1-L167)
+- [app/rag/prompts.py:1-38](file://app/rag/prompts.py#L1-L38)
 - [scripts/polling_vk.py:24-28](file://scripts/polling_vk.py#L24-L28)
 
 **Section sources**
@@ -89,10 +115,13 @@ DEV --> BOT
 - [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
 - [app/integrations/vk/handlers/sections.py:1-82](file://app/integrations/vk/handlers/sections.py#L1-L82)
 - [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
+- [app/api/documents.py:1-1046](file://app/api/documents.py#L1-L1046)
+- [app/domain/qa_service.py:1-167](file://app/domain/qa_service.py#L1-L167)
+- [app/rag/prompts.py:1-38](file://app/rag/prompts.py#L1-L38)
 - [scripts/polling_vk.py:1-33](file://scripts/polling_vk.py#L1-L33)
 
 ## Core Components
-This section documents the primary APIs exposed by the VK integration.
+This section documents the primary APIs exposed by the VK integration and document administration system.
 
 - Configuration settings API
   - Purpose: Load and expose runtime configuration for the VK bot
@@ -163,6 +192,30 @@ This section documents the primary APIs exposed by the VK integration.
     - Handlers decorated with @bl.message(...) for text or payload matching
     - Handlers send responses and attach keyboards via .get_json()
 
+- **NEW** Document administration API
+  - Purpose: Manage HR documents and provide document-specific question answering
+  - Module: app/api/documents.py
+  - Endpoints:
+    - POST /api/documents/{document_id}/ask - Ask a question about a specific document
+  - Validation logic:
+    - Document existence check
+    - Status verification (must be "completed")
+    - Search enablement check
+  - Error handling:
+    - 404 for non-existent documents
+    - 400 for documents not ready for questions
+  - Related tests: tests/test_api_documents.py
+
+- **NEW** QA service API
+  - Purpose: Provide document-specific question answering using RAG chain
+  - Module: app/domain/qa_service.py
+  - Function: ask_about_document(question: str, document_id: str) -> str
+  - Features:
+    - Document-scoped retrieval using specialized prompt
+    - Answer truncation for VK message limits
+    - Fallback error handling
+  - Related tests: tests/test_qa_service.py
+
 **Section sources**
 - [app/config.py:1-9](file://app/config.py#L1-L9)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
@@ -175,13 +228,17 @@ This section documents the primary APIs exposed by the VK integration.
 - [app/integrations/vk/handlers/start.py:12-55](file://app/integrations/vk/handlers/start.py#L12-L55)
 - [app/integrations/vk/handlers/sections.py:17-82](file://app/integrations/vk/handlers/sections.py#L17-L82)
 - [app/integrations/vk/handlers/fallback.py:7-18](file://app/integrations/vk/handlers/fallback.py#L7-L18)
+- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
+- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 
 ## Architecture Overview
-The VK integration follows a modular architecture:
+The VK integration follows a modular architecture with document administration capabilities:
 - Configuration is loaded via Settings and passed to the bot factory
 - The bot factory wires three handler labelers in a strict order
 - Handlers use keyboard builders to render consistent UI
 - States define multi-step dialog steps
+- **NEW** Document administration API provides CRUD operations and question answering
+- **NEW** QA service integrates with RAG chain for document-specific responses
 
 ```mermaid
 sequenceDiagram
@@ -325,7 +382,7 @@ SkipHR --> ReturnKB
     - HR_REQUEST_URGENCY
     - HR_REQUEST_CONFIRM
 - Usage pattern:
-  - Intended for state-dependent handlers via vkbottle’s state parameter
+  - Intended for state-dependent handlers via vkbottle's state parameter
   - Part of the scaffolding described in PLAN.md for multi-step dialogs
 
 ```mermaid
@@ -394,18 +451,78 @@ end
 - [app/integrations/vk/handlers/fallback.py:7-18](file://app/integrations/vk/handlers/fallback.py#L7-L18)
 - [app/integrations/vk/bot.py:14-20](file://app/integrations/vk/bot.py#L14-L20)
 
+### **NEW** Document Administration API
+- Purpose: Manage HR documents and provide document-specific question answering
+- Module: app/api/documents.py
+- Endpoints:
+  - POST /api/documents/{document_id}/ask - Ask a question about a specific document
+- Validation logic:
+  - Document existence check using repository.get(document_id)
+  - Status verification: doc.status.value != "completed"
+  - Search enablement check: not doc.is_search_enabled
+- Error handling:
+  - 404 for non-existent documents: "Документ не найден"
+  - 400 for documents not ready for questions: "Документ не готов для вопросов"
+- Response format:
+  - JSON object with "answer" field containing the generated response
+- Integration pattern:
+  - Requires admin authentication cookie
+  - Uses QA service for document-specific question answering
+  - Returns truncated responses suitable for VK message limits
+
+**Updated** Added comprehensive validation logic and error handling for document query requests
+
+**Section sources**
+- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
+- [tests/test_api_documents.py:1-751](file://tests/test_api_documents.py#L1-L751)
+
+### **NEW** QA Service API
+- Purpose: Provide document-specific question answering using RAG chain
+- Module: app/domain/qa_service.py
+- Function: ask_about_document(question: str, document_id: str) -> str
+- Key features:
+  - Document-scoped retrieval using specialized prompt (DOCUMENT_EXPERTS_PROMPT)
+  - Answer truncation for VK message limits (4096 characters)
+  - Fallback error handling for unavailable services
+- System prompt:
+  - DOCUMENT_EXPERTS_PROMPT: Specialized prompt for HR document experts
+  - Rules emphasize document-specific context and structured responses
+- Error handling:
+  - Returns ERR_NO_ANSWER when service not initialized
+  - Returns ERR_DOCUMENT_UNAVAILABLE on runtime errors
+  - Handles empty answers gracefully
+- Integration pattern:
+  - Built with document-specific retriever and LLM
+  - Uses specialized system prompt for HR document context
+
+**Updated** Added new QA service with document-specific question answering capabilities
+
+**Section sources**
+- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
+- [app/rag/prompts.py:21-37](file://app/rag/prompts.py#L21-L37)
+- [tests/test_qa_service.py:1-142](file://tests/test_qa_service.py#L1-L142)
+
 ## Dependency Analysis
-External dependencies relevant to the VK integration:
+External dependencies relevant to the VK integration and document administration:
 - vkbottle >= 4.7.0 for Bot, BotLabeler, Keyboard, Text, and BaseStateGroup
 - pydantic-settings for Settings
 - pytest for tests
+- **NEW** FastAPI for document administration API endpoints
+- **NEW** LangChain for RAG chain integration
+- **NEW** Qdrant for vector database operations
 
 ```mermaid
 graph LR
 P["pyproject.toml"] --> V["vkbottle>=4.7.0"]
 P --> PS["pydantic-settings>=2.4.0"]
+P --> FA["fastapi>=0.104.0"]
+P --> LC["langchain>=0.1.0"]
+P --> QC["qdrant-client>=1.7.0"]
 T["tests/*"] --> V
 T --> PS
+T --> FA
+T --> LC
+T --> QC
 ```
 
 **Diagram sources**
@@ -422,8 +539,10 @@ T --> PS
   - Maintaining the correct order prevents redundant handler matching and improves predictability
 - Token forwarding:
   - The bot token is forwarded directly to the underlying API client; ensure tokens are managed securely
-
-[No sources needed since this section provides general guidance]
+- **NEW** Document query performance:
+  - QA service uses specialized document retrievers for faster document-specific searches
+  - Answer truncation prevents large responses that could impact performance
+  - Document status checks prevent queries on unprocessed documents
 
 ## Troubleshooting Guide
 - Configuration not loading:
@@ -440,24 +559,31 @@ T --> PS
 - State mismatch:
   - Ensure BotStates values align with handler expectations
   - See tests/test_states.py for validation of state names and uniqueness
+- **NEW** Document query failures:
+  - Verify document status is "completed" and search is enabled
+  - Check that document exists in repository
+  - Ensure QA service is properly initialized
+  - Validate that document-specific retriever is available
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
 - [tests/test_bot_factory.py:8-44](file://tests/test_bot_factory.py#L8-L44)
 - [tests/test_keyboards.py:49-192](file://tests/test_keyboards.py#L49-L192)
 - [tests/test_states.py:8-31](file://tests/test_states.py#L8-L31)
+- [tests/test_api_documents.py:1-751](file://tests/test_api_documents.py#L1-L751)
+- [tests/test_qa_service.py:1-142](file://tests/test_qa_service.py#L1-L142)
 
 ## Conclusion
-The cafetera_hr_bot VK integration exposes a clean, modular API:
+The cafetera_hr_bot VK integration exposes a clean, modular API with enhanced document administration capabilities:
 - Settings loads configuration from environment
 - create_bot wires handlers deterministically
 - Keyboard builders provide consistent UI
 - BotStates supports multi-step dialogs
 - Handler registration uses payload routing for predictable UX
+- **NEW** Document administration API provides comprehensive document management
+- **NEW** QA service enables document-specific question answering with validation and error handling
 
 Adhering to the documented patterns ensures reliable operation and maintainable extensions.
-
-[No sources needed since this section summarizes without analyzing specific files]
 
 ## Appendices
 
@@ -465,10 +591,13 @@ Adhering to the documented patterns ensures reliable operation and maintainable 
 - Project version: 0.1.0
 - VK integration relies on vkbottle >= 4.7.0
 - Keyboard and state APIs are stable within current implementation
+- **NEW** Document administration API is newly introduced
+- **NEW** QA service API is newly introduced
 - Backward compatibility:
   - Handler registration order is enforced by _HANDLER_LABELERS
   - Keyboard builder functions return the same Keyboard instance to preserve references
   - State names and payloads are validated by tests
+  - **NEW** Document administration endpoints maintain backward compatibility with existing authentication
 
 **Section sources**
 - [pyproject.toml:3](file://pyproject.toml#L3)
@@ -476,3 +605,5 @@ Adhering to the documented patterns ensures reliable operation and maintainable 
 - [app/integrations/vk/bot.py:16-20](file://app/integrations/vk/bot.py#L16-L20)
 - [app/integrations/vk/keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
 - [tests/test_states.py:20-30](file://tests/test_states.py#L20-L30)
+- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
+- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)

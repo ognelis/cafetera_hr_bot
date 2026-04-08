@@ -16,6 +16,8 @@ from app.domain.content import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
 _settings: Settings | None = None
 
 if TYPE_CHECKING:
+    from langchain_core.embeddings import Embeddings
+    from langchain_core.language_models import BaseChatModel
     from langchain_core.runnables import Runnable
     from qdrant_client import QdrantClient
 
@@ -27,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 _chain: Runnable | None = None
 _qdrant_client: QdrantClient | None = None
+_embeddings: Embeddings | None = None
+_llm: BaseChatModel | None = None
 
 VK_MSG_LIMIT = 4096
 _TRUNCATION_SUFFIX = "\n\n…Обратитесь в HR-отдел для полной информации."
@@ -58,12 +62,14 @@ def init_qa(settings: Settings) -> None:
     logs a warning and leaves the chain as *None* so the bot can still
     start (handlers will return a user-friendly fallback).
     """
-    global _chain, _qdrant_client, _settings  # noqa: PLW0603
+    global _chain, _qdrant_client, _settings, _embeddings, _llm  # noqa: PLW0603
 
     if _qdrant_client is not None:
         _qdrant_client.close()
         _qdrant_client = None
         _chain = None
+        _embeddings = None
+        _llm = None
 
     try:
         from qdrant_client import QdrantClient as _QC
@@ -87,6 +93,8 @@ def init_qa(settings: Settings) -> None:
         _qdrant_client = client
         _chain = chain
         _settings = settings
+        _embeddings = embeddings
+        _llm = llm
         logger.info("RAG chain initialised successfully")
     except Exception:
         logger.warning("RAG chain not available — handlers will use fallback", exc_info=True)
@@ -121,23 +129,21 @@ async def ask_about_document(question: str, document_id: str) -> str:
     * If the chain raises at runtime → ``ERR_DOCUMENT_UNAVAILABLE``.
     * Long answers are truncated to fit the VK message limit.
     """
-    if _qdrant_client is None or _settings is None:
+    if _qdrant_client is None or _settings is None or _embeddings is None or _llm is None:
         return ERR_NO_ANSWER
 
     try:
-        from app.rag.chain import build_llm, build_rag_chain
+        from app.rag.chain import build_rag_chain
         from app.rag.prompts import DOCUMENT_EXPERTS_PROMPT
-        from app.rag.retriever import build_embeddings, build_retriever_for_document
+        from app.rag.retriever import build_retriever_for_document
 
-        embeddings = build_embeddings(_settings)
         retriever = build_retriever_for_document(
             _qdrant_client,
-            embeddings,
+            _embeddings,
             document_id,
             _settings.qdrant_collection,
         )
-        llm = build_llm(_settings)
-        chain = build_rag_chain(retriever, llm, system_prompt=DOCUMENT_EXPERTS_PROMPT)
+        chain = build_rag_chain(retriever, _llm, system_prompt=DOCUMENT_EXPERTS_PROMPT)
         answer: str = await chain.ainvoke(question)
     except Exception:
         logger.error(
@@ -151,9 +157,52 @@ async def ask_about_document(question: str, document_id: str) -> str:
     return _truncate(answer.strip())
 
 
+async def stream_about_document(question: str, document_id: str):
+    """Stream tokens from the RAG chain scoped to a specific document.
+
+    Yields each token string as it arrives from the LLM.
+    Handles errors gracefully by yielding an error message.
+
+    * If the QA service was not initialised → yields error message.
+    * If the chain raises at runtime → yields error message.
+    """
+    if _qdrant_client is None or _settings is None or _embeddings is None or _llm is None:
+        yield ERR_NO_ANSWER
+        return
+
+    try:
+        from app.rag.chain import build_rag_chain
+        from app.rag.prompts import DOCUMENT_EXPERTS_PROMPT
+        from app.rag.retriever import build_retriever_for_document
+
+        retriever = build_retriever_for_document(
+            _qdrant_client,
+            _embeddings,
+            document_id,
+            _settings.qdrant_collection,
+        )
+        chain = build_rag_chain(retriever, _llm, system_prompt=DOCUMENT_EXPERTS_PROMPT)
+
+        async for token in chain.astream(question):
+            if isinstance(token, str):
+                yield token
+            elif hasattr(token, 'content'):
+                yield str(token.content)
+            else:
+                yield str(token)
+    except Exception:
+        logger.error(
+            "RAG chain streaming failed for document %s question: %s",
+            document_id,
+            question,
+            exc_info=True,
+        )
+        yield ERR_DOCUMENT_UNAVAILABLE
+
+
 def close_qa() -> None:
     """Release resources held by the QA service."""
-    global _chain, _qdrant_client, _settings  # noqa: PLW0603
+    global _chain, _qdrant_client, _settings, _embeddings, _llm  # noqa: PLW0603
 
     if _qdrant_client is not None:
         try:
@@ -164,3 +213,5 @@ def close_qa() -> None:
     _chain = None
     _qdrant_client = None
     _settings = None
+    _embeddings = None
+    _llm = None

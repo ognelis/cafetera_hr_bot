@@ -8,6 +8,7 @@
 - [app/api/deps.py](file://app/api/deps.py)
 - [app/domain/document_service.py](file://app/domain/document_service.py)
 - [app/domain/entities.py](file://app/domain/entities.py)
+- [app/domain/qa_service.py](file://app/domain/qa_service.py)
 - [app/storage/document_repo.py](file://app/storage/document_repo.py)
 - [app/storage/models.py](file://app/storage/models.py)
 - [app/storage/s3.py](file://app/storage/s3.py)
@@ -16,6 +17,7 @@
 - [app/rag/parser.py](file://app/rag/parser.py)
 - [app/rag/retriever.py](file://app/rag/retriever.py)
 - [app/rag/chain.py](file://app/rag/chain.py)
+- [app/rag/prompts.py](file://app/rag/prompts.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
 - [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
 - [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
@@ -36,18 +38,18 @@
 - [scripts/ingest.py](file://scripts/ingest.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
 - [tests/test_storage.py](file://tests/test_storage.py)
+- [tests/test_qa_service.py](file://tests/test_qa_service.py)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced with new batch status polling system that replaces individual row polling with centralized batch processing
-- Improved mobile responsiveness with enhanced sidebar navigation and responsive design patterns
-- Optimized backend processing with async operations and semaphore-based concurrency control
-- Enhanced frontend interactivity with HTMX partial endpoints and out-of-band swaps
-- Reduced server load by implementing centralized status polling instead of N concurrent requests
-- Added new batch endpoint '/partials/documents-status' for efficient status updates
-- Implemented sophisticated mobile-first responsive design with overlay sidebar and toast notifications
+- Added document-specific question-answering feature with new /api/documents/{document_id}/ask endpoint
+- Implemented document-scoped retriever with build_retriever_for_document function
+- Enhanced frontend modal system for document queries with Alpine.js integration
+- Added DOCUMENT_EXPERTS_PROMPT for specialized document-focused responses
+- Updated API endpoints to support document-specific RAG queries
+- Enhanced status display system with document-specific question functionality
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -66,20 +68,21 @@
 14. [Bulk Operations System](#bulk-operations-system)
 15. [Enhanced Date Range Filtering](#enhanced-date-range-filtering)
 16. [RAG Pipeline](#rag-pipeline)
-17. [VK Bot Integration](#vk-bot-integration)
-18. [Storage Layer](#storage-layer)
-19. [API Endpoints](#api-endpoints)
-20. [Configuration Management](#configuration-management)
-21. [Enhanced Error Handling and Consistency](#enhanced-error-handling-and-consistency)
-22. [Deployment and Operations](#deployment-and-operations)
-23. [Troubleshooting Guide](#troubleshooting-guide)
-24. [Conclusion](#conclusion)
+17. [Document-Specific Question Answering](#document-specific-question-answering)
+18. [VK Bot Integration](#vk-bot-integration)
+19. [Storage Layer](#storage-layer)
+20. [API Endpoints](#api-endpoints)
+21. [Configuration Management](#configuration-management)
+22. [Enhanced Error Handling and Consistency](#enhanced-error-handling-and-consistency)
+23. [Deployment and Operations](#deployment-and-operations)
+24. [Troubleshooting Guide](#troubleshooting-guide)
+25. [Conclusion](#conclusion)
 
 ## Introduction
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-**Updated** The system now features a revolutionary batch status polling system that dramatically reduces server load by replacing individual row polling with centralized batch processing. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The new '/partials/documents-status' endpoint efficiently manages status updates for all pending and processing documents in a single request, significantly improving performance and reducing resource consumption.
+**Updated** The system now features a revolutionary document-specific question-answering capability that allows users to ask targeted questions about individual documents. The new /api/documents/{document_id}/ask endpoint enables document-scoped retrieval using a specialized retriever that filters results to a single document's chunks. The enhanced frontend modal system provides an intuitive interface for document queries with Alpine.js state management and real-time response handling. The system includes a dedicated DOCUMENT_EXPERTS_PROMPT that guides the AI to focus on specific document content while maintaining HR compliance standards.
 
 ## System Architecture
 
@@ -102,6 +105,9 @@ BackgroundStyling[Background Styling]
 RoundedCorners[Rounded Corners]
 VisualHierarchy[Visual Hierarchy]
 FilterSort[Enhanced Filtering & Sorting]
+DocumentModal[Document Question Modal]
+AlpineJS[Alpine.js State Management]
+EndUserInteraction[Enhanced User Interaction]
 end
 subgraph "Application Layer"
 API[FastAPI Router]
@@ -113,12 +119,14 @@ Semaphore[Asyncio Semaphore]
 FilterSortAPI[Filter & Sort API]
 BatchPoller[Batch Status Poller]
 OOBSwapper[Out-of-Band Swapper]
+DocSpecificQA[Document-Specific QA Handler]
 end
 subgraph "Domain Layer"
 Entities[Domain Entities]
 States[Bot States]
 BulkRequests[Bulk Operation Requests]
 FormatDispatch[Format Dispatcher]
+DocScopedRetriever[Document Scoped Retriever]
 end
 subgraph "Data Access Layer"
 Repo[Document Repository]
@@ -152,6 +160,10 @@ Repo --> FilterSortDB
 Service --> LLM
 QAService --> Service
 QAService --> LLM
+DocSpecificQA --> QAService
+DocSpecificQA --> DocScopedRetriever
+DocScopedRetriever --> Qdrant
+DocScopedRetriever --> LLM
 BulkOps --> Service
 BulkOps --> Repo
 BulkOps --> Semaphore
@@ -167,14 +179,16 @@ FilterSortAPI --> FilterSortDB
 - [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
 - [app/api/deps.py:69-70](file://app/api/deps.py#L69-L70)
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
+- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
+- [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
 
 The architecture consists of five main layers with enhanced concurrency control, comprehensive document type handling, and modernized frontend capabilities:
 
-1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, and toast notification system
-2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system, and out-of-band HTML swapping for efficient updates
-3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models and format detection mechanisms
+1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, and enhanced user interaction patterns
+2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system, out-of-band HTML swapping for efficient updates, document-specific question-answering handler, and specialized document-scoped retriever implementation
+3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms, and document-scoped retriever construction for focused document queries
 4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking, and enhanced filtering/sorting database operations
-5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for both DOC and DOCX formats and proper resource management
+5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for both DOC and DOCX formats, proper resource management, and document-scoped retrieval capabilities
 
 ## Core Components
 
@@ -191,11 +205,13 @@ participant S3 as Storage
 participant Qdrant as VectorDB
 participant Service as DocumentService
 participant Semaphore as Asyncio Semaphore
+participant QAService as QAServicet
 App->>Config : Load configuration
 App->>DB : Initialize SQLite with auto-incrementing primary key
 App->>S3 : Connect to storage
 App->>Qdrant : Connect to vector database
 App->>Service : Create document service
+App->>QAService : Initialize QA service
 App->>Semaphore : Initialize with max_concurrent_indexing
 App->>App : Register routes and templates
 ```
@@ -252,11 +268,19 @@ class AsyncSemaphore {
 +acquire() async
 +release() async
 }
+class QAService {
++ask() str
++ask_about_document() str
++init_qa() void
++close_qa() void
+}
 DocumentService --> DocumentRepository : uses
 DocumentService --> S3Storage : uses
 DocumentService --> QdrantClient : uses
 DocumentService --> AsyncSemaphore : uses
 FormatHandler --> Parser : dispatches to
+QAService --> QdrantClient : uses
+QAService --> LLM : uses
 ```
 
 **Diagram sources**
@@ -265,10 +289,12 @@ FormatHandler --> Parser : dispatches to
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
 - [app/main.py:87-89](file://app/main.py#L87-L89)
+- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 
 **Section sources**
 - [app/main.py:1-131](file://app/main.py#L1-L131)
 - [app/domain/document_service.py:1-283](file://app/domain/document_service.py#L1-L283)
+- [app/domain/qa_service.py:1-167](file://app/domain/qa_service.py#L1-L167)
 
 ## Document Management Workflow
 
@@ -304,6 +330,14 @@ BatchPoller --> OOBSwap[Out-of-Band HTML Swap]
 OOBSwap --> StatusUpdate[Individual Row Updates]
 StatusUpdate --> End
 end
+subgraph "Document-Specific Question Answering"
+Complete --> DocQuestion[User Opens Document Question Modal]
+DocQuestion --> ValidateDoc[Validate Document Status]
+ValidateDoc --> BuildDocRetriever[Build Document-Specific Retriever]
+BuildDocRetriever --> AskDocQA[Ask Document-Specific Question]
+AskDocQA --> ReturnAnswer[Return Answer]
+ReturnAnswer --> End
+end
 ```
 
 **Diagram sources**
@@ -311,6 +345,8 @@ end
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
 - [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
 - [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
+- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
+- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 
 ### Upload Validation and Processing
 
@@ -325,11 +361,12 @@ The system implements comprehensive validation for uploaded documents with enhan
 | Duplicate Prevention | Unique S3 keys | Append counter suffix |
 | Concurrency Control | Semaphore-based throttling | Limit concurrent indexing operations |
 
-**Updated** The validation system now supports both DOCX and DOC formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files while maintaining modern DOCX processing capabilities. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The new batch status polling system efficiently manages status updates for all pending and processing documents through centralized batch processing, significantly reducing server load and improving performance.
+**Updated** The validation system now supports both DOCX and DOC formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files while maintaining modern DOCX processing capabilities. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The new batch status polling system efficiently manages status updates for all pending and processing documents through centralized batch processing, significantly reducing server load and improving performance. The document-specific question-answering feature adds a new validation step to ensure documents are completed and search-enabled before processing queries.
 
 **Section sources**
 - [app/api/documents.py:307-366](file://app/api/documents.py#L307-L366)
 - [app/api/documents.py:111-130](file://app/api/documents.py#L111-L130)
+- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
 
 ## Enhanced Filtering and Sorting System
 
@@ -430,6 +467,8 @@ UI --> RoundedCorners[Rounded Corners]
 UI --> VisualHierarchy[Visual Hierarchy]
 UI --> FilterSort[Enhanced Filtering & Sorting]
 UI --> BatchStatusPoller[Batch Status Poller]
+UI --> DocumentModal[Document Question Modal]
+UI --> AlpineJS[Alpine.js State Management]
 MobileSidebar --> SidebarContent[Navigation Content]
 MobileSidebar --> CloseButton[Close Button]
 MobileSidebar --> OverlayBackdrop[Backdrop Overlay]
@@ -469,6 +508,14 @@ FilterSort --> FilterChips[Filter Chips]
 FilterSort --> RealtimeFiltering[Real-time Filtering]
 BatchStatusPoller --> CentralizedPolling[Centralized Polling]
 BatchStatusPoller --> OOBSwapping[Out-of-Band Swapping]
+DocumentModal --> ModalBox[Modal Box]
+DocumentModal --> QuestionTextarea[Question Textarea]
+DocumentModal --> SubmitButton[Submit Button]
+DocumentModal --> AnswerDisplay[Answer Display]
+DocumentModal --> ErrorDisplay[Error Display]
+AlpineJS --> StateManagement[State Management]
+AlpineJS --> EventHandling[Event Handling]
+AlpineJS --> DataBinding[Data Binding]
 ```
 
 **Diagram sources**
@@ -478,6 +525,8 @@ BatchStatusPoller --> OOBSwapping[Out-of-Band Swapping]
 - [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
 - [templates/partials/status_poller.html:1-14](file://templates/partials/status_poller.html#L1-L14)
 - [templates/base.html:86-279](file://templates/base.html#L86-L279)
+- [templates/documents.html:261-310](file://templates/documents.html#L261-L310)
+- [templates/documents.html:663-707](file://templates/documents.html#L663-L707)
 
 ### Interactive Features
 
@@ -548,6 +597,15 @@ The modernized interface includes several key interactive elements:
 - **Automatic Polling Control**: Starts/stops polling based on active document count
 - **Reduced Server Load**: Eliminates N concurrent requests for individual row polling
 
+#### Document-Specific Question Modal System
+- **Alpine.js Integration**: Reactive state management for modal interactions
+- **Form Validation**: Real-time validation for question submission
+- **Loading States**: Visual feedback during question processing
+- **Error Handling**: Comprehensive error display and user guidance
+- **Answer Display**: Clean formatting for AI-generated responses
+- **Keyboard Shortcuts**: Ctrl+Enter submission for efficient workflow
+- **Modal Backdrop**: Proper focus management and escape key handling
+
 ### Frontend State Management
 
 The interface uses Alpine.js for comprehensive state management:
@@ -559,6 +617,7 @@ The interface uses Alpine.js for comprehensive state management:
 - **Modal State**: Manage dialog visibility and user interactions
 - **Format State**: Track document format types and display preferences
 - **Mobile State**: Sidebar open/close state and responsive breakpoints
+- **Document Question State**: Track document-specific question modal state, including question text, loading state, answer display, and error handling
 
 **Section sources**
 - [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
@@ -568,6 +627,8 @@ The interface uses Alpine.js for comprehensive state management:
 - [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
 - [templates/partials/status_poller.html:1-14](file://templates/partials/status_poller.html#L1-L14)
 - [templates/base.html:86-279](file://templates/base.html#L86-L279)
+- [templates/documents.html:261-310](file://templates/documents.html#L261-L310)
+- [templates/documents.html:663-707](file://templates/documents.html#L663-L707)
 
 ## Dual-Format Document Support
 
@@ -762,10 +823,20 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Performance Impact**: Validates reduced server load compared to individual polling
 - **Error Handling**: Tests graceful handling of polling failures
 
+#### Document-Specific Question Answering Testing Coverage
+- **Document Validation**: Tests document existence and status validation
+- **Search Enablement**: Validates document search participation requirement
+- **Retriever Construction**: Tests document-scoped retriever creation
+- **Question Processing**: Validates question processing and answer generation
+- **Error Handling**: Tests error responses for invalid documents or disabled search
+- **Prompt Usage**: Validates DOCUMENT_EXPERTS_PROMPT application
+- **State Management**: Tests Alpine.js state management for modal interactions
+
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
 - [tests/test_api_documents.py:506-605](file://tests/test_api_documents.py#L506-L605)
 - [tests/test_storage.py:244-275](file://tests/test_storage.py#L244-L275)
+- [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
 
 ## Improved Text Chunking Algorithms
 
@@ -912,11 +983,20 @@ The enhanced status system now includes centralized batch polling:
 - **Automatic Polling Control**: Starts/stops polling based on active document count
 - **Reduced Server Load**: Eliminates N concurrent requests for individual row updates
 
+### Document-Specific Question Integration
+
+The status system now supports document-specific question functionality:
+
+- **Conditional Visibility**: "Ask Question" option appears only for completed and search-enabled documents
+- **Modal Trigger**: Clicking "Ask Question" opens the document-specific question modal
+- **Validation Integration**: Document-specific questions inherit the same validation as general questions
+
 **Section sources**
 - [templates/partials/document_row.html:19-41](file://templates/partials/document_row.html#L19-L41)
 - [templates/documents.html:74-87](file://templates/documents.html#L74-L87)
 - [app/storage/models.py:11-18](file://app/storage/models.py#L11-L18)
 - [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
+- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
 
 ## Advanced Pagination System
 
@@ -1169,17 +1249,20 @@ participant Splitter as Text Splitter
 participant Embedder as Embedding Model
 participant VectorDB as Qdrant
 participant Retriever as Dense Retriever
+participant DocScopedRetriever as Document Scoped Retriever
 Parser->>Parser : Detect format and extract sections
 Parser->>Splitter : Split text into chunks
 Splitter->>Embedder : Generate embeddings
 Embedder->>VectorDB : Store vectors with metadata
 VectorDB->>Retriever : Enable semantic search
+VectorDB->>DocScopedRetriever : Enable document-scoped search
 ```
 
 **Diagram sources**
 - [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
 - [app/rag/indexer.py:49-72](file://app/rag/indexer.py#L49-L72)
 - [app/rag/retriever.py:78-103](file://app/rag/retriever.py#L78-L103)
+- [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
 
 ### Document Chunking Strategy
 
@@ -1200,10 +1283,106 @@ The enhanced pipeline handles both document formats appropriately:
 - **Unified Output**: Consistent chunk structure for both formats
 - **Metadata Consistency**: Same metadata schema regardless of source format
 
+### Document-Scoped Retrieval
+
+The enhanced RAG pipeline now supports document-specific retrieval:
+
+- **Standard Retrieval**: Searches across all documents with search participation enabled
+- **Document-Scoped Retrieval**: Filters results to a specific document's chunks only
+- **Search Participation**: Respects individual document search enablement settings
+- **Prompt Customization**: Uses DOCUMENT_EXPERTS_PROMPT for specialized document-focused responses
+
 **Section sources**
 - [app/rag/parser.py:15-17](file://app/rag/parser.py#L15-L17)
 - [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
 - [app/rag/indexer.py:23-46](file://app/rag/indexer.py#L23-L46)
+- [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
+
+## Document-Specific Question Answering
+
+The system now provides document-specific question-answering capabilities that allow users to ask targeted questions about individual documents:
+
+### Document-Specific API Endpoint
+
+The new `/api/documents/{document_id}/ask` endpoint enables focused document queries:
+
+```mermaid
+sequenceDiagram
+participant Client as Client Browser
+participant API as Document API
+participant Repo as Document Repository
+participant QAService as QA Service
+participant DocScopedRetriever as Document Scoped Retriever
+participant LLM as Language Model
+Client->>API : POST /api/documents/{document_id}/ask
+API->>Repo : get(document_id)
+Repo-->>API : Document record
+API->>API : Validate document status and search enablement
+API->>QAService : ask_about_document(question, document_id)
+QAService->>DocScopedRetriever : build_retriever_for_document()
+DocScopedRetriever->>LLM : retrieve relevant chunks
+QAService->>LLM : generate answer with DOCUMENT_EXPERTS_PROMPT
+LLM-->>QAService : document-focused answer
+QAService-->>API : formatted answer
+API-->>Client : JSON response with answer
+```
+
+**Diagram sources**
+- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
+- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
+- [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
+
+### Document Validation and Security
+
+The system implements comprehensive validation for document-specific queries:
+
+- **Document Existence**: Verifies document ID exists in the database
+- **Processing Status**: Ensures document is in "completed" state
+- **Search Participation**: Confirms document is enabled for search participation
+- **Access Control**: Requires admin authentication for all document operations
+- **Error Handling**: Provides clear error messages for validation failures
+
+### Document-Scoped Retrieval Implementation
+
+The document-specific retrieval system uses a specialized retriever:
+
+- **Document Filtering**: Restricts search to chunks belonging to specific document
+- **Search Participation**: Respects individual document search enablement settings
+- **Prompt Customization**: Uses DOCUMENT_EXPERTS_PROMPT for focused responses
+- **Context Limiting**: Limits context to the specific document's content
+- **Answer Formatting**: Returns formatted, truncated responses for display
+
+### Frontend Integration
+
+The document-specific question-answering system integrates seamlessly with the existing interface:
+
+- **Modal Trigger**: "Ask Question" option in document actions dropdown
+- **Alpine.js State Management**: Reactive state for modal interactions
+- **Form Validation**: Real-time validation for question submission
+- **Loading States**: Visual feedback during question processing
+- **Error Handling**: Comprehensive error display and user guidance
+- **Answer Display**: Clean formatting for AI-generated responses
+- **Keyboard Shortcuts**: Ctrl+Enter submission for efficient workflow
+
+### Prompt Engineering
+
+The system uses a specialized prompt for document-focused responses:
+
+- **Role Definition**: Positions the AI as an HR assistant focusing on specific documents
+- **Context Limiting**: Restricts responses to the provided document context
+- **Information Completeness**: Acknowledges when information is incomplete
+- **General Guidance**: Allows general explanations when helpful for understanding
+- **Compliance Focus**: Maintains HR compliance standards and confidentiality
+- **Language Support**: Provides responses in Russian language
+
+**Section sources**
+- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
+- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
+- [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
+- [app/rag/prompts.py:21-37](file://app/rag/prompts.py#L21-L37)
+- [templates/partials/document_row.html:125-134](file://templates/partials/document_row.html#L125-L134)
+- [templates/documents.html:261-310](file://templates/documents.html#L261-L310)
+- [templates/documents.html:663-707](file://templates/documents.html#L663-L707)
 
 ## VK Bot Integration
 
@@ -1295,7 +1474,7 @@ The SQLite schema supports comprehensive document tracking with:
 - **Date Filtering**: Precise timestamp fields for temporal queries
 - **Format Support**: MIME type tracking for different document formats
 
-**Updated** The database now tracks MIME types for both DOC and DOCX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments.
+**Updated** The database now tracks MIME types for both DOC and DOCX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new document-specific question-answering feature relies on the existing database structure for document validation and status checking.
 
 **Section sources**
 - [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
@@ -1325,6 +1504,7 @@ The system provides a comprehensive REST API for document management with full s
 | `/api/documents/{id}/search` | PATCH | Toggle search participation | Admin cookie |
 | `/api/documents/{id}/reindex` | POST | Re-index document | Admin cookie |
 | `/api/documents/{id}/download` | GET | Download original file | Admin cookie |
+| `/api/documents/{document_id}/ask` | POST | Ask question about specific document | Admin cookie |
 
 ### Bulk Operations API
 
@@ -1357,7 +1537,7 @@ All list endpoints support the following parameters:
 - **`sort_field`**: Field to sort by (title, created_at, status)
 - **`sort_dir`**: Sort direction (asc, desc)
 
-**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new `/partials/documents-status` endpoint provides centralized batch status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling.
+**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new `/partials/documents-status` endpoint provides centralized batch status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation and security checks.
 
 **Section sources**
 - [app/api/documents.py:1-806](file://app/api/documents.py#L1-L806)
@@ -1457,10 +1637,23 @@ Background tasks implement robust error recovery:
 - **Error Propagation**: Errors are logged but don't crash the system
 - **Resource Management**: Proper cleanup of temporary resources
 
+### Document-Specific Question Error Handling
+
+The document-specific question-answering system implements comprehensive error handling:
+
+- **Document Validation**: Checks for document existence and status
+- **Search Enablement**: Verifies document participation in search
+- **QA Service Initialization**: Handles cases where QA service is not available
+- **Retriever Construction**: Manages document-scoped retriever creation failures
+- **LLM Processing**: Catches and handles LLM runtime errors
+- **Response Formatting**: Ensures proper response formatting and truncation
+
 **Section sources**
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
 - [app/domain/document_service.py:147-181](file://app/domain/document_service.py#L147-L181)
 - [app/domain/document_service.py:184-234](file://app/domain/document_service.py#L184-L234)
+- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
+- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 
 ## Deployment and Operations
 
@@ -1503,7 +1696,7 @@ Required environment variables:
 - `CHUNK_SIZE`: Token-based chunk size for text processing
 - `CHUNK_OVERLAP`: Token-based chunk overlap for context preservation
 
-**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The new batch status polling system reduces server load and improves performance, making the deployment more scalable and efficient.
+**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The new batch status polling system reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific question-answering feature requires proper LLM provider configuration and vector database setup for optimal performance.
 
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
@@ -1536,6 +1729,8 @@ Required environment variables:
 | **Mobile Sidebar Not Working** | Overlay sidebar not appearing | Check Alpine.js configuration, verify mobile breakpoint |
 | **Toast Notifications Not Showing** | No toast messages | Verify toast manager initialization, check custom event handling |
 | **Batch Status Polling Failing** | Status not updating | Check '/partials/documents-status' endpoint, verify out-of-band swapping |
+| **Document-Specific Questions Not Working** | 400/404 errors on /ask | Verify document exists, check processing status, confirm search enablement |
+| **Document Question Modal Issues** | Modal not opening or not responding | Check Alpine.js state management, verify modal trigger events |
 | **Reduced Server Load** | Performance improvements | Verify batch polling implementation, check server resource usage |
 
 ### Logging and Monitoring
@@ -1560,8 +1755,10 @@ The system provides comprehensive logging at multiple levels:
 - **Mobile Responsiveness logs**: Responsive behavior, breakpoint handling
 - **Toast Notification logs**: Toast management, event handling
 - **Batch Status Polling logs**: Centralized polling, out-of-band swapping
+- **Document-Specific Question Logs**: Document validation, retriever construction, answer generation
+- **Alpine.js State Management Logs**: Modal interactions, form validation, state updates
 
-**Updated** The troubleshooting guide now includes comprehensive UI styling issues, rounded corner rendering problems, background treatment inconsistencies, and enhanced interface component failures. The logging system provides detailed coverage for all new features including enhanced user interface styling, proper CSS framework integration, responsive design validation, visual hierarchy maintenance, mobile sidebar functionality, toast notification system, and the revolutionary batch status polling system. The enhanced filtering and sorting system includes comprehensive logging for filter parameter validation and query execution.
+**Updated** The troubleshooting guide now includes comprehensive UI styling issues, rounded corner rendering problems, background treatment inconsistencies, and enhanced interface component failures. The logging system provides detailed coverage for all new features including enhanced user interface styling, proper CSS framework integration, responsive design validation, visual hierarchy maintenance, mobile sidebar functionality, toast notification system, the revolutionary batch status polling system, document-specific question-answering functionality, Alpine.js state management for modals, and comprehensive error handling for document validation and retriever construction.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -1571,9 +1768,14 @@ The system provides comprehensive logging at multiple levels:
 
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
 
-**Updated** The system has been significantly enhanced with a revolutionary batch status polling system that dramatically reduces server load by replacing individual row polling with centralized batch processing. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The new '/partials/documents-status' endpoint efficiently manages status updates for all pending and processing documents in a single request, significantly improving performance and reducing resource consumption. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles.
+**Updated** The system has been significantly enhanced with a revolutionary document-specific question-answering feature that allows users to ask targeted questions about individual documents. The new /api/documents/{document_id}/ask endpoint enables document-scoped retrieval using a specialized retriever that filters results to a single document's chunks. The enhanced frontend modal system provides an intuitive interface for document queries with Alpine.js state management and real-time response handling. The system includes a dedicated DOCUMENT_EXPERTS_PROMPT that guides the AI to focus on specific document content while maintaining HR compliance standards. The revolutionary batch status polling system dramatically reduces server load by replacing individual row polling with centralized batch processing. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports both DOCX and DOC formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, Alpine.js state management, and comprehensive error handling. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
 Key strengths include:
+- **Revolutionary Document-Specific Question Answering**: Specialized retriever and prompt engineering for focused document queries
+- **Enhanced Document Validation**: Comprehensive security checks for document-specific operations
+- **Document-Scoped Retrieval**: Filtered search results limited to specific document content
+- **Alpine.js Modal Integration**: Reactive state management for document question interactions
+- **Comprehensive Error Handling**: Detailed validation and error responses for document operations
 - **Revolutionary Batch Status Polling**: Centralized batch processing eliminates N concurrent requests, dramatically reducing server load
 - **Comprehensive Document Lifecycle Management**: From upload to searchable state with dual format support
 - **Flexible Storage Backend**: Support for multiple storage providers
@@ -1595,7 +1797,11 @@ Key strengths include:
 - **Comprehensive Logging**: Detailed monitoring and debugging capabilities
 - **Enhanced Visual Presentation**: Modern rounded corner styling, sophisticated background treatments, and improved visual hierarchy throughout the interface
 - **Advanced Filtering and Sorting**: Comprehensive server-side processing with real-time updates
-- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, and batch status polling
+- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, batch status polling, and document-specific question answering
 - **Mobile-First Responsive Design**: Overlay sidebar, toast notifications, and adaptive layouts for all device sizes
+- **Document-Specific Prompt Engineering**: Specialized prompts for focused document responses
+- **Modal-Based User Interaction**: Intuitive document question interface with Alpine.js integration
+- **Comprehensive Security Validation**: Document existence, status, and search enablement verification
+- **Performance Optimization**: Reduced server load through batch processing and efficient resource management
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.

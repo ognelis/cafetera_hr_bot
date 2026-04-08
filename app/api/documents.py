@@ -44,6 +44,7 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
+from starlette.responses import StreamingResponse
 
 from app.api.deps import (
     AdminDep,
@@ -830,7 +831,7 @@ async def ask_about_document(
     repo: RepoDep,
     question: Annotated[str, Form()],
 ):
-    """Ask a question about a specific document."""
+    """Ask a question about a specific document. Returns SSE stream."""
     doc = await repo.get(document_id)
     if doc is None:
         raise HTTPException(status_code=404, detail="Документ не найден")
@@ -840,8 +841,26 @@ async def ask_about_document(
 
     from app.domain import qa_service
 
-    answer = await qa_service.ask_about_document(question, document_id)
-    return {"answer": answer}
+    async def event_generator():
+        """Generate SSE events with tokens from the LLM."""
+        try:
+            async for token in qa_service.stream_about_document(question, document_id):
+                # Escape newlines and quotes for JSON serialization
+                escaped_token = token.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
+                yield f'data: {{"token": "{escaped_token}"}}\n\n'
+            yield 'data: {"done": true}\n\n'
+        except Exception as exc:
+            logger.error("Error in SSE stream for document %s: %s", document_id, exc, exc_info=True)
+            yield 'data: {"error": "Ошибка при получении ответа"}\n\n'
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.get("/api/documents/{document_id}")
