@@ -45,7 +45,7 @@
     <div class="flex items-center gap-2">
       <span class="text-sm text-base-content/60">Показать по:</span>
       <select x-model="perPage"
-              @change="currentPage = 1; htmx.ajax('GET', '/partials/document-table?page=1&per_page=' + perPage + (searchQuery ? '&search=' + encodeURIComponent(searchQuery) : '') + (dateFrom ? '&date_from=' + encodeURIComponent(dateFrom) : '') + (dateTo ? '&date_to=' + encodeURIComponent(dateTo) : ''), {target: '#document-table-container', swap: 'innerHTML'})"
+              @change="currentPage = 1; htmx.ajax('GET', buildTableUrl(), {target: '#document-table-container', swap: 'innerHTML'})"
               class="select select-sm select-bordered rounded-full bg-base-100">
         <option value="10">10</option>
         <option value="20">20</option>
@@ -310,16 +310,16 @@
       uploads: [],
       nextUploadId: 0,
 
-      // Filter state
-      searchQuery: '',
-      statusFilter: 'all',
-      sourceTypeFilter: 'all',
+      // Filter state (initialized from server context)
+      searchQuery: {{ search | default('') | tojson }},
+      statusFilter: {{ status_filter | default('all') | tojson }},
+      sourceTypeFilter: {{ source_type_filter | default('all') | tojson }},
       dateFrom: {{ date_from | default('') | tojson }},
       dateTo: {{ date_to | default('') | tojson }},
 
-      // Sort state
-      sortField: 'title',
-      sortDir: 'asc',
+      // Sort state (initialized from server context)
+      sortField: {{ sort_field | default('') | tojson }},
+      sortDir: {{ sort_dir | default('desc') | tojson }},
 
       // Selection state
       selectedIds: [],
@@ -393,30 +393,18 @@
       },
 
       shouldShowRow(row) {
-        const status = row.getAttribute('data-status') || '';
-        const sourceType = row.getAttribute('data-source-type') || '';
-
-        // Search is now server-side, only apply client-side filters
-        if (this.statusFilter !== 'all' && status !== this.statusFilter) {
-          return false;
-        }
-        if (this.sourceTypeFilter !== 'all' && sourceType !== this.sourceTypeFilter) {
-          return false;
-        }
+        // All filtering is now server-side, this method is kept for compatibility
+        // but no longer filters by status or source_type
         return true;
       },
 
-      applyFilters() {
-        const rows = document.querySelectorAll('#document-table-body tr[data-document-id]');
-        rows.forEach(row => {
-          if (this.shouldShowRow(row)) {
-            row.style.display = '';
-          } else {
-            row.style.display = 'none';
-          }
-        });
+      // Server-side filter reload - triggers HTMX request with current filters
+      reloadWithFilters() {
+        this.currentPage = 1;
+        htmx.ajax('GET', this.buildTableUrl(), {target: '#document-table-container', swap: 'innerHTML'});
       },
 
+      // Server-side sort - triggers HTMX request with sort params
       toggleSort(field) {
         if (this.sortField === field) {
           this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
@@ -424,32 +412,8 @@
           this.sortField = field;
           this.sortDir = 'asc';
         }
-        this.applySort();
-      },
-
-      applySort() {
-        const tbody = document.getElementById('document-table-body');
-        const rows = Array.from(tbody.querySelectorAll('tr[data-document-id]'));
-
-        rows.sort((a, b) => {
-          let aVal, bVal;
-
-          if (this.sortField === 'title') {
-            aVal = (a.getAttribute('data-title') || '').toLowerCase();
-            bVal = (b.getAttribute('data-title') || '').toLowerCase();
-          } else if (this.sortField === 'status') {
-            aVal = a.getAttribute('data-status') || '';
-            bVal = b.getAttribute('data-status') || '';
-          } else {
-            return 0;
-          }
-
-          if (aVal < bVal) return this.sortDir === 'asc' ? -1 : 1;
-          if (aVal > bVal) return this.sortDir === 'asc' ? 1 : -1;
-          return 0;
-        });
-
-        rows.forEach(row => tbody.appendChild(row));
+        this.currentPage = 1;
+        htmx.ajax('GET', this.buildTableUrl(), {target: '#document-table-container', swap: 'innerHTML'});
       },
 
       toggleSelectAll() {
@@ -478,10 +442,9 @@
       },
 
       init() {
-        this.$watch('searchQuery', () => this.applyFilters());
-        this.$watch('statusFilter', () => this.applyFilters());
-        this.$watch('sourceTypeFilter', () => this.applyFilters());
-        this.$nextTick(() => this.applySort());
+        // Watchers for filters that trigger server-side reload
+        this.$watch('statusFilter', () => this.reloadWithFilters());
+        this.$watch('sourceTypeFilter', () => this.reloadWithFilters());
 
         // Sync date params from URL on page load
         const urlParams = new URLSearchParams(window.location.search);
@@ -497,8 +460,16 @@
               const url = new URL(evt.detail.xhr.responseURL);
               const p = url.searchParams.get('page');
               const pp = url.searchParams.get('per_page');
+              const status = url.searchParams.get('status');
+              const sourceType = url.searchParams.get('source_type');
+              const sortField = url.searchParams.get('sort_field');
+              const sortDir = url.searchParams.get('sort_dir');
               if (p) this.currentPage = parseInt(p);
               if (pp) this.perPage = parseInt(pp);
+              if (status) this.statusFilter = status;
+              if (sourceType) this.sourceTypeFilter = sourceType;
+              if (sortField) this.sortField = sortField;
+              if (sortDir) this.sortDir = sortDir;
             }
             // Sync total from the response (embedded in the partial)
             const totalEl = evt.detail.target.querySelector('[data-total]');
@@ -507,11 +478,6 @@
             }
             // Clear selection when table is refreshed via HTMX (pagination, search, etc.)
             this.selectedIds = [];
-            // Re-apply filters and sort after pagination
-            this.$nextTick(() => {
-              this.applyFilters();
-              this.applySort();
-            });
           }
         });
       },
@@ -527,6 +493,16 @@
         }
         if (this.dateTo) {
           url += '&date_to=' + encodeURIComponent(this.dateTo);
+        }
+        if (this.statusFilter && this.statusFilter !== 'all') {
+          url += '&status=' + encodeURIComponent(this.statusFilter);
+        }
+        if (this.sourceTypeFilter && this.sourceTypeFilter !== 'all') {
+          url += '&source_type=' + encodeURIComponent(this.sourceTypeFilter);
+        }
+        if (this.sortField) {
+          url += '&sort_field=' + encodeURIComponent(this.sortField);
+          url += '&sort_dir=' + encodeURIComponent(this.sortDir);
         }
         return url;
       },
@@ -610,17 +586,7 @@
       // Date filter methods
       applyDateFilter() {
         this.currentPage = 1;
-        let url = '/partials/document-table?page=1&per_page=' + this.perPage;
-        if (this.searchQuery) {
-          url += '&search=' + encodeURIComponent(this.searchQuery);
-        }
-        if (this.dateFrom) {
-          url += '&date_from=' + encodeURIComponent(this.dateFrom);
-        }
-        if (this.dateTo) {
-          url += '&date_to=' + encodeURIComponent(this.dateTo);
-        }
-        htmx.ajax('GET', url, {target: '#document-table-container', swap: 'innerHTML'});
+        htmx.ajax('GET', this.buildTableUrl(), {target: '#document-table-container', swap: 'innerHTML'});
       },
 
       clearDateFilter() {
@@ -687,11 +653,7 @@
 
           // Refresh table to show new document, reset to page 1
           this.currentPage = 1;
-          let refreshUrl = '/partials/document-table?page=1&per_page=' + this.perPage;
-          if (this.searchQuery) refreshUrl += '&search=' + encodeURIComponent(this.searchQuery);
-          if (this.dateFrom) refreshUrl += '&date_from=' + encodeURIComponent(this.dateFrom);
-          if (this.dateTo) refreshUrl += '&date_to=' + encodeURIComponent(this.dateTo);
-          htmx.ajax('GET', refreshUrl, {target: '#document-table-container', swap: 'innerHTML'});
+          htmx.ajax('GET', this.buildTableUrl(), {target: '#document-table-container', swap: 'innerHTML'});
 
           setTimeout(() => {
             this.uploads = this.uploads.filter(u => u.id !== id);
@@ -727,11 +689,7 @@
       }));
       // Refresh the entire table to update pagination and counts
       const alpineData = document.querySelector('[x-data="documentsPage()"]')._x_dataStack[0];
-      let refreshUrl = `/partials/document-table?page=${alpineData.currentPage}&per_page=${alpineData.perPage}`;
-      if (alpineData.searchQuery) refreshUrl += '&search=' + encodeURIComponent(alpineData.searchQuery);
-      if (alpineData.dateFrom) refreshUrl += '&date_from=' + encodeURIComponent(alpineData.dateFrom);
-      if (alpineData.dateTo) refreshUrl += '&date_to=' + encodeURIComponent(alpineData.dateTo);
-      htmx.ajax('GET', refreshUrl, {target: '#document-table-container', swap: 'innerHTML'});
+      htmx.ajax('GET', alpineData.buildTableUrl(), {target: '#document-table-container', swap: 'innerHTML'});
     });
 
     pendingDeleteId = null;

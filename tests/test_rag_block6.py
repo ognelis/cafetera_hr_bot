@@ -175,7 +175,8 @@ class TestLoadDocx:
     def test_long_text_is_chunked(self):
         from app.rag.parser import CHUNK_SIZE, load_docx
 
-        long_text = "Word " * 500  # ~2500 chars, should be split
+        # CHUNK_SIZE is in tokens (~500), so use ~2000 tokens to ensure splitting
+        long_text = "Word " * 2000  # ~10000 chars, ~2000 tokens
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "long.docx"
             _make_docx(path, [(None, long_text)])
@@ -183,7 +184,8 @@ class TestLoadDocx:
 
         assert len(docs) > 1
         for doc in docs:
-            assert len(doc.page_content) <= CHUNK_SIZE + 50  # allow minor overshoot
+            # CHUNK_SIZE is tokens; use a safe char upper bound (tokens rarely exceed 10 chars)
+            assert len(doc.page_content) <= CHUNK_SIZE * 10
 
 
 # ── 6.2 — Prompts ─────────────────────────────────────────────────

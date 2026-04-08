@@ -120,6 +120,10 @@ class DocumentRepository:
     async def list_page(
         self, *, page: int = 1, per_page: int = 20, search: str | None = None,
         date_from: datetime | None = None, date_to: datetime | None = None,
+        status: str | None = None,
+        source_type: str | None = None,
+        sort_field: str | None = None,
+        sort_dir: str | None = None,
     ) -> tuple[list[DocumentRecord], int]:
         """Return (documents, total_count) ordered by id DESC with pagination.
 
@@ -129,6 +133,10 @@ class DocumentRepository:
             search: Search string for title/filename
             date_from: Filter documents created on or after this date (inclusive)
             date_to: Filter documents created on or before this date (inclusive)
+            status: Filter by document status
+            source_type: Filter by source type ('docx', 'doc', 'other')
+            sort_field: Field to sort by ('title', 'created_at', 'status')
+            sort_dir: Sort direction ('asc' or 'desc')
         """
         cols = ", ".join(_COLUMNS)
 
@@ -151,9 +159,37 @@ class DocumentRepository:
             where_clauses.append("created_at <= ?")
             params.append(date_to_end.isoformat())
 
+        if status and status != "all":
+            where_clauses.append("status = ?")
+            params.append(status)
+
+        if source_type and source_type != "all":
+            if source_type == "docx":
+                where_clauses.append("LOWER(filename) LIKE '%.docx'")
+            elif source_type == "doc":
+                where_clauses.append(
+                    "(LOWER(filename) LIKE '%.doc'"
+                    " AND LOWER(filename) NOT LIKE '%.docx')"
+                )
+            elif source_type == "other":
+                where_clauses.append(
+                    "LOWER(filename) NOT LIKE '%.doc'"
+                    " AND LOWER(filename) NOT LIKE '%.docx'"
+                )
+
         where_sql = ""
         if where_clauses:
             where_sql = "WHERE " + " AND ".join(where_clauses)
+
+        # Build ORDER BY clause
+        allowed_sort_fields = {
+            "title": "LOWER(title)",
+            "created_at": "created_at",
+            "status": "status",
+        }
+        order_expr = allowed_sort_fields.get(sort_field, "id")
+        direction = "ASC" if sort_dir == "asc" else "DESC"
+        order_clause = f"ORDER BY {order_expr} {direction}"
 
         async with aiosqlite.connect(self._db_path) as db:
             # Count total
@@ -166,7 +202,7 @@ class DocumentRepository:
             offset = (page - 1) * per_page
             select_sql = (
                 f"SELECT {cols} FROM documents {where_sql} "  # noqa: S608
-                "ORDER BY id DESC LIMIT ? OFFSET ?"
+                f"{order_clause} LIMIT ? OFFSET ?"
             )
             cursor = await db.execute(select_sql, params + [per_page, offset])
             rows = await cursor.fetchall()

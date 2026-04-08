@@ -606,6 +606,108 @@ class TestPagination:
         assert 'hx-get="/partials/document-table?page=3&per_page=3"' in resp.text
 
 
+# ── Filter & Sort API ─────────────────────────────────────────────
+
+
+class TestFilterSortAPI:
+    async def test_api_status_filter(self, auth_client, repo):
+        """GET /api/documents?status=completed returns only completed docs."""
+        r1 = _make_record(
+            document_id="d1", status=DocumentStatus.completed,
+        )
+        r2 = _make_record(
+            document_id="d2", status=DocumentStatus.pending,
+        )
+        await repo.create(r1)
+        await repo.create(r2)
+
+        resp = auth_client.get("/api/documents?status=completed")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["document_id"] == "d1"
+        assert data["status_filter"] == "completed"
+
+    async def test_api_source_type_filter(self, auth_client, repo):
+        """GET /api/documents?source_type=docx filters by extension."""
+        r1 = _make_record(document_id="d1", filename="a.docx")
+        r2 = _make_record(document_id="d2", filename="b.doc")
+        await repo.create(r1)
+        await repo.create(r2)
+
+        resp = auth_client.get("/api/documents?source_type=docx")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["document_id"] == "d1"
+        assert data["source_type_filter"] == "docx"
+
+    async def test_api_sort_field_and_dir(self, auth_client, repo):
+        """GET /api/documents?sort_field=title&sort_dir=asc sorts correctly."""
+        r1 = _make_record(document_id="d1", title="Zebra")
+        r2 = _make_record(document_id="d2", title="Apple")
+        await repo.create(r1)
+        await repo.create(r2)
+
+        resp = auth_client.get(
+            "/api/documents?sort_field=title&sort_dir=asc",
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["items"][0]["title"] == "Apple"
+        assert data["items"][1]["title"] == "Zebra"
+        assert data["sort_field"] == "title"
+        assert data["sort_dir"] == "asc"
+
+    async def test_api_returns_filter_metadata(self, auth_client, repo):
+        """Response includes status_filter, source_type_filter, sort fields."""
+        resp = auth_client.get(
+            "/api/documents?status=all&source_type=doc"
+            "&sort_field=created_at&sort_dir=desc",
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status_filter"] == "all"
+        assert data["source_type_filter"] == "doc"
+        assert data["sort_field"] == "created_at"
+        assert data["sort_dir"] == "desc"
+
+    async def test_partial_accepts_filter_params(self, auth_client, repo):
+        """GET /partials/document-table accepts status & source_type."""
+        r1 = _make_record(
+            document_id="d1", status=DocumentStatus.completed,
+        )
+        r2 = _make_record(
+            document_id="d2", status=DocumentStatus.pending,
+        )
+        await repo.create(r1)
+        await repo.create(r2)
+
+        resp = auth_client.get(
+            "/partials/document-table?status=completed",
+        )
+        assert resp.status_code == 200
+        assert "d1" in resp.text
+        # pending doc should NOT appear in the filtered result
+        assert "d2" not in resp.text
+
+    async def test_documents_page_accepts_filter_params(
+        self, auth_client, repo,
+    ):
+        """GET /documents accepts status, source_type, sort params."""
+        r1 = _make_record(
+            document_id="d1", status=DocumentStatus.completed,
+        )
+        r2 = _make_record(
+            document_id="d2", status=DocumentStatus.pending,
+        )
+        await repo.create(r1)
+        await repo.create(r2)
+
+        resp = auth_client.get("/documents?status=completed")
+        assert resp.status_code == 200
+
+
 # ── Reindex ───────────────────────────────────────────────────────
 
 

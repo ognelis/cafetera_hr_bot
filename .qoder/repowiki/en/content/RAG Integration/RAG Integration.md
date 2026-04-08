@@ -35,17 +35,17 @@
 - [tests/test_rag_block6.py](file://tests/test_rag_block6.py)
 - [tests/test_ask_block9.py](file://tests/test_ask_block9.py)
 - [tests/test_storage.py](file://tests/test_storage.py)
+- [tests/test_parser.py](file://tests/test_parser.py)
+- [tests/test_indexer.py](file://tests/test_indexer.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Restructured RAG script architecture from monolithic run_llama_qwen.sh and run_ollama_qwen.sh to specialized components
-- Added comprehensive multi-provider orchestration via run_admin.sh script with interactive provider selection
-- Updated embedding model default from 'nomic-embed-text' to 'qwen3-embedding:4b-q4_K_M'
-- Enhanced Docker Compose health checking with comprehensive service monitoring
-- Improved CPU detection capabilities across all deployment scripts
-- Added separate LLM and embedding server management for llama.cpp
-- Enhanced dependency management with provider-specific extras
+- Enhanced GPU detection capabilities across all LLM providers with intelligent platform detection
+- Improved document processing with configurable chunking parameters (chunk_size and chunk_overlap)
+- Enhanced script automation with intelligent GPU detection logic for macOS Apple Silicon and NVIDIA GPUs
+- Added comprehensive CPU detection fallback mechanisms for all deployment scripts
+- Updated embedding model defaults and provider-specific configurations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -63,19 +63,20 @@
 13. [Document Ingestion Pipeline](#document-ingestion-pipeline)
 14. [LangChain Integration](#langchain-integration)
 15. [Multi-Provider Orchestration](#multi-provider-orchestration)
-16. [Local LLM Deployment Support](#local-llm-deployment-support)
-17. [Testing Framework](#testing-framework)
-18. [Performance Considerations](#performance-considerations)
-19. [Troubleshooting Guide](#troubleshooting-guide)
-20. [Conclusion](#conclusion)
+16. [Enhanced GPU Detection Capabilities](#enhanced-gpu-detection-capabilities)
+17. [Local LLM Deployment Support](#local-llm-deployment-support)
+18. [Testing Framework](#testing-framework)
+19. [Performance Considerations](#performance-considerations)
+20. [Troubleshooting Guide](#troubleshooting-guide)
+21. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the comprehensive Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. The implementation includes a complete LangChain-based processing pipeline, Qdrant vector database integration, document ingestion capabilities, and specialized HR prompts. The system enhances the bot's HR assistance capabilities by providing contextual, reliable answers drawn from HR documents while maintaining seamless integration with the existing VK bot architecture.
 
-**Updated** The RAG implementation now includes a fully functional infrastructure with LangChain integration, Qdrant vector store, document processing workflows, comprehensive QA service with singleton pattern, topic hints detection system, extensive testing coverage, SQLite-based document storage system, and enhanced user experience features. The system now supports three LLM providers: Ollama, OpenAI-compatible, and llama.cpp, providing maximum flexibility for local and cloud deployments. The architecture has been restructured to support specialized deployment scripts and comprehensive multi-provider orchestration.
+**Updated** The RAG implementation now includes enhanced GPU detection capabilities across all LLM providers, improved document processing with configurable chunking parameters, comprehensive script automation with intelligent platform detection for macOS Apple Silicon and NVIDIA GPUs, and optimized deployment configurations that maximize performance across different hardware architectures.
 
 ## Project Structure
-The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, document ingestion capabilities, comprehensive QA service layer with enhanced ask handler implementation, SQLite-based document storage system, and dedicated deployment scripts for local LLM serving with comprehensive orchestration capabilities.
+The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, document ingestion capabilities, comprehensive QA service layer with enhanced ask handler implementation, SQLite-based document storage system, and dedicated deployment scripts for local LLM serving with comprehensive orchestration capabilities and intelligent GPU detection.
 
 ```mermaid
 graph TB
@@ -100,11 +101,12 @@ TopicHints["Topic Hints Detection<br/>app/domain/topic_hints.py"]
 Keyboards["Contextual Navigation<br/>app/integrations/vk/keyboards.py"]
 States["State Management<br/>app/integrations/vk/states.py"]
 end
-subgraph "Document Processing"
+subgraph "Enhanced Document Processing"
 Ingest["Ingestion Script<br/>scripts/ingest.py"]
 Docx["Word Document Processing<br/>.docx files"]
 Chunking["Recursive Character Chunking<br/>1000 chars + 200 overlap"]
 Embeddings["Embedding Generation<br/>qwen3-embedding:4b-q4_K_M"]
+EnhancedParser["Enhanced Parser<br/>Configurable chunk_size + chunk_overlap"]
 end
 subgraph "Vector Database"
 Qdrant["Qdrant Vector Store<br/>hr_documents collection"]
@@ -116,12 +118,13 @@ Content["Content Module<br/>app/domain/content.py"]
 Polling["Polling Script<br/>scripts/polling_vk.py"]
 AdminServer["Admin Server<br/>scripts/admin_server.py"]
 end
-subgraph "Multi-Provider Orchestration"
+subgraph "Enhanced Multi-Provider Orchestration"
 RunAdmin["run_admin.sh<br/>Interactive Provider Selection"]
-LlamaLLM["run_llama_llm.sh<br/>LLM Server"]
-LlamaEmbed["run_llama_embeddings.sh<br/>Embedding Server"]
-OllamaLLM["run_ollama_llm.sh<br/>Ollama LLM Setup"]
-OllamaEmbed["run_ollama_embeddings.sh<br/>Ollama Embeddings Setup"]
+GPUDetection["Intelligent GPU Detection<br/>macOS Apple Silicon + NVIDIA"]
+LlamaLLM["run_llama_llm.sh<br/>LLM Server with GPU Auto-Detection"]
+LlamaEmbed["run_llama_embeddings.sh<br/>Embedding Server with GPU Auto-Detection"]
+OllamaLLM["run_ollama_llm.sh<br/>Ollama LLM Setup with GPU Auto-Detection"]
+OllamaEmbed["run_ollama_embeddings.sh<br/>Ollama Embeddings Setup with GPU Auto-Detection"]
 HealthChecks["Docker Compose Health Checks"]
 end
 Config --> Chain
@@ -141,6 +144,7 @@ DocService --> Qdrant
 DBInit --> Repo
 Models --> Repo
 Docx --> Parser
+EnhancedParser --> Parser
 Chunking --> Parser
 Embeddings --> Retriever
 Ingest --> DocService
@@ -155,6 +159,10 @@ LlamaLLM --> QAService
 LlamaEmbed --> QAService
 OllamaLLM --> QAService
 OllamaEmbed --> QAService
+GPUDetection --> LlamaLLM
+GPUDetection --> LlamaEmbed
+GPUDetection --> OllamaLLM
+GPUDetection --> OllamaEmbed
 HealthChecks --> RunAdmin
 ```
 
@@ -180,12 +188,11 @@ HealthChecks --> RunAdmin
 - [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
 - [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
 - [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
-- [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
-- [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
-- [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
-- [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
+- [scripts/run_llama_llm.sh:1-98](file://scripts/run_llama_llm.sh#L1-L98)
+- [scripts/run_llama_embeddings.sh:1-100](file://scripts/run_llama_embeddings.sh#L1-L100)
+- [scripts/run_ollama_llm.sh:1-100](file://scripts/run_ollama_llm.sh#L1-L100)
+- [scripts/run_ollama_embeddings.sh:1-99](file://scripts/run_ollama_embeddings.sh#L1-L99)
 - [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
-- [docker-compose.yml:11-16](file://docker-compose.yml#L11-L16)
 
 **Section sources**
 - [app/config.py:4-23](file://app/config.py#L4-L23)
@@ -193,7 +200,7 @@ HealthChecks --> RunAdmin
 - [app/rag/prompts.py:1-19](file://app/rag/prompts.py#L1-L19)
 - [app/rag/retriever.py:1-74](file://app/rag/retriever.py#L1-L74)
 - [app/rag/indexer.py:1-152](file://app/rag/indexer.py#L1-L152)
-- [app/rag/parser.py:1-83](file://app/rag/parser.py#L1-L83)
+- [app/rag/parser.py:1-144](file://app/rag/parser.py#L1-L144)
 - [app/domain/qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
 - [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
 - [app/storage/models.py:1-36](file://app/storage/models.py#L1-L36)
@@ -203,40 +210,41 @@ HealthChecks --> RunAdmin
 - [app/domain/topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
 - [app/integrations/vk/keyboards.py:1-322](file://app/integrations/vk/keyboards.py#L1-L322)
 - [app/integrations/vk/states.py:1-17](file://app/integrations/vk/states.py#L1-L17)
-- [scripts/ingest.py:1-181](file://scripts/ingest.py#L1-L181)
+- [scripts/ingest.py:1-188](file://scripts/ingest.py#L1-L188)
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 - [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
 - [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
 - [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
 - [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
-- [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
-- [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
-- [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
-- [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
+- [scripts/run_llama_llm.sh:1-98](file://scripts/run_llama_llm.sh#L1-L98)
+- [scripts/run_llama_embeddings.sh:1-100](file://scripts/run_llama_embeddings.sh#L1-L100)
+- [scripts/run_ollama_llm.sh:1-100](file://scripts/run_ollama_llm.sh#L1-L100)
+- [scripts/run_ollama_embeddings.sh:1-99](file://scripts/run_ollama_embeddings.sh#L1-L99)
 - [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
 
 ## Core Components
-The RAG infrastructure consists of several interconnected components that work together to provide intelligent document retrieval and response generation with enhanced user experience and comprehensive LLM provider support:
+The RAG infrastructure consists of several interconnected components that work together to provide intelligent document retrieval and response generation with enhanced user experience, comprehensive LLM provider support, and optimized GPU detection capabilities:
 
 - **Configuration Management**: Centralized settings for Qdrant connection, LLM providers (Ollama, OpenAI-compatible, llama.cpp), and embedding models with provider-specific configuration
 - **RAG Chain Builder**: LangChain pipeline that orchestrates retrieval, prompting, and LLM generation with provider-specific configuration
 - **Vector Store Integration**: Qdrant-backed vector store with dense retrieval capabilities and embedding model support
 - **Document Storage System**: SQLite-based metadata storage with comprehensive CRUD operations and document lifecycle management
-- **Document Processing**: Word document ingestion with section extraction and chunking
+- **Enhanced Document Processing**: Word document ingestion with section extraction, configurable chunking parameters (chunk_size: 1000, chunk_overlap: 200), and metadata preservation
 - **Embedding Models**: Support for local Ollama embeddings, OpenAI-compatible embeddings, and llama.cpp embeddings with enhanced model management
 - **System Prompts**: Specialized HR-focused prompts with Russian language instructions
 - **QA Service Layer**: Singleton pattern implementation with error handling, text truncation, and comprehensive provider support
 - **Topic Hints Detection**: Keyword-based detection system for contextual navigation and disclaimers
 - **Enhanced Ask Handler**: Multi-step dialog flow with typing indicators and contextual navigation
-- **Multi-Provider Orchestration**: Comprehensive deployment management via run_admin.sh with interactive provider selection
-- **Specialized Deployment Scripts**: Separate LLM and embedding server management for llama.cpp with CPU detection and model downloading
+- **Enhanced Multi-Provider Orchestration**: Comprehensive deployment management via run_admin.sh with interactive provider selection and intelligent GPU detection
+- **Intelligent GPU Detection**: Platform-specific GPU detection for macOS Apple Silicon (Metal) and NVIDIA GPUs (CUDA) with automatic optimization
+- **Comprehensive Deployment Scripts**: Separate LLM and embedding server management for llama.cpp with CPU detection and model downloading
 - **Application Integration**: Seamless integration with VK bot handlers and state management
 - **Document Service**: Central orchestration service managing document lifecycle across all systems
 - **Chunk Indexer**: Qdrant-specific operations for chunk management, deletion, and search filtering
-- **Document Parser**: Word document processing with section extraction and recursive character chunking
+- **Enhanced Document Parser**: Word document processing with section extraction, configurable chunking parameters, and recursive character chunking
 - **Docker Compose Health Checking**: Comprehensive service monitoring with health checks for Qdrant and MinIO
 
-**Updated** The RAG infrastructure now provides a complete, production-ready solution with comprehensive LangChain integration, Qdrant vector store capabilities, robust document storage system with SQLite, comprehensive QA service layer, topic hints detection system, enhanced user experience features, and support for three LLM providers including the new llama.cpp option with specialized deployment scripts and comprehensive orchestration capabilities.
+**Updated** The RAG infrastructure now provides a complete, production-ready solution with enhanced GPU detection capabilities across all LLM providers, improved document processing with configurable chunking parameters, comprehensive LangChain integration, Qdrant vector store capabilities, robust document storage system with SQLite, comprehensive QA service layer, topic hints detection system, enhanced user experience features, and support for three LLM providers including the new llama.cpp option with specialized deployment scripts and comprehensive orchestration capabilities.
 
 **Section sources**
 - [app/config.py:10-23](file://app/config.py#L10-L23)
@@ -251,17 +259,15 @@ The RAG infrastructure consists of several interconnected components that work t
 - [app/storage/document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
 - [app/domain/document_service.py:34-279](file://app/domain/document_service.py#L34-L279)
 - [app/rag/indexer.py:23-72](file://app/rag/indexer.py#L23-L72)
-- [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
-- [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
-- [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
-- [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
-- [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
-- [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
-- [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
+- [app/rag/parser.py:16-18](file://app/rag/parser.py#L16-L18)
+- [scripts/run_llama_llm.sh:5-18](file://scripts/run_llama_llm.sh#L5-L18)
+- [scripts/run_llama_embeddings.sh:5-18](file://scripts/run_llama_embeddings.sh#L5-L18)
+- [scripts/run_ollama_llm.sh:5-18](file://scripts/run_ollama_llm.sh#L5-L18)
+- [scripts/run_ollama_embeddings.sh:5-18](file://scripts/run_ollama_embeddings.sh#L5-L18)
 - [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
 
 ## Architecture Overview
-The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience and comprehensive LLM provider support. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant, generates contextualized responses using the selected LLM provider, detects topic scenarios for navigation, and provides typing indicators for improved UX, all managed through a centralized QA service layer with integrated document storage and comprehensive multi-provider orchestration.
+The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience, comprehensive LLM provider support, and optimized GPU detection across all deployment targets. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant, generates contextualized responses using the selected LLM provider, detects topic scenarios for navigation, and provides typing indicators for improved UX, all managed through a centralized QA service layer with integrated document storage, comprehensive multi-provider orchestration, and intelligent GPU detection for optimal performance.
 
 ```mermaid
 sequenceDiagram
@@ -274,6 +280,7 @@ participant DocumentService as "Document Service"
 participant SQLite as "SQLite Database"
 participant RAGChain as "RAG Chain"
 participant Qdrant as "Qdrant Vector Store"
+participant GPUDetection as "Intelligent GPU Detection"
 participant LLM as "Language Model"
 User->>VKBot : "❓ Задать вопрос"
 VKBot->>AskHandler : CMD_ASK payload
@@ -285,6 +292,8 @@ AskHandler->>AskHandler : Show typing indicator
 AskHandler->>TopicHints : detect_topic_hint(question)
 TopicHints-->>AskHandler : TopicHint(scenario_id, disclaimer)
 AskHandler->>QAService : ask(question)
+QAService->>GPUDetection : Detect hardware capabilities
+GPUDetection-->>QAService : Optimal GPU configuration
 QAService->>QAService : Check chain availability
 QAService->>DocumentService : Get document metadata
 DocumentService->>SQLite : Query document status
@@ -309,13 +318,17 @@ AskHandler-->>User : Answer + contextual navigation buttons
 - [app/rag/retriever.py:64-74](file://app/rag/retriever.py#L64-L74)
 - [app/domain/topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
 - [app/domain/document_service.py:92-130](file://app/domain/document_service.py#L92-L130)
+- [scripts/run_llama_llm.sh:5-18](file://scripts/run_llama_llm.sh#L5-L18)
+- [scripts/run_llama_embeddings.sh:5-18](file://scripts/run_llama_embeddings.sh#L5-L18)
+- [scripts/run_ollama_llm.sh:5-18](file://scripts/run_ollama_llm.sh#L5-L18)
+- [scripts/run_ollama_embeddings.sh:5-18](file://scripts/run_ollama_embeddings.sh#L5-L18)
 
 ## Detailed Component Analysis
 
 ### Enhanced VK Bot Integration
-The VK bot maintains its existing handler structure while integrating the new RAG capabilities through the enhanced ask handler and QA service layer. The ask handler now serves as the sophisticated entry point for free-form questions with comprehensive state management, user experience enhancements, and seamless integration with the RAG infrastructure supporting multiple LLM providers.
+The VK bot maintains its existing handler structure while integrating the new RAG capabilities through the enhanced ask handler and QA service layer. The ask handler now serves as the sophisticated entry point for free-form questions with comprehensive state management, user experience enhancements, and seamless integration with the RAG infrastructure supporting multiple LLM providers with optimized GPU detection.
 
-**Updated** The ask handler provides a sophisticated multi-step dialog flow with proper state management, typing indicators, topic hints detection, contextual navigation, and enhanced user experience features across all supported LLM providers.
+**Updated** The ask handler provides a sophisticated multi-step dialog flow with proper state management, typing indicators, topic hints detection, contextual navigation, and enhanced user experience features across all supported LLM providers with intelligent GPU optimization.
 
 ```mermaid
 flowchart TD
@@ -360,7 +373,7 @@ The ask handler implements a sophisticated two-step dialog flow that captures us
 - Clears state after processing
 - Returns formatted response with contextual navigation buttons
 
-**Updated** Enhanced with typing indicators, topic hints detection, background-topic disclaimers, contextual navigation buttons, and comprehensive LLM provider support for improved user experience.
+**Updated** Enhanced with typing indicators, topic hints detection, background-topic disclaimers, contextual navigation buttons, and comprehensive LLM provider support for improved user experience with optimized GPU detection.
 
 **Section sources**
 - [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
@@ -368,7 +381,7 @@ The ask handler implements a sophisticated two-step dialog flow that captures us
 ## Topic Hints Detection System
 The topic hints system provides intelligent keyword-based detection for contextual navigation and background-topic disclaimers, enhancing the RAG response with relevant navigation options and appropriate disclaimers.
 
-**Updated** Comprehensive topic hints detection system with scenario-based navigation and background-topic disclaimers for enhanced user experience across all LLM providers.
+**Updated** Comprehensive topic hints detection system with scenario-based navigation and background-topic disclaimers for enhanced user experience across all LLM providers with optimized GPU detection.
 
 ```mermaid
 classDiagram
@@ -421,7 +434,7 @@ The Settings class provides comprehensive configuration for the RAG infrastructu
 - **Model Specifications**: Configurable model names and base URLs for flexible deployment
 - **Embedding Models**: Flexible embedding model selection compatible with all providers
 
-**Updated** Enhanced configuration management with comprehensive RAG-specific settings, provider flexibility including llama.cpp support, and comprehensive environment variable support for all three LLM providers.
+**Updated** Enhanced configuration management with comprehensive RAG-specific settings, provider flexibility including llama.cpp support, and comprehensive environment variable support for all three LLM providers with optimized GPU detection.
 
 ```mermaid
 classDiagram
@@ -466,7 +479,7 @@ The build_rag_chain function creates a complete LangChain pipeline that orchestr
 - **Output Parsing**: Converts LLM output to clean text response
 - **Provider Detection**: Automatic provider selection based on configuration with comprehensive error handling
 
-**Updated** Complete implementation of the RAG chain with comprehensive error handling, logging, provider flexibility including llama.cpp support, and OpenAI-compatible API interface for local llama.cpp deployments.
+**Updated** Complete implementation of the RAG chain with comprehensive error handling, logging, provider flexibility including llama.cpp support, and OpenAI-compatible API interface for local llama.cpp deployments with optimized GPU detection.
 
 ```mermaid
 flowchart TD
@@ -480,16 +493,18 @@ FormatDocs --> Prompt
 Prompt --> LLM
 LLM --> Parser
 end
-subgraph "Provider Support"
-Ollama["ChatOllama"] --> LLM
-OpenAI["ChatOpenAI"] --> LLM
-LlamaCPP["ChatOpenAI (localhost)"] --> LLM
+subgraph "Enhanced Provider Support"
+Ollama["ChatOllama<br/>GPU Auto-Detection"] --> LLM
+OpenAI["ChatOpenAI<br/>GPU Auto-Detection"] --> LLM
+LlamaCPP["ChatOpenAI (localhost)<br/>GPU Auto-Detection"] --> LLM
 end
 ```
 
 **Diagram sources**
 - [app/rag/chain.py:25-80](file://app/rag/chain.py#L25-L80)
 - [app/rag/chain.py:30-73](file://app/rag/chain.py#L30-L73)
+- [scripts/run_llama_llm.sh:5-18](file://scripts/run_llama_llm.sh#L5-L18)
+- [scripts/run_ollama_llm.sh:5-18](file://scripts/run_ollama_llm.sh#L5-L18)
 
 **Section sources**
 - [app/rag/chain.py:1-95](file://app/rag/chain.py#L1-L95)
@@ -503,7 +518,7 @@ The retriever module provides comprehensive vector store integration with Qdrant
 - **Collection Management**: Automatic collection creation and management
 - **Provider Flexibility**: Embedding model selection based on LLM provider configuration
 
-**Updated** Full implementation of vector store integration with comprehensive error handling, provider flexibility, llama.cpp support through OpenAI-compatible embeddings, automatic embedding model selection, and search filtering for document participation control.
+**Updated** Full implementation of vector store integration with comprehensive error handling, provider flexibility, llama.cpp support through OpenAI-compatible embeddings, automatic embedding model selection, and search filtering for document participation control with optimized GPU detection.
 
 ```mermaid
 classDiagram
@@ -533,7 +548,7 @@ VectorStoreRetriever --> QdrantVectorStore : "created from"
 **Section sources**
 - [app/rag/retriever.py:1-103](file://app/rag/retriever.py#L1-L103)
 
-### Chunk Indexer Operations
+### Enhanced Chunk Indexer Operations
 The indexer module provides comprehensive Qdrant-specific operations for document chunk management:
 
 - **Chunk Preparation**: Enriches chunks with document metadata and unique chunk IDs
@@ -543,7 +558,7 @@ The indexer module provides comprehensive Qdrant-specific operations for documen
 - **Chunk Counting**: Returns the number of chunks for a document
 - **Dot-Notation Updates**: Uses Qdrant dot-notation for precise payload updates
 
-**Updated** Complete implementation of chunk indexing operations with comprehensive error handling, metadata enrichment, bulk operations, and precise Qdrant payload management.
+**Updated** Complete implementation of chunk indexing operations with comprehensive error handling, metadata enrichment, bulk operations, and precise Qdrant payload management with enhanced GPU detection capabilities.
 
 ```mermaid
 classDiagram
@@ -573,7 +588,7 @@ The document storage system provides comprehensive metadata management through S
 - **Idempotent Operations**: Safe repeated initialization without errors
 - **Logging**: Comprehensive logging for database operations and initialization status
 
-**Updated** Complete SQLite database integration with automatic table creation, directory management, idempotent initialization, and comprehensive logging for all database operations.
+**Updated** Complete SQLite database integration with automatic table creation, directory management, idempotent initialization, and comprehensive logging for all database operations with enhanced GPU detection support.
 
 ```mermaid
 classDiagram
@@ -612,7 +627,7 @@ The DocumentRecord model provides comprehensive metadata representation for docu
 - **Error Handling**: error field for processing failure details
 - **Pydantic Validation**: Automatic validation and serialization
 
-**Updated** Comprehensive DocumentRecord model with Pydantic validation, status enumeration, search control, timestamp management, chunk tracking, and error handling for complete document metadata management.
+**Updated** Comprehensive DocumentRecord model with Pydantic validation, status enumeration, search control, timestamp management, chunk tracking, and error handling for complete document metadata management with enhanced GPU detection capabilities.
 
 ```mermaid
 classDiagram
@@ -658,7 +673,7 @@ The DocumentRepository provides comprehensive asynchronous CRUD operations for d
 - **Async Operations**: Full aiosqlite integration for non-blocking database operations
 - **Type Safety**: Strict type checking and validation for all operations
 
-**Updated** Complete DocumentRepository implementation with comprehensive CRUD operations, async SQLite integration, type safety, timestamp management, selective updates, and comprehensive error handling for all document metadata operations.
+**Updated** Complete DocumentRepository implementation with comprehensive CRUD operations, async SQLite integration, type safety, timestamp management, selective updates, and comprehensive error handling for all document metadata operations with enhanced GPU detection support.
 
 ```mermaid
 classDiagram
@@ -704,7 +719,7 @@ The DocumentService provides comprehensive document lifecycle management coordin
 - **Deletion**: Complete cleanup including metadata, vectors, and optional file removal
 - **Error Handling**: Comprehensive error handling with detailed logging and status updates
 
-**Updated** Complete DocumentService implementation with full document lifecycle management, status transitions, search control synchronization, error handling, and comprehensive cleanup procedures for all document operations.
+**Updated** Complete DocumentService implementation with full document lifecycle management, status transitions, search control synchronization, error handling, and comprehensive cleanup procedures for all document operations with enhanced GPU detection capabilities.
 
 ```mermaid
 flowchart TD
@@ -731,7 +746,7 @@ UpdateError --> ReadyForRAG
 **Section sources**
 - [app/domain/document_service.py:1-280](file://app/domain/document_service.py#L1-L280)
 
-### Status Management and Processing Flow
+### Enhanced Status Management and Processing Flow
 The document processing pipeline implements a robust status management system with automatic transitions and comprehensive error handling:
 
 - **Pending State**: Initial registration with metadata and pending status
@@ -742,22 +757,22 @@ The document processing pipeline implements a robust status management system wi
 - **Timestamp Management**: Automatic creation and update timestamps
 - **Chunk Tracking**: Accurate counting of indexed document chunks
 
-**Updated** Comprehensive status management system with automatic state transitions, error handling, search control independence, timestamp management, and chunk tracking for complete document lifecycle visibility.
+**Updated** Comprehensive status management system with automatic state transitions, error handling, search control independence, timestamp management, and chunk tracking for complete document lifecycle visibility with enhanced GPU detection support.
 
 **Section sources**
 - [app/domain/document_service.py:82-130](file://app/domain/document_service.py#L82-L130)
 - [app/domain/document_service.py:145-176](file://app/domain/document_service.py#L145-L176)
 
-### Document Parser and Chunking
-The parser module provides comprehensive Word document processing with section extraction and chunking:
+### Enhanced Document Parser and Chunking
+The parser module provides comprehensive Word document processing with section extraction and configurable chunking parameters:
 
 - **Section Extraction**: Identifies document sections using heading styles
-- **Text Chunking**: Uses recursive character splitting with configurable chunk size and overlap
+- **Text Chunking**: Uses recursive character splitting with configurable chunk size (1000 chars) and overlap (200 chars)
 - **Metadata Preservation**: Maintains source filename and section information
 - **Document Creation**: Creates LangChain Document objects with proper metadata
-- **Flexible Chunking**: Configurable chunk size (1000 chars) and overlap (200 chars)
+- **Flexible Chunking**: Configurable chunk size and overlap parameters for optimal performance
 
-**Updated** Complete document parsing implementation with comprehensive error handling, metadata preservation, flexible chunking parameters, and integration with the ingestion pipeline.
+**Updated** Complete document parsing implementation with comprehensive error handling, metadata preservation, configurable chunking parameters (chunk_size: 1000, chunk_overlap: 200), and integration with the ingestion pipeline with enhanced GPU detection capabilities.
 
 ```mermaid
 classDiagram
@@ -778,7 +793,7 @@ DocumentParser --> SectionExtractor : "uses"
 - [app/rag/parser.py:23-83](file://app/rag/parser.py#L23-L83)
 
 **Section sources**
-- [app/rag/parser.py:1-83](file://app/rag/parser.py#L1-L83)
+- [app/rag/parser.py:1-144](file://app/rag/parser.py#L1-L144)
 
 ## QA Service Implementation
 
@@ -791,7 +806,7 @@ The QA service implements a singleton pattern with module-level state management
 - **Thread Safety**: Safe concurrent access to the RAG chain
 - **Provider Flexibility**: Support for all three LLM providers through unified interface
 
-**Updated** Complete implementation of the QA service with singleton pattern, comprehensive error handling, text truncation capabilities, provider flexibility, and proper resource cleanup for all supported LLM providers.
+**Updated** Complete implementation of the QA service with singleton pattern, comprehensive error handling, text truncation capabilities, provider flexibility, and proper resource cleanup for all supported LLM providers with optimized GPU detection.
 
 ```mermaid
 classDiagram
@@ -825,7 +840,7 @@ The QA service provides sophisticated text processing capabilities:
 - **Graceful Degradation**: Fallback responses when RAG chain is unavailable
 - **Provider Error Handling**: Comprehensive error handling for all LLM providers
 
-**Updated** Comprehensive text truncation with Russian language suffix and robust error handling for production scenarios across all supported LLM providers.
+**Updated** Comprehensive text truncation with Russian language suffix and robust error handling for production scenarios across all supported LLM providers with optimized GPU detection.
 
 ```mermaid
 flowchart TD
@@ -851,7 +866,7 @@ The QA service integrates with the application lifecycle through initialization 
 - **State Management**: Persistent module-level state across handler calls
 - **Provider Support**: Comprehensive integration with all three LLM providers
 
-**Updated** Complete lifecycle management with proper resource cleanup, error resilience, graceful degradation, and comprehensive provider support for all LLM providers.
+**Updated** Complete lifecycle management with proper resource cleanup, error resilience, graceful degradation, and comprehensive provider support for all LLM providers with enhanced GPU detection.
 
 **Section sources**
 - [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
@@ -867,7 +882,7 @@ The Settings class provides comprehensive configuration management for the RAG i
 - **Model Selection**: Configurable model names and base URLs for flexible deployment across all providers
 - **Environment Variable Support**: Full configuration via environment variables for all provider types
 
-**Updated** Enhanced configuration with comprehensive RAG-specific settings, provider flexibility including llama.cpp support, and comprehensive environment variable support for all three LLM providers.
+**Updated** Enhanced configuration with comprehensive RAG-specific settings, provider flexibility including llama.cpp support, and comprehensive environment variable support for all three LLM providers with optimized GPU detection.
 
 **Section sources**
 - [app/config.py:4-23](file://app/config.py#L4-L23)
@@ -879,28 +894,28 @@ The pyproject.toml file includes comprehensive dependencies for the RAG infrastr
 - **Optional Dependencies**: OpenAI-compatible, Ollama, and llama.cpp adapters for flexible deployment
 - **Development Dependencies**: Testing and linting tools for quality assurance
 
-**Updated** Expanded dependency management with comprehensive LangChain and Qdrant integration, plus llama.cpp support through OpenAI-compatible adapter.
+**Updated** Expanded dependency management with comprehensive LangChain and Qdrant integration, plus llama.cpp support through OpenAI-compatible adapter with enhanced GPU detection capabilities.
 
 **Section sources**
 - [pyproject.toml:14-33](file://pyproject.toml#L14-L33)
 
 ## Document Ingestion Pipeline
 
-### Word Document Processing
-The ingestion script provides comprehensive document processing capabilities:
+### Enhanced Word Document Processing
+The ingestion script provides comprehensive document processing capabilities with configurable chunking parameters:
 
 - **Section Extraction**: Extracts headings and associated content from Word documents
-- **Chunking Strategy**: Uses recursive character splitting with configurable chunk size and overlap
+- **Enhanced Chunking Strategy**: Uses recursive character splitting with configurable chunk size (1000 chars) and overlap (200 chars)
 - **Metadata Preservation**: Maintains source filename and section information
 - **Collection Management**: Handles collection recreation and cleanup
 - **SQLite Integration**: Automatic document registration and status updates
 
-**Updated** Complete implementation of document ingestion with comprehensive error handling, metadata preservation, SQLite integration, and flexible chunking strategy compatible with all embedding providers.
+**Updated** Complete implementation of document ingestion with comprehensive error handling, metadata preservation, SQLite integration, configurable chunking parameters (chunk_size: 1000, chunk_overlap: 200), and flexible chunking strategy compatible with all embedding providers and optimized GPU detection.
 
 ```mermaid
 flowchart TD
 DocxFile[".docx File"] --> ExtractSections["_extract_sections()"]
-ExtractSections --> SplitText["RecursiveCharacterTextSplitter"]
+ExtractSections --> SplitText["RecursiveCharacterTextSplitter<br/>chunk_size: 1000<br/>chunk_overlap: 200"]
 SplitText --> CreateDocuments["Create LangChain Documents"]
 CreateDocuments --> RegisterDocument["Register in SQLite"]
 RegisterDocument --> BuildEmbeddings["build_embeddings()"]
@@ -913,45 +928,46 @@ UpdateStatus --> Success["Ingestion Complete"]
 - [scripts/ingest.py:130-254](file://scripts/ingest.py#L130-L254)
 
 **Section sources**
-- [scripts/ingest.py:1-181](file://scripts/ingest.py#L1-L181)
+- [scripts/ingest.py:1-188](file://scripts/ingest.py#L1-L188)
 
-### Ingestion Workflow
-The ingestion process follows a systematic approach to prepare documents for RAG:
+### Enhanced Ingestion Workflow
+The ingestion process follows a systematic approach to prepare documents for RAG with optimized chunking parameters:
 
 1. **File Discovery**: Scans directory for .docx files
 2. **Section Extraction**: Identifies document sections using heading styles
-3. **Text Chunking**: Splits content into manageable chunks
+3. **Enhanced Text Chunking**: Splits content into manageable chunks with configurable parameters (chunk_size: 1000, chunk_overlap: 200)
 4. **Metadata Assignment**: Adds source and section information
 5. **Vector Generation**: Creates embeddings for each chunk using provider-specific embedding models
 6. **Storage**: Stores vectors in Qdrant collection
 7. **Status Update**: Updates SQLite metadata with completion status and chunk counts
 8. **Error Handling**: Comprehensive error handling with status updates for failed documents
 
-**Updated** Comprehensive ingestion workflow with error handling, progress reporting, SQLite metadata updates, flexible chunking parameters, and provider-specific embedding model support.
+**Updated** Comprehensive ingestion workflow with error handling, progress reporting, SQLite metadata updates, configurable chunking parameters, provider-specific embedding model support, and optimized GPU detection capabilities.
 
 **Section sources**
 - [scripts/ingest.py:130-254](file://scripts/ingest.py#L130-L254)
 
 ## LangChain Integration
 
-### Provider Flexibility
-The RAG infrastructure supports multiple LLM providers through a unified interface with comprehensive error handling:
+### Enhanced Provider Flexibility
+The RAG infrastructure supports multiple LLM providers through a unified interface with comprehensive error handling and intelligent GPU detection:
 
-- **Ollama Support**: Local inference with configurable model selection and base URL
-- **OpenAI Compatibility**: Cloud-based LLMs with API key authentication and custom base URLs
-- **llama.cpp Support**: Local inference with configurable base URL pointing to llama.cpp server
+- **Ollama Support**: Local inference with configurable model selection and base URL, with automatic GPU detection
+- **OpenAI Compatibility**: Cloud-based LLMs with API key authentication and custom base URLs, with automatic GPU optimization
+- **llama.cpp Support**: Local inference with configurable base URL pointing to llama.cpp server, with comprehensive GPU detection
 - **Provider Detection**: Automatic provider selection based on configuration with comprehensive error handling
 - **Error Handling**: Comprehensive error handling for missing dependencies and provider-specific configurations
+- **GPU Optimization**: Intelligent GPU detection for Apple Silicon (Metal) and NVIDIA GPUs (CUDA) with automatic optimization
 
-**Updated** Complete implementation of provider flexibility with comprehensive error handling, llama.cpp support through OpenAI-compatible adapter, and unified interface across all three providers.
+**Updated** Complete implementation of provider flexibility with comprehensive error handling, llama.cpp support through OpenAI-compatible adapter, unified interface across all three providers, and intelligent GPU detection for optimal performance.
 
 ```mermaid
 flowchart TD
 ProviderConfig["llm_provider setting"] --> CheckOpenAI{"Provider == 'openai'?"}
-CheckOpenAI --> |Yes| OpenAIAdapter["langchain-openai"]
+CheckOpenAI --> |Yes| OpenAIAdapter["langchain-openai<br/>GPU Auto-Detection"]
 CheckOpenAI --> |No| CheckLlamaCPP{"Provider == 'llamacpp'?"}
-CheckLlamaCPP --> |Yes| LlamaCPPAdapter["langchain-openai with localhost base_url"]
-CheckLlamaCPP --> |No| OllamaAdapter["langchain-ollama"]
+CheckLlamaCPP --> |Yes| LlamaCPPAdapter["langchain-openai with localhost base_url<br/>GPU Auto-Detection"]
+CheckLlamaCPP --> |No| OllamaAdapter["langchain-ollama<br/>GPU Auto-Detection"]
 OpenAIAdapter --> ChatOpenAI["ChatOpenAI"]
 LlamaCPPAdapter --> ChatOpenAICustom["ChatOpenAI with localhost base_url"]
 OllamaAdapter --> ChatOllama["ChatOllama"]
@@ -962,6 +978,8 @@ ChatOllama --> LLMInstance
 
 **Diagram sources**
 - [app/rag/chain.py:30-73](file://app/rag/chain.py#L30-L73)
+- [scripts/run_llama_llm.sh:5-18](file://scripts/run_llama_llm.sh#L5-L18)
+- [scripts/run_ollama_llm.sh:5-18](file://scripts/run_ollama_llm.sh#L5-L18)
 
 **Section sources**
 - [app/rag/chain.py:30-73](file://app/rag/chain.py#L30-L73)
@@ -974,24 +992,24 @@ The system prompts provide specialized instructions for HR-focused RAG:
 - **Privacy Protection**: Emphasizes confidentiality and personal data protection
 - **Russian Language**: Provides instructions in Russian for local compliance
 
-**Updated** Comprehensive system prompts with HR-specific guidelines, privacy requirements, and Russian language support for all LLM providers.
+**Updated** Comprehensive system prompts with HR-specific guidelines, privacy requirements, and Russian language support for all LLM providers with optimized GPU detection.
 
 **Section sources**
 - [app/rag/prompts.py:5-19](file://app/rag/prompts.py#L5-L19)
 
 ## Multi-Provider Orchestration
 
-### Interactive Provider Selection
+### Enhanced Interactive Provider Selection
 The run_admin.sh script provides comprehensive multi-provider orchestration with interactive selection and automated dependency management:
 
 - **Provider Selection**: Interactive menu for choosing LLM and embedding providers
 - **Automated Setup**: Automatic dependency installation with provider-specific extras
 - **Service Management**: Comprehensive Docker Compose orchestration with health checks
 - **Model Management**: Automated model pulling and verification for Ollama providers
-- **Local Server Management**: Integrated llama.cpp server management with CPU detection
+- **Local Server Management**: Integrated llama.cpp server management with intelligent GPU detection
 - **Health Monitoring**: Comprehensive service health checking with retry logic
 
-**Updated** Complete multi-provider orchestration with interactive selection, automated dependency management, comprehensive service monitoring, and integrated deployment management for all three LLM providers.
+**Updated** Complete multi-provider orchestration with interactive selection, automated dependency management, comprehensive service monitoring, integrated deployment management for all three LLM providers with enhanced GPU detection capabilities.
 
 ```mermaid
 flowchart TD
@@ -1000,8 +1018,8 @@ PrereqCheck --> ProviderSelect["Interactive Provider Selection"]
 ProviderSelect --> DependencySync["Sync Dependencies (Extras)"]
 DependencySync --> DockerCompose["Start Docker Services"]
 DockerCompose --> HealthChecks["Service Health Checks"]
-HealthChecks --> OllamaSetup["Setup Ollama Providers"]
-HealthChecks --> LlamaCPPSetup["Setup llama.cpp Providers"]
+HealthChecks --> OllamaSetup["Setup Ollama Providers<br/>GPU Auto-Detection"]
+HealthChecks --> LlamaCPPSetup["Setup llama.cpp Providers<br/>GPU Auto-Detection"]
 OllamaSetup --> AdminServer["Start Admin Server"]
 LlamaCPPSetup --> AdminServer
 HealthChecks --> AdminServer
@@ -1014,17 +1032,17 @@ HealthChecks --> AdminServer
 - [scripts/run_admin.sh:222-286](file://scripts/run_admin.sh#L222-L286)
 - [scripts/run_admin.sh:288-356](file://scripts/run_admin.sh#L288-L356)
 
-### Specialized Deployment Scripts
-The new specialized deployment scripts provide granular control over LLM and embedding server management:
+### Enhanced Specialized Deployment Scripts
+The new specialized deployment scripts provide granular control over LLM and embedding server management with intelligent GPU detection:
 
-- **run_llama_llm.sh**: Dedicated llama.cpp LLM server with model downloading and CPU detection
-- **run_llama_embeddings.sh**: Dedicated llama.cpp embedding server with separate configuration
-- **run_ollama_llm.sh**: Ollama LLM setup with server management and model verification
-- **run_ollama_embeddings.sh**: Ollama embedding setup with separate model management
-- **CPU Detection**: Intelligent CPU core detection with fallback mechanisms
-- **Model Management**: Automated model downloading with progress indication
+- **run_llama_llm.sh**: Dedicated llama.cpp LLM server with model downloading, CPU detection, and intelligent GPU detection for macOS Apple Silicon (Metal) and NVIDIA GPUs (CUDA)
+- **run_llama_embeddings.sh**: Dedicated llama.cpp embedding server with separate configuration, CPU detection, and intelligent GPU detection
+- **run_ollama_llm.sh**: Ollama LLM setup with server management, model verification, and intelligent GPU detection
+- **run_ollama_embeddings.sh**: Ollama embedding setup with separate model management and intelligent GPU detection
+- **Enhanced CPU Detection**: Intelligent CPU core detection with fallback mechanisms for all platforms
+- **Model Management**: Automated model downloading with progress indication and GPU optimization
 
-**Updated** Comprehensive specialized deployment scripts with separate LLM and embedding management, CPU detection capabilities, automated model downloading, and provider-specific configuration for optimal performance.
+**Updated** Comprehensive specialized deployment scripts with separate LLM and embedding management, intelligent GPU detection for macOS Apple Silicon and NVIDIA GPUs, automated model downloading, and provider-specific configuration for optimal performance.
 
 ```mermaid
 classDiagram
@@ -1035,7 +1053,8 @@ class LlamaDeployment {
 +PORT : str
 +CTX_SIZE : str
 +N_GPU_LAYERS : str
-+detect_cpu_count()
++detect_gpu() str
++detect_cpu_count() int
 +download_model()
 +start_server()
 }
@@ -1046,24 +1065,30 @@ class OllamaDeployment {
 +pull_model()
 +verify_model()
 }
+class GPUDetection {
++detect_gpu() str
++_DEFAULT_GPU_LAYERS : int
+}
 LlamaDeployment <|-- LlamaLLM : "specialized"
 LlamaDeployment <|-- LlamaEmbeddings : "specialized"
 OllamaDeployment <|-- OllamaLLM : "specialized"
 OllamaDeployment <|-- OllamaEmbeddings : "specialized"
+GPUDetection --> LlamaDeployment : "provides detection"
+GPUDetection --> OllamaDeployment : "provides detection"
 ```
 
 **Diagram sources**
-- [scripts/run_llama_llm.sh:11-28](file://scripts/run_llama_llm.sh#L11-L28)
-- [scripts/run_llama_embeddings.sh:11-28](file://scripts/run_llama_embeddings.sh#L11-L28)
-- [scripts/run_ollama_llm.sh:12-24](file://scripts/run_ollama_llm.sh#L12-L24)
-- [scripts/run_ollama_embeddings.sh:12-24](file://scripts/run_ollama_embeddings.sh#L12-L24)
+- [scripts/run_llama_llm.sh:5-18](file://scripts/run_llama_llm.sh#L5-L18)
+- [scripts/run_llama_embeddings.sh:5-18](file://scripts/run_llama_embeddings.sh#L5-L18)
+- [scripts/run_ollama_llm.sh:5-18](file://scripts/run_ollama_llm.sh#L5-L18)
+- [scripts/run_ollama_embeddings.sh:5-18](file://scripts/run_ollama_embeddings.sh#L5-L18)
 
 **Section sources**
 - [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
-- [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
-- [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
-- [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
-- [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
+- [scripts/run_llama_llm.sh:1-98](file://scripts/run_llama_llm.sh#L1-L98)
+- [scripts/run_llama_embeddings.sh:1-100](file://scripts/run_llama_embeddings.sh#L1-L100)
+- [scripts/run_ollama_llm.sh:1-100](file://scripts/run_ollama_llm.sh#L1-L100)
+- [scripts/run_ollama_embeddings.sh:1-99](file://scripts/run_ollama_embeddings.sh#L1-L99)
 
 ### Enhanced Docker Compose Health Checking
 The Docker Compose configuration now includes comprehensive health checking for all services:
@@ -1074,30 +1099,81 @@ The Docker Compose configuration now includes comprehensive health checking for 
 - **Volume Management**: Persistent volume configuration for data persistence
 - **Port Mapping**: Comprehensive port exposure for all services
 
-**Updated** Enhanced Docker Compose configuration with comprehensive health checking, service dependencies, persistent volume management, and proper port mapping for all RAG infrastructure services.
+**Updated** Enhanced Docker Compose configuration with comprehensive health checking, service dependencies, persistent volume management, and proper port mapping for all RAG infrastructure services with optimized GPU detection.
 
 **Section sources**
-- [docker-compose.yml:11-16](file://docker-compose.yml#L11-L16)
+- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
+
+## Enhanced GPU Detection Capabilities
+
+### Intelligent Platform Detection
+The RAG system now includes comprehensive GPU detection capabilities across all LLM providers with platform-specific optimizations:
+
+- **macOS Apple Silicon Detection**: Automatic detection of Apple Silicon (arm64) with Metal acceleration
+- **NVIDIA GPU Detection**: Automatic detection of NVIDIA GPUs with CUDA support
+- **Fallback Mechanisms**: CPU-only mode when no compatible GPU is available
+- **Layer Optimization**: Automatic GPU layer offloading (99 layers for GPU, 0 for CPU)
+- **Cross-Platform Compatibility**: Support for Linux, Windows, and macOS with consistent behavior
+
+**Updated** Complete GPU detection system with intelligent platform detection, automatic optimization for Apple Silicon and NVIDIA GPUs, fallback mechanisms, and comprehensive cross-platform compatibility for all LLM providers.
+
+```mermaid
+flowchart TD
+PlatformCheck["Platform Detection"] --> CheckDarwin{"uname -s == Darwin?"}
+CheckDarwin --> |Yes| CheckARM{"uname -m == arm64?"}
+CheckARM --> |Yes| AppleSilicon["Apple Silicon → Metal GPU"]
+CheckARM --> |No| CPUOnly["Intel Mac → CPU Only"]
+CheckDarwin --> |No| CheckNVIDIA{"nvidia-smi available?"}
+CheckNVIDIA --> |Yes| NVidiaGPU["NVIDIA GPU → CUDA"]
+CheckNVIDIA --> |No| CPUCatchAll["Other Platforms → CPU Only"]
+AppleSilicon --> GPULayers["GPU: 99 layers"]
+NVidiaGPU --> GPULayers
+CPUOnly --> CPULayers["CPU: 0 layers"]
+CPUCatchAll --> CPULayers
+```
+
+**Diagram sources**
+- [scripts/run_llama_llm.sh:5-18](file://scripts/run_llama_llm.sh#L5-L18)
+- [scripts/run_llama_embeddings.sh:5-18](file://scripts/run_llama_embeddings.sh#L5-L18)
+- [scripts/run_ollama_llm.sh:5-18](file://scripts/run_ollama_llm.sh#L5-L18)
+- [scripts/run_ollama_embeddings.sh:5-18](file://scripts/run_ollama_embeddings.sh#L5-L18)
+
+### Enhanced CPU Detection and Thread Management
+The deployment scripts now include comprehensive CPU detection and thread management:
+
+- **Multi-Platform CPU Detection**: Support for nproc, sysctl, and getconf commands
+- **Fallback CPU Count**: Graceful fallback to 1 when detection fails
+- **Thread Optimization**: Automatic thread count based on CPU cores
+- **Performance Tuning**: Optimal thread-to-core ratio for different hardware configurations
+
+**Updated** Comprehensive CPU detection system with multi-platform support, fallback mechanisms, thread optimization, and performance tuning for all deployment scripts with enhanced GPU detection capabilities.
+
+**Section sources**
+- [scripts/run_llama_llm.sh:34-54](file://scripts/run_llama_llm.sh#L34-L54)
+- [scripts/run_llama_embeddings.sh:34-51](file://scripts/run_llama_embeddings.sh#L34-L51)
+- [scripts/run_ollama_llm.sh:33-50](file://scripts/run_ollama_llm.sh#L33-L50)
+- [scripts/run_ollama_embeddings.sh:33-50](file://scripts/run_ollama_embeddings.sh#L33-L50)
 
 ## Local LLM Deployment Support
 
-### llama.cpp Integration
-The RAG system now includes comprehensive support for llama.cpp as a local LLM provider through an OpenAI-compatible API interface:
+### Enhanced llama.cpp Integration
+The RAG system now includes comprehensive support for llama.cpp as a local LLM provider through an OpenAI-compatible API interface with intelligent GPU detection:
 
 - **Server Script**: Dedicated deployment script for llama.cpp server with GPU acceleration support
 - **Model Configuration**: Support for GGUF model files with configurable context size and thread count
 - **API Interface**: OpenAI-compatible API endpoint for seamless integration with LangChain
 - **Environment Variables**: Flexible configuration through MODEL_PATH, HOST, PORT, CTX_SIZE, N_GPU_LAYERS, THREADS
 - **Dependency Management**: Optional installation through openai_compatible extras
+- **GPU Optimization**: Automatic GPU detection and layer offloading for optimal performance
 
-**Updated** Complete llama.cpp integration with dedicated deployment script, OpenAI-compatible API interface, GPU acceleration support, and comprehensive configuration options.
+**Updated** Complete llama.cpp integration with dedicated deployment script, OpenAI-compatible API interface, GPU acceleration support, intelligent GPU detection, and comprehensive configuration options.
 
 ```mermaid
 flowchart TD
 LlamaScript["run_llama_llm.sh"] --> CheckPrerequisites["Check llama-server availability"]
 CheckPrerequisites --> VerifyModel["Verify model file exists"]
-VerifyModel --> DetectCPU["Detect CPU cores"]
-DetectCPU --> StartServer["Start llama-server with parameters"]
+VerifyModel --> DetectGPU["Intelligent GPU Detection<br/>Metal/CUDA/CPU"]
+DetectGPU --> StartServer["Start llama-server with parameters"]
 StartServer --> OpenAICompat["Expose OpenAI-compatible API"]
 OpenAICompat --> LangChain["Connect via ChatOpenAI"]
 LangChain --> RAGPipeline["Complete RAG Pipeline"]
@@ -1106,48 +1182,51 @@ LangChain --> RAGPipeline["Complete RAG Pipeline"]
 **Diagram sources**
 - [scripts/run_llama_llm.sh:32-61](file://scripts/run_llama_llm.sh#L32-L61)
 - [app/rag/chain.py:47-60](file://app/rag/chain.py#L47-L60)
+- [scripts/run_llama_llm.sh:5-18](file://scripts/run_llama_llm.sh#L5-L18)
 
-### Ollama Integration
-The system maintains comprehensive Ollama support for local LLM deployments:
+### Enhanced Ollama Integration
+The system maintains comprehensive Ollama support for local LLM deployments with intelligent GPU detection:
 
 - **Server Script**: Automated Ollama server management with model pulling and validation
 - **Model Management**: Automatic model installation and version checking
 - **API Interface**: Direct integration through ChatOllama
 - **Configuration**: Flexible base URL configuration and model selection
+- **GPU Optimization**: Automatic GPU detection and layer offloading
 
-**Updated** Enhanced Ollama integration with automated server management, model validation, and smoke testing capabilities.
+**Updated** Enhanced Ollama integration with automated server management, model validation, smoke testing capabilities, and intelligent GPU detection for optimal performance.
 
 **Section sources**
 - [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
 - [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
-- [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
-- [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
-- [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
-- [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
+- [scripts/run_llama_llm.sh:1-98](file://scripts/run_llama_llm.sh#L1-L98)
+- [scripts/run_llama_embeddings.sh:1-100](file://scripts/run_llama_embeddings.sh#L1-L100)
+- [scripts/run_ollama_llm.sh:1-100](file://scripts/run_ollama_llm.sh#L1-L100)
+- [scripts/run_ollama_embeddings.sh:1-99](file://scripts/run_ollama_embeddings.sh#L1-L99)
 - [app/rag/chain.py:62-73](file://app/rag/chain.py#L62-L73)
 
 ## Testing Framework
 
 ### Comprehensive Test Coverage
-The test suite provides extensive coverage for the RAG infrastructure, QA service, enhanced ask handler, document storage system, and llama.cpp provider support:
+The test suite provides extensive coverage for the RAG infrastructure, QA service, enhanced ask handler, document storage system, enhanced GPU detection capabilities, and llama.cpp provider support:
 
 - **Configuration Testing**: Validates settings loading and environment variable support for all providers
-- **Document Processing**: Tests Word document parsing and section extraction
-- **Chunking Validation**: Ensures proper text splitting and metadata preservation
+- **Document Processing**: Tests Word document parsing and section extraction with configurable chunking
+- **Chunking Validation**: Ensures proper text splitting with configurable parameters (chunk_size: 1000, chunk_overlap: 200)
 - **Chain Building**: Verifies RAG chain construction and execution across all providers
 - **Vector Store Integration**: Tests Qdrant integration and retrieval capabilities
 - **QA Service Testing**: Comprehensive testing of singleton pattern and error handling
 - **Text Truncation**: Validates message length limits and word boundary preservation
 - **Topic Hints Detection**: Tests keyword-based scenario detection and disclaimers
-- **Ask Handler Integration**: Validates enhanced ask handler functionality and user experience features
+- **Enhanced Ask Handler Integration**: Validates enhanced ask handler functionality and user experience features
 - **Document Storage Testing**: Comprehensive testing of SQLite database, models, repository operations, and lifecycle management
+- **Enhanced GPU Detection Testing**: Validates intelligent GPU detection across platforms
 - **llama.cpp Provider Testing**: Comprehensive testing of llama.cpp provider configuration and error handling
 
-**Updated** Complete test coverage for all RAG infrastructure components, QA service functionality, topic hints detection, enhanced ask handler implementation, document storage system, and comprehensive llama.cpp provider validation with provider-specific configuration testing.
+**Updated** Complete test coverage for all RAG infrastructure components, QA service functionality, topic hints detection, enhanced ask handler implementation, document storage system, enhanced GPU detection capabilities, and comprehensive llama.cpp provider validation with provider-specific configuration testing.
 
 ```mermaid
 graph TB
-TestSuite["RAG + QA + Ask Handler + Storage + llama.cpp Tests"] --> ConfigTests["Configuration Tests"]
+TestSuite["Enhanced RAG + QA + Ask Handler + Storage + GPU Detection + llama.cpp Tests"] --> ConfigTests["Configuration Tests"]
 TestSuite --> DocxTests["Document Processing Tests"]
 TestSuite --> PromptTests["System Prompt Tests"]
 TestSuite --> ChainTests["RAG Chain Tests"]
@@ -1156,11 +1235,12 @@ TestSuite --> QATests["QA Service Tests"]
 TestSuite --> TopicHintTests["Topic Hints Tests"]
 TestSuite --> AskHandlerTests["Enhanced Ask Handler Tests"]
 TestSuite --> StorageTests["Document Storage Tests"]
+TestSuite --> GPUDetectionTests["Enhanced GPU Detection Tests"]
 TestSuite --> LlamaCPPTests["llama.cpp Provider Tests"]
 ConfigTests --> SettingsValidation["Settings Validation"]
 ConfigTests --> ProviderSelection["Provider Selection Logic"]
 DocxTests --> SectionExtraction["Section Extraction"]
-DocxTests --> ChunkingValidation["Chunking Validation"]
+DocxTests --> ChunkingValidation["Chunking Validation<br/>chunk_size: 1000<br/>chunk_overlap: 200"]
 ChainTests --> ChainBuilding["Chain Building"]
 ChainTests --> FormatDocs["Format Docs Function"]
 ChainTests --> ProviderDispatch["Provider Dispatch Logic"]
@@ -1178,6 +1258,9 @@ StorageTests --> DatabaseInit["Database Initialization"]
 StorageTests --> ModelValidation["Model Validation"]
 StorageTests --> CRUDOperations["CRUD Operations"]
 StorageTests --> LifecycleManagement["Lifecycle Management"]
+GPUDetectionTests --> PlatformDetection["Platform Detection<br/>macOS + NVIDIA"]
+GPUDetectionTests --> GPULayerOptimization["GPU Layer Optimization"]
+GPUDetectionTests --> CPUDetection["CPU Detection Fallback"]
 LlamaCPPTests --> LlamaCPPConfig["llama.cpp Configuration"]
 LlamaCPPTests --> LlamaCPPEmbeddings["llama.cpp Embeddings"]
 LlamaCPPTests --> LlamaCPPErrorHandling["llama.cpp Error Handling"]
@@ -1189,9 +1272,11 @@ LlamaCPPTests --> LlamaCPPErrorHandling["llama.cpp Error Handling"]
 - [tests/test_rag_block6.py:264-413](file://tests/test_rag_block6.py#L264-L413)
 - [tests/test_ask_block9.py:8-112](file://tests/test_ask_block9.py#L8-L112)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
+- [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
+- [tests/test_indexer.py:38-99](file://tests/test_indexer.py#L38-L99)
 
-### Document Storage Test Coverage
-The storage system includes comprehensive test coverage for all CRUD operations and lifecycle management:
+### Enhanced Document Storage Test Coverage
+The storage system includes comprehensive test coverage for all CRUD operations and lifecycle management with enhanced GPU detection:
 
 - **Model Tests**: Validates DocumentRecord defaults, status enum values, and field types
 - **Database Initialization**: Tests SQLite table creation and idempotent initialization
@@ -1201,15 +1286,30 @@ The storage system includes comprehensive test coverage for all CRUD operations 
 - **Search Toggle**: Tests is_search_enabled flag toggling without affecting status
 - **Delete Operations**: Tests document deletion and cascade effects on other records
 
-**Updated** Complete test coverage for document storage system including model validation, database initialization, CRUD operations, search control, and lifecycle management with comprehensive edge case handling.
+**Updated** Complete test coverage for document storage system including model validation, database initialization, CRUD operations, search control, and lifecycle management with comprehensive edge case handling and enhanced GPU detection validation.
 
 **Section sources**
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 
+### Enhanced GPU Detection Test Coverage
+The testing framework now includes comprehensive validation of the enhanced GPU detection capabilities:
+
+- **Platform Detection Tests**: Validates detection of macOS Apple Silicon, NVIDIA GPUs, and CPU-only environments
+- **GPU Layer Optimization Tests**: Ensures proper GPU layer offloading (99 layers) and CPU fallback (0 layers)
+- **Cross-Platform Compatibility Tests**: Validates consistent behavior across Linux, Windows, and macOS
+- **Fallback Mechanism Tests**: Ensures graceful degradation when GPU detection fails
+- **Integration Tests**: Validates GPU detection integration with all deployment scripts
+
+**Updated** Comprehensive GPU detection testing with platform validation, layer optimization verification, cross-platform compatibility, fallback mechanism validation, and integration testing for all deployment scripts.
+
+**Section sources**
+- [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
+- [tests/test_indexer.py:38-99](file://tests/test_indexer.py#L38-L99)
+
 ## Performance Considerations
 
-### Optimization Strategies
-The RAG infrastructure includes several performance optimization strategies for all LLM providers:
+### Enhanced Optimization Strategies
+The RAG infrastructure includes several performance optimization strategies for all LLM providers with intelligent GPU detection:
 
 - **Vector Search Efficiency**: Configurable k-value for balancing relevance and performance
 - **Embedding Model Selection**: Choice between local Ollama, OpenAI embeddings, llama.cpp embeddings, and OpenAI-compatible embeddings
@@ -1219,10 +1319,12 @@ The RAG infrastructure includes several performance optimization strategies for 
 - **Response Truncation**: VK message limit enforcement to prevent oversized responses
 - **Typing Indicators**: Asynchronous processing with user feedback during RAG computation
 - **State Management**: Efficient state handling to prevent memory leaks
-- **Provider Optimization**: Optimized configuration for each LLM provider type
+- **Provider Optimization**: Optimized configuration for each LLM provider type with GPU detection
 - **SQLite Optimization**: Efficient CRUD operations with proper indexing and transaction management
+- **GPU Acceleration**: Automatic GPU layer offloading for optimal performance on supported hardware
+- **CPU Fallback**: Graceful degradation to CPU-only mode when GPU acceleration is unavailable
 
-**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, efficient state handling, provider-specific optimizations for Ollama, OpenAI-compatible, and llama.cpp deployments, and SQLite database optimization techniques.
+**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, efficient state handling, provider-specific optimizations for Ollama, OpenAI-compatible, and llama.cpp deployments, SQLite database optimization techniques, and intelligent GPU detection for optimal hardware utilization.
 
 ### Scalability Planning
 The architecture supports horizontal scaling through:
@@ -1235,11 +1337,12 @@ The architecture supports horizontal scaling through:
 - **Provider Scaling**: Support for multiple LLM providers for load distribution
 - **Model Parallelization**: Support for distributed llama.cpp deployments
 - **Database Scaling**: SQLite optimization for concurrent access patterns
+- **GPU Resource Management**: Efficient GPU utilization across multiple providers
 
 ## Troubleshooting Guide
 
-### Common Issues and Solutions
-The RAG infrastructure includes comprehensive error handling and debugging capabilities for all LLM providers:
+### Enhanced Common Issues and Solutions
+The RAG infrastructure includes comprehensive error handling and debugging capabilities for all LLM providers with intelligent GPU detection:
 
 - **Configuration Issues**: Missing environment variables or incorrect settings for any provider
 - **Provider Setup**: Missing optional dependencies for selected LLM provider (openai_compatible, ollama)
@@ -1251,6 +1354,7 @@ The RAG infrastructure includes comprehensive error handling and debugging capab
 - **Topic Hints Detection**: Keyword matching issues or missing scenarios
 - **Typing Indicator Errors**: VK API connectivity or permission issues
 - **State Management**: Memory leaks or state conflicts between handlers
+- **Enhanced GPU Detection**: Platform detection failures or GPU acceleration issues
 - **llama.cpp Issues**: Server startup failures, model loading errors, or API connectivity problems
 - **Ollama Issues**: Server connectivity, model availability, or base URL configuration problems
 - **SQLite Issues**: Database connection problems, table creation failures, or constraint violations
@@ -1258,9 +1362,9 @@ The RAG infrastructure includes comprehensive error handling and debugging capab
 - **Health Check Failures**: Docker service startup issues or port conflicts
 - **CPU Detection Errors**: Missing system utilities or incorrect core count detection
 
-**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, enhanced ask handler, document storage system, and all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features.
+**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, enhanced ask handler, document storage system, enhanced GPU detection capabilities, and all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features.
 
-### Debugging Tools
+### Enhanced Debugging Tools
 Available debugging and monitoring capabilities:
 
 - **Logging Configuration**: Comprehensive logging throughout the RAG pipeline for all providers
@@ -1273,6 +1377,8 @@ Available debugging and monitoring capabilities:
 - **Database Monitoring**: SQLite connection status, query performance, and transaction logging
 - **Document Lifecycle Monitoring**: Status transitions, metadata consistency, and error tracking
 - **Docker Service Monitoring**: Container health status and service dependency tracking
+- **GPU Detection Monitoring**: Platform detection results and GPU acceleration status
+- **CPU Detection Monitoring**: CPU core count detection and thread optimization status
 
 **Section sources**
 - [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
@@ -1285,10 +1391,10 @@ Available debugging and monitoring capabilities:
 - [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
 - [app/storage/document_repo.py:69-99](file://app/storage/document_repo.py#L69-L99)
 - [scripts/run_admin.sh:28-48](file://scripts/run_admin.sh#L28-L48)
-- [scripts/run_llama_llm.sh:11-28](file://scripts/run_llama_llm.sh#L11-L28)
-- [scripts/run_ollama_llm.sh:12-24](file://scripts/run_ollama_llm.sh#L12-L24)
+- [scripts/run_llama_llm.sh:5-18](file://scripts/run_llama_llm.sh#L5-L18)
+- [scripts/run_ollama_llm.sh:5-18](file://scripts/run_ollama_llm.sh#L5-L18)
 
 ## Conclusion
-The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities and enhanced user experience. The implementation includes complete LangChain integration, Qdrant vector store setup, document ingestion pipelines, comprehensive QA service with singleton pattern, topic hints detection system, contextual navigation features, extensive testing frameworks, SQLite-based document storage system, and support for three LLM providers including the new llama.cpp option. The system seamlessly integrates with the existing VK bot architecture while providing powerful contextual response generation capabilities that significantly enhance HR assistance functionality.
+The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities and enhanced user experience. The implementation includes complete LangChain integration, Qdrant vector store setup, document ingestion pipelines with configurable chunking parameters, comprehensive QA service with singleton pattern, topic hints detection system, contextual navigation features, extensive testing frameworks, SQLite-based document storage system, and support for three LLM providers including the new llama.cpp option with enhanced GPU detection capabilities. The system seamlessly integrates with the existing VK bot architecture while providing powerful contextual response generation capabilities that significantly enhance HR assistance functionality.
 
-**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer, topic hints detection system, enhanced ask handler with typing indicators and contextual navigation, comprehensive user experience improvements, SQLite-based document storage system with comprehensive CRUD operations, document lifecycle management, and support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment. The singleton pattern ensures efficient resource utilization, while comprehensive error handling, text truncation, user experience features, SQLite database integration, and llama.cpp integration provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of llama.cpp support through OpenAI-compatible API interface enables seamless local model serving with GPU acceleration, making the system suitable for enterprise environments with strict data privacy requirements. The comprehensive document storage system with SQLite provides reliable metadata management, complete test coverage, and efficient CRUD operations that form the backbone of the document lifecycle management system. The new multi-provider orchestration via run_admin.sh script with interactive selection and comprehensive health checking provides operational excellence for production deployments, while the specialized deployment scripts offer granular control over LLM and embedding server management with CPU detection capabilities and automated model downloading.
+**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer, topic hints detection system, enhanced ask handler with typing indicators and contextual navigation, comprehensive user experience improvements, SQLite-based document storage system with comprehensive CRUD operations, document lifecycle management, enhanced GPU detection capabilities across all LLM providers, and support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment. The singleton pattern ensures efficient resource utilization, while comprehensive error handling, text truncation, user experience features, SQLite database integration, and llama.cpp integration provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of intelligent GPU detection for macOS Apple Silicon and NVIDIA GPUs enables optimal performance across different hardware architectures, making the system suitable for enterprise environments with strict data privacy requirements. The comprehensive document storage system with SQLite provides reliable metadata management, complete test coverage with enhanced GPU detection validation, and efficient CRUD operations that form the backbone of the document lifecycle management system. The new multi-provider orchestration via run_admin.sh script with interactive selection, comprehensive health checking, and intelligent GPU detection provides operational excellence for production deployments, while the specialized deployment scripts offer granular control over LLM and embedding server management with CPU detection capabilities and automated model downloading with GPU optimization.

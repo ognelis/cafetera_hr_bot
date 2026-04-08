@@ -178,6 +178,128 @@ class TestRead:
         assert docs[0].document_id == "aaa"
 
 
+# ── Filters & Sorting ─────────────────────────────────────────────
+
+
+class TestListPageFilters:
+    async def test_filter_by_status(self, repo):
+        """list_page(status=...) returns only matching documents."""
+        r1 = _make_record(document_id="a", status=DocumentStatus.pending)
+        r2 = _make_record(document_id="b", status=DocumentStatus.completed)
+        r3 = _make_record(document_id="c", status=DocumentStatus.failed)
+        await repo.create(r1)
+        await repo.create(r2)
+        await repo.create(r3)
+
+        docs, total = await repo.list_page(status="completed")
+        assert total == 1
+        assert docs[0].document_id == "b"
+
+        docs, total = await repo.list_page(status="pending")
+        assert total == 1
+        assert docs[0].document_id == "a"
+
+    async def test_filter_status_all_returns_everything(self, repo):
+        """status='all' should not filter."""
+        r1 = _make_record(document_id="a", status=DocumentStatus.pending)
+        r2 = _make_record(document_id="b", status=DocumentStatus.completed)
+        await repo.create(r1)
+        await repo.create(r2)
+
+        docs, total = await repo.list_page(status="all")
+        assert total == 2
+
+    async def test_filter_source_type_docx(self, repo):
+        """source_type='docx' returns only .docx files."""
+        r1 = _make_record(document_id="a", filename="report.docx")
+        r2 = _make_record(document_id="b", filename="memo.doc")
+        r3 = _make_record(document_id="c", filename="notes.txt")
+        await repo.create(r1)
+        await repo.create(r2)
+        await repo.create(r3)
+
+        docs, total = await repo.list_page(source_type="docx")
+        assert total == 1
+        assert docs[0].document_id == "a"
+
+    async def test_filter_source_type_doc(self, repo):
+        """source_type='doc' returns .doc but not .docx."""
+        r1 = _make_record(document_id="a", filename="report.docx")
+        r2 = _make_record(document_id="b", filename="memo.doc")
+        r3 = _make_record(document_id="c", filename="notes.txt")
+        await repo.create(r1)
+        await repo.create(r2)
+        await repo.create(r3)
+
+        docs, total = await repo.list_page(source_type="doc")
+        assert total == 1
+        assert docs[0].document_id == "b"
+
+    async def test_filter_source_type_other(self, repo):
+        """source_type='other' excludes .doc and .docx."""
+        r1 = _make_record(document_id="a", filename="report.docx")
+        r2 = _make_record(document_id="b", filename="memo.doc")
+        r3 = _make_record(document_id="c", filename="notes.txt")
+        await repo.create(r1)
+        await repo.create(r2)
+        await repo.create(r3)
+
+        docs, total = await repo.list_page(source_type="other")
+        assert total == 1
+        assert docs[0].document_id == "c"
+
+    async def test_sort_by_title_asc(self, repo):
+        """sort_field='title', sort_dir='asc' orders alphabetically."""
+        r1 = _make_record(document_id="a", title="Banana")
+        r2 = _make_record(document_id="b", title="Apple")
+        r3 = _make_record(document_id="c", title="Cherry")
+        await repo.create(r1)
+        await repo.create(r2)
+        await repo.create(r3)
+
+        docs, total = await repo.list_page(
+            sort_field="title", sort_dir="asc",
+        )
+        assert total == 3
+        assert [d.title for d in docs] == ["Apple", "Banana", "Cherry"]
+
+    async def test_sort_by_title_desc(self, repo):
+        """sort_field='title', sort_dir='desc' orders reverse-alphabetically."""
+        r1 = _make_record(document_id="a", title="Banana")
+        r2 = _make_record(document_id="b", title="Apple")
+        r3 = _make_record(document_id="c", title="Cherry")
+        await repo.create(r1)
+        await repo.create(r2)
+        await repo.create(r3)
+
+        docs, total = await repo.list_page(
+            sort_field="title", sort_dir="desc",
+        )
+        assert total == 3
+        assert [d.title for d in docs] == ["Cherry", "Banana", "Apple"]
+
+    async def test_combined_status_and_sort(self, repo):
+        """Combining status filter with sort works correctly."""
+        r1 = _make_record(
+            document_id="a", title="Zebra", status=DocumentStatus.completed,
+        )
+        r2 = _make_record(
+            document_id="b", title="Alpha", status=DocumentStatus.completed,
+        )
+        r3 = _make_record(
+            document_id="c", title="Mid", status=DocumentStatus.pending,
+        )
+        await repo.create(r1)
+        await repo.create(r2)
+        await repo.create(r3)
+
+        docs, total = await repo.list_page(
+            status="completed", sort_field="title", sort_dir="asc",
+        )
+        assert total == 2
+        assert [d.title for d in docs] == ["Alpha", "Zebra"]
+
+
 # ── CRUD: update ─────────────────────────────────────────────────
 
 

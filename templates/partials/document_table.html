@@ -46,6 +46,6 @@
   </table>
 </div>
 
-{% with search=search, date_from=date_from, date_to=date_to %}
+{% with search=search, date_from=date_from, date_to=date_to, status_filter=status_filter, source_type_filter=source_type_filter, sort_field=sort_field, sort_dir=sort_dir %}
 {% include "partials/pagination.html" %}
 {% endwith %}

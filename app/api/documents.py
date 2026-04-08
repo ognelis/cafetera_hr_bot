@@ -229,6 +229,10 @@ async def documents_page(
     search: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
+    status: str | None = None,
+    source_type: str | None = None,
+    sort_field: str | None = None,
+    sort_dir: str | None = None,
 ):
     # Parse date strings to datetime objects
     from datetime import datetime
@@ -247,7 +251,11 @@ async def documents_page(
 
     documents, total = await repo.list_page(
         page=page, per_page=per_page, search=search,
-        date_from=dt_from, date_to=dt_to
+        date_from=dt_from, date_to=dt_to,
+        status=status or None,
+        source_type=source_type or None,
+        sort_field=sort_field or None,
+        sort_dir=sort_dir or None,
     )
     pages = math.ceil(total / per_page) if per_page > 0 else 0
     return templates.TemplateResponse(
@@ -263,6 +271,10 @@ async def documents_page(
             "search": search,
             "date_from": date_from,
             "date_to": date_to,
+            "status_filter": status or "",
+            "source_type_filter": source_type or "",
+            "sort_field": sort_field or "",
+            "sort_dir": sort_dir or "",
         },
     )
 
@@ -281,6 +293,10 @@ async def document_table_partial(
     search: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
+    status: str | None = None,
+    source_type: str | None = None,
+    sort_field: str | None = None,
+    sort_dir: str | None = None,
 ):
     # Parse date strings to datetime objects
     from datetime import datetime
@@ -299,7 +315,11 @@ async def document_table_partial(
 
     documents, total = await repo.list_page(
         page=page, per_page=per_page, search=search,
-        date_from=dt_from, date_to=dt_to
+        date_from=dt_from, date_to=dt_to,
+        status=status or None,
+        source_type=source_type or None,
+        sort_field=sort_field or None,
+        sort_dir=sort_dir or None,
     )
     pages = math.ceil(total / per_page) if per_page > 0 else 0
     return templates.TemplateResponse(
@@ -315,6 +335,10 @@ async def document_table_partial(
             "search": search,
             "date_from": date_from,
             "date_to": date_to,
+            "status_filter": status or "",
+            "source_type_filter": source_type or "",
+            "sort_field": sort_field or "",
+            "sort_dir": sort_dir or "",
         },
     )
 
@@ -482,6 +506,10 @@ async def list_documents(
     search: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
+    status: str | None = None,
+    source_type: str | None = None,
+    sort_field: str | None = None,
+    sort_dir: str | None = None,
 ):
     # Parse date strings to datetime objects
     from datetime import datetime
@@ -500,7 +528,11 @@ async def list_documents(
 
     docs, total = await repo.list_page(
         page=page, per_page=per_page, search=search,
-        date_from=dt_from, date_to=dt_to
+        date_from=dt_from, date_to=dt_to,
+        status=status or None,
+        source_type=source_type or None,
+        sort_field=sort_field or None,
+        sort_dir=sort_dir or None,
     )
     return {
         "items": [_doc_to_dict(d) for d in docs],
@@ -511,6 +543,10 @@ async def list_documents(
         "search": search,
         "date_from": date_from,
         "date_to": date_to,
+        "status_filter": status or "",
+        "source_type_filter": source_type or "",
+        "sort_field": sort_field or "",
+        "sort_dir": sort_dir or "",
     }
 
 

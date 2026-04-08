@@ -30,6 +30,7 @@ EMBED_HOST="${EMBED_HOST:-127.0.0.1}"
 EMBED_PORT="${EMBED_PORT:-8090}"
 EMBED_CTX_SIZE="${EMBED_CTX_SIZE:-2048}"
 EMBED_N_GPU_LAYERS="${EMBED_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
+EMBED_UBATCH_SIZE="${EMBED_UBATCH_SIZE:-1024}"
 
 detect_cpu_count() {
   if command -v nproc >/dev/null 2>&1; then
@@ -84,6 +85,7 @@ echo "MODEL_PATH=$EMBED_MODEL_PATH"
 echo "HOST=$EMBED_HOST"
 echo "PORT=$EMBED_PORT"
 echo "CTX_SIZE=$EMBED_CTX_SIZE"
+echo "UBATCH_SIZE=$EMBED_UBATCH_SIZE"
 echo "CPU_COUNT=$CPU_COUNT"
 echo "THREADS=$THREADS"
 echo "GPU: $DETECTED_GPU → offloading $EMBED_N_GPU_LAYERS layers"
@@ -93,6 +95,7 @@ exec llama-server \
   --host "$EMBED_HOST" \
   --port "$EMBED_PORT" \
   --ctx-size "$EMBED_CTX_SIZE" \
+  --ubatch-size "$EMBED_UBATCH_SIZE" \
   --threads "$THREADS" \
   --n-gpu-layers "$EMBED_N_GPU_LAYERS" \
   --embedding \
