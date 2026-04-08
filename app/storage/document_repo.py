@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import aiosqlite
 
@@ -275,6 +275,19 @@ class DocumentRepository:
         return await self.get(document_id)
 
     # ── Delete ────────────────────────────────────────────────────
+
+    async def list_recently_finished(self, *, seconds: int = 10) -> list[DocumentRecord]:
+        """Return documents that completed or failed within the last *seconds*."""
+        cols = ", ".join(_COLUMNS)
+        cutoff = (datetime.now(UTC) - timedelta(seconds=seconds)).isoformat()
+        async with aiosqlite.connect(self._db_path) as db:
+            cursor = await db.execute(
+                f"SELECT {cols} FROM documents "  # noqa: S608
+                "WHERE status IN ('completed', 'failed') AND updated_at >= ?",
+                (cutoff,),
+            )
+            rows = await cursor.fetchall()
+        return [_row_to_record(r) for r in rows]
 
     async def delete(self, document_id: str) -> bool:
         """Delete a document record.  Returns ``True`` if a row was removed."""

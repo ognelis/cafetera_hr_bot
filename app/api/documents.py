@@ -407,9 +407,19 @@ async def documents_status_partial(
     )
     active_docs = pending_docs + processing_docs
 
-    # Render OOB rows for each active document
+    # Also get recently finished docs so their final status is pushed to the UI
+    recently_finished = await repo.list_recently_finished(seconds=10)
+
+    # Combine: active docs (still polling) + recently finished (final OOB update)
+    # Deduplicate by document_id in case of overlap
+    seen_ids = {doc.document_id for doc in active_docs}
+    all_docs_to_render = active_docs + [
+        doc for doc in recently_finished if doc.document_id not in seen_ids
+    ]
+
+    # Render OOB rows for each document
     row_html_parts = []
-    for doc in active_docs:
+    for doc in all_docs_to_render:
         row_response = templates.TemplateResponse(
             request,
             "partials/document_row.html",
@@ -1016,10 +1026,20 @@ async def download_document(
         raise HTTPException(status_code=404, detail="File not found in storage")
 
     data = await s3.download(record.s3_key)
+    # Use RFC 5987 encoding for non-ASCII filenames (e.g. Cyrillic)
+    try:
+        record.filename.encode("latin-1")
+        disposition = f'attachment; filename="{record.filename}"'
+    except UnicodeEncodeError:
+        from urllib.parse import quote
+        ascii_fallback = record.filename.encode("ascii", errors="replace").decode()
+        utf8_filename = quote(record.filename)
+        disposition = (
+            f"attachment; filename=\"{ascii_fallback}\"; "
+            f"filename*=UTF-8''{utf8_filename}"
+        )
     return Response(
         content=data,
         media_type=record.mime_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{record.filename}"',
-        },
+        headers={"Content-Disposition": disposition},
     )
