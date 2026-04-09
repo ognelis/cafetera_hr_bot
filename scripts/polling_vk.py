@@ -1,4 +1,8 @@
-"""Run the VK bot in Long Poll mode (local development)."""
+"""Run the VK bot in Long Poll mode (local development).
+
+Usage:
+    uv run python scripts/polling_vk.py
+"""
 
 from __future__ import annotations
 
@@ -27,8 +31,8 @@ def main() -> None:
     configure_logging()
     res = asyncio.run(_init())
     bot = create_bot(res.settings)
-    if res.qa_service:
-        set_qa_service(res.qa_service)
+    if res.vk_qa_service:
+        set_qa_service(res.vk_qa_service)
     atexit.register(lambda: asyncio.run(close_resources(res)))
 
     logger.info("Starting VK bot in Long Poll mode …")

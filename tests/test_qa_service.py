@@ -31,13 +31,16 @@ def mock_settings():
 def qa_service_with_mock_chain(mock_settings):
     """Create a QAService instance with a mock chain."""
     mock_chain = AsyncMock()
-    return QAService(
+    service = QAService(
         chain=mock_chain,
         qdrant_client=MagicMock(),
         embeddings=MagicMock(),
         llm=MagicMock(),
         settings=mock_settings,
-    ), mock_chain
+    )
+    # Mock _build_global_chain to return the mock chain for ask/stream_ask tests
+    service._build_global_chain = MagicMock(return_value=mock_chain)
+    return service, mock_chain
 
 
 # ── ask() ──────────────────────────────────────────────────────────

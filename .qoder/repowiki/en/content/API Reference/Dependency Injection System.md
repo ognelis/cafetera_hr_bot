@@ -23,11 +23,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced type safety with proper TYPE_CHECKING imports throughout the dependency injection system
-- Added explicit type annotations in dependency injection functions using Annotated types
-- Improved AppState dataclass usage with stronger typing and proper forward references
-- Updated dependency provider functions with enhanced type checking and forward reference support
-- Strengthened typing throughout the dependency injection system for better IDE support and static analysis
+- Modernized dependency injection system with simplified state access using getattr() calls instead of complex AppState dataclass pattern
+- **Updated**: Eliminated TYPE_CHECKING imports throughout the dependency injection system for improved runtime performance
+- **Updated**: Removed centralized AppState dataclass in favor of direct attribute access on app.state
+- **Updated**: Simplified dependency provider functions with robust getattr() fallback mechanisms
+- **Updated**: Maintained backward compatibility through module-level singleton pattern for VK handlers
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -42,13 +42,13 @@
 
 ## Introduction
 
-The Cafetera HR Bot project implements a sophisticated dependency injection system built on top of FastAPI's dependency management framework. This system enables clean separation of concerns, testability, and modular architecture by managing the lifecycle and provisioning of application services and resources.
+The Cafetera HR Bot project implements a modernized dependency injection system built on top of FastAPI's dependency management framework. This system enables clean separation of concerns, testability, and modular architecture by managing the lifecycle and provisioning of application services and resources through simplified state access patterns.
 
-The dependency injection pattern in this project follows a hierarchical approach where:
+The dependency injection pattern in this project follows a streamlined approach where:
 - Application-wide resources are managed in the FastAPI lifespan context
-- Service dependencies are provided through FastAPI dependency functions with enhanced type safety
+- Service dependencies are provided through FastAPI dependency functions with robust getattr() fallback mechanisms
 - Configuration-driven instantiation ensures flexibility across different environments
-- **Updated**: Centralized QA service management provides consistent access throughout the application with unified error handling and improved type safety
+- **Updated**: Direct state attribute access eliminates complex AppState dataclass patterns while maintaining backward compatibility
 
 ## Project Structure
 
@@ -79,9 +79,9 @@ M[RAG Pipeline]
 end
 subgraph "Configuration & Management"
 N[Settings]
-O[AppState]
-P[Centralized QA Service]
-Q[Enhanced Type Safety]
+O[Direct State Access]
+P[Module-Level Singleton]
+Q[Simplified Type Safety]
 end
 A --> B
 A --> D
@@ -117,23 +117,23 @@ Q --> D
 
 ## Core Components
 
-The dependency injection system consists of several key components that work together to manage application resources with enhanced type safety:
+The dependency injection system consists of several key components that work together to manage application resources through simplified state access patterns:
 
 ### Application Lifecycle Management
 
-The FastAPI lifespan context manages the application's startup and shutdown procedures, ensuring proper initialization and cleanup of external resources, including **Updated**: centralized QA service initialization and management with improved type safety.
+The FastAPI lifespan context manages the application's startup and shutdown procedures, ensuring proper initialization and cleanup of external resources through direct state attribute assignment.
 
-### Enhanced Dependency Providers
+### Simplified Dependency Providers
 
-The system uses FastAPI's dependency injection mechanism through annotated dependency functions that provide instances of services and repositories to route handlers, with **Updated**: enhanced type safety through proper TYPE_CHECKING imports and explicit Annotated type annotations.
+The system uses FastAPI's dependency injection mechanism through annotated dependency functions that provide instances of services and repositories to route handlers, utilizing robust getattr() fallback mechanisms for missing components.
 
 ### Configuration Management
 
-Settings are loaded from environment variables and provide runtime configuration for all components, including **Updated**: centralized QA service configuration and resource sharing with improved type checking.
+Settings are loaded from environment variables and provide runtime configuration for all components, including centralized QA service configuration and resource sharing.
 
-### **Updated**: Centralized QA Service Management
+### **Updated**: Direct State Attribute Access
 
-The system includes a centralized QA service that provides consistent access to RAG capabilities throughout the application, with unified error handling and resource management, enhanced with proper type safety measures.
+The system now uses direct attribute access on app.state for all dependencies, eliminating the need for complex AppState dataclass patterns while maintaining backward compatibility through module-level singletons for VK handlers.
 
 **Section sources**
 - [app/main.py:53-166](file://app/main.py#L53-L166)
@@ -143,7 +143,7 @@ The system includes a centralized QA service that provides consistent access to 
 
 ## Architecture Overview
 
-The dependency injection architecture follows a hierarchical pattern where resources flow from the application level down to individual route handlers, with **Updated**: centralized QA service providing unified access throughout the system and enhanced type safety:
+The dependency injection architecture follows a streamlined pattern where resources flow from the application level down to individual route handlers, with direct state attribute access providing unified access throughout the system:
 
 ```mermaid
 sequenceDiagram
@@ -151,7 +151,7 @@ participant Client as "Client Request"
 participant App as "FastAPI App"
 participant Lifespan as "Lifespan Manager"
 participant Deps as "Dependency Provider"
-participant QAService as "Centralized QA Service"
+participant QAService as "QA Service"
 participant Handler as "Route Handler"
 participant VKHandler as "VK Bot Handler"
 participant Service as "Business Service"
@@ -163,14 +163,14 @@ Lifespan->>Storage : Create S3 Client
 Lifespan->>QAService : Build QA Service Instance
 Lifespan->>Service : Build Document Service
 Lifespan->>Repo : Create Repository
-Lifespan-->>App : Ready State
-App->>Deps : Resolve Dependencies
-Deps->>QAService : Provide QA Service Instance
-Deps->>Service : Provide Service Instance
-Deps->>Repo : Provide Repository Instance
+Lifespan-->>App : Direct State Assignment
+App->>Deps : Resolve Dependencies via getattr()
+Deps->>QAService : Direct State Access
+Deps->>Service : Direct State Access
+Deps->>Repo : Direct State Access
 Deps-->>Handler : Injected Dependencies
 Handler->>QAService : Execute Global Query
-VKHandler->>QAService : Execute Scoped Query
+VKHandler->>QAService : Execute Scoped Query via Module Singleton
 QAService->>Service : Coordinate Operations
 Service->>Repo : Data Access
 Service->>Storage : External Operations
@@ -189,7 +189,7 @@ QAService-->>VKHandler : Response
 
 ### Application Lifecycle and Resource Management
 
-The application lifecycle is managed through FastAPI's lifespan context, which handles initialization and cleanup of external resources, including **Updated**: centralized QA service initialization and management with enhanced type safety:
+The application lifecycle is managed through FastAPI's lifespan context, which handles initialization and cleanup of external resources through direct state attribute assignment:
 
 ```mermaid
 flowchart TD
@@ -200,9 +200,9 @@ InitS3 --> InitQdrant["Initialize Qdrant Client"]
 InitQdrant --> InitEmbeddings["Initialize Embeddings"]
 InitEmbeddings --> BuildDocService["Build Document Service"]
 BuildDocService --> InitSemaphore["Initialize Indexing Semaphore"]
-InitSemaphore --> BuildQAService["Build Centralized QA Service"]
-BuildQAService --> SetModuleSingleton["Set Module-Level Singleton"]
-SetModuleSingleton --> Ready([Application Ready])
+InitSemaphore --> BuildQAService["Build QA Service"]
+BuildQAService --> DirectStateAssignment["Direct State Attribute Assignment"]
+DirectStateAssignment --> Ready([Application Ready])
 Ready --> Request[HTTP Request]
 Request --> Process[Process Request]
 Process --> Cleanup[Application Shutdown]
@@ -221,16 +221,16 @@ The lifespan manager creates and maintains instances of:
 - S3 storage client for file operations
 - Qdrant vector database client for RAG operations
 - Document service with all its dependencies
-- **Updated**: Centralized QA service instance with shared resources and enhanced type safety
+- **Updated**: Direct state attribute assignment eliminates AppState dataclass complexity
 - **Updated**: Module-level singleton for backward compatibility with VK handlers
 
 **Section sources**
 - [app/main.py:53-166](file://app/main.py#L53-L166)
 - [app/main.py:117-144](file://app/main.py#L117-L144)
 
-### Enhanced Dependency Provider Functions
+### Simplified Dependency Provider Functions
 
-The dependency injection system uses FastAPI's dependency functions to provide services to route handlers, including **Updated**: centralized QA service access through the QAServiceDep annotation with enhanced type safety:
+The dependency injection system uses FastAPI's dependency functions to provide services to route handlers, utilizing robust getattr() fallback mechanisms for missing components:
 
 ```mermaid
 classDiagram
@@ -280,12 +280,12 @@ class QAServiceDep {
 <<Annotation>>
 +QAService
 }
-DependencyProvider --> Settings : "provides"
-DependencyProvider --> DocumentRepository : "provides"
-DependencyProvider --> DocumentService : "provides"
-DependencyProvider --> QAService : "provides"
-DependencyProvider --> S3Storage : "provides"
-DependencyProvider --> asyncio.Semaphore : "provides"
+DependencyProvider --> Settings : "direct access via getattr()"
+DependencyProvider --> DocumentRepository : "direct access via getattr()"
+DependencyProvider --> DocumentService : "direct access via getattr()"
+DependencyProvider --> QAService : "direct access via getattr()"
+DependencyProvider --> S3Storage : "direct access via getattr()"
+DependencyProvider --> asyncio.Semaphore : "direct access via getattr()"
 DocumentService --> DocumentRepository : "uses"
 DocumentService --> QdrantClient : "uses"
 DocumentService --> Embeddings : "uses"
@@ -307,27 +307,20 @@ QAServiceDep --> QAService : "depends on"
 - [app/api/deps.py:107-122](file://app/api/deps.py#L107-L122)
 - [app/config.py:4-39](file://app/config.py#L4-L39)
 
-### Centralized QA Service Architecture
+### Direct State Attribute Access Architecture
 
-The QA service acts as a centralized coordinator for RAG operations, providing consistent access throughout the application with **Updated**: unified error handling and resource management enhanced with proper type safety:
+The system now uses direct state attribute access patterns, eliminating complex AppState dataclass patterns while maintaining backward compatibility:
 
 ```mermaid
 classDiagram
-class QAService {
--_chain : Runnable | None
--_qdrant_client : QdrantClient | None
--_embeddings : Embeddings | None
--_llm : BaseChatModel | None
--_settings : Settings | None
-+ask(question) str
-+ask_about_document(question, document_id) str
-+stream_ask(question) AsyncGenerator
-+stream_about_document(question, document_id) AsyncGenerator
-+_build_document_chain(document_id) Runnable | None
-+_truncate(text, limit) str
-+close() None
+class DirectStateAccess {
++getattr(request.app.state, "doc_service", None) DocumentService
++getattr(request.app.state, "s3", None) S3Storage
++getattr(request.app.state, "qa_service", None) QAService
++getattr(request.app.state, "settings", None) Settings
 }
 class AppState {
+<<Removed>>
 +settings : Settings
 +templates : Jinja2Templates | None
 +s3 : S3Storage | None
@@ -351,7 +344,10 @@ class VKHandlers {
 +send_rag_answer(message, question, back_payload) None
 +get_qa_service() QAService
 }
-QAService --> AppState : "shared via app.state"
+DirectStateAccess --> DocumentService : "direct access"
+DirectStateAccess --> S3Storage : "direct access"
+DirectStateAccess --> QAService : "direct access"
+DirectStateAccess --> Settings : "direct access"
 ModuleLevelSingleton --> QAService : "backward compatibility"
 APIEndpoints --> QAServiceDep : "dependency injection"
 VKHandlers --> ModuleLevelSingleton : "module-level access"
@@ -370,20 +366,20 @@ VKHandlers --> ModuleLevelSingleton : "module-level access"
 
 ### Route Handler Integration
 
-Route handlers integrate dependencies through FastAPI's dependency injection system, including **Updated**: centralized QA service access for both global and document-specific queries with enhanced type safety:
+Route handlers integrate dependencies through FastAPI's dependency injection system using simplified getattr() access patterns:
 
 ```mermaid
 sequenceDiagram
 participant Client as "Admin Client"
 participant Router as "Documents Router"
 participant Deps as "Dependency Functions"
-participant QAService as "Centralized QA Service"
+participant QAService as "QA Service"
 participant Service as "DocumentService"
 participant Repo as "DocumentRepository"
 participant S3 as "S3Storage"
 Client->>Router : POST /api/qa/ask-global
-Router->>Deps : Resolve Dependencies
-Deps->>QAService : Provide QAServiceDep
+Router->>Deps : Resolve Dependencies via getattr()
+Deps->>QAService : Direct State Access
 Deps-->>Router : Injected Dependencies
 Router->>QAService : Execute stream_ask(question)
 QAService->>Service : Coordinate Operations
@@ -405,7 +401,7 @@ Note over Router,QAService : Unified error handling and resource management
 
 ## Dependency Analysis
 
-The dependency injection system creates a clear dependency graph with well-defined relationships, including **Updated**: centralized QA service integration with enhanced type safety:
+The dependency injection system creates a clear dependency graph with well-defined relationships, utilizing simplified state access patterns:
 
 ```mermaid
 graph TB
@@ -431,10 +427,9 @@ Templates[Jinja2 Templates]
 VKHandlers[VK Handlers]
 end
 subgraph "Management Layer"
-AppState[AppState]
-QAServiceDep[QAServiceDep]
-IndexingSemaphoreDep[IndexingSemaphoreDep]
-EnhancedTypeSafety[Enhanced Type Safety]
+DirectStateAccess[Direct State Access]
+ModuleLevelSingleton[Module Level Singleton]
+SimplifiedTypeSafety[Simplified Type Safety]
 end
 Settings --> DocService
 Settings --> Repo
@@ -452,19 +447,19 @@ Embeddings --> QAService
 LLM --> QAService
 Repo --> DocService
 Templates --> Router
-AppState --> QAService
-AppState --> QAServiceDep
-AppState --> IndexingSemaphoreDep
-QAServiceDep --> QAService
-IndexingSemaphoreDep --> asyncio.Semaphore
-Router --> QAServiceDep
-VKHandlers --> QAService
-EnhancedTypeSafety --> Settings
-EnhancedTypeSafety --> DocumentRepository
-EnhancedTypeSafety --> DocumentService
-EnhancedTypeSafety --> QAService
-EnhancedTypeSafety --> S3Storage
-EnhancedTypeSafety --> asyncio.Semaphore
+DirectStateAccess --> QAService
+DirectStateAccess --> DocService
+DirectStateAccess --> S3
+DirectStateAccess --> Settings
+ModuleLevelSingleton --> QAService
+SimplifiedTypeSafety --> Settings
+SimplifiedTypeSafety --> DocumentRepository
+SimplifiedTypeSafety --> DocumentService
+SimplifiedTypeSafety --> QAService
+SimplifiedTypeSafety --> S3Storage
+SimplifiedTypeSafety --> asyncio.Semaphore
+Router --> DirectStateAccess
+VKHandlers --> ModuleLevelSingleton
 ```
 
 **Diagram sources**
@@ -477,10 +472,9 @@ The dependency relationships demonstrate:
 - **External service integration**: S3, Qdrant, and LLM clients are injected into services
 - **Configuration-driven instantiation**: All dependencies are created based on settings
 - **Resource sharing**: Database connections and shared QA resources are shared through the repository pattern
-- **Updated**: **Centralized QA management**: Single QA service instance shared across all components
-- **Updated**: **Unified error handling**: Consistent error responses from QA service operations
-- **Updated**: **Enhanced type safety**: Proper TYPE_CHECKING imports and Annotated type annotations throughout the system
-- **Updated**: **Forward reference support**: Proper handling of circular dependencies through forward references
+- **Updated**: **Direct state access**: Simplified getattr() access eliminates AppState complexity
+- **Updated**: **Backward compatibility**: Module-level singleton maintains compatibility with existing VK handlers
+- **Updated**: **Eliminated TYPE_CHECKING**: Runtime performance improvements through simplified imports
 
 **Section sources**
 - [app/main.py:53-166](file://app/main.py#L53-L166)
@@ -489,40 +483,38 @@ The dependency relationships demonstrate:
 
 ## Performance Considerations
 
-The dependency injection system provides several performance benefits, including **Updated**: centralized QA service management for optimal resource utilization with enhanced type safety:
+The dependency injection system provides several performance benefits through simplified state access patterns:
 
 ### Resource Reuse
 - Database connections are reused through the repository pattern
 - S3 client instances are maintained throughout application lifecycle
 - Qdrant client connections are pooled and reused
-- **Updated**: Centralized QA service shares LLM and embeddings resources across all operations
+- **Updated**: Direct state attribute access eliminates dictionary lookup overhead
 - **Updated**: Module-level singleton provides backward compatibility without duplicating resources
 
 ### Lazy Initialization
 - Optional services (S3, Qdrant) are initialized conditionally
 - Background tasks handle heavy operations asynchronously
 - Dependencies are only created when needed
-- **Updated**: QA service is created only when Qdrant client is available
+- **Updated**: getattr() fallback mechanism prevents unnecessary exception handling
 
 ### Memory Management
 - Proper cleanup in lifespan context prevents resource leaks
 - Async context managers ensure proper resource disposal
 - Background tasks use temporary files efficiently
-- **Updated**: Centralized QA service cleanup prevents double-closing of shared resources
+- **Updated**: Simplified state management reduces memory overhead
 
-### **Updated**: Enhanced Type Safety Benefits
-- **IDE Support**: Better autocomplete and error detection through proper type annotations
-- **Static Analysis**: Improved code quality through type checking with TYPE_CHECKING imports
-- **Forward References**: Proper handling of circular dependencies without runtime overhead
-- **Runtime Performance**: TYPE_CHECKING blocks are ignored at runtime, maintaining performance
-- **Development Experience**: Enhanced developer experience with proper type hints throughout the system
+### **Updated**: Simplified Type Safety Benefits
+- **Runtime Performance**: Eliminated TYPE_CHECKING imports improve runtime performance
+- **Reduced Complexity**: Direct getattr() calls are more efficient than AppState lookups
+- **Backward Compatibility**: Maintained existing interfaces while improving internals
+- **Development Experience**: Cleaner code with fewer imports and simpler patterns
 
-### **Updated**: Centralized Resource Management
-- **Single QA instance**: Only one QA service instance is created and shared
-- **Shared LLM and embeddings**: Both DocumentService and QAService share the same LLM and embeddings instances
-- **Consistent error handling**: Unified error handling across all QA operations
-- **Backward compatibility**: Module-level singleton maintains compatibility with existing VK handlers
-- **Type Safety**: Enhanced type checking throughout the resource management system
+### **Updated**: Direct State Access Benefits
+- **Performance**: Direct attribute access is faster than dictionary-style AppState
+- **Simplicity**: Eliminates the need for complex dataclass patterns
+- **Robustness**: getattr() fallback mechanisms handle missing components gracefully
+- **Maintainability**: Reduced code complexity improves long-term maintainability
 
 **Section sources**
 - [app/main.py:117-144](file://app/main.py#L117-L144)
@@ -531,7 +523,7 @@ The dependency injection system provides several performance benefits, including
 
 ## Troubleshooting Guide
 
-Common dependency injection issues and their solutions, including **Updated**: centralized QA service-related problems with enhanced type safety:
+Common dependency injection issues and their solutions, utilizing simplified state access patterns:
 
 ### Service Unavailable Errors
 When services are not available during application startup:
@@ -539,10 +531,10 @@ When services are not available during application startup:
 ```mermaid
 flowchart TD
 Start([Service Resolution]) --> CheckAvailable{"Service Available?"}
-CheckAvailable --> |Yes| ReturnService["Return Service Instance"]
+CheckAvailable --> |Yes| ReturnService["Return Service Instance via getattr()"]
 CheckAvailable --> |No| CheckType{"Which Service?"}
 CheckType --> |Document Service| RaiseDocError["Raise HTTPException 503"]
-CheckType --> |QA Service| SetToNone["Set app.state.qa_service = None"]
+CheckType --> |QA Service| SetToNone["Direct State Access Returns None"]
 CheckType --> |S3 Storage| RaiseS3Error["Raise HTTPException 503"]
 RaiseDocError --> LogWarning["Log Warning Message"]
 RaiseS3Error --> LogWarning
@@ -561,33 +553,33 @@ Missing or incorrect configuration values:
 2. **Database Path**: Incorrect database path prevents repository initialization
 3. **External Services**: Wrong URLs or credentials break S3/Qdrant connections
 4. **Concurrency Settings**: Incorrect `max_concurrent_indexing` value affects throttling behavior
-5. **QA Service Dependencies**: Missing LLM or Qdrant configuration breaks QA service initialization
+5. **Direct State Access**: Missing state attributes cause getattr() fallback to None
 
-### **Updated**: Centralized QA Service Issues
-Centralized QA service-related problems and solutions:
+### **Updated**: Direct State Access Issues
+Direct state access-related problems and solutions:
 
-1. **QA Service Unavailable**: Missing or incorrectly configured QA service instance
-2. **Resource Conflicts**: Double-closing of shared Qdrant client during shutdown
-3. **Backward Compatibility**: VK handlers expecting module-level singleton access
-4. **Error Handling**: Inconsistent error responses from QA service operations
-5. **Memory Leaks**: Improper cleanup of QA service resources
+1. **Missing State Attributes**: getattr() fallback returns None for uninitialized components
+2. **Runtime Attribute Errors**: Direct state access bypasses compile-time validation
+3. **Component Availability**: Simplified access patterns require proper initialization order
+4. **Backward Compatibility**: Module-level singleton maintains existing handler interfaces
+5. **Error Handling**: getattr() fallback provides graceful degradation
 
-### **Updated**: Type Safety Issues
-Enhanced type safety-related problems and solutions:
+### **Updated**: Simplified Type Safety Issues
+Simplified type safety-related problems and solutions:
 
-1. **Import Errors**: Missing TYPE_CHECKING imports causing runtime errors
-2. **Forward Reference Problems**: Circular dependencies not properly handled
-3. **Annotated Type Issues**: Incorrect Annotated type annotations in dependency functions
-4. **IDE Errors**: Type checking errors in development environment
-5. **Runtime Type Checking**: TYPE_CHECKING blocks affecting runtime behavior
+1. **Import Optimization**: Eliminated unused TYPE_CHECKING imports reduce module loading time
+2. **Runtime Performance**: Direct state access is faster than complex dataclass patterns
+3. **Code Clarity**: Simplified patterns improve code readability and maintainability
+4. **Backward Compatibility**: Existing interfaces remain unchanged despite internal improvements
+5. **Development Workflow**: Cleaner imports improve IDE performance and responsiveness
 
 ### Resource Cleanup
 Proper shutdown requires:
 - Closing S3 client connections
-- **Updated**: Proper QA service cleanup with shared resource management
+- **Updated**: Proper QA service cleanup with direct state management
 - Ensuring database transactions are committed
 - **Updated**: Preventing double-closing of shared Qdrant client
-- **Updated**: Proper cleanup of TYPE_CHECKING imports and forward references
+- **Updated**: Simplified resource cleanup through direct state access
 
 **Section sources**
 - [app/api/deps.py:60-79](file://app/api/deps.py#L60-L79)
@@ -596,25 +588,25 @@ Proper shutdown requires:
 
 ## Conclusion
 
-The dependency injection system in the Cafetera HR Bot project demonstrates a mature approach to managing application complexity through clear separation of concerns and flexible resource management. The system successfully balances:
+The dependency injection system in the Cafetera HR Bot project demonstrates a modernized approach to managing application complexity through simplified state access patterns and direct attribute management. The system successfully balances:
 
 - **Testability**: Services can be easily mocked and tested independently
 - **Maintainability**: Clear dependency boundaries make code modifications safer
 - **Scalability**: Hierarchical dependency management supports growth
 - **Reliability**: Proper resource lifecycle management prevents memory leaks
-- **Updated**: **Centralized QA Management**: Single QA service instance provides consistent access across all components
-- **Updated**: **Unified Error Handling**: Consistent error responses from QA service operations
+- **Updated**: **Direct State Access**: Simplified getattr() patterns eliminate complex AppState dataclass overhead
 - **Updated**: **Backward Compatibility**: Module-level singleton maintains compatibility with existing VK handlers
-- **Updated**: **Enhanced Type Safety**: Proper TYPE_CHECKING imports and Annotated type annotations improve code quality and developer experience
-- **Updated**: **Improved Development Workflow**: Better IDE support and static analysis through comprehensive type annotations
+- **Updated**: **Performance Optimization**: Eliminated TYPE_CHECKING imports improve runtime performance
+- **Updated**: **Code Clarity**: Simplified patterns improve readability and maintainability
+- **Updated**: **Development Experience**: Cleaner imports and simpler patterns enhance developer productivity
 
-The implementation leverages FastAPI's built-in dependency injection capabilities while adding custom providers for specialized services, including **Updated**: centralized QA service management with unified error handling and resource sharing. This creates a robust foundation for the RAG-based document management system with proper resource control, performance optimization, and consistent access patterns throughout the application.
+The implementation leverages FastAPI's built-in dependency injection capabilities while adding custom providers for specialized services, utilizing direct state attribute access patterns. This creates a robust foundation for the RAG-based document management system with proper resource control, performance optimization, and consistent access patterns throughout the application.
 
-The enhanced type safety improvements provide:
-- **Better IDE Support**: Enhanced autocomplete, error detection, and refactoring capabilities
-- **Improved Code Quality**: Static analysis catches potential type-related issues early
-- **Forward Reference Handling**: Proper circular dependency management without runtime overhead
-- **Runtime Performance**: TYPE_CHECKING blocks are ignored at runtime, maintaining optimal performance
-- **Developer Experience**: Comprehensive type annotations improve code readability and maintainability
+The modernized type safety improvements provide:
+- **Better Performance**: Eliminated TYPE_CHECKING imports reduce module loading time
+- **Improved Code Quality**: Simplified patterns are easier to understand and maintain
+- **Enhanced Developer Experience**: Cleaner imports and straightforward access patterns
+- **Runtime Efficiency**: Direct getattr() calls are faster than complex dataclass lookups
+- **Future-Proof Architecture**: Simplified patterns support easy evolution and maintenance
 
-This creates a production-ready dependency injection system that balances functionality, type safety, and developer experience.
+This creates a production-ready dependency injection system that balances functionality, performance, and developer experience through modernized state access patterns and streamlined resource management.

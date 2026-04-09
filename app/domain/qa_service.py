@@ -8,6 +8,7 @@ string, even on error.
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 from app.domain.content import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
@@ -54,12 +55,18 @@ class QAService:
         embeddings: Embeddings | None = None,
         llm: BaseChatModel | None = None,
         settings: Settings | None = None,
+        global_system_prompt: str | None = None,
+        include_metadata: bool = False,
     ) -> None:
         self._chain = chain
         self._qdrant_client = qdrant_client
         self._embeddings = embeddings
         self._llm = llm
         self._settings = settings
+        self._global_system_prompt = global_system_prompt
+        self._include_metadata = include_metadata
+        self._document_chains_cache: OrderedDict[str, Runnable] = OrderedDict()
+        self._max_cache_size = 50
 
     def _truncate(self, text: str, limit: int = VK_MSG_LIMIT) -> str:
         """Truncate *text* to fit VK message length limit."""
@@ -69,7 +76,15 @@ class QAService:
         """Build a RAG chain scoped to a specific document.
 
         Returns the chain if QA is initialized, or None otherwise.
+        Uses an LRU cache to avoid rebuilding chains for the same document.
         """
+        # Check cache first
+        if document_id in self._document_chains_cache:
+            # Move to end to mark as recently used
+            chain = self._document_chains_cache.pop(document_id)
+            self._document_chains_cache[document_id] = chain
+            return chain
+
         if (
             self._qdrant_client is None
             or self._settings is None
@@ -89,20 +104,72 @@ class QAService:
             embeddings=self._embeddings,
             collection_name=self._settings.qdrant_collection,
         )
-        return build_rag_chain(retriever, self._llm, system_prompt=DOCUMENT_EXPERTS_PROMPT)
+        chain = build_rag_chain(
+            retriever,
+            self._llm,
+            system_prompt=DOCUMENT_EXPERTS_PROMPT,
+            include_metadata=self._include_metadata,
+        )
+
+        # Add to cache, evicting oldest if at capacity
+        if len(self._document_chains_cache) >= self._max_cache_size:
+            self._document_chains_cache.popitem(last=False)
+        self._document_chains_cache[document_id] = chain
+
+        return chain
+
+    def _build_global_chain(self, k: int = 4) -> Runnable | None:
+        """Build a global RAG chain with the specified k value.
+
+        Returns the chain if QA is initialized with required resources,
+        or None otherwise.
+        """
+        if (
+            self._qdrant_client is None
+            or self._settings is None
+            or self._embeddings is None
+            or self._llm is None
+        ):
+            return None
+
+        from app.rag.chain import build_rag_chain
+        from app.rag.retriever import build_retriever
+
+        retriever = build_retriever(
+            self._settings,
+            qdrant_client=self._qdrant_client,
+            embeddings=self._embeddings,
+            collection_name=self._settings.qdrant_collection,
+            k=k,
+        )
+        return build_rag_chain(
+            retriever,
+            self._llm,
+            system_prompt=self._global_system_prompt,
+            include_metadata=self._include_metadata,
+        )
 
     async def ask(self, question: str) -> str:
         """Query the RAG chain and return a displayable answer string.
+
+        Uses adaptive k based on question complexity:
+        - Short questions (≤5 words): k=2
+        - Medium questions (6-15 words): k=4
+        - Long/complex questions (>15 words): k=6
 
         * If the chain was not initialised → ``ERR_NO_ANSWER``.
         * If the chain raises at runtime → ``ERR_DOCUMENT_UNAVAILABLE``.
         * Long answers are truncated to fit the VK message limit.
         """
-        if self._chain is None:
+        from app.rag.retriever import estimate_k
+
+        k = estimate_k(question)
+        chain = self._build_global_chain(k)
+        if chain is None:
             return ERR_NO_ANSWER
 
         try:
-            answer: str = await self._chain.ainvoke(question)
+            answer: str = await chain.ainvoke(question)
         except Exception:
             logger.error("RAG chain failed for question: %s", question, exc_info=True)
             return ERR_DOCUMENT_UNAVAILABLE
@@ -142,14 +209,23 @@ class QAService:
     async def stream_ask(self, question: str):
         """Stream tokens from the global RAG chain.
 
+        Uses adaptive k based on question complexity:
+        - Short questions (≤5 words): k=2
+        - Medium questions (6-15 words): k=4
+        - Long/complex questions (>15 words): k=6
+
         Yields each token string as it arrives from the LLM.
         """
-        if self._chain is None:
+        from app.rag.retriever import estimate_k
+
+        k = estimate_k(question)
+        chain = self._build_global_chain(k)
+        if chain is None:
             yield ERR_NO_ANSWER
             return
 
         try:
-            async for token in self._chain.astream(question):
+            async for token in chain.astream(question):
                 if isinstance(token, str):
                     yield token
                 elif hasattr(token, "content"):
@@ -195,6 +271,17 @@ class QAService:
             )
             yield ERR_DOCUMENT_UNAVAILABLE
 
+    def invalidate_document_chain_cache(self, document_id: str | None = None) -> None:
+        """Clear cached document chain(s).
+
+        If document_id is provided, only that document's chain is removed.
+        If document_id is None, the entire cache is cleared.
+        """
+        if document_id is None:
+            self._document_chains_cache.clear()
+        else:
+            self._document_chains_cache.pop(document_id, None)
+
     def close(self) -> None:
         """Release references held by the QA service."""
         self._chain = None
@@ -202,3 +289,4 @@ class QAService:
         self._settings = None
         self._embeddings = None
         self._llm = None
+        self._document_chains_cache.clear()

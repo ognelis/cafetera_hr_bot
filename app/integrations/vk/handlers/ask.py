@@ -72,7 +72,7 @@ async def on_ask_text(message: Message) -> None:
     # Detect topic hints (9.1 scenario link, 9.2 disclaimer)
     hint = detect_topic_hint(question)
 
-    # Query the RAG chain (sends "please wait" if slow)
+    # Query the RAG chain with wait message
     answer = await query_rag_with_wait(message, question)
 
     # Append background-topic disclaimer if detected (9.2)
@@ -80,8 +80,8 @@ async def on_ask_text(message: Message) -> None:
         answer = f"{answer}\n\n{hint.disclaimer}"
 
     # Prepend user's question context at the top (truncated if very long)
-    question_display = question if len(question) <= 200 else question[:200] + "…"
-    answer = f"💬 Ваш вопрос: {question_display}\n\n{answer}"
+    question_display = question if len(question) <= 100 else question[:100] + "…"
+    answer = f"❓ {question_display}\n\n{answer}"
 
     await message.answer(
         answer,

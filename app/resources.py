@@ -16,7 +16,7 @@ from app.config import Settings
 from app.domain.document_service import DocumentService
 from app.domain.qa_service import QAService
 from app.rag.chain import build_llm, build_rag_chain
-from app.rag.prompts import GLOBAL_EXPERTS_PROMPT
+from app.rag.prompts import GLOBAL_EXPERTS_PROMPT, SYSTEM_PROMPT
 from app.rag.retriever import build_embeddings, build_qdrant_client, build_retriever
 from app.storage.document_repo import DocumentRepository
 from app.storage.s3 import S3Storage
@@ -46,6 +46,7 @@ class AppResources:
     doc_repo: DocumentRepository | None = None
     doc_service: DocumentService | None = None
     qa_service: QAService | None = None
+    vk_qa_service: QAService | None = None
 
 
 async def build_resources(
@@ -150,8 +151,20 @@ async def build_resources(
                 embeddings=embeddings,
                 llm=llm,
                 settings=settings,
+                global_system_prompt=GLOBAL_EXPERTS_PROMPT,
+                include_metadata=True,
             )
             res.qa_service = qa_service
+
+            # Create VK QAService with strict SYSTEM_PROMPT
+            vk_qa_service = QAService(
+                qdrant_client=qdrant_client,
+                embeddings=embeddings,
+                llm=llm,
+                settings=settings,
+                global_system_prompt=SYSTEM_PROMPT,
+            )
+            res.vk_qa_service = vk_qa_service
             logger.info("QA service initialized successfully")
         except Exception:
             logger.warning(
@@ -159,8 +172,10 @@ async def build_resources(
                 exc_info=True,
             )
             res.qa_service = None
+            res.vk_qa_service = None
     else:
         res.qa_service = None
+        res.vk_qa_service = None
 
     return res
 
@@ -199,3 +214,4 @@ async def close_resources(res: AppResources) -> None:
     res.doc_repo = None
     res.doc_service = None
     res.qa_service = None
+    res.vk_qa_service = None

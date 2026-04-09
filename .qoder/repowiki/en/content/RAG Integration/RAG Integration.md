@@ -16,9 +16,15 @@
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
 - [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
 - [app/integrations/vk/handlers/__init__.py](file://app/integrations/vk/handlers/__init__.py)
-- [app/main.py](file://app/main.py)
-- [app/domain/content.py](file://app/domain/content.py)
-- [app/domain/topic_hints.py](file://app/domain/topic_hints.py)
+- [app/integrations/vk/handlers/fire.py](file://app/integrations/vk/handlers/fire.py)
+- [app/integrations/vk/handlers/pay.py](file://app/integrations/vk/handlers/pay.py)
+- [app/integrations/vk/handlers/vacation.py](file://app/integrations/vk/handlers/vacation.py)
+- [app/integrations/vk/handlers/sections.py](file://app/integrations/vk/handlers/sections.py)
+- [app/integrations/vk/handlers/hr_request.py](file://app/integrations/vk/handlers/hr_request.py)
+- [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
+- [app/integrations/vk/handlers/fallback.py](file://app/integrations/vk/handlers/fallback.py)
+- [app/integrations/vk/handlers/hire.py](file://app/integrations/vk/handlers/hire.py)
+- [app/integrations/vk/handlers/factory.py](file://app/integrations/vk/handlers/factory.py)
 - [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
 - [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
 - [app/api/documents.py](file://app/api/documents.py)
@@ -46,12 +52,12 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced QA service initialization with centralized resource management through FastAPI application lifecycle
-- Improved singleton pattern implementation with module-level state management for backward compatibility
-- Better integration with FastAPI application lifecycle through proper resource sharing and cleanup
-- Enhanced resource cleanup mechanisms with proper teardown handling
-- Improved error handling patterns with comprehensive logging and graceful degradation
-- Centralized resource management between DocumentService and QAService instances
+- Enhanced RAG UX with `query_rag_with_wait()` function for improved user experience
+- Added `send_rag_answer()` helper function for streamlined handler implementations
+- Implemented automatic question context prepending in ask handler with character limits
+- Enhanced prompt engineering with VK message character limits (4096 characters)
+- Improved handler integration with centralized QA service management
+- Added comprehensive testing for new UX improvements
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -59,38 +65,39 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Enhanced QA Service Lifecycle Management](#enhanced-qa-service-lifecycle-management)
-7. [Enhanced Ask Handler Implementation](#enhanced-ask-handler-implementation)
-8. [Topic Hints Detection System](#topic-hints-detection-system)
-9. [RAG Infrastructure Implementation](#rag-infrastructure-implementation)
-10. [Document Storage System](#document-storage-system)
-11. [Document Lifecycle Management](#document-lifecycle-management)
-12. [QA Service Implementation](#qa-service-implementation)
-13. [Document-Specific Question Answering](#document-specific-question-answering)
-14. [Global Experts Prompt System](#global-experts-prompt-system)
-15. [Streaming Response Implementation](#streaming-response-implementation)
-16. [Configuration Management](#configuration-management)
-17. [Document Ingestion Pipeline](#document-ingestion-pipeline)
-18. [LangChain Integration](#langchain-integration)
-19. [Multi-Provider Orchestration](#multi-provider-orchestration)
-20. [Enhanced GPU Detection Capabilities](#enhanced-gpu-detection-capabilities)
-21. [Local LLM Deployment Support](#local-llm-deployment-support)
-22. [Testing Framework](#testing-framework)
-23. [Performance Considerations](#performance-considerations)
-24. [Troubleshooting Guide](#troubleshooting-guide)
-25. [Conclusion](#conclusion)
+6. [Enhanced RAG UX Improvements](#enhanced-rag-ux-improvements)
+7. [Enhanced QA Service Lifecycle Management](#enhanced-qa-service-lifecycle-management)
+8. [Enhanced Ask Handler Implementation](#enhanced-ask-handler-implementation)
+9. [Topic Hints Detection System](#topic-hints-detection-system)
+10. [RAG Infrastructure Implementation](#rag-infrastructure-implementation)
+11. [Document Storage System](#document-storage-system)
+12. [Document Lifecycle Management](#document-lifecycle-management)
+13. [QA Service Implementation](#qa-service-implementation)
+14. [Document-Specific Question Answering](#document-specific-question-answering)
+15. [Global Experts Prompt System](#global-experts-prompt-system)
+16. [Streaming Response Implementation](#streaming-response-implementation)
+17. [Configuration Management](#configuration-management)
+18. [Document Ingestion Pipeline](#document-ingestion-pipeline)
+19. [LangChain Integration](#langchain-integration)
+20. [Multi-Provider Orchestration](#multi-provider-orchestration)
+21. [Enhanced GPU Detection Capabilities](#enhanced-gpu-detection-capabilities)
+22. [Local LLM Deployment Support](#local-llm-deployment-support)
+23. [Testing Framework](#testing-framework)
+24. [Performance Considerations](#performance-considerations)
+25. [Troubleshooting Guide](#troubleshooting-guide)
+26. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the comprehensive Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. The implementation includes a complete LangChain-based processing pipeline, Qdrant vector database integration, document ingestion capabilities, and specialized HR prompts. The system enhances the bot's HR assistance capabilities by providing contextual, reliable answers drawn from HR documents while maintaining seamless integration with the existing VK bot architecture.
 
-**Updated** The RAG implementation now includes enhanced QA service initialization with centralized resource management, improved singleton pattern implementation with module-level state management, better integration with FastAPI application lifecycle, consistent resource cleanup through proper teardown handling, and enhanced error handling patterns with comprehensive logging and graceful degradation across all LLM providers with optimized GPU detection.
+**Updated** The RAG implementation now includes enhanced user experience features with `query_rag_with_wait()` for improved response handling, `send_rag_answer()` helper function for streamlined handler implementations, automatic question context prepending with character limits, enhanced prompt engineering with VK message character limits, comprehensive handler integration with centralized QA service management, and extensive testing for all UX improvements.
 
 ## Project Structure
 The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, document ingestion capabilities, comprehensive QA service layer with enhanced ask handler implementation, SQLite-based document storage system, and dedicated deployment scripts for local LLM serving with comprehensive orchestration capabilities and intelligent GPU detection.
 
 ```mermaid
 graph TB
-subgraph "RAG Infrastructure"
+subgraph "Enhanced RAG Infrastructure"
 Config["Settings Configuration<br/>app/config.py"]
 Chain["RAG Chain<br/>app/rag/chain.py"]
 Prompts["System Prompts<br/>app/rag/prompts.py"]
@@ -101,19 +108,21 @@ QAService["Enhanced QA Service Layer<br/>app/domain/qa_service.py"]
 DocSpecificQA["Document-Specific QA<br/>ask_about_document()"]
 GlobalExperts["Global Experts Prompt<br/>GLOBAL_EXPERTS_PROMPT"]
 Streaming["Streaming Responses<br/>stream_ask() + stream_about_document()"]
+UXHelpers["Enhanced UX Helpers<br/>query_rag_with_wait() + send_rag_answer()"]
 end
-subgraph "Document Storage System"
+subgraph "Enhanced Document Storage System"
 DBInit["Database Initialisation<br/>app/storage/database.py"]
 Models["Document Models<br/>app/storage/models.py"]
 Repo["Document Repository<br/>app/storage/document_repo.py"]
 DocService["Document Service<br/>app/domain/document_service.py"]
 end
-subgraph "Enhanced Ask Handler"
+subgraph "Enhanced Handler Integration"
 AskHandler["Enhanced Ask Handler<br/>app/integrations/vk/handlers/ask.py"]
 TopicHints["Topic Hints Detection<br/>app/domain/topic_hints.py"]
 Keyboards["Contextual Navigation<br/>app/integrations/vk/keyboards.py"]
 States["State Management<br/>app/integrations/vk/states.py"]
 Singleton["Module-Level Singleton<br/>app/integrations/vk/handlers/__init__.py"]
+HelperHandlers["Helper Handlers<br/>fire.py, pay.py, vacation.py, sections.py"]
 end
 subgraph "Enhanced Application Lifecycle"
 FastAPI["FastAPI Application<br/>app/main.py"]
@@ -165,6 +174,7 @@ AskHandler --> TopicHints
 AskHandler --> Keyboards
 AskHandler --> States
 AskHandler --> Singleton
+AskHandler --> UXHelpers
 TopicHints --> Keyboards
 QAService --> Qdrant
 DocService --> Repo
@@ -198,6 +208,7 @@ AppState --> Lifespan
 Lifespan --> QAService
 Lifespan --> Cleanup
 Singleton --> QAService
+HelperHandlers --> UXHelpers
 ```
 
 **Diagram sources**
@@ -214,6 +225,10 @@ Singleton --> QAService
 - [app/storage/document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
 - [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
 - [app/integrations/vk/handlers/__init__.py:15-24](file://app/integrations/vk/handlers/__init__.py#L15-L24)
+- [app/integrations/vk/handlers/fire.py:60-74](file://app/integrations/vk/handlers/fire.py#L60-L74)
+- [app/integrations/vk/handlers/pay.py:30-46](file://app/integrations/vk/handlers/pay.py#L30-L46)
+- [app/integrations/vk/handlers/vacation.py:65-80](file://app/integrations/vk/handlers/vacation.py#L65-L80)
+- [app/integrations/vk/handlers/sections.py:10-33](file://app/integrations/vk/handlers/sections.py#L10-L33)
 - [app/main.py:53-166](file://app/main.py#L53-L166)
 - [app/domain/topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
 - [app/integrations/vk/keyboards.py:224-254](file://app/integrations/vk/keyboards.py#L224-254)
@@ -246,7 +261,11 @@ Singleton --> QAService
 - [app/storage/document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
 - [app/domain/document_service.py:1-280](file://app/domain/document_service.py#L1-L280)
 - [app/integrations/vk/handlers/ask.py:1-86](file://app/integrations/vk/handlers/ask.py#L1-L86)
-- [app/integrations/vk/handlers/__init__.py:1-58](file://app/integrations/vk/handlers/__init__.py#L1-L58)
+- [app/integrations/vk/handlers/__init__.py:1-91](file://app/integrations/vk/handlers/__init__.py#L1-L91)
+- [app/integrations/vk/handlers/fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
+- [app/integrations/vk/handlers/pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
+- [app/integrations/vk/handlers/vacation.py:1-80](file://app/integrations/vk/handlers/vacation.py#L1-L80)
+- [app/integrations/vk/handlers/sections.py:1-33](file://app/integrations/vk/handlers/sections.py#L1-L33)
 - [app/main.py:1-194](file://app/main.py#L1-L194)
 - [app/domain/topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
 - [app/integrations/vk/keyboards.py:1-322](file://app/integrations/vk/keyboards.py#L1-L322)
@@ -278,8 +297,10 @@ The RAG infrastructure consists of several interconnected components that work t
 - **Embedding Models**: Support for local Ollama embeddings, OpenAI-compatible embeddings, and llama.cpp embeddings with enhanced model management
 - **System Prompts**: Specialized HR-focused prompts including DOCUMENT_EXPERTS_PROMPT for expert-level document analysis and GLOBAL_EXPERTS_PROMPT for cross-document knowledge synthesis
 - **Enhanced QA Service Layer**: Comprehensive singleton pattern implementation with centralized resource management, proper cleanup mechanisms, error handling, text truncation, comprehensive provider support, document-specific question answering, and streaming response capabilities
+- **Enhanced UX Helpers**: New utility functions for improved user experience including query_rag_with_wait() for delayed response handling and send_rag_answer() for streamlined handler implementations
 - **Topic Hints Detection**: Keyword-based detection system for contextual navigation and disclaimers
-- **Enhanced Ask Handler**: Multi-step dialog flow with typing indicators and contextual navigation using module-level singleton pattern
+- **Enhanced Ask Handler**: Multi-step dialog flow with typing indicators, contextual navigation, automatic question context prepending, and enhanced user experience features using module-level singleton pattern
+- **Enhanced Handler Integration**: Streamlined handler implementations using send_rag_answer() helper for consistent user experience across all HR scenarios
 - **Enhanced Multi-Provider Orchestration**: Comprehensive deployment management via run_admin.sh with interactive provider selection and intelligent GPU detection
 - **Intelligent GPU Detection**: Platform-specific GPU detection for macOS Apple Silicon (Metal) and NVIDIA GPUs (CUDA) with automatic optimization
 - **Comprehensive Deployment Scripts**: Separate LLM and embedding server management for llama.cpp with CPU detection and model downloading
@@ -294,7 +315,7 @@ The RAG infrastructure consists of several interconnected components that work t
 - **Enhanced Application Lifecycle Management**: Centralized resource management through FastAPI application lifecycle with proper cleanup and teardown handling
 - **Module-Level Singleton Pattern**: Backward compatibility through module-level state management for VK handlers integration
 
-**Updated** The RAG infrastructure now provides a complete, production-ready solution with enhanced GPU detection capabilities across all LLM providers, improved document processing with configurable chunking parameters, comprehensive LangChain integration, Qdrant vector store capabilities, robust document storage system with SQLite, comprehensive QA service layer with centralized resource management, module-level singleton pattern for backward compatibility, enhanced application lifecycle management with proper cleanup, topic hints detection system, enhanced user experience features, support for three LLM providers including the new llama.cpp option with specialized deployment scripts and comprehensive orchestration capabilities, global experts prompt system for cross-document knowledge synthesis, and streaming response implementation for real-time user interaction.
+**Updated** The RAG infrastructure now provides a complete, production-ready solution with enhanced GPU detection capabilities across all LLM providers, improved document processing with configurable chunking parameters, comprehensive LangChain integration, Qdrant vector store capabilities, robust document storage system with SQLite, comprehensive QA service layer with centralized resource management, module-level singleton pattern for backward compatibility, enhanced application lifecycle management with proper cleanup, topic hints detection system, enhanced user experience features including query_rag_with_wait() for delayed response handling, send_rag_answer() for streamlined handler implementations, automatic question context prepending with character limits, support for three LLM providers including the new llama.cpp option with specialized deployment scripts and comprehensive orchestration capabilities, global experts prompt system for cross-document knowledge synthesis, and streaming response implementation for real-time user interaction.
 
 **Section sources**
 - [app/config.py:10-23](file://app/config.py#L10-L23)
@@ -304,7 +325,11 @@ The RAG infrastructure consists of several interconnected components that work t
 - [app/domain/qa_service.py:51-236](file://app/domain/qa_service.py#L51-L236)
 - [app/domain/topic_hints.py:14-26](file://app/domain/topic_hints.py#L14-L26)
 - [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
-- [app/integrations/vk/handlers/__init__.py:15-24](file://app/integrations/vk/handlers/__init__.py#L15-L24)
+- [app/integrations/vk/handlers/__init__.py:45-77](file://app/integrations/vk/handlers/__init__.py#L45-L77)
+- [app/integrations/vk/handlers/fire.py:60-74](file://app/integrations/vk/handlers/fire.py#L60-L74)
+- [app/integrations/vk/handlers/pay.py:30-46](file://app/integrations/vk/handlers/pay.py#L30-L46)
+- [app/integrations/vk/handlers/vacation.py:65-80](file://app/integrations/vk/handlers/vacation.py#L65-L80)
+- [app/integrations/vk/handlers/sections.py:10-33](file://app/integrations/vk/handlers/sections.py#L10-L33)
 - [app/main.py:53-166](file://app/main.py#L53-L166)
 - [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
 - [app/storage/models.py:11-36](file://app/storage/models.py#L11-L36)
@@ -319,13 +344,14 @@ The RAG infrastructure consists of several interconnected components that work t
 - [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
 
 ## Architecture Overview
-The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience, comprehensive LLM provider support, optimized GPU detection across all deployment targets, and advanced document-specific question answering capabilities. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant, generates contextualized responses using the selected LLM provider, detects topic scenarios for navigation, and provides typing indicators for improved UX, all managed through a centralized QA service layer with integrated document storage, comprehensive multi-provider orchestration, intelligent GPU detection, document-scoped retrieval functionality, and revolutionary global experts prompt system for cross-document knowledge synthesis.
+The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience, comprehensive LLM provider support, optimized GPU detection across all deployment targets, and advanced document-specific question answering capabilities. The system processes user questions through a LangChain pipeline that retrieves relevant context from Qdrant, generates contextualized responses using the selected LLM provider, detects topic scenarios for navigation, provides typing indicators for improved UX, handles delayed responses with wait messages, and automatically prepends question context with character limits, all managed through a centralized QA service layer with integrated document storage, comprehensive multi-provider orchestration, intelligent GPU detection, document-scoped retrieval functionality, and revolutionary global experts prompt system for cross-document knowledge synthesis.
 
 ```mermaid
 sequenceDiagram
 participant User as "User"
 participant VKBot as "VK Bot"
 participant AskHandler as "Enhanced Ask Handler"
+participant UXHelpers as "UX Helper Functions"
 participant TopicHints as "Topic Hints"
 participant Singleton as "Module-Level Singleton"
 participant QAService as "Enhanced QA Service"
@@ -346,9 +372,10 @@ VKBot->>AskHandler : ASK_QUESTION state
 AskHandler->>AskHandler : Show typing indicator
 AskHandler->>TopicHints : detect_topic_hint(question)
 TopicHints-->>AskHandler : TopicHint(scenario_id, disclaimer)
-AskHandler->>Singleton : get_qa_service()
-Singleton-->>AskHandler : QAService instance
-AskHandler->>QAService : ask(question)
+AskHandler->>UXHelpers : query_rag_with_wait(message, question)
+UXHelpers->>Singleton : get_qa_service()
+Singleton-->>UXHelpers : QAService instance
+UXHelpers->>QAService : ask(question) with timeout
 QAService->>GPUDetection : Detect hardware capabilities
 GPUDetection-->>QAService : Optimal GPU configuration
 QAService->>QAService : Check chain availability
@@ -363,14 +390,17 @@ RAGChain->>LLM : System prompt + context (provider-specific)
 LLM-->>RAGChain : Generated response
 RAGChain-->>QAService : Formatted answer
 QAService->>QAService : Truncate to VK limit
-QAService-->>AskHandler : Response
+QAService-->>UXHelpers : Response
+UXHelpers->>UXHelpers : Append wait message if needed
+UXHelpers-->>AskHandler : Final answer
+AskHandler->>AskHandler : Prepend question context (100 char limit)
 AskHandler->>AskHandler : Append disclaimer if present
 AskHandler-->>User : Answer + contextual navigation buttons
 ```
 
 **Diagram sources**
-- [app/integrations/vk/handlers/ask.py:49-86](file://app/integrations/vk/handlers/ask.py#L49-L86)
-- [app/integrations/vk/handlers/__init__.py:20-23](file://app/integrations/vk/handlers/__init__.py#L20-L23)
+- [app/integrations/vk/handlers/ask.py:49-89](file://app/integrations/vk/handlers/ask.py#L49-L89)
+- [app/integrations/vk/handlers/__init__.py:46-77](file://app/integrations/vk/handlers/__init__.py#L46-L77)
 - [app/domain/qa_service.py:86-105](file://app/domain/qa_service.py#L86-L105)
 - [app/rag/chain.py:61-80](file://app/rag/chain.py#L61-L80)
 - [app/rag/retriever.py:64-74](file://app/rag/retriever.py#L64-L74)
@@ -383,37 +413,53 @@ AskHandler-->>User : Answer + contextual navigation buttons
 
 ## Detailed Component Analysis
 
-### Enhanced VK Bot Integration
-The VK bot maintains its existing handler structure while integrating the new RAG capabilities through the enhanced ask handler and QA service layer. The ask handler now serves as the sophisticated entry point for free-form questions with comprehensive state management, user experience enhancements, and seamless integration with the RAG infrastructure supporting multiple LLM providers with optimized GPU detection.
+### Enhanced RAG UX Improvements
 
-**Updated** The ask handler provides a sophisticated multi-step dialog flow with proper state management, typing indicators, topic hints detection, contextual navigation, and enhanced user experience features across all supported LLM providers with intelligent GPU optimization. The module-level singleton pattern ensures backward compatibility while providing centralized resource management.
+#### Query RAG with Wait Function
+The `query_rag_with_wait()` function provides sophisticated delayed response handling to improve user experience during slow RAG processing:
+
+- **Timeout-Based Delay**: Waits up to 3 seconds for RAG response before sending a wait message
+- **Concurrent Processing**: Runs RAG query and timeout concurrently using asyncio
+- **First-Completed Logic**: Returns immediately when either RAG completes or timeout expires
+- **User Feedback**: Sends "⏳ Ваш вопрос обрабатывается, подождите до 1 минуты…" when processing takes longer
+- **Logging**: Comprehensive logging for debugging and monitoring response times
+- **Graceful Degradation**: Continues processing even if wait message fails
+
+**Updated** Complete implementation of query_rag_with_wait() with concurrent processing, timeout handling, user feedback, logging, and graceful degradation for improved user experience during slow RAG responses.
 
 ```mermaid
 flowchart TD
-Start(["User clicks '❓ Задать вопрос'"]) --> SetState["Set ASK_QUESTION state"]
-SetState --> Prompt["Prompt for free-text question"]
-Prompt --> ShowKB["Display ask_input_kb with service buttons"]
-ShowKB --> WaitInput["Wait for user input"]
-WaitInput --> Validate{"Is input empty?"}
-Validate --> |Yes| ShowError["Show error + ask_input_kb"]
-ShowError --> WaitInput
-Validate --> |No| ShowTyping["Show typing indicator"]
-ShowTyping --> DetectTopic["Detect topic hints"]
-DetectTopic --> ProcessQuestion["Process via QA Service + RAG"]
-ProcessQuestion --> ClearState["Clear state"]
-ProcessQuestion --> AppendDisclaimer["Append background-topic disclaimer"]
-ProcessQuestion --> ShowResponse["Show RAG response + contextual navigation"]
-ShowResponse --> End(["Dialog complete"])
+Start["User submits question"] --> CreateTasks["Create RAG task + 3-second timeout task"]
+CreateTasks --> WaitFirst["Wait for first completion"]
+WaitFirst --> RAGDone{"RAG completed?"}
+RAGDone --> |Yes| CancelTimeout["Cancel timeout task"]
+CancelTimeout --> ReturnRAG["Return RAG answer"]
+RAGDone --> |No| SendWait["Send wait message"]
+SendWait --> WaitTimeout["Wait for RAG completion"]
+WaitTimeout --> ReturnRAG
 ```
 
 **Diagram sources**
-- [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
+- [app/integrations/vk/handlers/__init__.py:46-67](file://app/integrations/vk/handlers/__init__.py#L46-L67)
 
 **Section sources**
-- [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
-- [app/integrations/vk/handlers/ask.py:1-86](file://app/integrations/vk/handlers/ask.py#L1-L86)
+- [app/integrations/vk/handlers/__init__.py:46-67](file://app/integrations/vk/handlers/__init__.py#L46-L67)
 
-### Enhanced Ask Handler - Multi-Step Dialog Flow
+#### Send RAG Answer Helper Function
+The `send_rag_answer()` function provides a streamlined interface for handler implementations:
+
+- **Consistent UX**: Automatically shows typing indicator, waits for response, and sends answer
+- **Back Navigation**: Includes back navigation button using stub_kb with provided payload
+- **Error Handling**: Comprehensive error handling for all steps in the process
+- **Reusable Pattern**: Eliminates code duplication across multiple handler implementations
+- **Handler Integration**: Designed specifically for P0+P1 handlers (fire, pay, vacation, sections)
+
+**Updated** Complete implementation of send_rag_answer() with typing indicators, wait message handling, back navigation, error handling, and reusable pattern for consistent user experience across all HR scenario handlers.
+
+**Section sources**
+- [app/integrations/vk/handlers/__init__.py:70-77](file://app/integrations/vk/handlers/__init__.py#L70-L77)
+
+#### Enhanced Ask Handler - Multi-Step Dialog Flow
 The ask handler implements a sophisticated two-step dialog flow that captures user questions, processes them through the RAG pipeline via the QA service, and provides enhanced user experience features across all supported LLM providers:
 
 **Step 1: Entry Point (CMD_ASK)**
@@ -427,14 +473,67 @@ The ask handler implements a sophisticated two-step dialog flow that captures us
 - Shows typing indicator using VK API set_activity
 - Detects topic hints for contextual navigation and disclaimers
 - Processes question through QA service and RAG chain with provider-specific configuration
-- Appends background-topic disclaimer if detected
+- **Enhanced**: Uses query_rag_with_wait() for improved response handling
+- **Enhanced**: Automatically prepends question context with 100-character limit
+- **Enhanced**: Appends background-topic disclaimer if detected
 - Clears state after processing
 - Returns formatted response with contextual navigation buttons
 
-**Updated** Enhanced with typing indicators, topic hints detection, background-topic disclaimers, contextual navigation buttons, and comprehensive LLM provider support for improved user experience with optimized GPU detection. The module-level singleton pattern ensures consistent access to the QA service instance.
+**Updated** Enhanced with query_rag_with_wait() for delayed response handling, automatic question context prepending with character limits, background-topic disclaimers, contextual navigation buttons, and comprehensive LLM provider support for improved user experience with optimized GPU detection. The module-level singleton pattern ensures consistent access to the QA service instance.
 
 **Section sources**
-- [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
+- [app/integrations/vk/handlers/ask.py:34-89](file://app/integrations/vk/handlers/ask.py#L34-L89)
+
+### Enhanced VK Bot Integration
+The VK bot maintains its existing handler structure while integrating the new RAG capabilities through the enhanced ask handler and QA service layer. The ask handler now serves as the sophisticated entry point for free-form questions with comprehensive state management, user experience enhancements, automatic question context prepending, and seamless integration with the RAG infrastructure supporting multiple LLM providers with optimized GPU detection.
+
+**Updated** The ask handler provides a sophisticated multi-step dialog flow with proper state management, typing indicators, topic hints detection, contextual navigation, automatic question context prepending, enhanced user experience features, and comprehensive LLM provider support for improved user experience with optimized GPU detection. The module-level singleton pattern ensures backward compatibility while providing centralized resource management.
+
+```mermaid
+flowchart TD
+Start(["User clicks '❓ Задать вопрос'"]) --> SetState["Set ASK_QUESTION state"]
+SetState --> Prompt["Prompt for free-text question"]
+Prompt --> ShowKB["Display ask_input_kb with service buttons"]
+ShowKB --> WaitInput["Wait for user input"]
+WaitInput --> Validate{"Is input empty?"}
+Validate --> |Yes| ShowError["Show error + ask_input_kb"]
+ShowError --> WaitInput
+Validate --> |No| ShowTyping["Show typing indicator"]
+ShowTyping --> DetectTopic["Detect topic hints"]
+DetectTopic --> ProcessQuestion["Process via QA Service + RAG"]
+ProcessQuestion --> QueryWait["Use query_rag_with_wait()"]
+QueryWait --> PrependQuestion["Prepend question context (100 char limit)"]
+PrependQuestion --> AppendDisclaimer["Append background-topic disclaimer"]
+AppendDisclaimer --> ClearState["Clear state"]
+ProcessQuestion --> ShowResponse["Show RAG response + contextual navigation"]
+ShowResponse --> End(["Dialog complete"])
+```
+
+**Diagram sources**
+- [app/integrations/vk/handlers/ask.py:34-89](file://app/integrations/vk/handlers/ask.py#L34-L89)
+
+**Section sources**
+- [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
+- [app/integrations/vk/handlers/ask.py:1-89](file://app/integrations/vk/handlers/ask.py#L1-L89)
+
+### Enhanced Handler Integration
+Multiple handler implementations now use the streamlined `send_rag_answer()` helper function for consistent user experience:
+
+- **Fire Handler**: Handles dismissal-related questions with automatic question context
+- **Pay Handler**: Handles salary and bonus questions with automatic question context  
+- **Vacation Handler**: Handles vacation-related questions with automatic question context
+- **Sections Handler**: Handles various HR sections with automatic question context
+- **Consistent UX**: All handlers now provide identical user experience with typing indicators and back navigation
+- **Reduced Code Duplication**: Eliminated repetitive code across handler implementations
+- **Improved Maintainability**: Single point of change for UX improvements
+
+**Updated** Comprehensive handler integration with send_rag_answer() helper function providing consistent user experience across all HR scenario handlers, eliminating code duplication, improving maintainability, and ensuring identical UX patterns for fire, pay, vacation, and sections handlers.
+
+**Section sources**
+- [app/integrations/vk/handlers/fire.py:60-74](file://app/integrations/vk/handlers/fire.py#L60-L74)
+- [app/integrations/vk/handlers/pay.py:30-46](file://app/integrations/vk/handlers/pay.py#L30-L46)
+- [app/integrations/vk/handlers/vacation.py:65-80](file://app/integrations/vk/handlers/vacation.py#L65-L80)
+- [app/integrations/vk/handlers/sections.py:10-33](file://app/integrations/vk/handlers/sections.py#L10-L33)
 
 ### Enhanced QA Service Lifecycle Management
 The QA service now operates within a centralized FastAPI application lifecycle with proper resource management and cleanup:
@@ -963,17 +1062,18 @@ The QA service integrates with the application lifecycle through enhanced initia
 - [app/integrations/vk/handlers/__init__.py:15-24](file://app/integrations/vk/handlers/__init__.py#L15-L24)
 - [app/domain/qa_service.py:51-236](file://app/domain/qa_service.py#L51-L236)
 
-### Text Truncation and Error Handling
-The QA service provides sophisticated text processing capabilities:
+### Enhanced Text Truncation and Character Limits
+The QA service provides sophisticated text processing capabilities with enhanced character limit handling:
 
-- **Message Limit Enforcement**: VK message length limit (4096 characters)
+- **Message Limit Enforcement**: VK message length limit (4096 characters) with comprehensive truncation logic
 - **Word Boundary Preservation**: Truncation at word boundaries to avoid partial words
 - **Fallback Messages**: Contextual error messages for unavailable documents
 - **Graceful Degradation**: Fallback responses when RAG chain is unavailable
 - **Provider Error Handling**: Comprehensive error handling for all LLM providers
 - **Comprehensive Logging**: Extensive logging for debugging and monitoring
+- **Enhanced UX**: Russian language suffix for truncated responses
 
-**Updated** Comprehensive text truncation with Russian language suffix and robust error handling for production scenarios across all supported LLM providers with optimized GPU detection and comprehensive logging.
+**Updated** Comprehensive text truncation with VK message character limits (4096 characters), Russian language suffix and robust error handling for production scenarios across all supported LLM providers with optimized GPU detection and comprehensive logging.
 
 ```mermaid
 flowchart TD
@@ -1491,9 +1591,9 @@ The test suite provides extensive coverage for the RAG infrastructure, QA servic
 - **Chain Building**: Verifies RAG chain construction and execution across all providers
 - **Vector Store Integration**: Tests Qdrant integration and retrieval capabilities
 - **Enhanced QA Service Testing**: Comprehensive testing of singleton pattern, resource management, error handling, and cleanup
-- **Text Truncation**: Validates message length limits and word boundary preservation
+- **Text Truncation**: Validates message length limits and word boundary preservation with VK character limits (4096)
 - **Topic Hints Detection**: Tests keyword-based scenario detection and disclaimers
-- **Enhanced Ask Handler Integration**: Validates enhanced ask handler functionality and user experience features
+- **Enhanced Ask Handler Integration**: Validates enhanced ask handler functionality and user experience features including query_rag_with_wait() and send_rag_answer() helpers
 - **Document Storage Testing**: Comprehensive testing of SQLite database, models, repository operations, and lifecycle management
 - **Enhanced GPU Detection Testing**: Validates intelligent GPU detection across platforms
 - **llama.cpp Provider Testing**: Comprehensive testing of llama.cpp provider configuration and error handling
@@ -1501,12 +1601,13 @@ The test suite provides extensive coverage for the RAG infrastructure, QA servic
 - **Global Experts Prompt Testing**: Validates cross-document knowledge synthesis and comprehensive question answering
 - **Streaming Response Testing**: Validates real-time token streaming and SSE event handling
 - **Application Lifecycle Testing**: Validates FastAPI lifespan management, resource sharing, and cleanup procedures
+- **UX Helper Testing**: Validates query_rag_with_wait() and send_rag_answer() functionality with comprehensive error handling
 
-**Updated** Complete test coverage for all RAG infrastructure components, QA service functionality, topic hints detection, enhanced ask handler implementation, document storage system, enhanced GPU detection capabilities, comprehensive llama.cpp provider validation, document-specific question answering functionality, global experts prompt system, streaming response implementation, and application lifecycle management with provider-specific configuration testing.
+**Updated** Complete test coverage for all RAG infrastructure components, QA service functionality, topic hints detection, enhanced ask handler implementation, document storage system, enhanced GPU detection capabilities, comprehensive llama.cpp provider validation, document-specific question answering functionality, global experts prompt system, streaming response implementation, application lifecycle management, UX helper functions, and all handler integrations with provider-specific configuration testing.
 
 ```mermaid
 graph TB
-TestSuite["Enhanced RAG + QA + Ask Handler + Storage + GPU Detection + llama.cpp + Document-Specific QA + Global Experts + Streaming + Application Lifecycle Tests"] --> ConfigTests["Configuration Tests"]
+TestSuite["Enhanced RAG + QA + Ask Handler + Storage + GPU Detection + llama.cpp + Document-Specific QA + Global Experts + Streaming + Application Lifecycle + UX Helpers Tests"] --> ConfigTests["Configuration Tests"]
 TestSuite --> DocxTests["Document Processing Tests"]
 TestSuite --> PromptTests["System Prompt Tests"]
 TestSuite --> ChainTests["RAG Chain Tests"]
@@ -1514,6 +1615,7 @@ TestSuite --> VectorTests["Vector Store Tests"]
 TestSuite --> QATests["Enhanced QA Service Tests"]
 TestSuite --> TopicHintTests["Topic Hints Tests"]
 TestSuite --> AskHandlerTests["Enhanced Ask Handler Tests"]
+TestSuite --> UXHelperTests["UX Helper Function Tests"]
 TestSuite --> StorageTests["Document Storage Tests"]
 TestSuite --> GPUDetectionTests["Enhanced GPU Detection Tests"]
 TestSuite --> LlamaCPPTests["llama.cpp Provider Tests"]
@@ -1531,7 +1633,7 @@ ChainTests --> ProviderDispatch["Provider Dispatch Logic"]
 VectorTests --> CollectionName["Collection Name"]
 VectorTests --> VectorStoreCreation["Vector Store Creation"]
 QATests --> AskFunctionality["Ask Functionality"]
-QATests --> TruncationLogic["Truncation Logic"]
+QATests --> TruncationLogic["Truncation Logic<br/>4096 char limit"]
 QATests --> InitCloseLifecycle["Enhanced Init/Close Lifecycle"]
 QATests --> StreamAsk["Stream Ask Functionality"]
 QATests --> StreamAboutDoc["Stream About Document Function"]
@@ -1541,6 +1643,10 @@ TopicHintTests --> DisclaimerLogic["Disclaimer Logic"]
 AskHandlerTests --> TypingIndicator["Typing Indicator"]
 AskHandlerTests --> ContextualNavigation["Contextual Navigation"]
 AskHandlerTests --> ErrorHandler["Error Handling"]
+AskHandlerTests --> QueryWait["query_rag_with_wait() Testing"]
+AskHandlerTests --> QuestionPrepend["Question Context Prepending"]
+UXHelperTests --> QueryWaitHelper["query_rag_with_wait() Helper Testing"]
+UXHelperTests --> SendAnswerHelper["send_rag_answer() Helper Testing"]
 StorageTests --> DatabaseInit["Database Initialization"]
 StorageTests --> ModelValidation["Model Validation"]
 StorageTests --> CRUDOperations["CRUD Operations"]
@@ -1598,12 +1704,23 @@ The testing framework includes comprehensive validation of the new application l
 - **Error Handling**: Validates graceful degradation when services are unavailable
 - **Logging**: Tests comprehensive logging throughout lifecycle operations
 
-**Updated** Comprehensive application lifecycle testing with FastAPI lifespan validation, resource sharing testing, module-level singleton validation, cleanup procedure testing, error handling validation, and logging validation for all lifecycle operations.
+### Enhanced UX Helper Function Testing
+The testing framework includes comprehensive validation of the new UX helper functions:
+
+- **query_rag_with_wait() Testing**: Validates concurrent processing, timeout handling, user feedback, and logging
+- **send_rag_answer() Testing**: Validates typing indicators, wait message handling, back navigation, and error handling
+- **Handler Integration Testing**: Validates consistent UX across all HR scenario handlers
+- **Character Limit Testing**: Validates question context prepending with 100-character limit
+- **Back Navigation Testing**: Validates back payload handling and navigation consistency
+
+**Updated** Comprehensive testing for UX helper functions including query_rag_with_wait() and send_rag_answer() with concurrent processing validation, timeout handling, user feedback testing, error handling validation, handler integration testing, character limit validation, and back navigation testing for consistent user experience across all HR scenario handlers.
 
 **Section sources**
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
 - [tests/test_indexer.py:38-99](file://tests/test_indexer.py#L38-L99)
+- [tests/test_qa_service.py:216-238](file://tests/test_qa_service.py#L216-L238)
+- [tests/test_ask_block9.py:90-112](file://tests/test_ask_block9.py#L90-L112)
 
 ## Performance Considerations
 
@@ -1615,7 +1732,7 @@ The RAG infrastructure includes several performance optimization strategies for 
 - **Memory Management**: Proper cleanup of Qdrant clients and embedding models across all providers
 - **Connection Pooling**: Efficient management of database connections
 - **Caching Strategies**: Potential for caching frequently accessed documents
-- **Response Truncation**: VK message limit enforcement to prevent oversized responses
+- **Response Truncation**: VK message limit enforcement (4096 characters) to prevent oversized responses
 - **Typing Indicators**: Asynchronous processing with user feedback during RAG computation
 - **State Management**: Efficient state handling to prevent memory leaks
 - **Provider Optimization**: Optimized configuration for each LLM provider type with GPU detection
@@ -1629,8 +1746,10 @@ The RAG infrastructure includes several performance optimization strategies for 
 - **Cross-Document Filtering**: Optimized search filters for global experts prompt system
 - **Application Lifecycle Optimization**: Centralized resource management and cleanup for improved performance
 - **Module-Level Singleton Optimization**: Efficient module-level state management for backward compatibility
+- **UX Helper Optimization**: Efficient concurrent processing and timeout handling for improved user experience
+- **Character Limit Optimization**: Efficient character limit enforcement with word boundary preservation
 
-**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, efficient state handling, provider-specific optimizations for Ollama, OpenAI-compatible, and llama.cpp deployments, SQLite database optimization techniques, intelligent GPU detection for optimal hardware utilization, document-specific retrieval optimization, expert-level prompting for improved efficiency, global knowledge synthesis optimization, streaming response optimization for real-time user interaction, and application lifecycle optimization for centralized resource management.
+**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, efficient state handling, provider-specific optimizations for Ollama, OpenAI-compatible, and llama.cpp deployments, SQLite database optimization techniques, intelligent GPU detection for optimal hardware utilization, document-specific retrieval optimization, expert-level prompting for improved efficiency, global knowledge synthesis optimization, streaming response optimization for real-time user interaction, cross-document filtering optimization, application lifecycle optimization for centralized resource management, UX helper optimization for concurrent processing, character limit optimization for efficient text processing, and comprehensive testing validation for all performance aspects.
 
 ### Scalability Planning
 The architecture supports horizontal scaling through:
@@ -1649,6 +1768,8 @@ The architecture supports horizontal scaling through:
 - **Streaming Scaling**: SSE event handling optimization for multiple concurrent streams
 - **Cross-Document Optimization**: Efficient cross-document knowledge synthesis for large-scale deployments
 - **Application Lifecycle Scaling**: Centralized resource management for scalable deployment patterns
+- **UX Helper Scaling**: Efficient concurrent processing for multiple user sessions
+- **Character Limit Scaling**: Efficient character limit enforcement for high-volume scenarios
 
 ## Troubleshooting Guide
 
@@ -1661,7 +1782,7 @@ The RAG infrastructure includes comprehensive error handling and debugging capab
 - **Document Processing**: Word document parsing errors or unsupported formats
 - **Memory Issues**: Insufficient RAM for embedding generation or vector storage
 - **Enhanced QA Service Failures**: Chain initialization failures, resource cleanup errors, or runtime exceptions
-- **Text Truncation Errors**: Incorrect message length calculations
+- **Text Truncation Errors**: Incorrect message length calculations with VK character limits (4096)
 - **Topic Hints Detection**: Keyword matching issues or missing scenarios
 - **Typing Indicator Errors**: VK API connectivity or permission issues
 - **State Management**: Memory leaks or state conflicts between handlers
@@ -1679,8 +1800,10 @@ The RAG infrastructure includes comprehensive error handling and debugging capab
 - **Cross-Document Filtering Errors**: Search filter configuration or retrieval optimization issues
 - **Application Lifecycle Errors**: FastAPI lifespan management failures, resource sharing issues, or cleanup errors
 - **Module-Level Singleton Errors**: Backward compatibility issues or state management failures
+- **UX Helper Errors**: query_rag_with_wait() or send_rag_answer() failures with concurrent processing issues
+- **Character Limit Errors**: Question context prepending failures or truncation logic errors
 
-**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, enhanced ask handler, document storage system, enhanced GPU detection capabilities, document-specific question answering functionality, global experts prompt system, streaming response implementation, application lifecycle management, and all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features.
+**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, enhanced ask handler, document storage system, enhanced GPU detection capabilities, document-specific question answering functionality, global experts prompt system, streaming response implementation, application lifecycle management, UX helper functions, character limit enforcement, and all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features.
 
 ### Enhanced Debugging Tools
 Available debugging and monitoring capabilities:
@@ -1690,7 +1813,7 @@ Available debugging and monitoring capabilities:
 - **Performance Metrics**: Timing and throughput measurements
 - **Error Reporting**: Detailed error messages with context information for all providers
 - **Enhanced QA Service Monitoring**: Chain availability, resource status tracking, and cleanup validation
-- **User Experience Monitoring**: Typing indicator functionality and navigation button rendering
+- **User Experience Monitoring**: Typing indicator functionality, wait message handling, and navigation button rendering
 - **Provider Health Checks**: Specific monitoring for llama.cpp server, Ollama server, and OpenAI-compatible endpoints
 - **Database Monitoring**: SQLite connection status, query performance, and transaction logging
 - **Document Lifecycle Monitoring**: Status transitions, metadata consistency, and error tracking
@@ -1704,6 +1827,8 @@ Available debugging and monitoring capabilities:
 - **Cross-Document Filtering Monitoring**: Search filter validation and retrieval optimization metrics
 - **Application Lifecycle Monitoring**: FastAPI lifespan management, resource sharing validation, and cleanup procedures
 - **Module-Level Singleton Monitoring**: Backward compatibility validation and state management effectiveness
+- **UX Helper Monitoring**: query_rag_with_wait() and send_rag_answer() performance and error handling effectiveness
+- **Character Limit Monitoring**: Question context prepending validation and truncation logic effectiveness
 
 **Section sources**
 - [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
@@ -1711,6 +1836,7 @@ Available debugging and monitoring capabilities:
 - [scripts/ingest.py:137-166](file://scripts/ingest.py#L137-L166)
 - [app/domain/qa_service.py:82-83](file://app/domain/qa_service.py#L82-L83)
 - [app/integrations/vk/handlers/ask.py:67-70](file://app/integrations/vk/handlers/ask.py#L67-L70)
+- [app/integrations/vk/handlers/__init__.py:46-77](file://app/integrations/vk/handlers/__init__.py#L46-L77)
 - [scripts/run_llama_qwen.sh:32-41](file://scripts/run_llama_qwen.sh#L32-L41)
 - [scripts/run_ollama_qwen.sh:36-52](file://scripts/run_ollama_qwen.sh#L36-L52)
 - [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
@@ -1722,4 +1848,4 @@ Available debugging and monitoring capabilities:
 ## Conclusion
 The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities and enhanced user experience. The implementation includes complete LangChain integration, Qdrant vector store setup, document ingestion pipelines with configurable chunking parameters, comprehensive QA service with enhanced singleton pattern and centralized resource management, topic hints detection system, contextual navigation features, extensive testing frameworks, SQLite-based document storage system, support for three LLM providers including the new llama.cpp option with enhanced GPU detection capabilities, and advanced document-specific question answering functionality through the new build_retriever_for_document function.
 
-**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer featuring enhanced singleton pattern with module-level state management, comprehensive error handling, text truncation capabilities, provider flexibility, centralized resource management through FastAPI application lifecycle, topic hints detection system, enhanced ask handler with typing indicators and contextual navigation, comprehensive user experience improvements, SQLite-based document storage system with comprehensive CRUD operations, document lifecycle management, enhanced GPU detection capabilities across all LLM providers, support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment, and advanced document-specific question answering capabilities that enable expert-level document analysis through the new DOCUMENT_EXPERTS_PROMPT system. The enhanced singleton pattern ensures efficient resource utilization through centralized management, while comprehensive error handling, text truncation, user experience features, SQLite database integration, llama.cpp integration, document-scoped retrieval functionality, application lifecycle management, and module-level state management provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of intelligent GPU detection for macOS Apple Silicon and NVIDIA GPUs enables optimal performance across different hardware architectures, making the system suitable for enterprise environments with strict data privacy requirements. The comprehensive document storage system with SQLite provides reliable metadata management, complete test coverage with enhanced GPU detection validation, document-specific QA testing, global experts prompt testing, streaming response testing, application lifecycle testing, and efficient CRUD operations that form the backbone of the document lifecycle management system. The new multi-provider orchestration via run_admin.sh script with interactive selection, comprehensive health checking, and intelligent GPU detection provides operational excellence for production deployments, while the specialized deployment scripts offer granular control over LLM and embedding server management with CPU detection capabilities and automated model downloading with GPU optimization. The document-specific question answering functionality through the admin interface provides administrators with powerful tools for expert-level document analysis and knowledge extraction, significantly enhancing the HR assistance capabilities of the Cafetera bot. The revolutionary global experts prompt system now enables cross-document knowledge synthesis and comprehensive question answering across the entire knowledge base, representing a major advancement in RAG technology that allows users to ask complex questions that require insights from multiple HR documents simultaneously, providing a truly comprehensive HR assistance experience that goes far beyond traditional document retrieval systems. The enhanced application lifecycle management with centralized resource sharing, proper cleanup procedures, and module-level singleton pattern ensures reliable operation and backward compatibility across all deployment scenarios.
+**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer featuring enhanced singleton pattern with module-level state management, comprehensive error handling, text truncation capabilities with VK character limits (4096), provider flexibility, centralized resource management through FastAPI application lifecycle, topic hints detection system, enhanced ask handler with typing indicators, contextual navigation, automatic question context prepending with character limits, enhanced user experience features, SQLite-based document storage system with comprehensive CRUD operations, document lifecycle management, enhanced GPU detection capabilities across all LLM providers, support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment, advanced document-specific question answering capabilities that enable expert-level document analysis through the new DOCUMENT_EXPERTS_PROMPT system, revolutionary global experts prompt system for cross-document knowledge synthesis, streaming response implementation for real-time user interaction, comprehensive UX helper functions including query_rag_with_wait() for delayed response handling and send_rag_answer() for streamlined handler implementations, and extensive testing coverage validating all enhancements including UX helper functions, character limit enforcement, and handler integration testing. The enhanced singleton pattern ensures efficient resource utilization through centralized management, while comprehensive error handling, text truncation, user experience features, SQLite database integration, llama.cpp integration, document-scoped retrieval functionality, application lifecycle management, module-level state management, UX helper functions, and character limit enforcement provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of intelligent GPU detection for macOS Apple Silicon and NVIDIA GPUs enables optimal performance across different hardware architectures, making the system suitable for enterprise environments with strict data privacy requirements. The comprehensive document storage system with SQLite provides reliable metadata management, complete test coverage with enhanced GPU detection validation, document-specific QA testing, global experts prompt testing, streaming response testing, application lifecycle testing, UX helper testing, and efficient CRUD operations that form the backbone of the document lifecycle management system. The new multi-provider orchestration via run_admin.sh script with interactive selection, comprehensive health checking, and intelligent GPU detection provides operational excellence for production deployments, while the specialized deployment scripts offer granular control over LLM and embedding server management with CPU detection capabilities and automated model downloading with GPU optimization. The document-specific question answering functionality through the admin interface provides administrators with powerful tools for expert-level document analysis and knowledge extraction, significantly enhancing the HR assistance capabilities of the Cafetera bot. The revolutionary global experts prompt system now enables cross-document knowledge synthesis and comprehensive question answering across the entire knowledge base, representing a major advancement in RAG technology that allows users to ask complex questions that require insights from multiple HR documents simultaneously, providing a truly comprehensive HR assistance experience that goes far beyond traditional document retrieval systems. The enhanced application lifecycle management with centralized resource sharing, proper cleanup procedures, module-level singleton pattern, UX helper functions, and character limit enforcement ensures reliable operation and backward compatibility across all deployment scenarios, while the comprehensive testing framework validates all enhancements and provides confidence in production readiness.

@@ -7,6 +7,22 @@ from typing import TYPE_CHECKING
 
 from langchain_qdrant import QdrantVectorStore
 
+
+def estimate_k(question: str) -> int:
+    """Estimate the number of chunks to retrieve based on question complexity.
+
+    Rules:
+    - Short questions (≤5 words): k=2
+    - Medium questions (6-15 words): k=4 (default)
+    - Long/complex questions (>15 words): k=6
+    """
+    word_count = len(question.split())
+    if word_count <= 5:
+        return 2
+    elif word_count <= 15:
+        return 4
+    return 6
+
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
     from langchain_core.vectorstores import VectorStoreRetriever
@@ -105,10 +121,10 @@ def build_retriever(
 
     vs = build_vectorstore(qdrant_client, embeddings, collection_name)
     search_filter = models.Filter(
-        must_not=[
+        must=[
             models.FieldCondition(
                 key="metadata.is_search_enabled",
-                match=models.MatchValue(value=False),
+                match=models.MatchValue(value=True),
             )
         ]
     )
@@ -143,13 +159,11 @@ def build_retriever_for_document(
             models.FieldCondition(
                 key="metadata.document_id",
                 match=models.MatchValue(value=document_id),
-            )
-        ],
-        must_not=[
+            ),
             models.FieldCondition(
                 key="metadata.is_search_enabled",
-                match=models.MatchValue(value=False),
-            )
-        ],
+                match=models.MatchValue(value=True),
+            ),
+        ]
     )
     return vs.as_retriever(search_kwargs={"k": k, "filter": search_filter})

@@ -68,20 +68,11 @@ async def query_rag_with_wait(
 
 
 async def send_rag_answer(message: Message, question: str, back_payload: str) -> None:
-    """Send typing indicator, query RAG, and reply with answer + back keyboard.
-
-    If the RAG chain takes longer than 3 seconds, sends a "please wait"
-    notification before delivering the final answer.
-    """
+    """Send typing indicator, query RAG with wait message, and reply with answer + back keyboard."""
     from app.integrations.vk.keyboards import stub_kb
 
     await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
     answer = await query_rag_with_wait(message, question)
-
-    # Prepend topic/question context at the top
-    question_display = question if len(question) <= 200 else question[:200] + "…"
-    answer = f"💬 {question_display}\n\n{answer}"
-
     await message.answer(answer, keyboard=stub_kb(back_payload=back_payload).get_json())
 
 

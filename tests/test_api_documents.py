@@ -73,8 +73,16 @@ def mock_s3():
 
 
 @pytest.fixture()
-def app(settings, mock_qdrant, mock_embeddings, mock_s3, db_path):
-    """Create a test app with mocked Qdrant, embeddings, and S3."""
+def mock_qa_service():
+    """Mock QAService with invalidate_document_chain_cache method."""
+    qa = MagicMock()
+    qa.invalidate_document_chain_cache = MagicMock()
+    return qa
+
+
+@pytest.fixture()
+def app(settings, mock_qdrant, mock_embeddings, mock_s3, mock_qa_service, db_path):
+    """Create a test app with mocked Qdrant, embeddings, S3, and QA service."""
     application = create_app(settings)
 
     # Override lifespan-initialised resources
@@ -91,6 +99,7 @@ def app(settings, mock_qdrant, mock_embeddings, mock_s3, db_path):
     application.state.doc_service = service
     application.state.s3 = mock_s3
     application.state.indexing_semaphore = asyncio.Semaphore(2)
+    application.state.qa_service = mock_qa_service
 
     return application
 

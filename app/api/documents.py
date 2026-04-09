@@ -58,6 +58,7 @@ from app.api.deps import (
     parse_date_range,
 )
 from app.config import Settings
+from app.domain.qa_service import QAService
 from app.rag.parser import load_document
 from app.storage.models import DocumentRecord, DocumentStatus
 from app.storage.s3 import S3Storage
@@ -135,6 +136,7 @@ async def _index_document_from_s3(
     chunk_size: int,
     chunk_overlap: int,
     is_reindex: bool = False,
+    qa_service: QAService | None = None,
 ) -> None:
     """Download from S3, parse, and index/reindex a document. Runs as a background task."""
     async with semaphore:
@@ -163,6 +165,9 @@ async def _index_document_from_s3(
             logger.error(
                 "Background %s failed for %s", action, document_id, exc_info=True
             )
+        finally:
+            if qa_service is not None:
+                qa_service.invalidate_document_chain_cache(document_id)
 
 
 def _document_table_context(
@@ -470,6 +475,7 @@ async def upload_documents(
     s3: S3Dep,
     service: ServiceDep,
     background_tasks: BackgroundTasks,
+    qa: QAServiceDep,
     files: list[UploadFile],
 ):
     """Upload one or more documents (.docx, .doc) to S3.
@@ -548,6 +554,7 @@ async def upload_documents(
             settings.chunk_size,
             settings.chunk_overlap,
             is_reindex=False,
+            qa_service=qa,
         )
 
         results.append(_doc_to_dict(record))
@@ -635,6 +642,7 @@ async def bulk_delete_documents(
     service: ServiceDep,
     repo: RepoDep,
     templates: TemplatesDep,
+    qa: QAServiceDep,
     body: BulkIdsRequest,
 ):
     """Delete multiple documents by ID. Returns refreshed document table partial."""
@@ -663,6 +671,9 @@ async def bulk_delete_documents(
             )
             if not deleted:
                 errors.append(f"Document {document_id}: delete failed")
+            else:
+                if qa is not None:
+                    qa.invalidate_document_chain_cache(document_id)
         except Exception as exc:
             logger.error("Bulk delete failed for %s", document_id, exc_info=True)
             errors.append(f"Document {document_id}: {exc}")
@@ -686,6 +697,7 @@ async def bulk_reindex_documents(
     templates: TemplatesDep,
     background_tasks: BackgroundTasks,
     semaphore: IndexingSemaphoreDep,
+    qa: QAServiceDep,
     body: BulkIdsRequest,
 ):
     """Reindex multiple documents by ID. Returns refreshed document table partial."""
@@ -728,6 +740,7 @@ async def bulk_reindex_documents(
                 settings.chunk_size,
                 settings.chunk_overlap,
                 is_reindex=True,
+                qa_service=qa,
             )
         except Exception as exc:
             logger.error("Bulk reindex failed for %s", document_id, exc_info=True)
@@ -749,6 +762,7 @@ async def bulk_toggle_search(
     service: ServiceDep,
     repo: RepoDep,
     templates: TemplatesDep,
+    qa: QAServiceDep,
     body: BulkSearchToggleRequest,
 ):
     """Toggle search enabled for multiple documents. Returns refreshed document table partial."""
@@ -775,6 +789,9 @@ async def bulk_toggle_search(
             updated = await service.toggle_search(document_id, enabled=body.enabled)
             if updated is None:
                 errors.append(f"Document {document_id}: toggle failed")
+            else:
+                if qa is not None:
+                    qa.invalidate_document_chain_cache(document_id)
         except Exception as exc:
             logger.error("Bulk toggle search failed for %s", document_id, exc_info=True)
             errors.append(f"Document {document_id}: {exc}")
@@ -898,11 +915,15 @@ async def toggle_search(
     service: ServiceDep,
     templates: TemplatesDep,
     repo: RepoDep,
+    qa: QAServiceDep,
     enabled: Annotated[bool, Form()],
 ):
     record = await service.toggle_search(document_id, enabled=enabled)
     if record is None:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    if qa is not None:
+        qa.invalidate_document_chain_cache(document_id)
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
@@ -925,6 +946,7 @@ async def reindex_document(
     repo: RepoDep,
     background_tasks: BackgroundTasks,
     semaphore: IndexingSemaphoreDep,
+    qa: QAServiceDep,
 ):
     record = await repo.get(document_id)
     if record is None:
@@ -950,6 +972,7 @@ async def reindex_document(
         settings.chunk_size,
         settings.chunk_overlap,
         is_reindex=True,
+        qa_service=qa,
     )
 
     is_htmx = request.headers.get("HX-Request") == "true"
@@ -974,6 +997,7 @@ async def delete_document(
     s3: S3Dep,
     service: ServiceDep,
     repo: RepoDep,
+    qa: QAServiceDep,
 ):
     record = await repo.get(document_id)
     if record is None:
@@ -984,6 +1008,9 @@ async def delete_document(
     )
     if not deleted:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    if qa is not None:
+        qa.invalidate_document_chain_cache(document_id)
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:

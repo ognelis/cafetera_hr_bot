@@ -38,8 +38,8 @@ async def lifespan(app: FastAPI):
     app.state.indexing_semaphore = asyncio.Semaphore(settings.max_concurrent_indexing)
 
     # VK handler globals
-    if res.qa_service:
-        set_qa_service(res.qa_service)
+    if res.vk_qa_service:
+        set_qa_service(res.vk_qa_service)
 
     yield
 

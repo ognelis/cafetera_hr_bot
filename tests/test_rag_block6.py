@@ -12,9 +12,9 @@ from docx import Document as DocxDocument
 from langchain_core.documents import Document as LCDocument
 
 from app.config import Settings
-from app.rag.chain import _format_docs, build_rag_chain
+from app.rag.chain import _format_docs, _format_docs_with_metadata, build_rag_chain
 from app.rag.prompts import SYSTEM_PROMPT
-from app.rag.retriever import COLLECTION_NAME, build_vectorstore
+from app.rag.retriever import COLLECTION_NAME, build_vectorstore, estimate_k
 
 # ── Helpers ────────────────────────────────────────────────────────
 
@@ -228,7 +228,94 @@ class TestFormatDocs:
         assert _format_docs([]) == ""
 
 
+class TestFormatDocsWithMetadata:
+    def test_single_document_with_filename(self):
+        docs = [LCDocument(page_content="Hello", metadata={"filename": "test.docx"})]
+        result = _format_docs_with_metadata(docs)
+        assert "[Документ: test.docx]" in result
+        assert "Hello" in result
+
+    def test_single_document_without_filename(self):
+        docs = [LCDocument(page_content="Hello")]
+        result = _format_docs_with_metadata(docs)
+        assert result == "Hello"
+        assert "[Документ:" not in result
+
+    def test_single_document_with_empty_filename(self):
+        docs = [LCDocument(page_content="Hello", metadata={"filename": ""})]
+        result = _format_docs_with_metadata(docs)
+        assert result == "Hello"
+        assert "[Документ:" not in result
+
+    def test_multiple_documents_with_different_filenames(self):
+        docs = [
+            LCDocument(page_content="First chunk", metadata={"filename": "doc1.docx"}),
+            LCDocument(page_content="Second chunk", metadata={"filename": "doc2.docx"}),
+        ]
+        result = _format_docs_with_metadata(docs)
+        assert "[Документ: doc1.docx]" in result
+        assert "[Документ: doc2.docx]" in result
+        assert "First chunk" in result
+        assert "Second chunk" in result
+        assert "---" in result
+
+    def test_multiple_documents_mixed_metadata(self):
+        docs = [
+            LCDocument(page_content="With filename", metadata={"filename": "test.docx"}),
+            LCDocument(page_content="Without filename"),
+            LCDocument(page_content="Empty filename", metadata={"filename": ""}),
+        ]
+        result = _format_docs_with_metadata(docs)
+        assert "[Документ: test.docx]\nWith filename" in result
+        assert "\nWithout filename" in result
+        assert "\nEmpty filename" in result
+        assert "---" in result
+
+    def test_empty_list(self):
+        assert _format_docs_with_metadata([]) == ""
+
+
 # ── 6.2 — Retriever / vectorstore ─────────────────────────────────
+
+
+class TestEstimateK:
+    """Tests for adaptive k-tuning based on question complexity."""
+
+    def test_short_questions_return_k2(self):
+        """Questions with ≤5 words should return k=2."""
+        assert estimate_k("Привет") == 2
+        assert estimate_k("Как дела") == 2
+        assert estimate_k("Что такое отпуск") == 2
+        assert estimate_k("Как получить зарплату") == 2
+        assert estimate_k("Сколько дней отпуска") == 2
+
+    def test_medium_questions_return_k4(self):
+        """Questions with 6-15 words should return k=4."""
+        assert estimate_k("Как оформить отпуск в этой компании") == 4
+        assert estimate_k("Что делать если я заболел и не могу работать") == 4
+        assert estimate_k("Какие документы нужны для приема на работу сегодня") == 4
+        assert estimate_k("Расскажи про политику компании по удаленной работе") == 4
+
+    def test_long_questions_return_k6(self):
+        """Questions with >15 words should return k=6."""
+        # 16 words
+        assert estimate_k("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen") == 6
+        # 17 words
+        assert (
+            estimate_k(
+                "Что мне делать если я хочу оформить отпуск но у меня уже есть планированный отпуск на следующий месяц"
+            )
+            == 6
+        )
+
+    def test_empty_string_returns_k2(self):
+        """Empty string has 0 words, should return k=2."""
+        assert estimate_k("") == 2
+
+    def test_whitespace_only_returns_k2(self):
+        """String with only whitespace has 0 words, should return k=2."""
+        assert estimate_k("   ") == 2
+        assert estimate_k("\t\n") == 2
 
 
 class TestCollectionName:
@@ -258,7 +345,7 @@ class TestBuildRagChain:
         mock_retriever = MagicMock()
         mock_llm = MagicMock()
 
-        chain = build_rag_chain(mock_retriever, mock_llm)
+        chain = build_rag_chain(mock_retriever, mock_llm, system_prompt=SYSTEM_PROMPT)
         # The chain should be a LangChain Runnable (has invoke method)
         assert hasattr(chain, "invoke")
 
@@ -296,7 +383,7 @@ class TestBuildLlmLlamaCpp:
                 model="test-model",
                 api_key="no-key",
                 base_url="http://localhost:8080/v1",
-                temperature=0.1,
+                temperature=0.3,
             )
 
     def test_passes_real_api_key_when_set(self):
@@ -310,7 +397,7 @@ class TestBuildLlmLlamaCpp:
                 model="test-model",
                 api_key="real-key",
                 base_url="http://localhost:8080/v1",
-                temperature=0.1,
+                temperature=0.3,
             )
 
     def test_passes_custom_base_url(self):
@@ -324,7 +411,7 @@ class TestBuildLlmLlamaCpp:
                 model="test-model",
                 api_key="no-key",
                 base_url="http://gpu-box:9090/v1",
-                temperature=0.1,
+                temperature=0.3,
             )
 
     def test_import_error_message(self):

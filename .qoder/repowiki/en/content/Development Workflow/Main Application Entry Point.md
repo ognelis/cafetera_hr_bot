@@ -3,6 +3,7 @@
 <cite>
 **Referenced Files in This Document**
 - [main.py](file://app/main.py)
+- [resources.py](file://app/resources.py)
 - [config.py](file://app/config.py)
 - [documents.py](file://app/api/documents.py)
 - [deps.py](file://app/api/deps.py)
@@ -11,6 +12,7 @@
 - [indexer.py](file://app/rag/indexer.py)
 - [chain.py](file://app/rag/chain.py)
 - [bot.py](file://app/integrations/vk/bot.py)
+- [handlers/__init__.py](file://app/integrations/vk/handlers/__init__.py)
 - [admin_server.py](file://scripts/admin_server.py)
 - [docker-compose.yml](file://docker-compose.yml)
 - [pyproject.toml](file://pyproject.toml)
@@ -22,10 +24,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated CSS Design System section to reflect comprehensive implementation of the new 'cafetera' theme
-- Added detailed documentation of custom color palette and daisyUI integration
-- Updated Static File Serving Infrastructure section to include new theme-specific styling
-- Enhanced troubleshooting guide with CSS theme-related issues
+- Updated Resource Lifecycle Management section to reflect streamlined FastAPI application initialization
+- Removed references to the complex AppState dataclass and replaced with direct state assignment
+- Updated lifespan manager documentation to reflect new build_resources() factory usage
+- Enhanced dependency injection system documentation to reflect direct app.state storage
+- Updated troubleshooting guide to address new resource management patterns
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -108,34 +111,42 @@ The application uses a factory pattern with the `create_app()` function, which e
 - **Flexibility**: The application can be configured differently for various environments
 - **Separation of Concerns**: Initialization logic is isolated from the main application logic
 
-### Lifespan Management
+### Streamlined Lifespan Management
 
-The application implements sophisticated lifespan management through the `lifespan` async context manager, which handles resource initialization and cleanup:
+**Updated** The application implements streamlined lifespan management through the `lifespan` async context manager, which now uses the new `build_resources()` factory to initialize all components and stores them directly in `app.state` rather than maintaining separate typed attributes.
+
+The lifespan manager follows a simplified initialization pattern:
 
 ```mermaid
 sequenceDiagram
 participant App as Application
 participant DB as SQLite
+participant Resources as AppResources
 participant S3 as S3 Storage
 participant Qdrant as Qdrant Client
 participant Service as Document Service
 App->>DB : Initialize database
-App->>S3 : Connect to S3 storage
-App->>Qdrant : Connect to Qdrant
-App->>Service : Initialize Document Service
+App->>Resources : Build resources via build_resources()
+Resources->>S3 : Initialize S3 storage
+Resources->>Qdrant : Initialize Qdrant client
+Resources->>Service : Initialize Document Service
+Resources->>Resources : Initialize QA Service
+App->>App : Store resources directly in app.state
 App->>App : Mount static file router
 App->>App : Mount theme system
 App->>App : Yield control to application
 Note over App,Qdrant : Application runs
-App->>S3 : Close connection
-App->>Qdrant : Close connection
+App->>Resources : Close resources via close_resources()
+Resources->>S3 : Close connection
+Resources->>Qdrant : Close connection
 ```
 
 **Diagram sources**
-- [main.py:23-96](file://app/main.py#L23-L96)
+- [main.py:22-46](file://app/main.py#L22-L46)
+- [resources.py:51-165](file://app/resources.py#L51-L165)
 
 **Section sources**
-- [main.py:23-124](file://app/main.py#L23-L124)
+- [main.py:22-75](file://app/main.py#L22-L75)
 
 ## CSS Design System Implementation
 
@@ -328,7 +339,7 @@ The base template integrates the cafetera theme system:
 - **Control**: Full control over asset versions and caching strategies
 
 **Section sources**
-- [main.py:110-112](file://app/main.py#L110-L112)
+- [main.py:61-67](file://app/main.py#L61-L67)
 - [base.html:7-10](file://templates/base.html#L7-L10)
 - [base.html:26-80](file://templates/base.html#L26-L80)
 
@@ -354,18 +365,55 @@ The `Settings` class defines all configurable parameters organized into logical 
 Configuration is loaded from `.env` files with UTF-8 encoding support, allowing for flexible deployment across different environments.
 
 **Section sources**
-- [config.py:4-33](file://app/config.py#L4-L33)
+- [config.py:14-53](file://app/config.py#L14-L53)
 
 ## Resource Lifecycle Management
 
-The lifespan context manager handles the complete lifecycle of all external resources, ensuring proper initialization and cleanup.
+**Updated** The application now implements streamlined resource lifecycle management through a consolidated `build_resources()` factory that initializes all components and stores them directly in `app.state`.
 
-### Resource Initialization Order
+### Streamlined Resource Initialization
+
+The new resource management approach eliminates the complex `AppState` dataclass and replaces it with direct state assignment:
+
+```mermaid
+flowchart TD
+subgraph "Resource Factory Pattern"
+Factory[build_resources Factory]
+Init[Initialize Resources]
+Store[Store in app.state]
+Cleanup[close_resources Cleanup]
+end
+subgraph "Direct State Assignment"
+State[app.state.s3]
+State2[app.state.qdrant_client]
+State3[app.state.embeddings]
+State4[app.state.doc_repo]
+State5[app.state.doc_service]
+State6[app.state.qa_service]
+State7[app.state.indexing_semaphore]
+end
+Factory --> Init
+Init --> Store
+Store --> State
+Store --> State2
+Store --> State3
+Store --> State4
+Store --> State5
+Store --> State6
+Store --> State7
+Cleanup --> Factory
+```
+
+**Diagram sources**
+- [main.py:29-46](file://app/main.py#L29-L46)
+- [resources.py:51-165](file://app/resources.py#L51-L165)
+
+### Resource Initialization Process
 
 1. **Database Initialization**: SQLite database is initialized first to ensure persistent storage is available
-2. **S3 Storage**: Object storage is configured for document file management
-3. **Qdrant Client**: Vector database client is established for RAG functionality
-4. **Document Service**: Core business logic service is created with all dependencies
+2. **Resource Building**: `build_resources()` factory creates and initializes all components
+3. **Direct State Assignment**: Resources are stored directly in `app.state` attributes
+4. **VK Handler Integration**: QA service is passed to VK handlers via global setter
 5. **Static File Router**: Local static file serving is mounted for asset delivery
 6. **Theme System**: Custom CSS theme is integrated for consistent styling
 
@@ -377,7 +425,8 @@ Each resource initialization includes comprehensive error handling:
 - Graceful degradation allows partial functionality when some services are unavailable
 
 **Section sources**
-- [main.py:23-96](file://app/main.py#L23-L96)
+- [main.py:22-46](file://app/main.py#L22-L46)
+- [resources.py:51-165](file://app/resources.py#L51-L165)
 
 ## API Integration
 
@@ -419,9 +468,11 @@ The API supports complete document lifecycle management:
 
 ## Dependency Injection System
 
-The application implements a comprehensive dependency injection system through FastAPI's dependency mechanism.
+**Updated** The application implements a comprehensive dependency injection system through FastAPI's dependency mechanism, now utilizing the streamlined resource management approach.
 
-### Dependency Types
+### Direct State-Based Dependencies
+
+All dependencies now access resources directly from `app.state`:
 
 | Dependency Type | Purpose | Implementation |
 |----------------|---------|----------------|
@@ -431,6 +482,8 @@ The application implements a comprehensive dependency injection system through F
 | `RepoDep` | Data Access | DocumentRepository instance |
 | `ServiceDep` | Business Logic | DocumentService instance |
 | `S3Dep` | Storage Access | S3Storage instance |
+| `IndexingSemaphoreDep` | Concurrency Control | asyncio.Semaphore instance |
+| `QAServiceDep` | RAG Service | QAService instance |
 
 ### Security Considerations
 
@@ -440,7 +493,7 @@ All dependencies implement proper error handling:
 - Sensitive operations require proper authentication
 
 **Section sources**
-- [deps.py:1-74](file://app/api/deps.py#L1-L74)
+- [deps.py:39-109](file://app/api/deps.py#L39-L109)
 
 ## Domain Service Layer
 
@@ -705,6 +758,18 @@ In production deployments, static files are served efficiently through:
 - Check component-specific theme overrides
 - Ensure responsive design breakpoints work with custom theme
 
+### Resource Management Issues
+
+**Resource Initialization Failures**
+- **503 Service Unavailable**: Verify all required services are running
+- **Missing Dependencies**: Check that `build_resources()` completes successfully
+- **State Attribute Errors**: Ensure resources are properly assigned to `app.state`
+
+**Streamlined Resource Patterns**
+- **Direct State Access**: All dependencies now access resources via `request.app.state.attribute_name`
+- **Graceful Degradation**: Failed resource initialization logs warnings but doesn't crash the app
+- **Cleanup Verification**: Ensure `close_resources()` properly closes all connections
+
 ### Performance Optimization
 
 **Memory Management**
@@ -737,8 +802,10 @@ The application provides comprehensive logging at multiple levels:
 - **Error Conditions**: Exception handling and recovery
 - **Static File Access**: Asset loading and serving statistics
 - **Theme System**: CSS loading and theme application status
+- **Resource Management**: Direct state assignment and cleanup verification
 
 **Section sources**
-- [main.py:23-96](file://app/main.py#L23-L96)
+- [main.py:22-46](file://app/main.py#L22-L46)
 - [admin_server.py:31-36](file://scripts/admin_server.py#L31-L36)
 - [base.html:26-80](file://templates/base.html#L26-L80)
+- [resources.py:168-202](file://app/resources.py#L168-L202)

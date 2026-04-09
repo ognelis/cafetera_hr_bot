@@ -10,12 +10,6 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 
-from app.rag.prompts import SYSTEM_PROMPT
-
-
-def _default_system_prompt() -> str:
-    return SYSTEM_PROMPT
-
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
     from langchain_core.runnables import Runnable
@@ -29,6 +23,30 @@ logger = logging.getLogger(__name__)
 def _format_docs(docs: list[Document]) -> str:
     """Join retrieved document page contents into a single context string."""
     return "\n\n---\n\n".join(doc.page_content for doc in docs)
+
+
+def _format_docs_with_metadata(docs: list[Document]) -> str:
+    """Join retrieved documents with filename metadata headers.
+
+    Format:
+        [Документ: filename.docx]
+        chunk text here
+
+        ---
+
+        [Документ: another.docx]
+        another chunk text
+
+    If filename is missing/empty, outputs plain text without header.
+    """
+    formatted_chunks: list[str] = []
+    for doc in docs:
+        filename = doc.metadata.get("filename", "")
+        if filename:
+            formatted_chunks.append(f"[Документ: {filename}]\n{doc.page_content}")
+        else:
+            formatted_chunks.append(doc.page_content)
+    return "\n\n---\n\n".join(formatted_chunks)
 
 
 def build_llm(settings: Settings) -> BaseChatModel:
@@ -45,7 +63,7 @@ def build_llm(settings: Settings) -> BaseChatModel:
             model=settings.llm_model,
             api_key=settings.llm_api_key,
             base_url=settings.llm_base_url or None,
-            temperature=0.1,
+            temperature=0.3,
         )
 
     if settings.llm_provider == "llamacpp":
@@ -60,7 +78,7 @@ def build_llm(settings: Settings) -> BaseChatModel:
             model=settings.llm_model,
             api_key=settings.llm_api_key or "no-key",
             base_url=settings.llm_base_url or "http://localhost:8080/v1",
-            temperature=0.1,
+            temperature=0.3,
         )
 
     # Default: Ollama
@@ -73,7 +91,7 @@ def build_llm(settings: Settings) -> BaseChatModel:
     return ChatOllama(
         model=settings.llm_model,
         base_url=settings.llm_base_url,
-        temperature=0.1,
+        temperature=0.3,
     )
 
 
@@ -81,17 +99,19 @@ def build_rag_chain(
     retriever: VectorStoreRetriever,
     llm: BaseChatModel,
     *,
-    system_prompt: str | None = None,
+    system_prompt: str,
+    include_metadata: bool = False,
 ) -> Runnable:
     """Build a RAG chain: retrieve -> format context -> prompt -> LLM -> text."""
-    prompt_template = system_prompt if system_prompt is not None else SYSTEM_PROMPT
+    prompt_template = system_prompt
     prompt = ChatPromptTemplate.from_messages([
         ("system", prompt_template),
         ("human", "{question}"),
     ])
 
+    formatter = _format_docs_with_metadata if include_metadata else _format_docs
     chain = (
-        {"context": retriever | _format_docs, "question": RunnablePassthrough()}
+        {"context": retriever | formatter, "question": RunnablePassthrough()}
         | prompt
         | llm
         | StrOutputParser()

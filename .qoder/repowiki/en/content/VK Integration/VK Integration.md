@@ -6,7 +6,6 @@
 - [start.py](file://app/integrations/vk/handlers/start.py)
 - [sections.py](file://app/integrations/vk/handlers/sections.py)
 - [ask.py](file://app/integrations/vk/handlers/ask.py)
-- [hr_request.py](file://app/integrations/vk/handlers/hr_request.py)
 - [fire.py](file://app/integrations/vk/handlers/fire.py)
 - [pay.py](file://app/integrations/vk/handlers/pay.py)
 - [vacation.py](file://app/integrations/vk/handlers/vacation.py)
@@ -24,18 +23,23 @@
 - [test_qa_service.py](file://tests/test_qa_service.py)
 - [test_keyboards.py](file://tests/test_keyboards.py)
 - [test_states.py](file://tests/test_states.py)
+- [test_ask_block9.py](file://tests/test_ask_block9.py)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated to reflect improved bot factory with centralized state dispenser sharing pattern
-- Enhanced documentation for the new centralized state management approach using BuiltinStateDispenser
+- Updated to reflect significant user experience improvements in VK integration handlers
+- Added documentation for the new `query_rag_with_wait()` function with intelligent timeout handling
+- Enhanced documentation for the improved `send_rag_answer()` function with automatic question context prepending
 - Updated handler registration patterns to show centralized state dispenser initialization
 - Improved QA service integration documentation with centralized access patterns
 - Added documentation for the new centralized utilities module with Holder pattern
 - Updated architecture diagrams to show the centralized state dispenser sharing mechanism
 - Enhanced troubleshooting guide with centralized dispenser debugging
+- **New** Added comprehensive documentation for the new timeout handling system that improves user experience during slow RAG responses
+- **New** Documented the new `send_rag_answer()` helper function that standardizes RAG response handling across all handlers
+- **New** Updated sections handler to use the new `send_rag_answer()` helper function for consistent RAG-powered content delivery
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -44,18 +48,19 @@
 4. [Architecture Overview](#architecture-overview)
 5. [Centralized State Management](#centralized-state-management)
 6. [Centralized QA Service Access Layer](#centralized-qa-service-access-layer)
-7. [QA Service and RAG Integration](#qa-service-and-rag-integration)
-8. [Detailed Component Analysis](#detailed-component-analysis)
-9. [Dependency Analysis](#dependency-analysis)
-10. [Performance Considerations](#performance-considerations)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
-13. [Appendices](#appendices)
+7. [Enhanced RAG Response Handling](#enhanced-rag-response-handling)
+8. [QA Service and RAG Integration](#qa-service-and-rag-integration)
+9. [Detailed Component Analysis](#detailed-component-analysis)
+10. [Dependency Analysis](#dependency-analysis)
+11. [Performance Considerations](#performance-considerations)
+12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Conclusion](#conclusion)
+14. [Appendices](#appendices)
 
 ## Introduction
 This document explains the VKontakte integration system built with the vkbottle framework, featuring a comprehensive QA service integration for Retrieval-Augmented Generation (RAG) processing across all HR-related handlers. The system implements a bot factory pattern with centralized state dispenser sharing, advanced handler registration and ordering, payload-based navigation, and sophisticated VK API integration patterns. It covers bot initialization, message routing, RAG-powered content delivery, and practical guidance for extending the bot with new handlers, customizing behavior, and integrating with VK's webhook system. Common integration challenges, robust error handling, and best practices for VK bot development are addressed.
 
-**Updated** The system now features a centralized state dispenser sharing mechanism that ensures consistent state management across all handlers through a shared BuiltinStateDispenser instance, along with a centralized QA service access layer that provides consistent error handling and resource management across all VK handlers.
+**Updated** The system now features a centralized state dispenser sharing mechanism that ensures consistent state management across all handlers through a shared BuiltinStateDispenser instance, along with a centralized QA service access layer that provides consistent error handling and resource management across all VK handlers. A new intelligent timeout handling system improves user experience by providing "please wait" notifications for slow RAG responses and automatically prepending user question context to all answers.
 
 ## Project Structure
 The VK integration resides under app/integrations/vk and includes:
@@ -82,7 +87,7 @@ VACATION["handlers/vacation.py<br/>Vacation flows (RAG)"]
 FALLBACK["handlers/fallback.py<br/>Unmatched messages"]
 KEYBOARDS["keyboards.py<br/>Keyboard builders & payloads"]
 STATES["states.py<br/>Dialog states"]
-UTILS["handlers/__init__.py<br/>Centralized state & QA access"]
+UTILS["handlers/__init__.py<br/>Centralized state & QA access<br/>Enhanced with timeout handling"]
 RULES["rules.py<br/>Custom payload rules"]
 end
 RESOURCES["resources.py<br/>Resource management"]
@@ -364,6 +369,75 @@ All HR-related handlers now use centralized QA service access patterns for consi
 - [vacation.py:67-80](file://app/integrations/vk/handlers/vacation.py#L67-L80)
 - [sections.py:25-45](file://app/integrations/vk/handlers/sections.py#L25-L45)
 
+## Enhanced RAG Response Handling
+
+### Intelligent Timeout Handling
+The new `query_rag_with_wait()` function implements sophisticated timeout handling to improve user experience during slow RAG responses:
+
+```mermaid
+sequenceDiagram
+participant User as "User"
+participant Handler as "Handler"
+participant Utils as "query_rag_with_wait()"
+participant QA as "QA Service"
+participant Task as "Async Task"
+User->>Handler : Ask question
+Handler->>Utils : query_rag_with_wait(message, question, timeout=3.0)
+Utils->>Task : Create async task for QA.ask()
+Utils->>Task : Create delay task (3 seconds)
+Utils->>Task : Wait for first completion
+alt RAG completes within 3 seconds
+Task-->>Utils : RAG result
+Utils-->>Handler : Return answer immediately
+Handler-->>User : Display answer
+else RAG takes longer than 3 seconds
+Task-->>Utils : Delay task completes first
+Utils->>User : Send "please wait" message
+Utils->>Task : Wait for RAG completion
+Task-->>Utils : RAG result
+Utils-->>Handler : Return answer
+Handler-->>User : Display answer
+end
+```
+
+**Diagram sources**
+- [handlers/__init__.py:46-68](file://app/integrations/vk/handlers/__init__.py#L46-L68)
+
+### Automatic Question Context Prepending
+The enhanced `send_rag_answer()` function automatically prepends user question context to all answers for better clarity and traceability:
+
+```mermaid
+flowchart TD
+Start(["send_rag_answer(message, question, back_payload)"]) --> Typing["Set typing indicator"]
+Typing --> Wait["Call query_rag_with_wait()"]
+Wait --> CheckTimeout{"RAG completed within 3s?"}
+CheckTimeout --> |Yes| Answer["Get answer from RAG"]
+CheckTimeout --> |No| WaitMsg["Send 'please wait' message"]
+WaitMsg --> Answer
+Answer --> Prepend["Prepend question context"]
+Prepend --> Truncate["Truncate to VK limits"]
+Truncate --> Keyboard["Add back keyboard"]
+Keyboard --> Send["Send final answer"]
+Send --> End(["Complete"])
+```
+
+**Diagram sources**
+- [handlers/__init__.py:70-86](file://app/integrations/vk/handlers/__init__.py#L70-L86)
+
+### Key Features of Enhanced RAG Handling
+- **Intelligent Timeout Detection**: Automatically detects slow RAG responses and sends "please wait" notifications
+- **User Experience Enhancement**: Prevents user frustration with unresponsive bots during slow RAG processing
+- **Automatic Context Preservation**: Ensures user questions remain visible in the conversation history
+- **Consistent Formatting**: Maintains standardized answer presentation across all handlers
+- **Graceful Degradation**: Continues processing even when RAG responses are delayed
+
+**Updated** The new timeout handling system provides a seamless user experience by automatically managing slow RAG responses, while the automatic question context prepending ensures users always have clear reference to their original questions.
+
+**Section sources**
+- [handlers/__init__.py:46-86](file://app/integrations/vk/handlers/__init__.py#L46-L86)
+- [ask.py:75-90](file://app/integrations/vk/handlers/ask.py#L75-L90)
+- [test_ask_block9.py:94-112](file://tests/test_ask_block9.py#L94-L112)
+
 ## QA Service and RAG Integration
 
 ### QA Service Architecture
@@ -633,6 +707,42 @@ Bot-->>Runner : Running
 - [resources.py:51-165](file://app/resources.py#L51-L165)
 - [config.py:4-9](file://app/config.py#L4-L9)
 
+### Enhanced Ask Handler with Better UX
+The ask handler has been significantly improved with better user experience:
+
+```mermaid
+flowchart TD
+Start(["on_ask_text(message)"]) --> Validate["Validate question text"]
+Validate --> Valid{"Question empty?"}
+Valid --> |Yes| Retry["Prompt for question again"]
+Valid --> |No| ClearState["Clear state"]
+ClearState --> Typing["Show typing indicator"]
+Typing --> Detect["Detect topic hints"]
+Detect --> Query["Query RAG with wait"]
+Query --> Hint{"Has disclaimer?"}
+Hint --> |Yes| AddDisclaimer["Add background topic disclaimer"]
+Hint --> |No| Prepend["Prepend question context"]
+AddDisclaimer --> Prepend
+Prepend --> Truncate["Truncate if too long"]
+Truncate --> Answer["Send answer with scenario keyboard"]
+Retry --> End(["End"])
+Answer --> End
+```
+
+**Diagram sources**
+- [ask.py:51-89](file://app/integrations/vk/handlers/ask.py#L51-L89)
+
+**Section sources**
+- [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
+
+### Sections Handler Using New Helper Function
+The sections handler now uses the new `send_rag_answer()` helper function for consistent RAG response handling:
+
+**Updated** The sections handler has been simplified to use the centralized `send_rag_answer()` function, which automatically handles typing indicators, timeout detection, question context prepending, and keyboard generation.
+
+**Section sources**
+- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
+
 ## Dependency Analysis
 External dependencies relevant to VK integration:
 - vkbottle is the primary framework for VK bot development
@@ -686,6 +796,9 @@ Tests --> Cfg
 - Centralized utilities provide consistent error handling and fallback responses for QA service failures
 - Shared state dispenser reduces memory overhead across handlers
 - Resource management handles graceful initialization and cleanup of RAG components
+- **New** Intelligent timeout handling prevents blocking operations and improves perceived performance
+- **New** Automatic question context prepending reduces user confusion and improves conversation clarity
+- **New** The `send_rag_answer()` helper function standardizes RAG response handling across all handlers, reducing code duplication and improving consistency
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -715,6 +828,18 @@ Common issues and resolutions:
   - Verify BuiltinStateDispenser is properly shared between bot and handlers
   - Check that set_state_dispenser() is called during bot creation
   - Ensure get_state_dispenser() is used consistently across all handlers
+- **New** Timeout handling issues:
+  - Verify query_rag_with_wait() is properly imported in handlers
+  - Check that timeout values are appropriate for your RAG service performance
+  - Ensure "please wait" messages are being sent correctly
+- **New** Question context issues:
+  - Verify send_rag_answer() is being used instead of direct QA service calls
+  - Check that question truncation logic is working correctly
+  - Ensure back_payload parameters are properly passed to maintain navigation
+- **New** Helper function integration issues:
+  - Verify send_rag_answer() is imported from the centralized utilities module
+  - Check that all handlers using the helper function are properly updated
+  - Ensure the helper function is available in the handlers/__init__.py module
 
 Validation references:
 - Handler order and counts: [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -723,6 +848,8 @@ Validation references:
 - State definitions: [test_states.py:8-31](file://tests/test_states.py#L8-L31)
 - Centralized access patterns: [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
 - State dispenser sharing: [test_bot_factory.py:82-86](file://tests/test_bot_factory.py#L82-L86)
+- **New** Timeout handling validation: [test_ask_block9.py:94-112](file://tests/test_ask_block9.py#L94-L112)
+- **New** Helper function integration: [test_qa_service.py:216-236](file://tests/test_qa_service.py#L216-L236)
 
 **Section sources**
 - [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -733,7 +860,13 @@ Validation references:
 - [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
 
 ## Conclusion
-The VK integration leverages a clean factory pattern with centralized state dispenser sharing, deterministic handler ordering, payload-driven navigation, and comprehensive RAG integration with centralized service management to deliver a sophisticated, extensible bot. The new centralized state management system ensures consistent state persistence across all handlers through a shared BuiltinStateDispenser instance, while the centralized QA service access layer provides consistent error handling and resource management across all HR-related handlers. By following the established patterns—registering labelers in order, using shared keyboard builders, implementing centralized state management, integrating the centralized QA service access layer, and following the centralized initialization process—the system supports easy extension and maintenance. For production, consider migrating to VK webhooks, adding structured error handling and logging, and implementing proper QA service lifecycle management.
+The VK integration leverages a clean factory pattern with centralized state dispenser sharing, deterministic handler ordering, payload-driven navigation, and comprehensive RAG integration with centralized service management to deliver a sophisticated, extensible bot. The new centralized state management system ensures consistent state persistence across all handlers through a shared BuiltinStateDispenser instance, while the centralized QA service access layer provides consistent error handling and resource management across all HR-related handlers. 
+
+**Updated** The system now includes significant user experience improvements through intelligent timeout handling for RAG responses and automatic question context prepending, making the bot more responsive and user-friendly. These enhancements demonstrate the importance of continuous improvement in bot UX design, showing how thoughtful additions to the centralized utilities module can dramatically improve user satisfaction.
+
+The new `query_rag_with_wait()` function provides intelligent timeout detection that automatically sends "please wait" notifications when RAG responses take longer than 3 seconds, while the `send_rag_answer()` helper function standardizes RAG response handling across all handlers by automatically setting typing indicators, querying RAG with timeout handling, prepending question context, truncating responses to VK limits, and adding appropriate navigation keyboards.
+
+By following the established patterns—registering labelers in order, using shared keyboard builders, implementing centralized state management, integrating the centralized QA service access layer, and following the centralized initialization process—the system supports easy extension and maintenance. For production, consider migrating to VK webhooks, adding structured error handling and logging, and implementing proper QA service lifecycle management.
 
 ## Appendices
 
@@ -748,7 +881,7 @@ Steps to add a new section:
 - Build a keyboard with the service row to ensure Back/Home/Contact HR are always available
 - Register the new labeler in the factory's loader list and ensure it precedes fallback
 
-**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `app.integrations.vk.handlers` and using the provided utility functions for consistent error handling and resource management.
+**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `app.integrations.vk.handlers` and using the provided utility functions for consistent error handling and resource management. **New** Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers.
 
 References:
 - Payload constants: [keyboards.py:13-24](file://app/integrations/vk/keyboards.py#L13-L24)
@@ -756,6 +889,7 @@ References:
 - Centralized state dispenser access: [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
 - Centralized QA access patterns: [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
 - Keyboard service row: [keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
+- **New** Timeout handling: [handlers/__init__.py:46-86](file://app/integrations/vk/handlers/__init__.py#L46-L86)
 
 **Section sources**
 - [keyboards.py:13-50](file://app/integrations/vk/keyboards.py#L13-L50)
@@ -797,6 +931,10 @@ References:
 - Use centralized utilities for consistent state management and error handling patterns
 - Ensure state dispenser is properly shared between bot and handlers for consistent state persistence
 - Implement proper resource management for graceful initialization and cleanup of RAG components
+- **New** Use intelligent timeout handling for any handler that processes user questions to improve user experience
+- **New** Always use automatic question context prepending to maintain conversation clarity and traceability
+- **New** Standardize RAG response handling across all handlers using the `send_rag_answer()` helper function
+- **New** Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses
 
 ### Centralized State and QA Service Integration Patterns
 - Initialize state dispenser during bot creation and register with centralized utilities for immediate state management capabilities
@@ -811,6 +949,9 @@ References:
 - Monitor QA service health and implement graceful degradation strategies through centralized access layer
 - Ensure centralized state dispenser is initialized before handler registration to prevent runtime errors
 - Ensure centralized QA service is initialized before handler registration to prevent runtime errors
+- **New** Use `query_rag_with_wait()` for any handler that processes user questions to provide intelligent timeout handling
+- **New** Always use `send_rag_answer()` instead of direct QA service calls to ensure consistent user experience and question context preservation
+- **New** Leverage the centralized utilities module for consistent error handling and resource management patterns across all handlers
 
 **Section sources**
 - [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
@@ -818,3 +959,4 @@ References:
 - [qa_service.py:51-120](file://app/domain/qa_service.py#L51-L120)
 - [test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
 - [test_bot_factory.py:82-86](file://tests/test_bot_factory.py#L82-L86)
+- [test_ask_block9.py:94-112](file://tests/test_ask_block9.py#L94-L112)

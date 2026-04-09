@@ -32,6 +32,7 @@
 - [app/integrations/vk/handlers/fire.py](file://app/integrations/vk/handlers/fire.py)
 - [app/integrations/vk/handlers/vacation.py](file://app/integrations/vk/handlers/vacation.py)
 - [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
+- [app/integrations/vk/handlers/__init__.py](file://app/integrations/vk/handlers/__init__.py)
 - [app/domain/content.py](file://app/domain/content.py)
 - [app/domain/entities.py](file://app/domain/entities.py)
 - [app/domain/qa_service.py](file://app/domain/qa_service.py)
@@ -45,6 +46,7 @@
 - [app/storage/models.py](file://app/storage/models.py)
 - [app/storage/database.py](file://app/storage/database.py)
 - [app/storage/document_repo.py](file://app/storage/document_repo.py)
+- [app/resources.py](file://app/resources.py)
 - [templates/login.html](file://templates/login.html)
 - [templates/documents.html](file://templates/documents.html)
 - [templates/partials/pagination.html](file://templates/partials/pagination.html)
@@ -54,11 +56,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive test coverage for new filtering and sorting API endpoints
-- Enhanced DocumentRepository filtering and sorting capabilities testing
-- Expanded RAG pipeline testing with indexer and document service validation
-- Added extensive test suites validating new functionality across multiple test files
-- Updated to reflect Applied Changes: Comprehensive test coverage for new filtering and sorting API endpoints, DocumentRepository filtering and sorting capabilities, enhanced RAG pipeline testing, and extensive test suites validating new functionality across multiple test files
+- Updated QAService testing to reflect that QAService no longer closes Qdrant clients internally
+- Updated handler testing patterns to reflect the new send_rag_answer() function naming convention
+- Enhanced QA service testing to validate the new resource management approach
+- Updated handler imports testing to reflect the new send_rag_answer helper function usage
+- Updated architectural testing patterns to validate the new resource ownership model
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -73,9 +75,9 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly expanded to cover new domain content, entity definitions, keyboard builders, RAG stub functionality, custom rules, enhanced handler registration testing, comprehensive Block 9 functionality including scenario detection, background-topic disclaimer handling, QA service integration, the new Block 12 admin document API with authentication and Russian localization, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, and **extensive test suites validating new functionality across multiple test files**. It explains how pytest is configured and used, how to test asynchronous bot components, and how to validate behavior without relying on live external services. Practical examples are provided via file references to the actual test suite and implementation.
+This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly expanded to cover new domain content, entity definitions, keyboard builders, RAG stub functionality, custom rules, enhanced handler registration testing, comprehensive Block 9 functionality including scenario detection, background-topic disclaimer handling, QA service integration, the new Block 12 admin document API with authentication and Russian localization, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns reflecting the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing**. It explains how pytest is configured and used, how to test asynchronous bot components, and how to validate behavior without relying on live external services. Practical examples are provided via file references to the actual test suite and implementation.
 
-**Updated** Enhanced with comprehensive test coverage for new RAG stub features, including dedicated test classes for FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) functionality, expanded handler registration verification with detailed count breakdown, comprehensive Block 9 testing infrastructure for scenario detection and QA service integration, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, and **extensive test suites validating new functionality across multiple test files**.
+**Updated** Enhanced with comprehensive test coverage for new RAG stub features, including dedicated test classes for FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) functionality, expanded handler registration verification with detailed count breakdown, comprehensive Block 9 testing infrastructure for scenario detection and QA service integration, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns reflecting the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing**.
 
 ## Project Structure
 The testing effort is organized under the tests/ directory and targets all major components of the VK integration, the new document storage system, the RAG pipeline, and the Block 12 admin functionality:
@@ -85,10 +87,10 @@ The testing effort is organized under the tests/ directory and targets all major
 - Domain content validation (static content and formatters)
 - Entity definitions and legal entity management
 - RAG stub service and knowledge base integration with specialized test classes
-- QA service testing with RAG chain wrapper functionality
+- QA service testing with RAG chain wrapper functionality and new query_rag_with_wait approach, **now including resource management testing for Qdrant client lifecycle**
 - Custom payload matching rules
 - State machine definitions
-- Handler modules (start, sections, fallback, fire, vacation, ask)
+- Handler modules (start, sections, fallback, fire, vacation, ask) with updated architectural patterns
 - Topic hints detection for scenario linking and disclaimer handling
 - **Document storage system testing with comprehensive database initialization, CRUD operations, status transitions, search enablement functionality, and filtering/sorting capabilities**
 - **Enhanced RAG infrastructure testing with llama.cpp provider dispatch logic, configuration parameter validation, and integration with existing RAG components**
@@ -96,6 +98,8 @@ The testing effort is organized under the tests/ directory and targets all major
 - **Block 12 admin document API testing with authentication, authorization, Russian localization validation, and filtering/sorting functionality**
 - **Expanded RAG pipeline testing with indexer validation and document service lifecycle management**
 - **Comprehensive filtering and sorting API endpoint testing with status, source type, and sort field validation**
+- **Updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach across all handlers**
+- **Updated QAService testing validating resource management and Qdrant client lifecycle ownership**
 
 ```mermaid
 graph TB
@@ -147,6 +151,7 @@ PARTIALS["partials/"]
 PAGINATION["pagination.html"]
 SCRIPTS["scripts/"]
 RUN_LLAMA["run_llama_qwen.sh"]
+RESOURCES["app/resources.py"]
 T --> T_CFG
 T --> T_BOT
 T --> T_KB
@@ -191,6 +196,7 @@ APP --> CFG
 RAG --> CHAIN
 RAG --> RETRIEVER
 SCRIPTS --> RUN_LLAMA
+RESOURCES --> RESOURCES
 ```
 
 **Diagram sources**
@@ -200,10 +206,10 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_keyboards_block2.py:1-254](file://tests/test_keyboards_block2.py#L1-L254)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
-- [tests/test_rag_stub_block3.py:1-98](file://tests/test_rag_stub_block3.py#L1-L98)
+- [tests/test_rag_stub_block3.py:1-106](file://tests/test_rag_stub_block3.py#L1-L106)
 - [tests/test_rag_block6.py:1-413](file://tests/test_rag_block6.py#L1-L413)
 - [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
-- [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
+- [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
@@ -216,14 +222,15 @@ SCRIPTS --> RUN_LLAMA
 - [app/integrations/vk/rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
 - [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
 - [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
-- [app/integrations/vk/handlers/sections.py:1-82](file://app/integrations/vk/handlers/sections.py#L1-L82)
+- [app/integrations/vk/handlers/sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
 - [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [app/integrations/vk/handlers/fire.py:1-77](file://app/integrations/vk/handlers/fire.py#L1-L77)
-- [app/integrations/vk/handlers/vacation.py:1-88](file://app/integrations/vk/handlers/vacation.py#L1-L88)
-- [app/integrations/vk/handlers/ask.py:1-86](file://app/integrations/vk/handlers/ask.py#L1-L86)
+- [app/integrations/vk/handlers/fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
+- [app/integrations/vk/handlers/vacation.py:1-80](file://app/integrations/vk/handlers/vacation.py#L1-L80)
+- [app/integrations/vk/handlers/ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
+- [app/integrations/vk/handlers/__init__.py:1-91](file://app/integrations/vk/handlers/__init__.py#L1-L91)
 - [app/domain/content.py:1-177](file://app/domain/content.py#L1-L177)
 - [app/domain/entities.py:1-24](file://app/domain/entities.py#L1-L24)
-- [app/domain/qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
+- [app/domain/qa_service.py:1-279](file://app/domain/qa_service.py#L1-L279)
 - [app/domain/topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
 - [app/domain/document_service.py:1-279](file://app/domain/document_service.py#L1-L279)
 - [app/storage/models.py:1-36](file://app/storage/models.py#L1-L36)
@@ -236,6 +243,7 @@ SCRIPTS --> RUN_LLAMA
 - [app/rag/retriever.py:1-103](file://app/rag/retriever.py#L1-L103)
 - [app/api/documents.py:1-951](file://app/api/documents.py#L1-L951)
 - [app/api/deps.py:1-51](file://app/api/deps.py#L1-L51)
+- [app/resources.py:1-201](file://app/resources.py#L1-L201)
 - [templates/login.html:1-56](file://templates/login.html#L1-L56)
 - [templates/documents.html:1-553](file://templates/documents.html#L1-L553)
 - [templates/partials/pagination.html:1-65](file://templates/partials/pagination.html#L1-L65)
@@ -249,10 +257,10 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_keyboards_block2.py:1-254](file://tests/test_keyboards_block2.py#L1-L254)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
-- [tests/test_rag_stub_block3.py:1-98](file://tests/test_rag_stub_block3.py#L1-L98)
+- [tests/test_rag_stub_block3.py:1-106](file://tests/test_rag_stub_block3.py#L1-L106)
 - [tests/test_rag_block6.py:1-413](file://tests/test_rag_block6.py#L1-L413)
 - [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
-- [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
+- [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
@@ -267,19 +275,21 @@ SCRIPTS --> RUN_LLAMA
 - Keyboard tests validate structure, payloads, and service-row behavior (including Block 2 and Block 9 functionality).
 - Domain content tests validate static content, formatters, and RAG stub functionality.
 - Entity tests validate legal entity definitions and management.
-- QA service tests validate RAG chain wrapper functionality with truncation, error handling, and resource management.
+- QA service tests validate RAG chain wrapper functionality with truncation, error handling, and resource management, **including updated testing for Qdrant client lifecycle ownership**, including the new query_rag_with_wait approach.
 - Custom rule tests validate payload matching and routing logic.
 - State machine tests validate the state machine definition and uniqueness.
-- Handler modules are tested indirectly via bot wiring and keyboard payloads.
+- Handler modules are tested indirectly via bot wiring and keyboard payloads, with updated architectural patterns.
 - Enhanced RAG stub testing covers specialized features with dedicated test classes for different functionality blocks.
 - Topic hints tests validate scenario detection and background-topic disclaimer handling.
-- Ask handler tests validate state management, QA service integration, and scenario navigation.
+- Ask handler tests validate state management, QA service integration, and scenario navigation using the new query_rag_with_wait approach.
 - **Document storage system tests validate database initialization, CRUD operations, status transitions, search enablement functionality, and comprehensive filtering/sorting capabilities with 278 lines of new test coverage.**
 - **Enhanced RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter validation, and error handling scenarios.**
 - **Comprehensive parser testing validates document ingestion, section extraction, chunking, and dispatcher functionality for .docx and .doc file processing.**
 - **Block 12 admin document API tests validate authentication, authorization, Russian localization, and comprehensive filtering/sorting functionality with 751 lines of new test coverage.**
 - **Expanded RAG pipeline testing validates indexer chunk preparation, document service lifecycle management, and comprehensive RAG functionality.**
 - **Comprehensive filtering and sorting API endpoint testing validates status filtering, source type filtering, sort field validation, and pagination functionality.**
+- **Updated architectural testing patterns validate the new query_rag_with_wait and send_rag_answer approach across all handlers, replacing the old get_qa_service pattern.**
+- **Updated QAService testing validates resource management with Qdrant client lifecycle ownership, ensuring QAService no longer closes Qdrant clients internally.**
 
 Key testing characteristics:
 - Uses pytest with asyncio_mode set to auto for async-friendly tests.
@@ -289,12 +299,12 @@ Key testing characteristics:
 - Configuration tests explicitly control environment file loading with `_env_file=None`.
 - Comprehensive domain content validation ensures content integrity and formatting.
 - Entity validation ensures legal entity consistency across the application.
-- QA service testing validates RAG chain integration with proper error handling and resource cleanup.
+- QA service testing validates RAG chain integration with proper error handling and resource cleanup, **including updated testing for Qdrant client lifecycle management**, including the new query_rag_with_wait functionality.
 - RAG stub testing validates knowledge base integration placeholders with specialized test classes.
 - Custom rule testing validates advanced payload matching functionality.
 - Handler registration testing provides detailed breakdown of handler counts by functional area.
 - Topic hints testing validates keyword-based scenario detection with background-topic priority.
-- Ask handler testing validates state management and integration with QA service and topic hints.
+- Ask handler testing validates state management and integration with QA service and topic hints using the new query_rag_with_wait approach.
 - **Document storage system testing validates comprehensive database operations including timestamp management, status transitions, search enablement toggling, and filtering/sorting capabilities.**
 - **Llama.cpp provider testing validates provider selection logic, configuration parameter handling, import error scenarios, and integration with existing RAG components.**
 - **Parser testing validates document ingestion pipeline with section extraction, chunking, and metadata handling.**
@@ -303,8 +313,12 @@ Key testing characteristics:
 - **Document service testing validates complete document lifecycle including indexing, reindexing, and metadata management.**
 - **Indexer testing validates chunk preparation, metadata enrichment, and search enablement handling.**
 - **Filtering and sorting API testing validates comprehensive filtering by status, source type, and sorting by multiple fields.**
+- **Updated architectural testing patterns validate the new query_rag_with_wait function for asynchronous RAG querying with timeout handling.**
+- **Handler imports testing validates that P0+P1 handlers use send_rag_answer helper instead of direct QA service calls.**
+- **Sections handler testing validates the new send_rag_answer usage for RAG-powered handlers.**
+- **Updated QAService testing validates that Qdrant clients are not closed internally by QAService, with proper resource ownership management.**
 
-**Updated** Enhanced with comprehensive testing coverage for domain content, entity definitions, keyboard builders, RAG stub functionality, QA service integration, custom payload matching rules, topic hints detection, ask handler validation, document storage system testing, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, and **extensive test suites validating new functionality across multiple test files**.
+**Updated** Enhanced with comprehensive testing coverage for domain content, entity definitions, keyboard builders, RAG stub functionality, QA service integration, custom payload matching rules, topic hints detection, ask handler validation, document storage system testing, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns reflecting the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -314,10 +328,10 @@ Key testing characteristics:
 - [tests/test_keyboards_block2.py:1-254](file://tests/test_keyboards_block2.py#L1-L254)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
-- [tests/test_rag_stub_block3.py:1-98](file://tests/test_rag_stub_block3.py#L1-L98)
+- [tests/test_rag_stub_block3.py:1-106](file://tests/test_rag_stub_block3.py#L1-L106)
 - [tests/test_rag_block6.py:1-413](file://tests/test_rag_block6.py#L1-L413)
 - [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
-- [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
+- [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
@@ -327,7 +341,7 @@ Key testing characteristics:
 - [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
 
 ## Architecture Overview
-The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with detailed breakdown by functional area. The expanded testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, and **extensive test suites validating new functionality across multiple test files**.
+The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with detailed breakdown by functional area. The expanded testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing**.
 
 ```mermaid
 sequenceDiagram
@@ -500,6 +514,8 @@ Purpose:
 - Test response truncation for VK message limits.
 - Validate resource management and cleanup.
 - Test handler integration with QA service for Blocks 7-8 functionality.
+- Validate the new query_rag_with_wait approach for asynchronous RAG querying.
+- **Validate Qdrant client lifecycle management - QAService no longer closes Qdrant clients internally.**
 
 Methodology:
 - Test QA service initialization with proper error handling for unavailable services.
@@ -509,18 +525,27 @@ Methodology:
 - Test response truncation logic with proper word boundary preservation.
 - Test resource cleanup and client closing functionality.
 - Validate handler imports and usage of qa_service across P0+P1 handlers.
+- Validate query_rag_with_wait function for timeout handling and asynchronous RAG querying.
+- Test send_rag_answer helper function for unified RAG answer delivery.
+- **Validate that QAService.close() does NOT close Qdrant clients internally.**
+- **Validate that Qdrant client lifecycle is managed externally by AppResources.close_resources().**
 
 Testing patterns:
 - Module-level state reset using autouse fixtures for clean test environment.
 - Async mock usage for chain invocation testing.
 - Error scenario testing with exception raising and fallback validation.
 - Resource management testing with proper cleanup verification.
+- Timeout handling testing for query_rag_with_wait function.
+- Unified RAG answer delivery testing for send_rag_answer helper.
+- **Resource ownership testing validating external Qdrant client lifecycle management.**
 
-**Updated** Enhanced with comprehensive QA service testing including RAG chain initialization, error handling, response truncation, resource management, and handler integration validation for Blocks 7-8 functionality.
+**Updated** Enhanced with comprehensive QA service testing including RAG chain initialization, error handling, response truncation, resource management, handler integration validation for Blocks 7-8 functionality, **query_rag_with_wait approach validation for asynchronous RAG querying with timeout handling**, **send_rag_answer helper function testing for unified RAG answer delivery**, and **Qdrant client lifecycle management testing validating that QAService no longer owns Qdrant clients internally**.
 
 **Section sources**
-- [tests/test_qa_service.py:15-198](file://tests/test_qa_service.py#L15-L198)
-- [app/domain/qa_service.py:23-120](file://app/domain/qa_service.py#L23-L120)
+- [tests/test_qa_service.py:15-238](file://tests/test_qa_service.py#L15-L238)
+- [app/domain/qa_service.py:23-279](file://app/domain/qa_service.py#L23-L279)
+- [app/integrations/vk/handlers/__init__.py:46-91](file://app/integrations/vk/handlers/__init__.py#L46-L91)
+- [app/resources.py:173-192](file://app/resources.py#L173-L192)
 
 ### Topic Hints Detection and Scenario Navigation Testing
 Purpose:
@@ -529,6 +554,7 @@ Purpose:
 - Ensure proper priority handling between background topics and scenarios.
 - Validate integration with ask handler for scenario navigation.
 - Test handler import validation for topic hints usage.
+- Validate ask handler imports query_rag_with_wait instead of get_qa_service.
 
 Methodology:
 - Test scenario detection for hire, fire, vacation, pay, sick, and probation keywords.
@@ -538,14 +564,18 @@ Methodology:
 - Test combined scenario and disclaimer detection.
 - Validate ask handler imports and topic hints integration.
 - Test QA service usage instead of rag_stub in ask handler.
+- **Validate ask handler imports query_rag_with_wait function for asynchronous RAG querying.**
+- **Validate ask handler does not import rag_stub module.**
 
 Testing patterns:
 - Keyword-based detection testing with comprehensive keyword coverage.
 - Priority testing ensures background topics take precedence over scenarios.
 - Integration testing validates ask handler state management and navigation.
 - Import testing ensures proper module dependencies.
+- **Timeout handling validation for query_rag_with_wait function.**
+- **Direct QA service import validation for ask handler.**
 
-**Updated** Added comprehensive topic hints testing for Block 9 functionality including scenario detection, background-topic disclaimer handling, priority validation, ask handler integration, and QA service usage instead of rag_stub.
+**Updated** Added comprehensive topic hints testing for Block 9 functionality including scenario detection, background-topic disclaimer handling, priority validation, ask handler integration, QA service usage instead of rag_stub, **ask handler imports validation for query_rag_with_wait instead of get_qa_service**, and **direct QA service import validation**.
 
 **Section sources**
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
@@ -614,7 +644,7 @@ Methodology:
 - Test read operations including get by ID, list_all ordering, and missing record handling.
 - Validate update operations including selective field updates, status transitions, and timestamp bumping.
 - Test search enablement toggling maintains document status while updating search flag.
-- Validate delete operations and their effects on other records.
+- Test delete operations and their effects on other records.
 - **Test status filtering with 'completed', 'pending', 'failed', and 'all' values.**
 - **Test source type filtering with 'docx', 'doc', 'other', and 'all' values.**
 - **Test multi-field sorting with 'title', 'created_at', and 'status' fields.**
@@ -796,7 +826,7 @@ Current coverage:
 - Enhanced RAG stub testing validates specialized feature implementations.
 - QA service testing validates RAG chain integration across handlers.
 - Topic hints testing validates scenario detection and navigation.
-- Ask handler testing validates state management and integration with QA service.
+- Ask handler testing validates state management and integration with QA service using the new query_rag_with_wait approach.
 - **Document storage system testing validates comprehensive database operations and lifecycle management.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter handling, and error scenarios.**
 - **Comprehensive parser testing validates document ingestion pipeline and dispatcher functionality.**
@@ -804,6 +834,8 @@ Current coverage:
 - **Document service testing validates complete document lifecycle management and Qdrant integration.**
 - **Indexer testing validates chunk preparation and metadata enrichment.**
 - **Comprehensive filtering and sorting API testing validates status, source type, and sort field functionality.**
+- **Updated architectural testing patterns validate the new query_rag_with_wait and send_rag_answer approach across all handlers.**
+- **Updated QAService testing validates Qdrant client lifecycle management and resource ownership.**
 
 Testing approach:
 - Since handlers are async and depend on message events, tests focus on wiring and keyboard payloads.
@@ -812,7 +844,7 @@ Testing approach:
 - Specialized RAG stub testing validates feature-specific handler implementations.
 - QA service testing validates proper module imports and error handling.
 - Topic hints testing validates keyword-based detection and integration with ask handler.
-- Ask handler testing validates state management and scenario navigation.
+- Ask handler testing validates state management and scenario navigation using the new query_rag_with_wait approach.
 - **Document storage system testing validates repository operations and data integrity.**
 - **Llama.cpp provider testing validates provider selection logic, configuration parameter handling, import error scenarios, and integration with existing RAG components.**
 - **Parser testing validates document ingestion pipeline with section extraction and chunking logic.**
@@ -822,6 +854,10 @@ Testing approach:
 - **Filtering and sorting API testing validates comprehensive filtering and sorting scenarios with proper parameter handling.**
 - **Auth client fixture testing validates authenticated TestClient creation with pre-set cookies.**
 - **Use comprehensive test suites to validate new functionality across multiple components.**
+- **Updated architectural testing patterns validate the new query_rag_with_wait function for timeout handling and asynchronous RAG querying.**
+- **Handler imports testing validates that P0+P1 handlers use send_rag_answer helper instead of direct QA service calls.**
+- **Sections handler testing validates the new send_rag_answer usage for RAG-powered handlers.**
+- **Updated QAService testing validates Qdrant client lifecycle management with external resource ownership.**
 
 Mocking external dependencies:
 - Replace VK API calls with mocks or fakes in higher-level integration tests.
@@ -837,6 +873,10 @@ Mocking external dependencies:
 - **Use MagicMock for Qdrant client and embeddings in document service testing.**
 - **Use parameterized tests for filtering and sorting scenarios.**
 - **Validate comprehensive filtering and sorting functionality across multiple test files.**
+- **Validate the new query_rag_with_wait approach for asynchronous RAG querying with timeout handling.**
+- **Validate send_rag_answer helper function for unified RAG answer delivery.**
+- **Validate handler imports for query_rag_with_wait and send_rag_answer functions.**
+- **Validate Qdrant client lifecycle management with external resource ownership.**
 
 Validation tips:
 - Use keyboard payload assertions to confirm routing correctness.
@@ -847,7 +887,7 @@ Validation tips:
 - Validate handler availability for new feature implementations.
 - Test QA service error handling and resource management.
 - Validate topic hints detection with comprehensive keyword coverage.
-- Test ask handler state management and scenario navigation.
+- Test ask handler state management and scenario navigation using query_rag_with_wait.
 - **Validate document storage operations including timestamp management and status transitions.**
 - **Test search enablement toggling and its effects on retrieval functionality.**
 - **Validate database initialization and table creation.**
@@ -867,18 +907,23 @@ Validation tips:
 - **Validate comprehensive filtering and sorting API functionality.**
 - **Test pagination with filtering and sorting parameters.**
 - **Validate filter metadata in API responses.**
+- **Validate query_rag_with_wait function for timeout handling and asynchronous RAG querying.**
+- **Validate send_rag_answer helper function for unified RAG answer delivery.**
+- **Validate handler imports for query_rag_with_wait and send_rag_answer functions.**
+- **Validate Qdrant client lifecycle management with external resource ownership.**
 
-**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation, document storage system testing for comprehensive database operations, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, and **extensive test suites validating new functionality across multiple test files**.
+**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation using query_rag_with_wait, document storage system testing for comprehensive database operations, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, and **extensive test suites validating new functionality across multiple test files**, including **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService testing validating Qdrant client lifecycle management**.
 
 **Section sources**
 - [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
-- [app/integrations/vk/handlers/sections.py:28-82](file://app/integrations/vk/handlers/sections.py#L28-L82)
+- [app/integrations/vk/handlers/sections.py:28-35](file://app/integrations/vk/handlers/sections.py#L28-L35)
 - [app/integrations/vk/handlers/fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
 - [app/integrations/vk/keyboards.py:104-108](file://app/integrations/vk/keyboards.py#L104-L108)
 - [app/integrations/vk/rules.py:21-30](file://app/integrations/vk/rules.py#L21-L30)
-- [app/integrations/vk/handlers/fire.py:68-77](file://app/integrations/vk/handlers/fire.py#L68-L77)
-- [app/integrations/vk/handlers/vacation.py:79-88](file://app/integrations/vk/handlers/vacation.py#L79-L88)
+- [app/integrations/vk/handlers/fire.py:68-74](file://app/integrations/vk/handlers/fire.py#L68-L74)
+- [app/integrations/vk/handlers/vacation.py:79-80](file://app/integrations/vk/handlers/vacation.py#L79-L80)
 - [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
+- [app/integrations/vk/handlers/__init__.py:46-91](file://app/integrations/vk/handlers/__init__.py#L46-L91)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
 - [tests/test_api_documents.py:1-751](file://tests/test_api_documents.py#L1-L751)
@@ -987,6 +1032,70 @@ Testing patterns:
 - [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
 - [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
 
+### Updated Architectural Testing Patterns
+**New Section** - Validating the new query_rag_with_wait and send_rag_answer approach
+
+Purpose:
+- Validate the new query_rag_with_wait function for asynchronous RAG querying with timeout handling.
+- Test the new send_rag_answer helper function for unified RAG answer delivery.
+- Ensure P0+P1 handlers use send_rag_answer instead of direct QA service calls.
+- Validate ask handler imports query_rag_with_wait instead of get_qa_service.
+- Test timeout handling and "please wait" messaging functionality.
+
+Methodology:
+- Test query_rag_with_wait function with timeout parameter validation.
+- Test timeout handling with asyncio.wait and task cancellation.
+- Test "please wait" message sending when RAG is slow.
+- Test send_rag_answer helper function for unified RAG answer delivery.
+- Test handler imports validation for query_rag_with_wait and send_rag_answer.
+- Test ask handler validation for new import patterns.
+- Test sections handler validation for send_rag_answer usage.
+
+Testing patterns:
+- Use AsyncMock for QA service testing to simulate chain responses.
+- Test timeout scenarios with asyncio.sleep and task completion.
+- Validate unified RAG answer delivery across different handler types.
+- Test import validation using hasattr and inspect.getsource.
+- Test handler availability and integration for new architectural patterns.
+
+**Updated** Added comprehensive architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach, including **query_rag_with_wait function testing for timeout handling and asynchronous RAG querying**, **send_rag_answer helper function testing for unified RAG answer delivery**, **handler imports validation for the new architectural patterns**, and **ask handler testing for query_rag_with_wait instead of get_qa_service**.
+
+**Section sources**
+- [tests/test_ask_block9.py:92-112](file://tests/test_ask_block9.py#L92-L112)
+- [tests/test_qa_service.py:213-238](file://tests/test_qa_service.py#L213-L238)
+- [tests/test_rag_stub_block3.py:33-76](file://tests/test_rag_stub_block3.py#L33-L76)
+- [app/integrations/vk/handlers/__init__.py:46-91](file://app/integrations/vk/handlers/__init__.py#L46-L91)
+- [app/integrations/vk/handlers/ask.py:21-22](file://app/integrations/vk/handlers/ask.py#L21-L22)
+
+### Updated QAService Resource Management Testing
+**New Section** - Validating Qdrant client lifecycle management
+
+Purpose:
+- Validate that QAService no longer closes Qdrant clients internally.
+- Test external Qdrant client lifecycle management by AppResources.
+- Ensure proper resource ownership separation between QAService and Qdrant client.
+- Validate AppResources.close_resources() properly closes Qdrant clients.
+
+Methodology:
+- Test QAService.close() does NOT call qdrant_client.close().
+- Test AppResources.close_resources() DOES call qdrant_client.close().
+- Validate that Qdrant client lifecycle is managed externally.
+- Test error handling scenarios for Qdrant client closure.
+- Validate that QAService state is properly reset without closing Qdrant.
+
+Testing patterns:
+- Use MagicMock for Qdrant client in QAService testing.
+- Test external resource management with AppResources.close_resources().
+- Validate proper error handling for Qdrant client closure failures.
+- Test that QAService state is reset without side effects on Qdrant client.
+
+**Updated** Added comprehensive QAService resource management testing validating that Qdrant clients are not closed internally by QAService, with proper external resource ownership management by AppResources.close_resources().
+
+**Section sources**
+- [tests/test_qa_service.py:191-211](file://tests/test_qa_service.py#L191-L211)
+- [app/domain/qa_service.py:271-279](file://app/domain/qa_service.py#L271-L279)
+- [app/resources.py:173-192](file://app/resources.py#L173-L192)
+
 ## Dependency Analysis
 The test suite depends on:
 - pytest and pytest-asyncio for async-friendly test execution.
@@ -1007,6 +1116,8 @@ The test suite depends on:
 - **MagicMock for Qdrant client and embeddings in document service testing.**
 - **Parameterized tests for filtering and sorting scenarios.**
 - **Comprehensive test suites validation across multiple components.**
+- **Updated architectural testing patterns validating query_rag_with_wait and send_rag_answer approach.**
+- **Updated QAService resource management testing validating Qdrant client lifecycle ownership.**
 
 ```mermaid
 graph TB
@@ -1031,6 +1142,8 @@ EM["Embedding Model Testing"]
 DOC_SERVICE["Document Service Testing"]
 INDEXER["Indexer Testing"]
 FS["Filtering & Sorting Testing"]
+ARCH["Architectural Testing Patterns"]
+QAS["QAService Resource Management Testing"]
 PY --> P
 PY --> PA
 PY --> VK
@@ -1051,6 +1164,8 @@ PY --> EM
 PY --> DOC_SERVICE
 PY --> INDEXER
 PY --> FS
+PY --> ARCH
+PY --> QAS
 ```
 
 **Diagram sources**
@@ -1089,8 +1204,11 @@ PY --> FS
 - **Indexer testing should validate chunk preparation performance with metadata enrichment.**
 - **Filtering and sorting API testing should validate SQL query performance with parameter binding.**
 - **Pagination testing should validate efficient query construction with filtering parameters.**
+- **Updated architectural testing patterns should validate query_rag_with_wait performance with timeout handling.**
+- **Handler imports testing should validate minimal import overhead for new architectural patterns.**
+- **Updated QAService resource management testing should validate external Qdrant client lifecycle management.**
 
-**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with temporary databases, llama.cpp provider testing optimization, **comprehensive filtering and sorting API testing with parameterized scenarios**, **comprehensive document service testing with lightweight mocking**, and **comprehensive indexer testing with metadata enrichment validation**.
+**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with temporary databases, llama.cpp provider testing optimization, **comprehensive filtering and sorting API testing with parameterized scenarios**, **comprehensive document service testing with lightweight mocking**, **comprehensive indexer testing with metadata enrichment validation**, **updated architectural testing patterns validation for query_rag_with_wait and send_rag_answer performance**, **handler imports testing optimization**, and **updated QAService resource management testing validation**.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -1108,7 +1226,7 @@ Common issues and resolutions:
 - FR-11/FR-12 feature validation failures: Ensure dedicated test classes are properly targeting new functionality.
 - QA service failures: Check RAG chain initialization, error handling, and resource management.
 - Topic hints failures: Validate keyword matching logic and priority handling.
-- Ask handler failures: Test state management, QA service integration, and scenario navigation.
+- Ask handler failures: Test state management, QA service integration, and scenario navigation using query_rag_with_wait.
 - Keyboard validation failures: Ensure proper scenario button generation and service row consistency.
 - **Document storage failures: Validate database initialization, CRUD operations, and timestamp management.**
 - **Document storage CRUD failures: Test create, read, update, and delete operations with proper error handling.**
@@ -1139,6 +1257,11 @@ Common issues and resolutions:
 - **Filtering and sorting API sort failures: Test multi-field sorting with all directions.**
 - **Filtering and sorting API pagination failures: Test pagination with filtering parameters.**
 - **Filtering and sorting API metadata failures: Validate filter metadata in responses.**
+- **Updated architectural testing failures: Validate query_rag_with_wait timeout handling and task cancellation.**
+- **Handler imports failures: Test that P0+P1 handlers use send_rag_answer instead of direct QA service calls.**
+- **Ask handler imports failures: Test that ask handler imports query_rag_with_wait instead of get_qa_service.**
+- **Sections handler failures: Test that sections handler uses send_rag_answer for RAG-powered handlers.**
+- **Updated QAService resource management failures: Validate Qdrant client lifecycle management with external ownership.**
 
 Debugging tips:
 - Print or log parsed keyboard JSON during development to validate structure.
@@ -1150,7 +1273,7 @@ Debugging tips:
 - Check handler availability and integration for new feature implementations.
 - Use AsyncMock for QA service testing to simulate chain responses without network dependencies.
 - Validate topic hints detection with comprehensive keyword coverage and priority testing.
-- Test ask handler state management with proper cleanup and error handling.
+- Test ask handler state management with proper cleanup and error handling using query_rag_with_wait.
 - **Use temporary SQLite databases for document storage system debugging.**
 - **Validate timestamp precision and data type conversions in storage tests.**
 - **Use patch.dict for mocking module imports in llama.cpp provider testing.**
@@ -1173,8 +1296,12 @@ Debugging tips:
 - **Validate filtering and sorting API functionality with parameterized scenarios.**
 - **Test pagination with filtering and sorting parameters.**
 - **Validate filter metadata inclusion in API responses.**
+- **Validate query_rag_with_wait function for timeout handling and task cancellation.**
+- **Validate send_rag_answer helper function for unified RAG answer delivery.**
+- **Validate handler imports for query_rag_with_wait and send_rag_answer functions.**
+- **Validate Qdrant client lifecycle management with external resource ownership.**
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation, keyboard validation failures, document storage system testing with comprehensive debugging strategies, llama.cpp provider testing scenarios, **comprehensive filtering and sorting API testing with parameterized debugging**, **comprehensive document service testing with lightweight mocking**, and **comprehensive indexer testing with metadata validation debugging**.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, llama.cpp provider testing scenarios, **comprehensive filtering and sorting API testing with parameterized debugging**, **comprehensive document service testing with lightweight mocking**, **comprehensive indexer testing with metadata validation debugging**, **updated architectural testing patterns validation for query_rag_with_wait and send_rag_answer**, **handler imports testing validation**, and **updated QAService resource management testing validation**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1201,12 +1328,12 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - Domain content is validated for static content integrity and proper formatting.
 - Entity definitions are validated for consistency and uniqueness.
 - RAG stub functionality is tested for knowledge base integration with specialized test classes.
-- QA service testing validates RAG chain integration with proper error handling and resource management.
+- QA service testing validates RAG chain integration with proper error handling and resource management, **including updated testing for Qdrant client lifecycle ownership**, including the new query_rag_with_wait approach.
 - Custom payload matching rules are validated for advanced routing.
 - State machine definitions are validated for completeness and uniqueness.
 - Handler testing validates both general functionality and specialized feature implementations.
 - Topic hints testing validates scenario detection and background-topic disclaimer handling.
-- Ask handler testing validates state management, QA service integration, and scenario navigation.
+- Ask handler testing validates state management, QA service integration, and scenario navigation using the new query_rag_with_wait approach.
 - **Document storage system testing validates comprehensive database operations including timestamp management, status transitions, search enablement functionality, and filtering/sorting capabilities with 278 lines of new test coverage.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter handling, and error scenarios.**
 - **Comprehensive parser testing validates document ingestion pipeline with section extraction, chunking, and metadata handling.**
@@ -1215,6 +1342,8 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - **Indexer testing validates chunk preparation with metadata enrichment and search enablement handling.**
 - **Comprehensive filtering and sorting API testing validates status, source type, and sort field functionality with 140+ lines of new test coverage.**
 - **Comprehensive embedding model configuration testing validates the new default 'qwen3-embedding:4b-q4_K_M' and provider-specific model selection.**
+- **Updated architectural testing patterns validate the new query_rag_with_wait and send_rag_answer approach across all handlers, replacing the old get_qa_service pattern.**
+- **Updated QAService testing validates Qdrant client lifecycle management with external resource ownership, ensuring QAService no longer closes Qdrant clients internally.**
 
 To evolve the test suite:
 - Introduce event-driven tests for handlers to validate async behavior.
@@ -1227,9 +1356,9 @@ To evolve the test suite:
 - Expand custom rule testing to cover edge cases and error scenarios.
 - Enhance specialized RAG stub testing for new feature implementations.
 - Continue expanding handler registration testing with detailed functional area breakdown.
-- Add comprehensive QA service testing with realistic error scenarios.
+- Add comprehensive QA service testing with realistic error scenarios and query_rag_with_wait validation.
 - Expand topic hints testing with performance validation and edge case coverage.
-- Implement ask handler testing with state management and integration validation.
+- Implement ask handler testing with state management and integration validation using query_rag_with_wait.
 - Add keyboard validation testing for scenario navigation and service row consistency.
 - **Add comprehensive document storage system testing for lifecycle management and data integrity with filtering/sorting validation.**
 - **Validate database initialization and table creation with proper error handling.**
@@ -1258,8 +1387,13 @@ To evolve the test suite:
 - **Add comprehensive embedding model configuration testing for provider-specific model validation.**
 - **Test embedding model parameter passing to build_embeddings function.**
 - **Validate error handling for missing embedding models in different providers.**
+- **Add comprehensive architectural testing patterns validation for query_rag_with_wait and send_rag_answer.**
+- **Test handler imports validation for the new architectural patterns.**
+- **Validate timeout handling and unified RAG answer delivery across all handlers.**
+- **Add comprehensive QAService resource management testing for Qdrant client lifecycle validation.**
+- **Validate external Qdrant client lifecycle management with AppResources.close_resources().**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, and **comprehensive test suites validating new functionality across multiple test files**.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing validating Qdrant client lifecycle ownership**.
 
 ## Appendices
 
@@ -1279,6 +1413,9 @@ To evolve the test suite:
 - **Run document service tests for complete lifecycle management validation (e.g., `pytest tests/test_document_service.py`).**
 - **Run indexer tests for chunk preparation validation (e.g., `pytest tests/test_indexer.py`).**
 - **Run filtering and sorting API tests for comprehensive filtering/sorting functionality (e.g., `pytest tests/test_api_documents.py::TestFilterSortAPI`).**
+- **Run architectural testing patterns tests for query_rag_with_wait and send_rag_answer validation (e.g., `pytest tests/test_ask_block9.py::TestAskHandlerImports`).**
+- **Run handler imports tests for the new architectural patterns (e.g., `pytest tests/test_qa_service.py::TestHandlerImports`).**
+- **Run QAService resource management tests for Qdrant client lifecycle validation (e.g., `pytest tests/test_qa_service.py::TestQAServiceClose`).**
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1297,9 +1434,9 @@ To evolve the test suite:
 - Test specialized RAG stub features with dedicated test classes for targeted validation.
 - Validate handler availability and integration for new feature implementations.
 - Use detailed handler count breakdown to ensure comprehensive coverage.
-- Add comprehensive QA service testing with error handling and resource management.
+- Add comprehensive QA service testing with error handling, resource management, and query_rag_with_wait validation.
 - Validate topic hints detection with keyword-based matching and priority handling.
-- Test ask handler state management and integration with QA service and topic hints.
+- Test ask handler state management and integration with QA service and topic hints using query_rag_with_wait.
 - Implement keyboard validation testing for scenario navigation and service row consistency.
 - **Use temporary SQLite databases for document storage system testing.**
 - **Validate timestamp precision and data type conversions in storage tests.**
@@ -1328,5 +1465,10 @@ To evolve the test suite:
 - **Validate comprehensive filtering and sorting API functionality.**
 - **Test pagination with filtering and sorting parameters.**
 - **Validate filter metadata in API responses.**
+- **Validate query_rag_with_wait function for timeout handling and asynchronous RAG querying.**
+- **Validate send_rag_answer helper function for unified RAG answer delivery.**
+- **Validate handler imports for query_rag_with_wait and send_rag_answer functions.**
+- **Validate Qdrant client lifecycle management with external resource ownership.**
+- **Validate timeout handling and unified RAG answer delivery across all handlers.**
 
-**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, comprehensive feature testing strategies, QA service testing, topic hints detection validation, ask handler testing, keyboard validation testing, document storage system testing with temporary databases, llama.cpp provider testing strategies, **comprehensive filtering and sorting API testing with parameterized scenarios**, **comprehensive document service testing with lightweight mocking**, **comprehensive indexer testing with metadata enrichment validation**, and **comprehensive embedding model configuration testing**.
+**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with temporary databases, llama.cpp provider testing strategies, **comprehensive filtering and sorting API testing with parameterized scenarios**, **comprehensive document service testing with lightweight mocking**, **comprehensive indexer testing with metadata enrichment validation**, **comprehensive embedding model configuration testing**, **updated architectural testing patterns validation for query_rag_with_wait and send_rag_answer**, **handler imports testing validation**, and **updated QAService resource management testing validation**.
