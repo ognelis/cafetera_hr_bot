@@ -56,11 +56,13 @@
 
 ## Update Summary
 **Changes Made**
-- Updated QAService testing to reflect that QAService no longer closes Qdrant clients internally
-- Updated handler testing patterns to reflect the new send_rag_answer() function naming convention
-- Enhanced QA service testing to validate the new resource management approach
-- Updated handler imports testing to reflect the new send_rag_answer helper function usage
-- Updated architectural testing patterns to validate the new resource ownership model
+- Updated handler testing patterns to reflect simplified test structure with 25 total handlers (down from 34)
+- Removed HR request handler tests completely from test suites
+- Updated handler count verification from 34 handlers to 25 handlers
+- Simplified keyboard testing to focus on remaining 5 core handlers
+- Updated documentation to reflect new test structure focusing on remaining 5 handlers and simplified keyboard validation
+- Removed references to HR request handler ordering and keyboard layouts
+- Updated architectural testing patterns to validate new query_rag_with_wait and send_rag_answer approach
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -75,22 +77,22 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly expanded to cover new domain content, entity definitions, keyboard builders, RAG stub functionality, custom rules, enhanced handler registration testing, comprehensive Block 9 functionality including scenario detection, background-topic disclaimer handling, QA service integration, the new Block 12 admin document API with authentication and Russian localization, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns reflecting the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing**. It explains how pytest is configured and used, how to test asynchronous bot components, and how to validate behavior without relying on live external services. Practical examples are provided via file references to the actual test suite and implementation.
+This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been streamlined to focus on the core 5 handlers (start, ask, hire, fire, vacation, pay, sections) with simplified keyboard validation, while maintaining comprehensive coverage of configuration loading, bot factory functionality, domain content validation, entity management, RAG service integration, custom rules, state management, and administrative document API testing.
 
-**Updated** Enhanced with comprehensive test coverage for new RAG stub features, including dedicated test classes for FR-11 (vacation schedule navigator) and FR-12 (dismissal grounds) functionality, expanded handler registration verification with detailed count breakdown, comprehensive Block 9 testing infrastructure for scenario detection and QA service integration, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns reflecting the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing**.
+**Updated** Enhanced with comprehensive test coverage for the simplified handler structure, focusing on the core 5 handlers and updated architectural patterns for query_rag_with_wait and send_rag_answer approach.
 
 ## Project Structure
-The testing effort is organized under the tests/ directory and targets all major components of the VK integration, the new document storage system, the RAG pipeline, and the Block 12 admin functionality:
+The testing effort is organized under the tests/ directory and targets the core components of the VK integration, domain functionality, and administrative features:
 - Configuration loading and defaults with explicit environment file control
-- Bot factory and handler registration order with detailed handler counting
-- Keyboard builders and payload constants (including Block 2 and Block 9 functionality)
+- Bot factory and handler registration order with simplified handler counting
+- Keyboard builders and payload constants (focusing on core handler functionality)
 - Domain content validation (static content and formatters)
 - Entity definitions and legal entity management
-- RAG stub service and knowledge base integration with specialized test classes
-- QA service testing with RAG chain wrapper functionality and new query_rag_with_wait approach, **now including resource management testing for Qdrant client lifecycle**
+- RAG stub service and handler wiring with updated architectural patterns
+- QA service testing with RAG chain wrapper functionality and new query_rag_with_wait approach
 - Custom payload matching rules
 - State machine definitions
-- Handler modules (start, sections, fallback, fire, vacation, ask) with updated architectural patterns
+- Handler modules (start, ask, sections, fallback, fire, vacation, pay) with updated architectural patterns
 - Topic hints detection for scenario linking and disclaimer handling
 - **Document storage system testing with comprehensive database initialization, CRUD operations, status transitions, search enablement functionality, and filtering/sorting capabilities**
 - **Enhanced RAG infrastructure testing with llama.cpp provider dispatch logic, configuration parameter validation, and integration with existing RAG components**
@@ -99,7 +101,7 @@ The testing effort is organized under the tests/ directory and targets all major
 - **Expanded RAG pipeline testing with indexer validation and document service lifecycle management**
 - **Comprehensive filtering and sorting API endpoint testing with status, source type, and sort field validation**
 - **Updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach across all handlers**
-- **Updated QAService testing validating resource management and Qdrant client lifecycle ownership**
+- **Updated QAService resource management testing**
 
 ```mermaid
 graph TB
@@ -201,9 +203,9 @@ RESOURCES --> RESOURCES
 
 **Diagram sources**
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
-- [tests/test_bot_factory.py:1-85](file://tests/test_bot_factory.py#L1-L85)
-- [tests/test_keyboards.py:1-236](file://tests/test_keyboards.py#L1-L236)
-- [tests/test_keyboards_block2.py:1-254](file://tests/test_keyboards_block2.py#L1-L254)
+- [tests/test_bot_factory.py:1-79](file://tests/test_bot_factory.py#L1-L79)
+- [tests/test_keyboards.py:1-222](file://tests/test_keyboards.py#L1-L222)
+- [tests/test_keyboards_block2.py:1-178](file://tests/test_keyboards_block2.py#L1-L178)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
 - [tests/test_rag_stub_block3.py:1-106](file://tests/test_rag_stub_block3.py#L1-L106)
@@ -217,7 +219,7 @@ RESOURCES --> RESOURCES
 - [tests/test_api_documents.py:1-751](file://tests/test_api_documents.py#L1-L751)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
 - [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
-- [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
+- [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 - [app/integrations/vk/keyboards.py:1-322](file://app/integrations/vk/keyboards.py#L1-L322)
 - [app/integrations/vk/rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
 - [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
@@ -252,9 +254,9 @@ RESOURCES --> RESOURCES
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
-- [tests/test_bot_factory.py:1-85](file://tests/test_bot_factory.py#L1-L85)
-- [tests/test_keyboards.py:1-236](file://tests/test_keyboards.py#L1-L236)
-- [tests/test_keyboards_block2.py:1-254](file://tests/test_keyboards_block2.py#L1-L254)
+- [tests/test_bot_factory.py:1-79](file://tests/test_bot_factory.py#L1-L79)
+- [tests/test_keyboards.py:1-222](file://tests/test_keyboards.py#L1-L222)
+- [tests/test_keyboards_block2.py:1-178](file://tests/test_keyboards_block2.py#L1-L178)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
 - [tests/test_rag_stub_block3.py:1-106](file://tests/test_rag_stub_block3.py#L1-L106)
@@ -271,8 +273,8 @@ RESOURCES --> RESOURCES
 
 ## Core Components
 - Configuration tests validate default values and environment overrides with explicit environment file control.
-- Bot factory tests verify handler registration order and token forwarding, with detailed handler count breakdown.
-- Keyboard tests validate structure, payloads, and service-row behavior (including Block 2 and Block 9 functionality).
+- Bot factory tests verify handler registration order and token forwarding, with simplified handler count breakdown.
+- Keyboard tests validate structure, payloads, and service-row behavior (focusing on core handler functionality).
 - Domain content tests validate static content, formatters, and RAG stub functionality.
 - Entity tests validate legal entity definitions and management.
 - QA service tests validate RAG chain wrapper functionality with truncation, error handling, and resource management, **including updated testing for Qdrant client lifecycle ownership**, including the new query_rag_with_wait approach.
@@ -285,11 +287,11 @@ RESOURCES --> RESOURCES
 - **Document storage system tests validate database initialization, CRUD operations, status transitions, search enablement functionality, and comprehensive filtering/sorting capabilities with 278 lines of new test coverage.**
 - **Enhanced RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter validation, and error handling scenarios.**
 - **Comprehensive parser testing validates document ingestion, section extraction, chunking, and dispatcher functionality for .docx and .doc file processing.**
-- **Block 12 admin document API tests validate authentication, authorization, Russian localization, and comprehensive filtering/sorting functionality with 751 lines of new test coverage.**
+- **Block 12 admin document API tests validate authentication, authorization, Russian localization validation, and comprehensive filtering/sorting functionality with 751 lines of new test coverage.**
 - **Expanded RAG pipeline testing validates indexer chunk preparation, document service lifecycle management, and comprehensive RAG functionality.**
 - **Comprehensive filtering and sorting API endpoint testing validates status filtering, source type filtering, sort field validation, and pagination functionality.**
-- **Updated architectural testing patterns validate the new query_rag_with_wait and send_rag_answer approach across all handlers, replacing the old get_qa_service pattern.**
-- **Updated QAService testing validates resource management with Qdrant client lifecycle ownership, ensuring QAService no longer closes Qdrant clients internally.**
+- **Updated architectural testing patterns validate the new query_rag_with_wait and send_rag_answer approach across all handlers.**
+- **Updated QAService testing validates resource management with Qdrant client lifecycle ownership.**
 
 Key testing characteristics:
 - Uses pytest with asyncio_mode set to auto for async-friendly tests.
@@ -302,7 +304,7 @@ Key testing characteristics:
 - QA service testing validates RAG chain integration with proper error handling and resource cleanup, **including updated testing for Qdrant client lifecycle management**, including the new query_rag_with_wait functionality.
 - RAG stub testing validates knowledge base integration placeholders with specialized test classes.
 - Custom rule testing validates advanced payload matching functionality.
-- Handler registration testing provides detailed breakdown of handler counts by functional area.
+- Handler registration testing provides simplified breakdown of 25 total handlers across core functional areas.
 - Topic hints testing validates keyword-based scenario detection with background-topic priority.
 - Ask handler testing validates state management and integration with QA service and topic hints using the new query_rag_with_wait approach.
 - **Document storage system testing validates comprehensive database operations including timestamp management, status transitions, search enablement toggling, and filtering/sorting capabilities.**
@@ -318,14 +320,14 @@ Key testing characteristics:
 - **Sections handler testing validates the new send_rag_answer usage for RAG-powered handlers.**
 - **Updated QAService testing validates that Qdrant clients are not closed internally by QAService, with proper resource ownership management.**
 
-**Updated** Enhanced with comprehensive testing coverage for domain content, entity definitions, keyboard builders, RAG stub functionality, QA service integration, custom payload matching rules, topic hints detection, ask handler validation, document storage system testing, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns reflecting the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing**.
+**Updated** Enhanced with comprehensive testing coverage for the simplified handler structure, focusing on the core 5 handlers and updated architectural patterns for query_rag_with_wait and send_rag_answer approach.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
-- [tests/test_bot_factory.py:1-85](file://tests/test_bot_factory.py#L1-L85)
-- [tests/test_keyboards.py:1-236](file://tests/test_keyboards.py#L1-L236)
-- [tests/test_keyboards_block2.py:1-254](file://tests/test_keyboards_block2.py#L1-L254)
+- [tests/test_bot_factory.py:1-79](file://tests/test_bot_factory.py#L1-L79)
+- [tests/test_keyboards.py:1-222](file://tests/test_keyboards.py#L1-L222)
+- [tests/test_keyboards_block2.py:1-178](file://tests/test_keyboards_block2.py#L1-L178)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
 - [tests/test_rag_stub_block3.py:1-106](file://tests/test_rag_stub_block3.py#L1-L106)
@@ -341,7 +343,7 @@ Key testing characteristics:
 - [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
 
 ## Architecture Overview
-The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with detailed breakdown by functional area. The expanded testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing**.
+The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with simplified breakdown by functional area. The streamlined testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing**.
 
 ```mermaid
 sequenceDiagram
@@ -352,7 +354,7 @@ participant Labelers as "_HANDLER_LABELERS"
 Test->>Factory : "create_bot(Settings)"
 Factory->>Bot : "Bot(token)"
 loop "Load labelers in order"
-Factory->>Labelers : "Iterate [start, sections, fallback]"
+Factory->>Labelers : "Iterate [start, ask, hire, fire, vacation, pay, sections, fallback]"
 Labelers-->>Factory : "labeler bl"
 Factory->>Bot : "load(labeler)"
 end
@@ -362,12 +364,12 @@ Test-->>Test : "Assert ordering and counts"
 ```
 
 **Diagram sources**
-- [app/integrations/vk/bot.py:14-31](file://app/integrations/vk/bot.py#L14-L31)
-- [tests/test_bot_factory.py:23-38](file://tests/test_bot_factory.py#L23-L38)
+- [app/integrations/vk/bot.py:24-39](file://app/integrations/vk/bot.py#L24-L39)
+- [tests/test_bot_factory.py:21-44](file://tests/test_bot_factory.py#L21-L44)
 
 **Section sources**
-- [app/integrations/vk/bot.py:14-31](file://app/integrations/vk/bot.py#L14-L31)
-- [tests/test_bot_factory.py:8-21](file://tests/test_bot_factory.py#L8-L21)
+- [app/integrations/vk/bot.py:24-39](file://app/integrations/vk/bot.py#L24-L39)
+- [tests/test_bot_factory.py:18-44](file://tests/test_bot_factory.py#L18-L44)
 
 ## Detailed Component Analysis
 
@@ -388,7 +390,7 @@ Best practices:
 - Prefer explicit Settings construction with `_env_file=None` for deterministic tests that don't rely on external environment files.
 - Use monkeypatch for environment variable testing to avoid modifying system-wide environment.
 
-**Updated** Enhanced with explicit `_env_file=None` parameter usage for improved test isolation and reliability. This prevents tests from accidentally loading environment files from the project directory, ensuring consistent and predictable test behavior. The embedding model default is now verified to be 'qwen3-embedding:4b-q4_K_M' instead of 'nomic-embed-text'.
+**Updated** Enhanced with explicit `_env_file=None` parameter usage for improved test isolation and reliability. This prevents tests from accidentally loading environment files from the project directory, ensuring consistent and predictable test behavior.
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
@@ -397,14 +399,14 @@ Best practices:
 ### Bot Factory and Handler Registration Testing
 Purpose:
 - Enforce handler registration order.
-- Verify the number of registered handlers with detailed breakdown by functional area.
+- Verify the number of registered handlers with simplified breakdown by functional area.
 - Ensure the token is forwarded to the underlying VK API client.
 
 Methodology:
 - Assert the last labeler is the fallback handler and the first is the start handler.
 - Build a bot and count the number of registered message handlers.
 - Assert that the bot's token equals the provided Settings token.
-- Verify detailed handler counts: start (2), hr_request (9), ask (2), hire (5), fire (5), vacation (5), pay (3), sections (2), fallback (1) = 34 total.
+- Verify simplified handler counts: start (2), ask (2), hire (5), fire (5), vacation (5), pay (3), sections (2), fallback (1) = 25 total.
 
 Asynchronous considerations:
 - The tests themselves are synchronous; they do not await async handlers.
@@ -413,11 +415,11 @@ Asynchronous considerations:
 Security note:
 - Tests use a placeholder token to avoid exposing secrets.
 
-**Updated** Enhanced with detailed handler count breakdown reflecting 34 total handlers distributed across functional areas: start (2), hr_request (9), ask (2), hire (5), fire (5), vacation (5), pay (3), sections (2), fallback (1).
+**Updated** Enhanced with simplified handler count breakdown reflecting 25 total handlers distributed across core functional areas: start (2), ask (2), hire (5), fire (5), vacation (5), pay (3), sections (2), fallback (1).
 
 **Section sources**
-- [tests/test_bot_factory.py:8-85](file://tests/test_bot_factory.py#L8-L85)
-- [app/integrations/vk/bot.py:14-31](file://app/integrations/vk/bot.py#L14-L31)
+- [tests/test_bot_factory.py:18-79](file://tests/test_bot_factory.py#L18-L79)
+- [app/integrations/vk/bot.py:24-39](file://app/integrations/vk/bot.py#L24-L39)
 
 ### Keyboard Builders and Payload Constants Testing
 Purpose:
@@ -447,8 +449,8 @@ Testing patterns:
 **Updated** Enhanced with comprehensive Block 2 keyboard testing covering entity selection, hire actions, fire menu, vacation menu, HR-request keyboards, payload validation, and Block 9 ask-specific keyboard builders with scenario navigation functionality.
 
 **Section sources**
-- [tests/test_keyboards.py:24-236](file://tests/test_keyboards.py#L24-L236)
-- [tests/test_keyboards_block2.py:30-254](file://tests/test_keyboards_block2.py#L30-L254)
+- [tests/test_keyboards.py:24-222](file://tests/test_keyboards.py#L24-L222)
+- [tests/test_keyboards_block2.py:25-178](file://tests/test_keyboards_block2.py#L25-L178)
 - [app/integrations/vk/keyboards.py:11-322](file://app/integrations/vk/keyboards.py#L11-L322)
 
 ### Domain Content and Static Content Testing
@@ -480,7 +482,7 @@ Testing patterns:
 **Section sources**
 - [tests/test_content.py:18-93](file://tests/test_content.py#L18-L93)
 - [app/domain/content.py:12-177](file://app/domain/content.py#L12-L177)
-- [tests/test_qa_service.py:28-198](file://tests/test_qa_service.py#L28-L198)
+- [tests/test_qa_service.py:49-198](file://tests/test_qa_service.py#L49-L198)
 - [app/domain/qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
 
 ### Entity Definitions and Management Testing
@@ -1221,7 +1223,7 @@ Common issues and resolutions:
 - Entity validation failures: Verify entity count, ID uniqueness, and name properties.
 - RAG stub failures: Ensure standardized placeholder format and topic inclusion.
 - Custom rule failures: Test various payload scenarios and error cases comprehensively.
-- Handler registration failures: Verify detailed handler counts and ordering.
+- Handler registration failures: Verify simplified handler counts and ordering.
 - Specialized RAG stub feature failures: Check handler availability and feature-specific integration.
 - FR-11/FR-12 feature validation failures: Ensure dedicated test classes are properly targeting new functionality.
 - QA service failures: Check RAG chain initialization, error handling, and resource management.
@@ -1321,10 +1323,10 @@ Debugging tips:
 - [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
 
 ## Conclusion
-The current testing strategy emphasizes comprehensive structural and wiring correctness for the expanded VK bot:
+The current testing strategy emphasizes comprehensive structural and wiring correctness for the streamlined VK bot:
 - Configuration defaults and environment overrides are verified with explicit environment file control.
-- Bot factory enforces handler registration order and validates handler counts with detailed breakdown.
-- Keyboard builders are validated for layout, payloads, and service-row behavior (including Block 2 and Block 9 functionality).
+- Bot factory enforces handler registration order and validates simplified handler counts with detailed breakdown.
+- Keyboard builders are validated for layout, payloads, and service-row behavior (focusing on core handler functionality).
 - Domain content is validated for static content integrity and proper formatting.
 - Entity definitions are validated for consistency and uniqueness.
 - RAG stub functionality is tested for knowledge base integration with specialized test classes.
@@ -1355,7 +1357,7 @@ To evolve the test suite:
 - Add integration tests for domain content generation with various entity contexts.
 - Expand custom rule testing to cover edge cases and error scenarios.
 - Enhance specialized RAG stub testing for new feature implementations.
-- Continue expanding handler registration testing with detailed functional area breakdown.
+- Continue expanding handler registration testing with simplified functional area breakdown.
 - Add comprehensive QA service testing with realistic error scenarios and query_rag_with_wait validation.
 - Expand topic hints testing with performance validation and edge case coverage.
 - Implement ask handler testing with state management and integration validation using query_rag_with_wait.
@@ -1393,7 +1395,7 @@ To evolve the test suite:
 - **Add comprehensive QAService resource management testing for Qdrant client lifecycle validation.**
 - **Validate external Qdrant client lifecycle management with AppResources.close_resources().**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through expanded testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing validating Qdrant client lifecycle ownership**.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing validating Qdrant client lifecycle ownership**.
 
 ## Appendices
 
@@ -1433,7 +1435,7 @@ To evolve the test suite:
 - Validate entity management with proper ID uniqueness and name validation.
 - Test specialized RAG stub features with dedicated test classes for targeted validation.
 - Validate handler availability and integration for new feature implementations.
-- Use detailed handler count breakdown to ensure comprehensive coverage.
+- Use simplified handler count breakdown to ensure comprehensive coverage.
 - Add comprehensive QA service testing with error handling, resource management, and query_rag_with_wait validation.
 - Validate topic hints detection with keyword-based matching and priority handling.
 - Test ask handler state management and integration with QA service and topic hints using query_rag_with_wait.
@@ -1471,4 +1473,4 @@ To evolve the test suite:
 - **Validate Qdrant client lifecycle management with external resource ownership.**
 - **Validate timeout handling and unified RAG answer delivery across all handlers.**
 
-**Updated** Enhanced guidance covering expanded testing infrastructure, new specialized RAG stub testing patterns, detailed handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with temporary databases, llama.cpp provider testing strategies, **comprehensive filtering and sorting API testing with parameterized scenarios**, **comprehensive document service testing with lightweight mocking**, **comprehensive indexer testing with metadata enrichment validation**, **comprehensive embedding model configuration testing**, **updated architectural testing patterns validation for query_rag_with_wait and send_rag_answer**, **handler imports testing validation**, and **updated QAService resource management testing validation**.
+**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with temporary databases, llama.cpp provider testing strategies, **comprehensive filtering and sorting API testing with parameterized scenarios**, **comprehensive document service testing with lightweight mocking**, **comprehensive indexer testing with metadata enrichment validation**, **comprehensive embedding model configuration testing**, **updated architectural testing patterns validation for query_rag_with_wait and send_rag_answer**, **handler imports testing validation**, and **updated QAService resource management testing validation**.

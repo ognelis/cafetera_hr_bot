@@ -50,3 +50,8 @@ class Settings(BaseSettings):
     # Chunking (token counts — uses tiktoken for accurate token measurement)
     chunk_size: int = 500
     chunk_overlap: int = 50
+
+    # Chunking strategy: "recursive" (token-based) or "semantic" (embedding similarity)
+    chunk_strategy: str = "recursive"  # "recursive" | "semantic"
+    semantic_breakpoint_threshold_type: str = "percentile"
+    semantic_breakpoint_threshold_amount: float = 95

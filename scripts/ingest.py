@@ -71,10 +71,19 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
     all_docs: list[LCDocument] = []
     file_chunks: dict[str, list[LCDocument]] = {}
 
+    # Build embeddings (needed for semantic chunking)
+    embeddings = build_embeddings(settings)
+
     for path in all_files:
         logger.info("Processing %s ...", path.name)
         raw_chunks = load_document(
-            path, chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap
+            path,
+            chunk_size=settings.chunk_size,
+            chunk_overlap=settings.chunk_overlap,
+            strategy=settings.chunk_strategy,
+            embeddings=embeddings,
+            breakpoint_threshold_type=settings.semantic_breakpoint_threshold_type,
+            breakpoint_threshold_amount=settings.semantic_breakpoint_threshold_amount,
         )
         logger.info("  -> %d chunk(s)", len(raw_chunks))
 
@@ -107,9 +116,6 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
         return 0
 
     logger.info("Total: %d chunk(s) from %d file(s)", len(all_docs), len(all_files))
-
-    # Build embeddings
-    embeddings = build_embeddings(settings)
 
     # Recreate collection for a clean ingest
     from qdrant_client import QdrantClient

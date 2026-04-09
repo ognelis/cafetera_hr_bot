@@ -8,23 +8,23 @@
 - [vacation.py](file://app/integrations/vk/handlers/vacation.py)
 - [pay.py](file://app/integrations/vk/handlers/pay.py)
 - [ask.py](file://app/integrations/vk/handlers/ask.py)
-- [hr_request.py](file://app/integrations/vk/handlers/hr_request.py)
 - [keyboards.py](file://app/integrations/vk/keyboards.py)
 - [states.py](file://app/integrations/vk/states.py)
 - [bot.py](file://app/integrations/vk/bot.py)
 - [start.py](file://app/integrations/vk/handlers/start.py)
 - [fallback.py](file://app/integrations/vk/handlers/fallback.py)
+- [handlers/__init__.py](file://app/integrations/vk/handlers/__init__.py)
 - [test_keyboards.py](file://tests/test_keyboards.py)
 - [test_states.py](file://tests/test_states.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated sections handler to reflect new sophisticated multi-step dialog flows for employment lifecycle management
-- Added comprehensive documentation for hire, fire, vacation, and pay modules
-- Enhanced state-based dialog management with six-step HR request processing
-- Updated handler loading order and integration patterns
-- Documented payload routing system for all HR categories
+- Updated sections handler to reflect the removal of HR request multi-step dialog system
+- Simplified documentation to focus on current RAG-powered handlers for sick leave and probation
+- Removed extensive documentation about six-step HR request workflow and state management
+- Updated handler loading order and integration patterns to reflect current architecture
+- Documented payload routing system for remaining HR categories (hiring, termination, vacation, payment, ask question)
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -38,29 +38,27 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the enhanced sections handler module that implements comprehensive HR categories functionality for the VK bot. The system now features sophisticated multi-step dialog flows for employment lifecycle management, replacing simple stub implementations with robust HR request processing capabilities. The documentation covers the seven-section HR menu, advanced payload routing, state-based dialog management, and integration patterns for hiring, termination, vacation, payment, sick leave, probation, and question handling scenarios.
+This document explains the sections handler module that implements the current HR categories functionality for the VK bot. The system has been simplified from a complex multi-step dialog system to focused RAG-powered handlers for specific HR categories. The documentation covers the seven-section HR menu, payload routing system, and integration patterns for hiring, termination, vacation, payment, sick leave, probation, and question handling scenarios.
 
 ## Project Structure
-The sections handler has evolved into a comprehensive HR management system with dedicated modules for each employment lifecycle stage. The bot wiring maintains a specific order to ensure proper routing and state management across all handlers.
+The sections handler now serves as a streamlined RAG-powered handler for remaining HR categories, while dedicated modules handle the major employment lifecycle management. The bot wiring maintains a specific order to ensure proper routing and state management across all handlers.
 
 ```mermaid
 graph TB
-subgraph "Enhanced VK Integration System"
+subgraph "Streamlined VK Integration System"
 BOT["bot.py<br/>Bot factory and handler loader"]
 START["start.py<br/>Start/home/contact handlers"]
-HR_REQUEST["hr_request.py<br/>6-step HR request dialog"]
 ASK["ask.py<br/>Free-text question handler"]
 HIRE["hire.py<br/>S-10/S-11 multi-step flow"]
 FIRE["fire.py<br/>S-20/S-21b multi-step flow"]
 VACATION["vacation.py<br/>S-30 multi-step flow"]
 PAY["pay.py<br/>S-40 multi-step flow"]
-SECTIONS["sections.py<br/>Stub handlers for sick/probation"]
+SECTIONS["sections.py<br/>RAG handlers for sick/probation"]
 FALLBACK["fallback.py<br/>Unmatched message handler"]
 KEYBOARDS["keyboards.py<br/>Comprehensive keyboard builders"]
-STATES["states.py<br/>Multi-step dialog states"]
-end
+STATES["states.py<br/>Simple state management"]
+END
 BOT --> START
-BOT --> HR_REQUEST
 BOT --> ASK
 BOT --> HIRE
 BOT --> FIRE
@@ -73,7 +71,6 @@ FIRE --> KEYBOARDS
 VACATION --> KEYBOARDS
 PAY --> KEYBOARDS
 ASK --> KEYBOARDS
-HR_REQUEST --> KEYBOARDS
 SECTIONS --> KEYBOARDS
 START --> KEYBOARDS
 START --> STATES
@@ -81,126 +78,118 @@ START --> STATES
 
 **Diagram sources**
 - [bot.py:24-41](file://app/integrations/vk/bot.py#L24-L41)
-- [hire.py:1-108](file://app/integrations/vk/handlers/hire.py#L1-L108)
-- [fire.py:1-65](file://app/integrations/vk/handlers/fire.py#L1-L65)
-- [vacation.py:1-76](file://app/integrations/vk/handlers/vacation.py#L1-L76)
-- [pay.py:1-53](file://app/integrations/vk/handlers/pay.py#L1-L53)
-- [ask.py:1-63](file://app/integrations/vk/handlers/ask.py#L1-L63)
-- [hr_request.py:1-305](file://app/integrations/vk/handlers/hr_request.py#L1-L305)
-- [sections.py:1-42](file://app/integrations/vk/handlers/sections.py#L1-L42)
+- [hire.py:1-98](file://app/integrations/vk/handlers/hire.py#L1-L98)
+- [fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
+- [vacation.py:1-80](file://app/integrations/vk/handlers/vacation.py#L1-L80)
+- [pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
+- [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
+- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
 
 **Section sources**
 - [bot.py:24-41](file://app/integrations/vk/bot.py#L24-L41)
 - [keyboards.py:13-26](file://app/integrations/vk/keyboards.py#L13-L26)
 
 ## Core Components
-The enhanced sections handler system consists of several sophisticated components working together to provide comprehensive HR functionality:
+The streamlined sections handler system consists of several focused components working together to provide comprehensive HR functionality:
 
-- **Dedicated Flow Handlers**: Specialized modules for hire, fire, vacation, and pay with multi-step dialog management
-- **HR Request Dialog**: Six-step form processing for complex HR requests with state persistence
+- **RAG-Powered Handlers**: Specialized modules for sick leave and probation with Retrieval-Augmented Generation
 - **Payload Routing System**: Comprehensive payload-based routing for all HR categories
-- **State Management**: Sophisticated finite state machine for multi-step conversations
+- **State Management**: Simple finite state machine for free-text question handling
 - **Keyboard Builders**: Advanced keyboard construction with service rows and specialized layouts
 - **Handler Loading Order**: Strategic ordering to ensure proper message routing and state preservation
 
 Key responsibilities:
 - **Seven-section HR Menu**: Hiring (S-10), Termination (S-20), Vacation (S-30), Payment (S-40), Sick Leave (S-50), Probation (S-60), Ask Question (S-ASK)
-- **Multi-step Dialog Flows**: Complex workflows with entity selection, action menus, and content delivery
-- **State-based Processing**: Persistent user context across multiple conversation steps
+- **RAG Integration**: Context-aware content delivery for specific HR categories
+- **State-based Processing**: Persistent user context for free-text question handling
 - **Advanced Navigation**: Back/Home/Contact HR buttons with intelligent routing logic
 
 **Section sources**
-- [hire.py:1-108](file://app/integrations/vk/handlers/hire.py#L1-L108)
-- [fire.py:1-65](file://app/integrations/vk/handlers/fire.py#L1-L65)
-- [vacation.py:1-76](file://app/integrations/vk/handlers/vacation.py#L1-L76)
-- [pay.py:1-53](file://app/integrations/vk/handlers/pay.py#L1-L53)
-- [hr_request.py:1-305](file://app/integrations/vk/handlers/hr_request.py#L1-L305)
+- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
+- [hire.py:1-98](file://app/integrations/vk/handlers/hire.py#L1-L98)
+- [fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
+- [vacation.py:1-80](file://app/integrations/vk/handlers/vacation.py#L1-L80)
+- [pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
+- [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
 - [keyboards.py:13-26](file://app/integrations/vk/keyboards.py#L13-L26)
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
+- [states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
 
 ## Architecture Overview
-The enhanced sections handler participates in a sophisticated handler chain with strategic ordering to support complex multi-step dialogs. The system uses a shared state dispenser to maintain user context across all handlers, enabling seamless transitions between different HR categories.
+The streamlined sections handler participates in a focused handler chain with strategic ordering to support RAG-powered content delivery for specific HR categories. The system uses a shared state dispenser to maintain user context for free-text questions, enabling seamless transitions between different HR categories.
 
 ```mermaid
 sequenceDiagram
 participant User as "User"
 participant Bot as "VK Bot"
-participant HRRequest as "HR Request Handler"
 participant Hire as "Hire Flow"
 participant Fire as "Fire Flow"
 participant Vacation as "Vacation Flow"
 participant Pay as "Pay Flow"
 participant Sections as "Sections Handler"
+participant Ask as "Ask Handler"
 participant Keyboards as "Keyboard Builders"
 participant Fallback as "Fallback Handler"
 User->>Bot : "Message with payload"
-Bot->>HRRequest : Contact HR entry point
-alt HR Request Dialog
-HRRequest->>Keyboards : Build multi-step keyboard
-HRRequest-->>User : Stateful response with navigation
-else Hire Flow
-HRRequest->>Hire : Entity selection
+Bot->>Hire : Entity selection
 Hire->>Keyboards : Build entity selection keyboard
 Hire-->>User : Multi-step response
 else Fire Flow
-HRRequest->>Fire : Action menu
 Fire->>Keyboards : Build fire menu keyboard
 Fire-->>User : Multi-step response
 else Vacation Flow
-HRRequest->>Vacation : Template selection
 Vacation->>Keyboards : Build vacation menu keyboard
 Vacation-->>User : Multi-step response
 else Pay Flow
-HRRequest->>Pay : Menu selection
 Pay->>Keyboards : Build pay menu keyboard
 Pay-->>User : Multi-step response
+else Ask Handler
+Ask->>Keyboards : Build ask input keyboard
+Ask-->>User : Stateful free-text input
 else Sections Handler
-HRRequest->>Sections : Stub handlers
-Sections->>Keyboards : Build stub keyboard
-Sections-->>User : Response with navigation
+Sections->>Keyboards : Build RAG-powered response
+Sections-->>User : Context-aware content delivery
 end
 ```
 
 **Diagram sources**
 - [bot.py:24-41](file://app/integrations/vk/bot.py#L24-L41)
-- [hr_request.py:69-77](file://app/integrations/vk/handlers/hr_request.py#L69-L77)
-- [hire.py:32-37](file://app/integrations/vk/handlers/hire.py#L32-L37)
-- [fire.py:26-31](file://app/integrations/vk/handlers/fire.py#L26-L31)
-- [vacation.py:29-34](file://app/integrations/vk/handlers/vacation.py#L29-L34)
-- [pay.py:25-30](file://app/integrations/vk/handlers/pay.py#L25-L30)
-- [sections.py:25-30](file://app/integrations/vk/handlers/sections.py#L25-L30)
+- [hire.py:32-56](file://app/integrations/vk/handlers/hire.py#L32-L56)
+- [fire.py:28-33](file://app/integrations/vk/handlers/fire.py#L28-L33)
+- [vacation.py:30-35](file://app/integrations/vk/handlers/vacation.py#L30-L35)
+- [pay.py:24-29](file://app/integrations/vk/handlers/pay.py#L24-L29)
+- [ask.py:38-45](file://app/integrations/vk/handlers/ask.py#L38-L45)
+- [sections.py:24-34](file://app/integrations/vk/handlers/sections.py#L24-L34)
 
 ## Detailed Component Analysis
 
-### Enhanced Sections Handler: Seven-Section HR Menu
-The sections handler now serves as a specialized stub handler for remaining HR categories, while sophisticated multi-step flows handle the core employment lifecycle management. The handler maintains backward compatibility while supporting the new comprehensive system.
+### Streamlined Sections Handler: RAG-Powered Handlers
+The sections handler now focuses on RAG-powered handlers for remaining HR categories, specifically sick leave and probation. The handler maintains backward compatibility while supporting the current streamlined system.
 
-**Updated** The sections handler now focuses on sick leave and probation categories with RAG (Retrieval-Augmented Generation) stub implementations, while dedicated modules handle the major HR categories.
+**Updated** The sections handler now provides focused RAG-powered content delivery for sick leave (S-50) and probation (S-60) categories, while dedicated modules handle the major HR categories.
 
-- **Sick Leave (S-50)**: RAG stub implementation with entity-aware content delivery
-- **Probation (S-60)**: RAG stub implementation with contextual responses
+- **Sick Leave (S-50)**: RAG-powered handler with entity-aware content delivery
+- **Probation (S-60)**: RAG-powered handler with contextual responses
 - **Remaining Categories**: Integrated into the main menu but handled by dedicated flow modules
 
 Routing mechanism:
 - Payload-based matching routes messages to appropriate handlers
 - Dedicated flow handlers manage complex multi-step conversations
-- Stub handlers provide fallback responses with navigation options
+- RAG-powered handlers provide context-aware responses with navigation options
 
 Navigation:
 - Each response includes intelligent service row with Back/Home/Contact HR buttons
 - Context-aware back navigation preserves user progress in multi-step flows
 
 **Section sources**
-- [sections.py:1-42](file://app/integrations/vk/handlers/sections.py#L1-L42)
-- [sections.py:25-30](file://app/integrations/vk/handlers/sections.py#L25-L30)
-- [sections.py:36-41](file://app/integrations/vk/handlers/sections.py#L36-L41)
+- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
+- [sections.py:24-34](file://app/integrations/vk/handlers/sections.py#L24-L34)
 
 ### Comprehensive Employment Lifecycle Management
 
 #### Hire Flow (S-10/S-11)
-The hire flow implements a sophisticated four-step process with entity selection, action menu, and content delivery. This represents the most complex multi-step dialog in the system.
+The hire flow implements a sophisticated two-step process with entity selection and action menu, providing dynamic content delivery based on selected entities.
 
-**Updated** Complete rewrite from simple stub to comprehensive multi-step dialog with entity-aware content delivery.
+**Updated** Enhanced from simple stub to comprehensive multi-step flow with entity-aware content delivery.
 
 ```mermaid
 stateDiagram-v2
@@ -217,10 +206,10 @@ OnboardingChecklist --> HireEntry : Back to Menu
 ```
 
 **Diagram sources**
-- [hire.py:32-56](file://app/integrations/vk/handlers/hire.py#L32-L56)
-- [hire.py:62-73](file://app/integrations/vk/handlers/hire.py#L62-L73)
-- [hire.py:79-90](file://app/integrations/vk/handlers/hire.py#L79-L90)
-- [hire.py:96-107](file://app/integrations/vk/handlers/hire.py#L96-L107)
+- [hire.py:32-52](file://app/integrations/vk/handlers/hire.py#L32-L52)
+- [hire.py:58-67](file://app/integrations/vk/handlers/hire.py#L58-L67)
+- [hire.py:73-82](file://app/integrations/vk/handlers/hire.py#L73-L82)
+- [hire.py:88-97](file://app/integrations/vk/handlers/hire.py#L88-L97)
 
 Key features:
 - **Entity Selection**: Legal entity selection with validation and error handling
@@ -229,7 +218,7 @@ Key features:
 - **Navigation**: Intelligent back navigation preserving user context
 
 #### Fire Flow (S-20/S-21b)
-The fire flow manages termination processes with specialized checklists, bypass sheets, and RAG stub implementations for voluntary dismissals.
+The fire flow manages termination processes with specialized checklists, bypass sheets, and RAG-powered handlers for voluntary dismissals and dismissal grounds.
 
 **Updated** Enhanced from simple stub to comprehensive multi-step flow with specialized content delivery.
 
@@ -239,20 +228,22 @@ stateDiagram-v2
 FireEntry --> FireMenu : CMD_FIRE
 FireMenu --> LastDayChecklist : Checklist Selected
 FireMenu --> BypassSheet : Bypass Sheet Selected
-FireMenu --> VoluntaryDismissal : RAG Stub
+FireMenu --> VoluntaryDismissal : RAG Handler
+FireMenu --> DismissalGrounds : RAG Handler
 LastDayChecklist --> FireEntry : Back to Menu
 BypassSheet --> FireEntry : Back to Menu
 VoluntaryDismissal --> FireEntry : Back to Menu
+DismissalGrounds --> FireEntry : Back to Menu
 ```
 
 **Diagram sources**
-- [fire.py:26-31](file://app/integrations/vk/handlers/fire.py#L26-L31)
-- [fire.py:37-42](file://app/integrations/vk/handlers/fire.py#L37-L42)
-- [fire.py:48-53](file://app/integrations/vk/handlers/fire.py#L48-L53)
-- [fire.py:59-64](file://app/integrations/vk/handlers/fire.py#L59-L64)
+- [fire.py:28-33](file://app/integrations/vk/handlers/fire.py#L28-L33)
+- [fire.py:39-44](file://app/integrations/vk/handlers/fire.py#L39-L44)
+- [fire.py:50-55](file://app/integrations/vk/handlers/fire.py#L50-L55)
+- [fire.py:61-73](file://app/integrations/vk/handlers/fire.py#L61-L73)
 
 #### Vacation Flow (S-30)
-The vacation flow handles leave applications with entity selection for template generation and RAG stub implementations for procedural information.
+The vacation flow handles leave applications with entity selection for template generation and RAG-powered handlers for procedural information.
 
 **Updated** Enhanced from simple stub to comprehensive multi-step flow with template generation.
 
@@ -261,7 +252,7 @@ stateDiagram-v2
 [*] --> VacationEntry
 VacationEntry --> VacationMenu : CMD_VACATION
 VacationMenu --> TemplateSelection : Template Selected
-VacationMenu --> ProcedureInfo : RAG Stub
+VacationMenu --> ProcedureInfo : RAG Handler
 TemplateSelection --> EntitySelection : CMD_VACATION_SELECT
 EntitySelection --> LeaveTemplate : Template Selected
 LeaveTemplate --> VacationEntry : Back to Menu
@@ -269,13 +260,13 @@ ProcedureInfo --> VacationEntry : Back to Menu
 ```
 
 **Diagram sources**
-- [vacation.py:29-34](file://app/integrations/vk/handlers/vacation.py#L29-L34)
-- [vacation.py:40-45](file://app/integrations/vk/handlers/vacation.py#L40-L45)
-- [vacation.py:51-64](file://app/integrations/vk/handlers/vacation.py#L51-L64)
-- [vacation.py:70-75](file://app/integrations/vk/handlers/vacation.py#L70-L75)
+- [vacation.py:30-35](file://app/integrations/vk/handlers/vacation.py#L30-L35)
+- [vacation.py:41-46](file://app/integrations/vk/handlers/vacation.py#L41-L46)
+- [vacation.py:52-61](file://app/integrations/vk/handlers/vacation.py#L52-L61)
+- [vacation.py:67-79](file://app/integrations/vk/handlers/vacation.py#L67-L79)
 
 #### Pay Flow (S-40)
-The pay flow manages overtime and bonus inquiries with RAG stub implementations for policy information.
+The pay flow manages overtime and bonus inquiries with RAG-powered handlers for policy information.
 
 **Updated** Enhanced from simple stub to comprehensive multi-step flow with specialized content delivery.
 
@@ -290,45 +281,38 @@ BonusPolicy --> PayEntry : Back to Menu
 ```
 
 **Diagram sources**
-- [pay.py:25-30](file://app/integrations/vk/handlers/pay.py#L25-L30)
-- [pay.py:36-41](file://app/integrations/vk/handlers/pay.py#L36-L41)
-- [pay.py:47-52](file://app/integrations/vk/handlers/pay.py#L47-L52)
+- [pay.py:24-29](file://app/integrations/vk/handlers/pay.py#L24-L29)
+- [pay.py:35-37](file://app/integrations/vk/handlers/pay.py#L35-L37)
+- [pay.py:43-45](file://app/integrations/vk/handlers/pay.py#L43-L45)
 
-### Advanced State-Based Dialog Management
-The enhanced system features sophisticated state management supporting six-step HR request processing with comprehensive user context preservation.
+### Simple State-Based Dialog Management
+The streamlined system features straightforward state management supporting free-text question handling with comprehensive user context preservation.
 
-**Updated** Complete rewrite to support complex multi-step dialogs with persistent state across all handlers.
+**Updated** Simplified from complex multi-step dialogs to focused state management for free-text question handling.
 
 States:
-- **HR_REQUEST_NAME**: Capture employee name with validation
-- **HR_REQUEST_TOPIC**: Topic selection from predefined options
-- **HR_REQUEST_DETAILS**: Detailed description with character limits
-- **HR_REQUEST_ENTITY**: Entity selection with validation
-- **HR_REQUEST_URGENCY**: Urgency level selection
-- **HR_REQUEST_CONFIRM**: Final confirmation step
+- **ASK_QUESTION**: Capture free-text questions with validation and RAG processing
 
 Integration points:
-- Shared state dispenser across all handlers
-- Context preservation through payload data
-- Back navigation with intelligent state restoration
+- Shared state dispenser across ask handler
+- Context preservation through state management
 - Restart functionality for session recovery
 
 **Section sources**
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- [hr_request.py:69-77](file://app/integrations/vk/handlers/hr_request.py#L69-L77)
-- [hr_request.py:137-149](file://app/integrations/vk/handlers/hr_request.py#L137-L149)
-- [hr_request.py:277-303](file://app/integrations/vk/handlers/hr_request.py#L277-L303)
+- [states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
+- [ask.py:40-45](file://app/integrations/vk/handlers/ask.py#L40-L45)
+- [ask.py:51-59](file://app/integrations/vk/handlers/ask.py#L51-L59)
 
 ### Comprehensive Keyboard Builders and Payload System
 The keyboard system has been enhanced with specialized builders for each HR category, comprehensive payload constants, and intelligent service row management.
 
-**Updated** Expanded from basic stub keyboards to sophisticated specialized layouts with entity awareness.
+**Updated** Maintained comprehensive keyboard builders with entity awareness and service row integration.
 
 Payload constants:
 - **Basic Commands**: Home, Back, Contact HR, Ask Question
 - **Category Commands**: Hire, Fire, Vacation, Pay, Sick, Probation
 - **Sub-action Commands**: Entity-specific actions within each category
-- **Dialog Commands**: HR request navigation and confirmation
+- **Dialog Commands**: Navigation and confirmation commands
 
 Keyboard builders:
 - **Main Menu**: Seven-section layout with Contact HR button
@@ -345,17 +329,16 @@ Keyboard builders:
 - [keyboards.py:209-215](file://app/integrations/vk/keyboards.py#L209-L215)
 
 ### Enhanced Bot Factory and Handler Loading Order
-The bot factory maintains strategic handler loading order to support complex state management and multi-step dialogs across all HR categories.
+The bot factory maintains strategic handler loading order to support focused state management and multi-step dialogs across all HR categories.
 
-**Updated** Enhanced loading order to support shared state dispenser and sophisticated routing logic.
+**Updated** Enhanced loading order to support shared state dispenser and streamlined routing logic.
 
 Handler loading order:
 1. **Start Handler**: `/start` command and home navigation
-2. **HR Request Handler**: Contact HR entry and state management
-3. **Ask Handler**: Free-text question processing with state preservation
-4. **Flow Handlers**: Hire, Fire, Vacation, Pay with multi-step dialogs
-5. **Sections Handler**: Stub handlers for remaining categories
-6. **Fallback Handler**: Unmatched message processing
+2. **Ask Handler**: Free-text question processing with state preservation
+3. **Flow Handlers**: Hire, Fire, Vacation, Pay with multi-step dialogs
+4. **Sections Handler**: RAG-powered handlers for remaining categories
+5. **Fallback Handler**: Unmatched message processing
 
 State management integration:
 - Shared state dispenser assignment
@@ -369,7 +352,7 @@ State management integration:
 ### Practical Examples
 
 #### Adding a New HR Category
-To add a new HR category to the enhanced system:
+To add a new HR category to the streamlined system:
 
 1. **Define Payload Constants**: Add new payload dictionary in keyboards module
 2. **Create Handler Module**: Implement multi-step dialog with appropriate state management
@@ -393,12 +376,11 @@ To implement sophisticated multi-step dialogs for HR scenarios:
 6. **Design Keyboard Layouts**: Create specialized keyboards for each step
 
 **Section sources**
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- [hr_request.py:137-149](file://app/integrations/vk/handlers/hr_request.py#L137-L149)
-- [hr_request.py:277-303](file://app/integrations/vk/handlers/hr_request.py#L277-L303)
+- [states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
+- [ask.py:51-59](file://app/integrations/vk/handlers/ask.py#L51-L59)
 
 #### Extending Existing Scenarios
-To extend existing sophisticated HR scenarios:
+To extend existing streamlined HR scenarios:
 
 1. **Modify State Definitions**: Add new state fields for additional context
 2. **Update Handler Logic**: Extend multi-step flows with new steps
@@ -408,14 +390,14 @@ To extend existing sophisticated HR scenarios:
 6. **Update Documentation**: Reflect new functionality and user experience
 
 **Section sources**
-- [hire.py:43-56](file://app/integrations/vk/handlers/hire.py#L43-L56)
-- [vacation.py:51-64](file://app/integrations/vk/handlers/vacation.py#L51-L64)
-- [fire.py:37-42](file://app/integrations/vk/handlers/fire.py#L37-L42)
+- [hire.py:43-52](file://app/integrations/vk/handlers/hire.py#L43-L52)
+- [vacation.py:52-61](file://app/integrations/vk/handlers/vacation.py#L52-L61)
+- [fire.py:39-44](file://app/integrations/vk/handlers/fire.py#L39-L44)
 
 ### Advanced Clickable Scenario Handling
-The enhanced system supports sophisticated clickable scenarios with intelligent state management and context preservation across all HR categories.
+The streamlined system supports focused clickable scenarios with intelligent state management and context preservation across all HR categories.
 
-**Updated** Complete rewrite to support complex multi-step dialogs with entity awareness and state persistence.
+**Updated** Simplified to support focused multi-step dialogs with entity awareness and state persistence.
 
 Key features:
 - **Entity-Aware Content**: Dynamic content generation based on selected legal entities
@@ -425,18 +407,18 @@ Key features:
 - **Service Integration**: Seamless integration with Contact HR functionality
 
 **Section sources**
-- [hire.py:43-56](file://app/integrations/vk/handlers/hire.py#L43-L56)
-- [vacation.py:51-64](file://app/integrations/vk/handlers/vacation.py#L51-L64)
-- [fire.py:37-42](file://app/integrations/vk/handlers/fire.py#L37-L42)
-- [pay.py:36-41](file://app/integrations/vk/handlers/pay.py#L36-L41)
+- [hire.py:43-52](file://app/integrations/vk/handlers/hire.py#L43-L52)
+- [vacation.py:52-61](file://app/integrations/vk/handlers/vacation.py#L52-L61)
+- [fire.py:39-44](file://app/integrations/vk/handlers/fire.py#L39-L44)
+- [pay.py:35-37](file://app/integrations/vk/handlers/pay.py#L35-L37)
 
 ### Integration with State Management and Keyboard Systems
-The enhanced system provides seamless integration between state management, keyboard builders, and handler logic to support complex multi-step HR scenarios.
+The streamlined system provides seamless integration between state management, keyboard builders, and handler logic to support focused multi-step HR scenarios.
 
-**Updated** Enhanced integration patterns supporting sophisticated state persistence and dynamic content delivery.
+**Updated** Enhanced integration patterns supporting focused state persistence and dynamic content delivery.
 
 Integration patterns:
-- **Shared State Dispenser**: Cross-handler state management
+- **Shared State Dispenser**: Cross-handler state management for ask handler
 - **Dynamic Keyboard Generation**: Context-aware keyboard construction
 - **Entity-Aware Content**: Dynamic content based on user selections
 - **Intelligent Navigation**: Back buttons with automatic state restoration
@@ -444,17 +426,16 @@ Integration patterns:
 
 **Section sources**
 - [bot.py:48-49](file://app/integrations/vk/bot.py#L48-L49)
-- [hr_request.py:69-77](file://app/integrations/vk/handlers/hr_request.py#L69-L77)
+- [ask.py:40-45](file://app/integrations/vk/handlers/ask.py#L40-L45)
 - [keyboards.py:144-156](file://app/integrations/vk/keyboards.py#L144-L156)
 - [keyboards.py:162-177](file://app/integrations/vk/keyboards.py#L162-L177)
 
 ## Dependency Analysis
-The enhanced sections handler system features sophisticated interdependencies between handlers, state management, and keyboard builders, supporting complex multi-step dialog flows.
+The streamlined sections handler system features focused interdependencies between handlers, state management, and keyboard builders, supporting comprehensive HR scenarios.
 
 ```mermaid
 graph LR
 BOT["bot.py"] --> START["start.py"]
-BOT --> HR_REQUEST["hr_request.py"]
 BOT --> ASK["ask.py"]
 BOT --> HIRE["hire.py"]
 BOT --> FIRE["fire.py"]
@@ -462,21 +443,22 @@ BOT --> VACATION["vacation.py"]
 BOT --> PAY["pay.py"]
 BOT --> SECTIONS["sections.py"]
 BOT --> FALLBACK["fallback.py"]
-HR_REQUEST --> STATES["states.py"]
-ASK --> STATES
+ASK --> STATES["states.py"]
+ASK --> HANDLERS_INIT["handlers/__init__.py"]
 HIRE --> KEYBOARDS["keyboards.py"]
 FIRE --> KEYBOARDS
 VACATION --> KEYBOARDS
 PAY --> KEYBOARDS
 SECTIONS --> KEYBOARDS
+SECTIONS --> HANDLERS_INIT
 KEYBOARDS --> ENTITIES["entities.py"]
 KEYBOARDS --> CONTENT["content.py"]
-HR_REQUEST --> CONTENT
-HIRE --> CONTENT
-FIRE --> CONTENT
-VACATION --> CONTENT
-PAY --> CONTENT
-SECTIONS --> CONTENT
+ASK --> HANDLERS_INIT
+HIRE --> HANDLERS_INIT
+FIRE --> HANDLERS_INIT
+VACATION --> HANDLERS_INIT
+PAY --> HANDLERS_INIT
+SECTIONS --> HANDLERS_INIT
 ```
 
 **Diagram sources**
@@ -485,7 +467,7 @@ SECTIONS --> CONTENT
 - [fire.py:10-18](file://app/integrations/vk/handlers/fire.py#L10-L18)
 - [vacation.py:10-20](file://app/integrations/vk/handlers/vacation.py#L10-L20)
 - [pay.py:10-17](file://app/integrations/vk/handlers/pay.py#L10-L17)
-- [hr_request.py:14-34](file://app/integrations/vk/handlers/hr_request.py#L14-L34)
+- [ask.py:22-28](file://app/integrations/vk/handlers/ask.py#L22-L28)
 
 **Section sources**
 - [bot.py:24-41](file://app/integrations/vk/bot.py#L24-L41)
@@ -493,7 +475,7 @@ SECTIONS --> CONTENT
 - [states.py:1-1](file://app/integrations/vk/states.py#L1-L1)
 
 ## Performance Considerations
-The enhanced sections handler system incorporates several performance optimizations to support complex multi-step dialogs and state management across all HR categories.
+The streamlined sections handler system incorporates several performance optimizations to support focused multi-step dialogs and state management across all HR categories.
 
 Optimization strategies:
 - **Handler Ordering**: Strategic loading order prevents unnecessary fallback processing
@@ -504,7 +486,7 @@ Optimization strategies:
 - **Error Recovery**: Efficient error handling prevents cascading failures
 
 ## Troubleshooting Guide
-The enhanced system includes comprehensive troubleshooting mechanisms for complex multi-step dialogs and state management scenarios.
+The streamlined system includes comprehensive troubleshooting mechanisms for focused multi-step dialogs and state management scenarios.
 
 Common issues and resolutions:
 - **State Corruption**: Verify state dispenser configuration and cross-handler state sharing
@@ -525,4 +507,4 @@ Validation references:
 - [test_states.py:12-31](file://tests/test_states.py#L12-L31)
 
 ## Conclusion
-The enhanced sections handler module represents a comprehensive transformation from simple stub implementations to sophisticated multi-step dialog management for employment lifecycle HR categories. The system now supports complex workflows for hiring, termination, vacation, and payment processes while maintaining backward compatibility for remaining categories. Through strategic handler loading, shared state management, and sophisticated keyboard builders, the system provides a robust foundation for comprehensive HR request processing with intelligent navigation and context preservation across all user interactions.
+The streamlined sections handler module represents a focused transformation from complex multi-step dialog systems to specialized RAG-powered handlers for specific HR categories. The system now supports streamlined workflows for hiring, termination, vacation, and payment processes while maintaining focused handlers for remaining categories. Through strategic handler loading, shared state management, and sophisticated keyboard builders, the system provides a robust foundation for comprehensive HR request processing with intelligent navigation and context preservation across all user interactions.

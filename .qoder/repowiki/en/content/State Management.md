@@ -13,16 +13,16 @@
 - [sections.py](file://app/integrations/vk/handlers/sections.py)
 - [fallback.py](file://app/integrations/vk/handlers/fallback.py)
 - [__init__.py](file://app/integrations/vk/handlers/__init__.py)
-- [hr_request.py](file://app/integrations/vk/handlers/hr_request.py)
 - [ask.py](file://app/integrations/vk/handlers/ask.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated centralized state dispenser management section to reflect new set_state_dispenser() and get_state_dispenser() functions
-- Added documentation for the new Holder pattern and dependency injection approach
-- Updated architecture diagrams to show the centralized state dispenser pattern
-- Enhanced troubleshooting guide with new state dispenser-related debugging strategies
+- Updated state definitions to reflect the simplified BotStates class with only ASK_QUESTION state
+- Removed documentation sections covering HR request workflow states (HR_REQUEST_NAME, HR_REQUEST_TOPIC, HR_REQUEST_DETAILS, HR_REQUEST_ENTITY, HR_REQUEST_URGENCY, HR_REQUEST_CONFIRM)
+- Updated architecture diagrams to show the streamlined state management system
+- Revised troubleshooting guide to remove HR request-related debugging strategies
+- Updated examples to focus on the single-state ASK_QUESTION workflow
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -37,11 +37,11 @@
 10. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the multi-step dialog state management system used by the VK bot. It covers the state machine implementation, enum-based state definitions, context management, and state transition patterns. The system now features centralized state dispenser management through a dependency injection pattern, improving type safety, reducing coupling, and providing better testability. It also documents how states control complex HR request workflows, manage conversation context, and handle user input validation. Practical examples show how to add new states, implement complex dialog flows, and debug state-related issues. Finally, it addresses state persistence considerations and best practices for maintaining conversation continuity.
+This document explains the multi-step dialog state management system used by the VK bot. The system has been simplified to focus on a single ASK_QUESTION state for free-text question handling, while maintaining the centralized state dispenser management through a dependency injection pattern. It covers the state machine implementation, enum-based state definitions, context management, and state transition patterns. The system provides type safety, reduces coupling, and enhances testability through centralized state dispenser management. Practical examples show how to add new states, implement simple dialog flows, and debug state-related issues. Finally, it addresses state persistence considerations and best practices for maintaining conversation continuity.
 
 ## Project Structure
 The state management system centers around a dedicated VK integration module with a clear separation of concerns and centralized state dispenser management:
-- State definitions live in a single enum-like class.
+- State definitions live in a single enum-like class containing only ASK_QUESTION state.
 - Handlers register routes and bind state-dependent behavior.
 - Keyboards provide consistent navigation and service actions.
 - The bot factory wires handlers and manages state dispenser lifecycle.
@@ -51,7 +51,7 @@ The state management system centers around a dedicated VK integration module wit
 ```mermaid
 graph TB
 subgraph "VK Integration"
-ST["states.py<br/>Defines BotStates enum"]
+ST["states.py<br/>Defines BotStates enum with ASK_QUESTION"]
 HK["handlers/*<br/>Message handlers"]
 KB["keyboards.py<br/>Keyboard builders"]
 BT["bot.py<br/>Bot factory and state dispenser setup"]
@@ -70,23 +70,23 @@ PL --> BT
 ```
 
 **Diagram sources**
-- [states.py:1-17](file://app/integrations/vk/states.py#L1-L17)
-- [bot.py:1-59](file://app/integrations/vk/bot.py#L1-L59)
-- [handlers/__init__.py:1-63](file://app/integrations/vk/handlers/__init__.py#L1-L63)
-- [keyboards.py:1-322](file://app/integrations/vk/keyboards.py#L1-L322)
+- [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
+- [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
+- [handlers/__init__.py:1-91](file://app/integrations/vk/handlers/__init__.py#L1-L91)
+- [keyboards.py:1-234](file://app/integrations/vk/keyboards.py#L1-L234)
 - [polling_vk.py:1-33](file://scripts/polling_vk.py#L1-L33)
 - [config.py:1-9](file://app/config.py#L1-L9)
 
 **Section sources**
-- [states.py:1-17](file://app/integrations/vk/states.py#L1-L17)
-- [bot.py:14-59](file://app/integrations/vk/bot.py#L14-L59)
-- [handlers/__init__.py:1-63](file://app/integrations/vk/handlers/__init__.py#L1-L63)
-- [keyboards.py:1-322](file://app/integrations/vk/keyboards.py#L1-L322)
+- [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
+- [bot.py:14-56](file://app/integrations/vk/bot.py#L14-L56)
+- [handlers/__init__.py:1-91](file://app/integrations/vk/handlers/__init__.py#L1-L91)
+- [keyboards.py:1-234](file://app/integrations/vk/keyboards.py#L1-L234)
 - [polling_vk.py:24-28](file://scripts/polling_vk.py#L24-L28)
 - [config.py:4-9](file://app/config.py#L4-L9)
 
 ## Core Components
-- State definitions: Enum-like states for multi-step dialogs, including a six-step HR request flow and free-text question handling.
+- State definitions: Simplified enum-like state for free-text question handling.
 - Handler labelers: Ordered routing of messages to handlers based on payload and state.
 - Navigation keys: Consistent service buttons (Back/Home/Contact HR) across all screens.
 - Centralized state dispenser: Dependency injection pattern providing type-safe access to vkbottle's state dispenser.
@@ -94,18 +94,18 @@ PL --> BT
 - Tests: Assertions validating state shape, uniqueness, and DI functionality.
 
 Key implementation references:
-- State definitions and HR request steps: [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- Handler loading order and bot wiring: [bot.py:45-59](file://app/integrations/vk/bot.py#L45-L59)
-- Centralized DI pattern: [handlers/__init__.py:13-39](file://app/integrations/vk/handlers/__init__.py#L13-L39)
+- Simplified state definition: [states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
+- Handler loading order and bot wiring: [bot.py:42-56](file://app/integrations/vk/bot.py#L42-L56)
+- Centralized DI pattern: [handlers/__init__.py:17-43](file://app/integrations/vk/handlers/__init__.py#L17-L43)
 - Keyboard payload constants and service row builder: [keyboards.py:13-83](file://app/integrations/vk/keyboards.py#L13-L83)
-- Test coverage for state definitions: [test_states.py:8-31](file://tests/test_states.py#L8-L31)
+- Test coverage for state definitions: [test_states.py:8-15](file://tests/test_states.py#L8-L15)
 
 **Section sources**
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- [bot.py:45-59](file://app/integrations/vk/bot.py#L45-L59)
-- [handlers/__init__.py:13-39](file://app/integrations/vk/handlers/__init__.py#L13-L39)
+- [states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
+- [bot.py:42-56](file://app/integrations/vk/bot.py#L42-L56)
+- [handlers/__init__.py:17-43](file://app/integrations/vk/handlers/__init__.py#L17-L43)
 - [keyboards.py:13-83](file://app/integrations/vk/keyboards.py#L13-L83)
-- [test_states.py:8-31](file://tests/test_states.py#L8-L31)
+- [test_states.py:8-15](file://tests/test_states.py#L8-L15)
 
 ## Architecture Overview
 The state management architecture leverages vkbottle's state dispenser with a centralized dependency injection pattern. The bot factory creates and registers the state dispenser, then injects it into the handlers module via set_state_dispenser(). Handlers access the state dispenser through get_state_dispenser(), providing type safety and improved testability. Payload-driven routing ensures deterministic transitions. The bot factory registers labelers in a specific order to guarantee proper precedence.
@@ -129,49 +129,43 @@ Note over Dispenser,Ctx : In-memory storage provided by vkbottle
 ```
 
 **Diagram sources**
-- [bot.py:45-59](file://app/integrations/vk/bot.py#L45-L59)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
+- [bot.py:42-56](file://app/integrations/vk/bot.py#L42-L56)
+- [handlers/__init__.py:40-43](file://app/integrations/vk/handlers/__init__.py#L40-L43)
 - [PLAN.md:20-28](file://PLAN.md#L20-L28)
 
 **Section sources**
-- [bot.py:45-59](file://app/integrations/vk/bot.py#L45-L59)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
+- [bot.py:42-56](file://app/integrations/vk/bot.py#L42-L56)
+- [handlers/__init__.py:40-43](file://app/integrations/vk/handlers/__init__.py#L40-L43)
 - [PLAN.md:20-28](file://PLAN.md#L20-L28)
 
 ## Detailed Component Analysis
 
-### State Definitions and Enum-Based States
-The BotStates class defines the canonical set of states for multi-step dialogs. The HR request flow is modeled as a sequence of six states, enabling structured progression and validation at each step. A free-text question state is also included for Block 9 functionality.
+### Simplified State Definitions and Enum-Based States
+The BotStates class now defines a single state for free-text question handling. This simplification removes the previous six-state HR request workflow, focusing the system on the ASK_QUESTION state for Block 9 functionality.
 
 ```mermaid
 classDiagram
 class BotStates {
-+string HR_REQUEST_NAME
-+string HR_REQUEST_TOPIC
-+string HR_REQUEST_DETAILS
-+string HR_REQUEST_ENTITY
-+string HR_REQUEST_URGENCY
-+string HR_REQUEST_CONFIRM
 +string ASK_QUESTION
 }
 ```
 
 **Diagram sources**
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
+- [states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
 
 Implementation highlights:
 - States are string-valued identifiers suitable for vkbottle's BaseStateGroup.
-- The HR request states are grouped under a single class for discoverability and testing.
-- Tests confirm subclassing from BaseStateGroup, count of HR states, uniqueness of values, and presence of expected names.
-- Free-text question state supports Block 9 scenarios.
+- The simplified state definition focuses on free-text question handling.
+- Tests confirm subclassing from BaseStateGroup and uniqueness of the single state value.
+- The ASK_QUESTION state supports Block 9 scenarios for question submission.
 
 Practical usage references:
-- Defining states: [states.py:8-17](file://app/integrations/vk/states.py#L8-L17)
-- Tests asserting state shape and values: [test_states.py:9-30](file://tests/test_states.py#L9-L30)
+- Defining the single state: [states.py:8-9](file://app/integrations/vk/states.py#L8-L9)
+- Tests asserting state shape and values: [test_states.py:9-15](file://tests/test_states.py#L9-L15)
 
 **Section sources**
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- [test_states.py:9-30](file://tests/test_states.py#L9-L30)
+- [states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
+- [test_states.py:9-15](file://tests/test_states.py#L9-L15)
 
 ### Handler Routing and State-Dependent Transitions
 Handlers are organized by labelers and loaded in a specific order to ensure fallback behavior is last. Payload-driven routing enables state-dependent transitions and consistent navigation. The centralized state dispenser pattern allows handlers to access the state dispenser through dependency injection.
@@ -191,21 +185,21 @@ Reply --> End(["Conversation continues"])
 ```
 
 **Diagram sources**
-- [bot.py:45-59](file://app/integrations/vk/bot.py#L45-L59)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
+- [bot.py:42-56](file://app/integrations/vk/bot.py#L42-L56)
+- [handlers/__init__.py:40-43](file://app/integrations/vk/handlers/__init__.py#L40-L43)
 - [start.py:31-50](file://app/integrations/vk/handlers/start.py#L31-L50)
 - [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
 - [fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
 
 Behavioral anchors:
-- Ordered labelers: [bot.py:32-42](file://app/integrations/vk/bot.py#L32-L42)
+- Ordered labelers: [bot.py:30-39](file://app/integrations/vk/bot.py#L30-L39)
 - Start and home handlers: [start.py:31-50](file://app/integrations/vk/handlers/start.py#L31-L50)
 - Section entry handlers (stubs): [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
 - Fallback handler: [fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
 
 **Section sources**
-- [bot.py:32-59](file://app/integrations/vk/bot.py#L32-L59)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
+- [bot.py:30-56](file://app/integrations/vk/bot.py#L30-L56)
+- [handlers/__init__.py:40-43](file://app/integrations/vk/handlers/__init__.py#L40-L43)
 - [start.py:31-50](file://app/integrations/vk/handlers/start.py#L31-L50)
 - [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
 - [fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
@@ -261,7 +255,7 @@ Handler-->>User : "Next step prompt"
 
 **Diagram sources**
 - [PLAN.md:20-28](file://PLAN.md#L20-L28)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
+- [handlers/__init__.py:40-43](file://app/integrations/vk/handlers/__init__.py#L40-L43)
 
 Operational notes:
 - Context storage is in-memory and part of vkbottle's state management toolkit.
@@ -271,7 +265,7 @@ Operational notes:
 
 **Section sources**
 - [PLAN.md:20-28](file://PLAN.md#L20-L28)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
+- [handlers/__init__.py:40-43](file://app/integrations/vk/handlers/__init__.py#L40-L43)
 
 ### Adding New States and Extending Dialog Flows
 To add a new multi-step dialog:
@@ -282,10 +276,10 @@ To add a new multi-step dialog:
 5. Import and use get_state_dispenser() in new handlers for type-safe state access.
 
 Example references:
-- Define states: [states.py:8-17](file://app/integrations/vk/states.py#L8-L17)
+- Define states: [states.py:8-9](file://app/integrations/vk/states.py#L8-L9)
 - Handler pattern (payload routes): [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
 - Keyboard payload constants: [keyboards.py:13-26](file://app/integrations/vk/keyboards.py#L13-L26)
-- State dispenser usage: [hr_request.py:19](file://app/integrations/vk/handlers/hr_request.py#L19)
+- State dispenser usage: [ask.py:40](file://app/integrations/vk/handlers/ask.py#L40)
 
 Best practices:
 - Keep state values unique and descriptive.
@@ -295,28 +289,28 @@ Best practices:
 - Always use get_state_dispenser() for accessing the state dispenser in handlers.
 
 **Section sources**
-- [states.py:8-17](file://app/integrations/vk/states.py#L8-L17)
+- [states.py:8-9](file://app/integrations/vk/states.py#L8-L9)
 - [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
 - [keyboards.py:13-26](file://app/integrations/vk/keyboards.py#L13-L26)
-- [test_states.py:12-18](file://tests/test_states.py#L12-L18)
-- [hr_request.py:19](file://app/integrations/vk/handlers/hr_request.py#L19)
+- [test_states.py:12-15](file://tests/test_states.py#L12-L15)
+- [ask.py:40](file://app/integrations/vk/handlers/ask.py#L40)
 
 ### Debugging State-Related Issues
 Common debugging strategies:
-- Verify handler loading order to ensure fallback is last: [bot.py:32-42](file://app/integrations/vk/bot.py#L32-L42)
-- Confirm state values match expectations using tests: [test_states.py:20-30](file://tests/test_states.py#L20-L30)
+- Verify handler loading order to ensure fallback is last: [bot.py:30-39](file://app/integrations/vk/bot.py#L30-L39)
+- Confirm state values match expectations using tests: [test_states.py:12-15](file://tests/test_states.py#L12-L15)
 - Inspect payload routing by checking handler decorators: [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
 - Validate keyboard payloads and service rows: [keyboards.py:13-83](file://app/integrations/vk/keyboards.py#L13-L83)
-- Check DI container initialization: [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
-- Verify state dispenser access: [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
+- Check DI container initialization: [bot.py:49-50](file://app/integrations/vk/bot.py#L49-L50)
+- Verify state dispenser access: [handlers/__init__.py:40-43](file://app/integrations/vk/handlers/__init__.py#L40-L43)
 
 **Section sources**
-- [bot.py:32-59](file://app/integrations/vk/bot.py#L32-L59)
-- [test_states.py:20-30](file://tests/test_states.py#L20-L30)
+- [bot.py:30-56](file://app/integrations/vk/bot.py#L30-L56)
+- [test_states.py:12-15](file://tests/test_states.py#L12-L15)
 - [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
 - [keyboards.py:13-83](file://app/integrations/vk/keyboards.py#L13-L83)
-- [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
+- [bot.py:49-50](file://app/integrations/vk/bot.py#L49-L50)
+- [handlers/__init__.py:40-43](file://app/integrations/vk/handlers/__init__.py#L40-L43)
 
 ## Centralized State Dispenser Management
 
@@ -341,7 +335,7 @@ Holder <|-- DIContainer
 ```
 
 **Diagram sources**
-- [handlers/__init__.py:13-39](file://app/integrations/vk/handlers/__init__.py#L13-L39)
+- [handlers/__init__.py:17-43](file://app/integrations/vk/handlers/__init__.py#L17-L43)
 
 ### Bot Factory Integration
 The bot factory creates and registers the state dispenser, then injects it into the DI container:
@@ -359,7 +353,7 @@ Note over DI : Type-safe access to state dispenser
 ```
 
 **Diagram sources**
-- [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
+- [bot.py:49-50](file://app/integrations/vk/bot.py#L49-L50)
 
 ### Handler Access Pattern
 Handlers access the state dispenser through the DI container, ensuring type safety and testability:
@@ -375,8 +369,8 @@ Handler->>SD : Use state dispenser methods
 ```
 
 **Diagram sources**
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
-- [hr_request.py:69](file://app/integrations/vk/handlers/hr_request.py#L69)
+- [handlers/__init__.py:40-43](file://app/integrations/vk/handlers/__init__.py#L40-L43)
+- [ask.py:40](file://app/integrations/vk/handlers/ask.py#L40)
 
 Implementation highlights:
 - The Holder class maintains a single instance of the state dispenser.
@@ -386,9 +380,9 @@ Implementation highlights:
 - Improved testability allows mocking of the state dispenser in unit tests.
 
 **Section sources**
-- [handlers/__init__.py:13-39](file://app/integrations/vk/handlers/__init__.py#L13-L39)
-- [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
-- [hr_request.py:69](file://app/integrations/vk/handlers/hr_request.py#L69)
+- [handlers/__init__.py:17-43](file://app/integrations/vk/handlers/__init__.py#L17-L43)
+- [bot.py:49-50](file://app/integrations/vk/bot.py#L49-L50)
+- [ask.py:40](file://app/integrations/vk/handlers/ask.py#L40)
 
 ## Dependency Analysis
 The state management system exhibits low coupling and high cohesion with improved dependency management:
@@ -410,17 +404,17 @@ PL["Polling Script"] --> BT
 ```
 
 **Diagram sources**
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- [bot.py:45-59](file://app/integrations/vk/bot.py#L45-L59)
-- [handlers/__init__.py:13-39](file://app/integrations/vk/handlers/__init__.py#L13-L39)
+- [states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
+- [bot.py:42-56](file://app/integrations/vk/bot.py#L42-L56)
+- [handlers/__init__.py:17-43](file://app/integrations/vk/handlers/__init__.py#L17-L43)
 - [keyboards.py:13-83](file://app/integrations/vk/keyboards.py#L13-L83)
 - [polling_vk.py:24-28](file://scripts/polling_vk.py#L24-L28)
 - [config.py:4-9](file://app/config.py#L4-L9)
 
 **Section sources**
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- [bot.py:45-59](file://app/integrations/vk/bot.py#L45-L59)
-- [handlers/__init__.py:13-39](file://app/integrations/vk/handlers/__init__.py#L13-L39)
+- [states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
+- [bot.py:42-56](file://app/integrations/vk/bot.py#L42-L56)
+- [handlers/__init__.py:17-43](file://app/integrations/vk/handlers/__init__.py#L17-L43)
 - [keyboards.py:13-83](file://app/integrations/vk/keyboards.py#L13-L83)
 - [polling_vk.py:24-28](file://scripts/polling_vk.py#L24-L28)
 - [config.py:4-9](file://app/config.py#L4-L9)
@@ -435,26 +429,25 @@ PL["Polling Script"] --> BT
 
 ## Troubleshooting Guide
 - Symptom: Messages not routed to state-bound handlers.
-  - Check handler loading order and ensure fallback is last: [bot.py:32-42](file://app/integrations/vk/bot.py#L32-L42)
+  - Check handler loading order and ensure fallback is last: [bot.py:30-39](file://app/integrations/vk/bot.py#L30-L39)
 - Symptom: Duplicate or missing state values.
-  - Validate with tests asserting uniqueness and presence: [test_states.py:16-18](file://tests/test_states.py#L16-L18), [test_states.py:20-30](file://tests/test_states.py#L20-L30)
+  - Validate with tests asserting uniqueness and presence: [test_states.py:12-15](file://tests/test_states.py#L12-L15)
 - Symptom: Navigation keys not working.
   - Confirm payload constants and service row builder usage: [keyboards.py:13-83](file://app/integrations/vk/keyboards.py#L13-L83)
 - Symptom: Unexpected fallback replies.
   - Review fallback handler and ensure payload routes are defined: [fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
 - Symptom: State dispenser not initialized error.
-  - Verify bot factory initialization: [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
+  - Verify bot factory initialization: [bot.py:49-50](file://app/integrations/vk/bot.py#L49-L50)
 - Symptom: Type errors when accessing state dispenser.
-  - Ensure handlers import get_state_dispenser(): [hr_request.py:19](file://app/integrations/vk/handlers/hr_request.py#L19)
+  - Ensure handlers import get_state_dispenser(): [ask.py:22](file://app/integrations/vk/handlers/ask.py#L22)
 
 **Section sources**
-- [bot.py:32-59](file://app/integrations/vk/bot.py#L32-L59)
-- [test_states.py:16-18](file://tests/test_states.py#L16-L18)
-- [test_states.py:20-30](file://tests/test_states.py#L20-L30)
+- [bot.py:30-56](file://app/integrations/vk/bot.py#L30-L56)
+- [test_states.py:12-15](file://tests/test_states.py#L12-L15)
 - [keyboards.py:13-83](file://app/integrations/vk/keyboards.py#L13-L83)
 - [fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
-- [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
-- [hr_request.py:19](file://app/integrations/vk/handlers/hr_request.py#L19)
+- [bot.py:49-50](file://app/integrations/vk/bot.py#L49-L50)
+- [ask.py:22](file://app/integrations/vk/handlers/ask.py#L22)
 
 ## Conclusion
-The state management system provides a clean, extensible foundation for multi-step dialogs in the VK bot. The centralized state dispenser management through dependency injection improves type safety, reduces coupling, and enhances testability while maintaining the existing state machine architecture. By defining states in a centralized enum, binding handlers to those states through the DI pattern, and enforcing consistent navigation via keyboards, the system supports complex HR request workflows while maintaining clarity and testability. As development progresses, consider migrating to persistent context storage and expanding validation logic to further improve reliability and user experience.
+The state management system provides a clean, extensible foundation for multi-step dialogs in the VK bot. The centralized state dispenser management through dependency injection improves type safety, reduces coupling, and enhances testability while maintaining the existing state machine architecture. The simplified BotStates class with a single ASK_QUESTION state focuses the system on free-text question handling, removing the complexity of the previous HR request workflow. By defining states in a centralized enum, binding handlers to those states through the DI pattern, and enforcing consistent navigation via keyboards, the system supports the current question-answering workflow while maintaining clarity and testability. As development progresses, consider migrating to persistent context storage and expanding validation logic to further improve reliability and user experience.

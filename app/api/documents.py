@@ -43,6 +43,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import HTMLResponse, RedirectResponse
+from langchain_core.embeddings import Embeddings
 from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
@@ -137,6 +138,10 @@ async def _index_document_from_s3(
     chunk_overlap: int,
     is_reindex: bool = False,
     qa_service: QAService | None = None,
+    strategy: str = "recursive",
+    embeddings: Embeddings | None = None,
+    breakpoint_threshold_type: str = "percentile",
+    breakpoint_threshold_amount: float | int = 95,
 ) -> None:
     """Download from S3, parse, and index/reindex a document. Runs as a background task."""
     async with semaphore:
@@ -151,6 +156,10 @@ async def _index_document_from_s3(
                     tmp_path,
                     chunk_size=chunk_size,
                     chunk_overlap=chunk_overlap,
+                    strategy=strategy,
+                    embeddings=embeddings,
+                    breakpoint_threshold_type=breakpoint_threshold_type,
+                    breakpoint_threshold_amount=breakpoint_threshold_amount,
                 )
                 if is_reindex:
                     await service.reindex_document(document_id, chunks)
@@ -555,6 +564,10 @@ async def upload_documents(
             settings.chunk_overlap,
             is_reindex=False,
             qa_service=qa,
+            strategy=settings.chunk_strategy,
+            embeddings=request.app.state.embeddings,
+            breakpoint_threshold_type=settings.semantic_breakpoint_threshold_type,
+            breakpoint_threshold_amount=settings.semantic_breakpoint_threshold_amount,
         )
 
         results.append(_doc_to_dict(record))
@@ -741,6 +754,10 @@ async def bulk_reindex_documents(
                 settings.chunk_overlap,
                 is_reindex=True,
                 qa_service=qa,
+                strategy=settings.chunk_strategy,
+                embeddings=request.app.state.embeddings,
+                breakpoint_threshold_type=settings.semantic_breakpoint_threshold_type,
+                breakpoint_threshold_amount=settings.semantic_breakpoint_threshold_amount,
             )
         except Exception as exc:
             logger.error("Bulk reindex failed for %s", document_id, exc_info=True)
@@ -973,6 +990,10 @@ async def reindex_document(
         settings.chunk_overlap,
         is_reindex=True,
         qa_service=qa,
+        strategy=settings.chunk_strategy,
+        embeddings=request.app.state.embeddings,
+        breakpoint_threshold_type=settings.semantic_breakpoint_threshold_type,
+        breakpoint_threshold_amount=settings.semantic_breakpoint_threshold_amount,
     )
 
     is_htmx = request.headers.get("HX-Request") == "true"

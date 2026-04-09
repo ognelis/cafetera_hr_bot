@@ -14,6 +14,14 @@
 - [config.py](file://app/config.py)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated start handler to reflect simplified implementation without HR request cleanup functionality
+- Removed references to contact HR placeholder and HR request state cleanup
+- Updated architecture overview to reflect current handler registration order
+- Revised practical examples to match simplified functionality
+- Updated troubleshooting guide to reflect current capabilities
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
@@ -27,18 +35,19 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document explains the start handler module responsible for bot initialization and welcome functionality in the VK integration. It covers:
-- Greeting message implementation
-- Main menu display logic
-- Home navigation functionality
-- Payload-based routing for home button clicks and contact HR placeholder
-- Practical customization examples for welcome messages, main menu text, and extending the start command
-- Integration with keyboard builders and message routing patterns
+This document explains the start handler module responsible for bot initialization and welcome functionality in the VK integration. The start handler has been simplified to focus on core greeting and navigation functionality without HR request cleanup or contact HR placeholder features.
 
-The start handler ensures users receive a friendly welcome and can navigate to the main menu and back to it using a standardized service row.
+Key capabilities:
+- Greeting message implementation with customizable welcome text
+- Main menu display logic with seven-section navigation
+- Home navigation functionality via payload routing
+- Integration with keyboard builders and message routing patterns
+- Practical customization examples for welcome messages and main menu text
+
+**Updated** Simplified to remove HR request cleanup functionality and contact HR placeholder, focusing purely on basic bot initialization and navigation.
 
 ## Project Structure
-The start handler resides within the VK integration and collaborates with keyboard builders, bot factory, and other handler modules.
+The start handler resides within the VK integration and collaborates with keyboard builders, bot factory, and other handler modules. The current structure maintains the same organizational pattern but with simplified functionality.
 
 ```mermaid
 graph TB
@@ -59,48 +68,54 @@ START --> STATES
 ```
 
 **Diagram sources**
-- [start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
-- [keyboards.py:1-108](file://app/integrations/vk/keyboards.py#L1-L108)
-- [bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
+- [start.py:1-42](file://app/integrations/vk/handlers/start.py#L1-L42)
+- [keyboards.py:1-234](file://app/integrations/vk/keyboards.py#L1-L234)
+- [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 - [fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [sections.py:1-82](file://app/integrations/vk/handlers/sections.py#L1-L82)
-- [states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
+- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
+- [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
 
 **Section sources**
-- [start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
-- [keyboards.py:1-108](file://app/integrations/vk/keyboards.py#L1-L108)
-- [bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
+- [start.py:1-42](file://app/integrations/vk/handlers/start.py#L1-L42)
+- [keyboards.py:1-234](file://app/integrations/vk/keyboards.py#L1-L234)
+- [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 
 ## Core Components
-- Start handler module: Implements greeting, main menu display, and home navigation via payload routing.
-- Keyboard builders: Provide reusable keyboard construction utilities and payload constants.
-- Bot factory: Wires handlers in the correct order to ensure proper routing.
-- Fallback handler: Ensures unmatched text inputs route back to the main menu.
-- Section handlers: Placeholder implementations for menu sections, demonstrating payload-driven routing.
+- **Start handler module**: Implements greeting and main menu display functionality. Now simplified to focus on basic bot initialization without HR request cleanup.
+- **Keyboard builders**: Provide reusable keyboard construction utilities and payload constants for seven-section main menu.
+- **Bot factory**: Wires handlers in the correct order to ensure proper routing.
+- **Fallback handler**: Ensures unmatched text inputs route back to the main menu.
+- **Section handlers**: Placeholder implementations for menu sections, demonstrating payload-driven routing.
 
 Key responsibilities:
 - Initialize conversation with a greeting and main menu
 - Route home button clicks to the main menu
-- Provide a contact HR placeholder with a service row
 - Maintain consistent payload-based navigation across the bot
+- Support free-text question handling through dedicated ask handler
+
+**Updated** Removed HR request cleanup functionality and contact HR placeholder features. Start handler now focuses solely on greeting and navigation.
 
 **Section sources**
-- [start.py:14-54](file://app/integrations/vk/handlers/start.py#L14-L54)
-- [keyboards.py:13-24](file://app/integrations/vk/keyboards.py#L13-L24)
-- [bot.py:14-31](file://app/integrations/vk/bot.py#L14-L31)
+- [start.py:14-42](file://app/integrations/vk/handlers/start.py#L14-L42)
+- [keyboards.py:15-111](file://app/integrations/vk/keyboards.py#L15-L111)
+- [bot.py:24-39](file://app/integrations/vk/bot.py#L24-L39)
 - [fallback.py:9-17](file://app/integrations/vk/handlers/fallback.py#L9-L17)
-- [sections.py:20-81](file://app/integrations/vk/handlers/sections.py#L20-L81)
+- [sections.py:24-34](file://app/integrations/vk/handlers/sections.py#L24-L34)
 
 ## Architecture Overview
 The start handler participates in a top-down handler registration order. The bot loads start handlers first, then section handlers, and finally the fallback handler last. This ensures that:
 - Start commands and home navigation take precedence
 - Section payloads are matched before falling back to the fallback handler
+- Free-text questions are handled by the dedicated ask handler
+
+**Updated** Handler registration order now includes ask handler for free-text question processing.
 
 ```mermaid
 sequenceDiagram
 participant User as "User"
 participant Bot as "VK Bot"
 participant Start as "Start Handler"
+participant Ask as "Ask Handler"
 participant Sections as "Sections Handler"
 participant Fallback as "Fallback Handler"
 User->>Bot : "/start" or "Начать"/"Start"
@@ -109,62 +124,74 @@ Start-->>User : "Greeting + Main Menu"
 User->>Bot : "🏠 Home" (payload)
 Bot->>Start : on_home(message)
 Start-->>User : "Main Menu"
-User->>Bot : "💬 Contact HR" (payload)
-Bot->>Start : on_contact_hr(message)
-Start-->>User : "Contact HR Placeholder + Service Row"
+User->>Bot : Arbitrary text
+Bot->>Ask : send_rag_answer(message, question="Задать вопрос")
+Ask-->>User : "Free-text question handling"
+User->>Bot : Section payload
+Bot->>Sections : on_sick/on_probation(message)
+Sections-->>User : "Section-specific responses"
 User->>Bot : Arbitrary text
 Bot->>Fallback : on_fallback(message)
 Fallback-->>User : "Fallback prompt + Main Menu"
 ```
 
 **Diagram sources**
-- [start.py:31-54](file://app/integrations/vk/handlers/start.py#L31-L54)
-- [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
+- [start.py:31-42](file://app/integrations/vk/handlers/start.py#L31-L42)
+- [sections.py:24-34](file://app/integrations/vk/handlers/sections.py#L24-L34)
 - [fallback.py:15-17](file://app/integrations/vk/handlers/fallback.py#L15-L17)
 
 ## Detailed Component Analysis
 
-### Start Handler: Greeting, Main Menu, and Home Navigation
-- Greeting message: Defined as a constant and sent on start commands.
-- Main menu text: Centralized constant for consistent UX.
-- Main menu display: Reusable function that answers with the main menu keyboard.
-- Home navigation: Payload-based handler routes users back to the main menu.
-- Contact HR placeholder: Payload-based handler responds with a placeholder message and a minimal keyboard with service row.
+### Start Handler: Greeting and Main Menu
+The start handler now focuses on core greeting and main menu functionality without HR request cleanup or contact HR placeholder features.
+
+- **Greeting message**: Defined as a constant with customizable welcome text.
+- **Main menu text**: Centralized constant for consistent UX.
+- **Main menu display**: Reusable function that answers with the main menu keyboard containing seven sections.
+- **Home navigation**: Payload-based handler routes users back to the main menu.
 
 ```mermaid
 flowchart TD
 Start(["/start or Home pressed"]) --> Greeting["Send greeting + main menu"]
-Greeting --> MainMenu["Display main menu"]
+Greeting --> MainMenu["Display main menu with 7 sections"]
 MainMenu --> HomePayload{"Home payload?"}
 HomePayload --> |Yes| SendMenu["send_main_menu()"]
 HomePayload --> |No| SectionPayload{"Section payload?"}
-SectionPayload --> |Yes| SectionStub["Section handler responds with stub + service row"]
-SectionPayload --> |No| ContactHR{"Contact HR payload?"}
-ContactHR --> |Yes| ContactHRStub["Respond with placeholder + service row"]
-ContactHR --> |No| Fallback["Fallback handler prompts to use menu"]
+SectionPayload --> |Yes| SectionStub["Section handler responds with RAG answer"]
+SectionPayload --> |No| Fallback["Ask handler processes free-text questions"]
 ```
 
+**Updated** Removed contact HR placeholder functionality and HR request cleanup. Start handler now focuses purely on greeting and main menu navigation.
+
 **Diagram sources**
-- [start.py:14-54](file://app/integrations/vk/handlers/start.py#L14-L54)
-- [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
+- [start.py:14-42](file://app/integrations/vk/handlers/start.py#L14-L42)
+- [sections.py:24-34](file://app/integrations/vk/handlers/sections.py#L24-L34)
 - [fallback.py:15-17](file://app/integrations/vk/handlers/fallback.py#L15-L17)
 
 **Section sources**
-- [start.py:14-54](file://app/integrations/vk/handlers/start.py#L14-L54)
+- [start.py:14-42](file://app/integrations/vk/handlers/start.py#L14-L42)
 
 ### Keyboard Builders and Payload Routing
-- Payload constants: Standardized payload dictionaries enable consistent routing across handlers.
-- Service row builder: Adds Back/Home/Contact HR buttons with configurable visibility and payloads.
-- Main menu keyboard: Builds the primary menu with seven sections plus a dedicated Contact HR button.
-- Stub keyboard: Minimal keyboard for placeholder screens, always including a service row.
+- **Payload constants**: Standardized payload dictionaries enable consistent routing across handlers.
+- **Service row builder**: Adds Back/Home buttons with configurable visibility and payloads.
+- **Main menu keyboard**: Builds the primary menu with seven sections plus service row.
+- **Stub keyboard**: Minimal keyboard for placeholder screens, always including a service row.
+
+**Updated** Main menu now contains seven sections instead of eight, reflecting the removal of contact HR functionality.
 
 ```mermaid
 classDiagram
 class KeyboardBuilder {
 +CMD_HOME
 +CMD_BACK
-+CMD_CONTACT_HR
-+with_service_row(kb, back_payload=None, show_home=True, show_hr=True) Keyboard
++CMD_HIRE
++CMD_FIRE
++CMD_VACATION
++CMD_PAY
++CMD_SICK
++CMD_PROBATION
++CMD_ASK
++with_service_row(kb, back_payload=None, show_home=True) Keyboard
 +main_menu_kb() Keyboard
 +stub_kb(back_payload=None) Keyboard
 }
@@ -174,60 +201,59 @@ class StartHandler {
 +send_main_menu(message, text=MAIN_MENU_TEXT) None
 +on_start(message) None
 +on_home(message) None
-+on_contact_hr(message) None
 }
 class SectionsHandler {
-+on_hire(message) None
-+on_fire(message) None
-+on_vacation(message) None
-+on_pay(message) None
 +on_sick(message) None
 +on_probation(message) None
-+on_ask(message) None
 }
 StartHandler --> KeyboardBuilder : "uses"
 SectionsHandler --> KeyboardBuilder : "uses"
 ```
 
 **Diagram sources**
-- [keyboards.py:13-107](file://app/integrations/vk/keyboards.py#L13-L107)
-- [start.py:14-54](file://app/integrations/vk/handlers/start.py#L14-L54)
-- [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
+- [keyboards.py:15-121](file://app/integrations/vk/keyboards.py#L15-L121)
+- [start.py:14-42](file://app/integrations/vk/handlers/start.py#L14-L42)
+- [sections.py:24-34](file://app/integrations/vk/handlers/sections.py#L24-L34)
 
 **Section sources**
-- [keyboards.py:13-107](file://app/integrations/vk/keyboards.py#L13-L107)
+- [keyboards.py:15-121](file://app/integrations/vk/keyboards.py#L15-L121)
 
 ### Bot Factory and Handler Registration Order
-- Handler order: Start handlers are loaded first, sections second, and fallback last.
+- **Handler order**: Start handlers are loaded first, ask handler second, then section handlers, and fallback last.
 - This ordering ensures start commands and home navigation are prioritized over arbitrary text.
 - The fallback handler only triggers when no other handler matches.
+
+**Updated** Added ask handler to the registration order for free-text question processing.
 
 ```mermaid
 sequenceDiagram
 participant Bot as "Bot"
 participant Start as "start.bl"
+participant Ask as "ask.bl"
 participant Sections as "sections.bl"
 participant Fallback as "fallback.bl"
 Bot->>Start : load()
+Bot->>Ask : load()
 Bot->>Sections : load()
 Bot->>Fallback : load()
 Note over Start,Fallback : Start handlers match first
+Note over Ask,Fallback : Ask handler matches next
 Note over Sections,Fallback : Sections match next
 Note over Fallback : Fallback matches last
 ```
 
 **Diagram sources**
-- [bot.py:16-20](file://app/integrations/vk/bot.py#L16-L20)
+- [bot.py:30-39](file://app/integrations/vk/bot.py#L30-L39)
 
 **Section sources**
-- [bot.py:14-31](file://app/integrations/vk/bot.py#L14-L31)
+- [bot.py:24-39](file://app/integrations/vk/bot.py#L24-L39)
 
 ### States and Multi-step Dialogs
-- States module defines state names for multi-step dialogs (e.g., HR request workflow).
-- While the start handler does not directly manage states, it integrates with the overall navigation pattern used across the bot.
+- **States module**: Defines state names for multi-step dialogs, currently only ASK_QUESTION state for free-text questions.
+- The start handler integrates with the overall navigation pattern used across the bot.
 
 **Section sources**
-- [states.py:4-13](file://app/integrations/vk/states.py#L4-L13)
+- [states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
 
 ## Dependency Analysis
 The start handler depends on keyboard builders for menu construction and payload routing. The bot factory orchestrates handler loading order to ensure predictable routing.
@@ -236,6 +262,7 @@ The start handler depends on keyboard builders for menu construction and payload
 graph LR
 Config["config.py"] --> BotFactory["bot.py"]
 BotFactory --> Start["start.py"]
+BotFactory --> Ask["ask.py"]
 BotFactory --> Sections["sections.py"]
 BotFactory --> Fallback["fallback.py"]
 Start --> Keyboards["keyboards.py"]
@@ -245,14 +272,14 @@ Start --> States["states.py"]
 
 **Diagram sources**
 - [config.py:4-9](file://app/config.py#L4-L9)
-- [bot.py:9-31](file://app/integrations/vk/bot.py#L9-L31)
-- [start.py:5-10](file://app/integrations/vk/handlers/start.py#L5-L10)
-- [sections.py:5-15](file://app/integrations/vk/handlers/sections.py#L5-L15)
+- [bot.py:9-56](file://app/integrations/vk/bot.py#L9-L56)
+- [start.py:7-10](file://app/integrations/vk/handlers/start.py#L7-L10)
+- [sections.py:12-16](file://app/integrations/vk/handlers/sections.py#L12-L16)
 
 **Section sources**
-- [bot.py:9-31](file://app/integrations/vk/bot.py#L9-L31)
-- [start.py:5-10](file://app/integrations/vk/handlers/start.py#L5-L10)
-- [sections.py:5-15](file://app/integrations/vk/handlers/sections.py#L5-L15)
+- [bot.py:9-56](file://app/integrations/vk/bot.py#L9-L56)
+- [start.py:7-10](file://app/integrations/vk/handlers/start.py#L7-L10)
+- [sections.py:12-16](file://app/integrations/vk/handlers/sections.py#L12-L16)
 
 ## Performance Considerations
 - Keyboard construction is lightweight and reused across handlers.
@@ -261,10 +288,12 @@ Start --> States["states.py"]
 
 ## Troubleshooting Guide
 Common issues and resolutions:
-- Start command not recognized: Verify the start handler is loaded first and the command variants are included in the message filter.
-- Home button not working: Confirm the payload constant matches the service row payload.
-- Contact HR placeholder not responding: Ensure the payload constant is consistent with the keyboard builder.
-- Unexpected fallback behavior: Check that the fallback handler is last and that no earlier handler intercepts the message.
+- **Start command not recognized**: Verify the start handler is loaded first and the command variants are included in the message filter.
+- **Home button not working**: Confirm the payload constant matches the service row payload.
+- **Unexpected fallback behavior**: Check that the fallback handler is last and that no earlier handler intercepts the message.
+- **Free-text questions not processed**: Ensure the ask handler is properly loaded and positioned correctly in the handler order.
+
+**Updated** Added guidance for free-text question processing through the ask handler.
 
 Validation references:
 - Handler order and counts verified by tests.
@@ -275,35 +304,39 @@ Validation references:
 - [test_keyboards.py:49-192](file://tests/test_keyboards.py#L49-L192)
 
 ## Conclusion
-The start handler provides a robust foundation for bot initialization and navigation. Its payload-based routing, centralized keyboard builders, and strict handler registration order ensure predictable user experiences. Extending the start command involves adding new payload handlers and updating the main menu accordingly.
+The start handler provides a robust foundation for bot initialization and navigation. Its payload-based routing, centralized keyboard builders, and strict handler registration order ensure predictable user experiences. The simplified implementation focuses on core greeting and navigation functionality without HR request cleanup, making it more maintainable and efficient.
+
+**Updated** The handler is now simpler and more focused, removing unnecessary complexity while maintaining essential functionality.
 
 ## Appendices
 
 ### Practical Customization Examples
-- Customize welcome message:
+- **Customize welcome message**:
   - Modify the greeting constant in the start handler to change the initial message text.
   - Reference: [start.py:14-18](file://app/integrations/vk/handlers/start.py#L14-L18)
 
-- Modify main menu text:
+- **Modify main menu text**:
   - Adjust the main menu text constant to update the prompt above the main menu.
   - Reference: [start.py:20](file://app/integrations/vk/handlers/start.py#L20)
 
-- Extend start command functionality:
+- **Extend start command functionality**:
   - Add new message filters to the start command handler to support additional triggers.
   - Reference: [start.py:31](file://app/integrations/vk/handlers/start.py#L31)
 
-- Add new section entries:
+- **Add new section entries**:
   - Define a new payload constant and a corresponding handler in the sections module.
-  - Reference: [keyboards.py:17-24](file://app/integrations/vk/keyboards.py#L17-L24), [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
+  - Reference: [keyboards.py:18-25](file://app/integrations/vk/keyboards.py#L18-L25), [sections.py:24-34](file://app/integrations/vk/handlers/sections.py#L24-L34)
 
-- Integrate with keyboard builders:
-  - Use the main menu builder to construct the primary menu and the service row builder to add Back/Home/Contact HR buttons.
-  - Reference: [keyboards.py:56-98](file://app/integrations/vk/keyboards.py#L56-L98), [keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
+- **Integrate with keyboard builders**:
+  - Use the main menu builder to construct the primary menu and the service row builder to add Back/Home buttons.
+  - Reference: [keyboards.py:75-111](file://app/integrations/vk/keyboards.py#L75-L111), [keyboards.py:54-69](file://app/integrations/vk/keyboards.py#L54-L69)
 
-- Message routing pattern:
+- **Message routing pattern**:
   - Follow the payload-based routing pattern demonstrated by the start and sections handlers.
-  - Reference: [start.py:39-41](file://app/integrations/vk/handlers/start.py#L39-L41), [sections.py:28-81](file://app/integrations/vk/handlers/sections.py#L28-L81)
+  - Reference: [start.py:39-41](file://app/integrations/vk/handlers/start.py#L39-L41), [sections.py:24-34](file://app/integrations/vk/handlers/sections.py#L24-L34)
 
-- Local development startup:
+- **Local development startup**:
   - Run the polling script to start the bot in long poll mode.
   - Reference: [polling_vk.py:24-28](file://scripts/polling_vk.py#L24-L28)
+
+**Updated** Removed examples related to contact HR placeholder and HR request cleanup functionality, focusing on current capabilities.
