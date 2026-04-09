@@ -92,10 +92,10 @@ class TestCombinedHint:
 class TestAskHandlerImports:
     """Verify the ask handler now imports qa_service instead of rag_stub."""
 
-    def test_ask_handler_imports_qa_service(self):
+    def test_ask_handler_imports_query_rag_with_wait(self):
         from app.integrations.vk.handlers import ask
 
-        assert hasattr(ask, "get_qa_service")
+        assert hasattr(ask, "query_rag_with_wait")
 
     def test_ask_handler_does_not_import_rag_stub(self):
         import inspect

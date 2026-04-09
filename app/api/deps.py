@@ -16,12 +16,6 @@ from app.domain.qa_service import QAService
 from app.storage.document_repo import DocumentRepository
 from app.storage.s3 import S3Storage
 
-# Import AppState for typed access - avoid circular import by using TYPE_CHECKING
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from app.main import AppState
-
 
 def parse_date_range(
     date_from: str | None, date_to: str | None,
@@ -43,23 +37,19 @@ def parse_date_range(
 
 
 def get_settings(request: Request) -> Settings:
-    state: AppState = request.app.state  # type: ignore[assignment]
-    return state.settings
+    return request.app.state.settings
 
 
 def get_templates(request: Request) -> Jinja2Templates:
-    state: AppState = request.app.state  # type: ignore[assignment]
-    return state.templates
+    return request.app.state.templates
 
 
 def get_doc_repo(request: Request) -> DocumentRepository:
-    state: AppState = request.app.state  # type: ignore[assignment]
-    return state.doc_repo
+    return request.app.state.doc_repo
 
 
 def get_doc_service(request: Request) -> DocumentService:
-    state: AppState = request.app.state  # type: ignore[assignment]
-    service = state.doc_service
+    service = getattr(request.app.state, "doc_service", None)
     if service is None:
         raise HTTPException(
             status_code=503,
@@ -69,8 +59,7 @@ def get_doc_service(request: Request) -> DocumentService:
 
 
 def get_s3(request: Request) -> S3Storage:
-    state: AppState = request.app.state  # type: ignore[assignment]
-    s3 = state.s3
+    s3 = getattr(request.app.state, "s3", None)
     if s3 is None:
         raise HTTPException(
             status_code=503,
@@ -89,8 +78,7 @@ def require_admin(
     admin_session: Annotated[str | None, Cookie()] = None,
 ) -> None:
     """Validate admin cookie.  Raises 403 if invalid or missing."""
-    state: AppState = request.app.state  # type: ignore[assignment]
-    settings = state.settings
+    settings = request.app.state.settings
     if not settings.admin_api_key:
         raise HTTPException(status_code=503, detail="Admin not configured")
     if admin_session is None or not secrets.compare_digest(
@@ -100,13 +88,11 @@ def require_admin(
 
 
 def get_indexing_semaphore(request: Request) -> asyncio.Semaphore:
-    state: AppState = request.app.state  # type: ignore[assignment]
-    return state.indexing_semaphore
+    return request.app.state.indexing_semaphore
 
 
 def get_qa_service(request: Request) -> QAService:
-    state: AppState = request.app.state  # type: ignore[assignment]
-    svc = state.qa_service
+    svc = getattr(request.app.state, "qa_service", None)
     if svc is None:
         raise HTTPException(status_code=503, detail="QA service unavailable")
     return svc

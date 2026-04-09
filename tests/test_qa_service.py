@@ -185,7 +185,8 @@ class TestQAServiceClose:
         assert service._llm is None
         assert service._settings is None
 
-    def test_closes_qdrant_client(self, mock_settings):
+    def test_does_not_close_qdrant_client(self, mock_settings):
+        """QAService should not close Qdrant client - lifecycle is managed externally."""
         mock_client = MagicMock()
         service = QAService(
             qdrant_client=mock_client,
@@ -194,18 +195,8 @@ class TestQAServiceClose:
 
         service.close()
 
-        mock_client.close.assert_called_once()
-
-    def test_survives_close_error(self, mock_settings):
-        mock_client = MagicMock()
-        mock_client.close.side_effect = RuntimeError("close failed")
-        service = QAService(
-            qdrant_client=mock_client,
-            settings=mock_settings,
-        )
-
-        service.close()  # should not raise
-
+        # Qdrant client lifecycle is managed by the creator (e.g., lifespan)
+        mock_client.close.assert_not_called()
         assert service._qdrant_client is None
 
     def test_close_with_none_qdrant_client(self):
@@ -237,7 +228,7 @@ class TestHandlerImports:
 
         assert hasattr(pay, "send_rag_answer")
 
-    def test_sections_handler_imports_get_qa_service(self):
+    def test_sections_handler_imports_send_rag_answer(self):
         from app.integrations.vk.handlers import sections
 
-        assert hasattr(sections, "get_qa_service")
+        assert hasattr(sections, "send_rag_answer")

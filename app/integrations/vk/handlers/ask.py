@@ -19,7 +19,7 @@ import logging
 from vkbottle.bot import BotLabeler, Message
 
 from app.domain.topic_hints import detect_topic_hint
-from app.integrations.vk.handlers import get_qa_service, get_state_dispenser
+from app.integrations.vk.handlers import get_state_dispenser, query_rag_with_wait
 from app.integrations.vk.keyboards import (
     CMD_ASK,
     ask_input_kb,
@@ -72,12 +72,16 @@ async def on_ask_text(message: Message) -> None:
     # Detect topic hints (9.1 scenario link, 9.2 disclaimer)
     hint = detect_topic_hint(question)
 
-    # Query the RAG chain
-    answer = await get_qa_service().ask(question)
+    # Query the RAG chain (sends "please wait" if slow)
+    answer = await query_rag_with_wait(message, question)
 
     # Append background-topic disclaimer if detected (9.2)
     if hint.disclaimer:
         answer = f"{answer}\n\n{hint.disclaimer}"
+
+    # Prepend user's question context at the top (truncated if very long)
+    question_display = question if len(question) <= 200 else question[:200] + "…"
+    answer = f"💬 Ваш вопрос: {question_display}\n\n{answer}"
 
     await message.answer(
         answer,

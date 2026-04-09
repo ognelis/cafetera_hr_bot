@@ -196,13 +196,7 @@ class QAService:
             yield ERR_DOCUMENT_UNAVAILABLE
 
     def close(self) -> None:
-        """Release resources held by the QA service."""
-        if self._qdrant_client is not None:
-            try:
-                self._qdrant_client.close()
-            except Exception:
-                logger.warning("Error closing Qdrant client", exc_info=True)
-
+        """Release references held by the QA service."""
         self._chain = None
         self._qdrant_client = None
         self._settings = None

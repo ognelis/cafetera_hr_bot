@@ -17,17 +17,17 @@
 - [app/rag/retriever.py](file://app/rag/retriever.py)
 - [app/rag/indexer.py](file://app/rag/indexer.py)
 - [app/rag/parser.py](file://app/rag/parser.py)
+- [app/resources.py](file://app/resources.py)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added documentation for the new QAServiceDep annotation and centralized QA service management
-- Updated architecture diagrams to show unified QA service access throughout the FastAPI application
-- Enhanced dependency provider functions section with QA service integration
-- Updated lifecycle management to include centralized QA service initialization
-- Added centralized error handling for QA service access
-- Updated troubleshooting guide with QA service-specific issues
+- Enhanced type safety with proper TYPE_CHECKING imports throughout the dependency injection system
+- Added explicit type annotations in dependency injection functions using Annotated types
+- Improved AppState dataclass usage with stronger typing and proper forward references
+- Updated dependency provider functions with enhanced type checking and forward reference support
+- Strengthened typing throughout the dependency injection system for better IDE support and static analysis
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -46,9 +46,9 @@ The Cafetera HR Bot project implements a sophisticated dependency injection syst
 
 The dependency injection pattern in this project follows a hierarchical approach where:
 - Application-wide resources are managed in the FastAPI lifespan context
-- Service dependencies are provided through FastAPI dependency functions
+- Service dependencies are provided through FastAPI dependency functions with enhanced type safety
 - Configuration-driven instantiation ensures flexibility across different environments
-- **Updated**: Centralized QA service management provides consistent access throughout the application with unified error handling
+- **Updated**: Centralized QA service management provides consistent access throughout the application with unified error handling and improved type safety
 
 ## Project Structure
 
@@ -81,6 +81,7 @@ subgraph "Configuration & Management"
 N[Settings]
 O[AppState]
 P[Centralized QA Service]
+Q[Enhanced Type Safety]
 end
 A --> B
 A --> D
@@ -98,6 +99,9 @@ N --> E
 N --> F
 O --> P
 P --> F
+Q --> A
+Q --> B
+Q --> D
 ```
 
 **Diagram sources**
@@ -113,23 +117,23 @@ P --> F
 
 ## Core Components
 
-The dependency injection system consists of several key components that work together to manage application resources:
+The dependency injection system consists of several key components that work together to manage application resources with enhanced type safety:
 
 ### Application Lifecycle Management
 
-The FastAPI lifespan context manages the application's startup and shutdown procedures, ensuring proper initialization and cleanup of external resources, including **Updated**: centralized QA service initialization and management.
+The FastAPI lifespan context manages the application's startup and shutdown procedures, ensuring proper initialization and cleanup of external resources, including **Updated**: centralized QA service initialization and management with improved type safety.
 
-### Dependency Providers
+### Enhanced Dependency Providers
 
-The system uses FastAPI's dependency injection mechanism through annotated dependency functions that provide instances of services and repositories to route handlers, with **Updated**: centralized QA service access through the QAServiceDep annotation.
+The system uses FastAPI's dependency injection mechanism through annotated dependency functions that provide instances of services and repositories to route handlers, with **Updated**: enhanced type safety through proper TYPE_CHECKING imports and explicit Annotated type annotations.
 
 ### Configuration Management
 
-Settings are loaded from environment variables and provide runtime configuration for all components, including **Updated**: centralized QA service configuration and resource sharing.
+Settings are loaded from environment variables and provide runtime configuration for all components, including **Updated**: centralized QA service configuration and resource sharing with improved type checking.
 
 ### **Updated**: Centralized QA Service Management
 
-The system includes a centralized QA service that provides consistent access to RAG capabilities throughout the application, with unified error handling and resource management.
+The system includes a centralized QA service that provides consistent access to RAG capabilities throughout the application, with unified error handling and resource management, enhanced with proper type safety measures.
 
 **Section sources**
 - [app/main.py:53-166](file://app/main.py#L53-L166)
@@ -139,7 +143,7 @@ The system includes a centralized QA service that provides consistent access to 
 
 ## Architecture Overview
 
-The dependency injection architecture follows a hierarchical pattern where resources flow from the application level down to individual route handlers, with **Updated**: centralized QA service providing unified access throughout the system:
+The dependency injection architecture follows a hierarchical pattern where resources flow from the application level down to individual route handlers, with **Updated**: centralized QA service providing unified access throughout the system and enhanced type safety:
 
 ```mermaid
 sequenceDiagram
@@ -185,7 +189,7 @@ QAService-->>VKHandler : Response
 
 ### Application Lifecycle and Resource Management
 
-The application lifecycle is managed through FastAPI's lifespan context, which handles initialization and cleanup of external resources, including **Updated**: centralized QA service initialization and management:
+The application lifecycle is managed through FastAPI's lifespan context, which handles initialization and cleanup of external resources, including **Updated**: centralized QA service initialization and management with enhanced type safety:
 
 ```mermaid
 flowchart TD
@@ -217,16 +221,16 @@ The lifespan manager creates and maintains instances of:
 - S3 storage client for file operations
 - Qdrant vector database client for RAG operations
 - Document service with all its dependencies
-- **Updated**: Centralized QA service instance with shared resources
+- **Updated**: Centralized QA service instance with shared resources and enhanced type safety
 - **Updated**: Module-level singleton for backward compatibility with VK handlers
 
 **Section sources**
 - [app/main.py:53-166](file://app/main.py#L53-L166)
 - [app/main.py:117-144](file://app/main.py#L117-L144)
 
-### Dependency Provider Functions
+### Enhanced Dependency Provider Functions
 
-The dependency injection system uses FastAPI's dependency functions to provide services to route handlers, including **Updated**: centralized QA service access through the QAServiceDep annotation:
+The dependency injection system uses FastAPI's dependency functions to provide services to route handlers, including **Updated**: centralized QA service access through the QAServiceDep annotation with enhanced type safety:
 
 ```mermaid
 classDiagram
@@ -305,7 +309,7 @@ QAServiceDep --> QAService : "depends on"
 
 ### Centralized QA Service Architecture
 
-The QA service acts as a centralized coordinator for RAG operations, providing consistent access throughout the application with **Updated**: unified error handling and resource management:
+The QA service acts as a centralized coordinator for RAG operations, providing consistent access throughout the application with **Updated**: unified error handling and resource management enhanced with proper type safety:
 
 ```mermaid
 classDiagram
@@ -366,7 +370,7 @@ VKHandlers --> ModuleLevelSingleton : "module-level access"
 
 ### Route Handler Integration
 
-Route handlers integrate dependencies through FastAPI's dependency injection system, including **Updated**: centralized QA service access for both global and document-specific queries:
+Route handlers integrate dependencies through FastAPI's dependency injection system, including **Updated**: centralized QA service access for both global and document-specific queries with enhanced type safety:
 
 ```mermaid
 sequenceDiagram
@@ -401,7 +405,7 @@ Note over Router,QAService : Unified error handling and resource management
 
 ## Dependency Analysis
 
-The dependency injection system creates a clear dependency graph with well-defined relationships, including **Updated**: centralized QA service integration:
+The dependency injection system creates a clear dependency graph with well-defined relationships, including **Updated**: centralized QA service integration with enhanced type safety:
 
 ```mermaid
 graph TB
@@ -430,6 +434,7 @@ subgraph "Management Layer"
 AppState[AppState]
 QAServiceDep[QAServiceDep]
 IndexingSemaphoreDep[IndexingSemaphoreDep]
+EnhancedTypeSafety[Enhanced Type Safety]
 end
 Settings --> DocService
 Settings --> Repo
@@ -454,6 +459,12 @@ QAServiceDep --> QAService
 IndexingSemaphoreDep --> asyncio.Semaphore
 Router --> QAServiceDep
 VKHandlers --> QAService
+EnhancedTypeSafety --> Settings
+EnhancedTypeSafety --> DocumentRepository
+EnhancedTypeSafety --> DocumentService
+EnhancedTypeSafety --> QAService
+EnhancedTypeSafety --> S3Storage
+EnhancedTypeSafety --> asyncio.Semaphore
 ```
 
 **Diagram sources**
@@ -468,6 +479,8 @@ The dependency relationships demonstrate:
 - **Resource sharing**: Database connections and shared QA resources are shared through the repository pattern
 - **Updated**: **Centralized QA management**: Single QA service instance shared across all components
 - **Updated**: **Unified error handling**: Consistent error responses from QA service operations
+- **Updated**: **Enhanced type safety**: Proper TYPE_CHECKING imports and Annotated type annotations throughout the system
+- **Updated**: **Forward reference support**: Proper handling of circular dependencies through forward references
 
 **Section sources**
 - [app/main.py:53-166](file://app/main.py#L53-L166)
@@ -476,7 +489,7 @@ The dependency relationships demonstrate:
 
 ## Performance Considerations
 
-The dependency injection system provides several performance benefits, including **Updated**: centralized QA service management for optimal resource utilization:
+The dependency injection system provides several performance benefits, including **Updated**: centralized QA service management for optimal resource utilization with enhanced type safety:
 
 ### Resource Reuse
 - Database connections are reused through the repository pattern
@@ -497,11 +510,19 @@ The dependency injection system provides several performance benefits, including
 - Background tasks use temporary files efficiently
 - **Updated**: Centralized QA service cleanup prevents double-closing of shared resources
 
+### **Updated**: Enhanced Type Safety Benefits
+- **IDE Support**: Better autocomplete and error detection through proper type annotations
+- **Static Analysis**: Improved code quality through type checking with TYPE_CHECKING imports
+- **Forward References**: Proper handling of circular dependencies without runtime overhead
+- **Runtime Performance**: TYPE_CHECKING blocks are ignored at runtime, maintaining performance
+- **Development Experience**: Enhanced developer experience with proper type hints throughout the system
+
 ### **Updated**: Centralized Resource Management
 - **Single QA instance**: Only one QA service instance is created and shared
 - **Shared LLM and embeddings**: Both DocumentService and QAService share the same LLM and embeddings instances
 - **Consistent error handling**: Unified error handling across all QA operations
 - **Backward compatibility**: Module-level singleton maintains compatibility with existing VK handlers
+- **Type Safety**: Enhanced type checking throughout the resource management system
 
 **Section sources**
 - [app/main.py:117-144](file://app/main.py#L117-L144)
@@ -510,7 +531,7 @@ The dependency injection system provides several performance benefits, including
 
 ## Troubleshooting Guide
 
-Common dependency injection issues and their solutions, including **Updated**: centralized QA service-related problems:
+Common dependency injection issues and their solutions, including **Updated**: centralized QA service-related problems with enhanced type safety:
 
 ### Service Unavailable Errors
 When services are not available during application startup:
@@ -551,12 +572,22 @@ Centralized QA service-related problems and solutions:
 4. **Error Handling**: Inconsistent error responses from QA service operations
 5. **Memory Leaks**: Improper cleanup of QA service resources
 
+### **Updated**: Type Safety Issues
+Enhanced type safety-related problems and solutions:
+
+1. **Import Errors**: Missing TYPE_CHECKING imports causing runtime errors
+2. **Forward Reference Problems**: Circular dependencies not properly handled
+3. **Annotated Type Issues**: Incorrect Annotated type annotations in dependency functions
+4. **IDE Errors**: Type checking errors in development environment
+5. **Runtime Type Checking**: TYPE_CHECKING blocks affecting runtime behavior
+
 ### Resource Cleanup
 Proper shutdown requires:
 - Closing S3 client connections
 - **Updated**: Proper QA service cleanup with shared resource management
 - Ensuring database transactions are committed
 - **Updated**: Preventing double-closing of shared Qdrant client
+- **Updated**: Proper cleanup of TYPE_CHECKING imports and forward references
 
 **Section sources**
 - [app/api/deps.py:60-79](file://app/api/deps.py#L60-L79)
@@ -574,5 +605,16 @@ The dependency injection system in the Cafetera HR Bot project demonstrates a ma
 - **Updated**: **Centralized QA Management**: Single QA service instance provides consistent access across all components
 - **Updated**: **Unified Error Handling**: Consistent error responses from QA service operations
 - **Updated**: **Backward Compatibility**: Module-level singleton maintains compatibility with existing VK handlers
+- **Updated**: **Enhanced Type Safety**: Proper TYPE_CHECKING imports and Annotated type annotations improve code quality and developer experience
+- **Updated**: **Improved Development Workflow**: Better IDE support and static analysis through comprehensive type annotations
 
 The implementation leverages FastAPI's built-in dependency injection capabilities while adding custom providers for specialized services, including **Updated**: centralized QA service management with unified error handling and resource sharing. This creates a robust foundation for the RAG-based document management system with proper resource control, performance optimization, and consistent access patterns throughout the application.
+
+The enhanced type safety improvements provide:
+- **Better IDE Support**: Enhanced autocomplete, error detection, and refactoring capabilities
+- **Improved Code Quality**: Static analysis catches potential type-related issues early
+- **Forward Reference Handling**: Proper circular dependency management without runtime overhead
+- **Runtime Performance**: TYPE_CHECKING blocks are ignored at runtime, maintaining optimal performance
+- **Developer Experience**: Comprehensive type annotations improve code readability and maintainability
+
+This creates a production-ready dependency injection system that balances functionality, type safety, and developer experience.

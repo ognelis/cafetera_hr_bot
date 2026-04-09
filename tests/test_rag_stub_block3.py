@@ -67,13 +67,13 @@ class TestPaySectionUsesQaService:
         assert hasattr(pay, "send_rag_answer")
 
 
-class TestSectionsUsesQaService:
-    """Block 8 — sections handler uses qa_service for RAG."""
+class TestSectionsUsesSendRagAnswer:
+    """Block 8 — sections handler uses send_rag_answer helper for RAG."""
 
-    def test_sections_handler_imports_qa_service(self):
+    def test_sections_handler_imports_send_rag_answer(self):
         from app.integrations.vk.handlers import sections
 
-        assert hasattr(sections, "get_qa_service")
+        assert hasattr(sections, "send_rag_answer")
 
 
 # ── Block 5/8 — handlers now RAG-powered ──────────────────────────
