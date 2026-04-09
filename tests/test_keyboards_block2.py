@@ -12,19 +12,12 @@ from app.integrations.vk.keyboards import (
     CMD_FIRE_RAG,
     CMD_HIRE,
     CMD_HOME,
-    CMD_HR_CONFIRM,
-    CMD_HR_RESTART,
     CMD_VACATION_RAG,
     CMD_VACATION_SCHEDULE,
     CMD_VACATION_SELECT,
     entity_select_kb,
     fire_menu_kb,
     hire_actions_kb,
-    hr_confirm_kb,
-    hr_done_kb,
-    hr_entity_kb,
-    hr_topic_kb,
-    hr_urgency_kb,
     vacation_menu_kb,
 )
 
@@ -82,7 +75,6 @@ class TestEntitySelectKb:
         data = _parse(entity_select_kb("test_cmd", back_payload=CMD_HOME))
         labels = _labels(data)
         assert _has_label(labels, "Главное меню")
-        assert _has_label(labels, "Написать в HR")
 
     def test_has_back_button(self):
         data = _parse(entity_select_kb("test_cmd", back_payload=CMD_HOME))
@@ -182,84 +174,4 @@ class TestVacationMenuKb:
         assert CMD_VACATION_SCHEDULE in _payloads(data)
 
 
-# ── hr_topic_kb ────────────────────────────────────────────────────
 
-
-class TestHrTopicKb:
-    def test_has_topic_buttons(self):
-        from app.domain.content import HR_REQUEST_TOPICS
-
-        data = _parse(hr_topic_kb())
-        labels = _labels(data)
-        for topic in HR_REQUEST_TOPICS:
-            assert topic in labels
-
-    def test_has_back_button(self):
-        data = _parse(hr_topic_kb())
-        labels = _labels(data)
-        assert _has_label(labels, "Назад")
-
-    def test_has_home_button(self):
-        data = _parse(hr_topic_kb())
-        labels = _labels(data)
-        assert _has_label(labels, "Главное меню")
-
-
-# ── hr_entity_kb ───────────────────────────────────────────────────
-
-
-class TestHrEntityKb:
-    def test_has_four_entity_buttons(self):
-        data = _parse(hr_entity_kb())
-        labels = _labels(data)
-        for e in ENTITIES:
-            assert e.short_name in labels
-
-
-# ── hr_urgency_kb ──────────────────────────────────────────────────
-
-
-class TestHrUrgencyKb:
-    def test_has_urgency_options(self):
-        from app.domain.content import HR_REQUEST_URGENCY_OPTIONS
-
-        data = _parse(hr_urgency_kb())
-        labels = _labels(data)
-        for opt in HR_REQUEST_URGENCY_OPTIONS:
-            assert opt in labels
-
-
-# ── hr_confirm_kb ──────────────────────────────────────────────────
-
-
-class TestHrConfirmKb:
-    def test_has_confirm_button(self):
-        data = _parse(hr_confirm_kb())
-        assert CMD_HR_CONFIRM in _payloads(data)
-
-    def test_has_restart_button(self):
-        data = _parse(hr_confirm_kb())
-        assert CMD_HR_RESTART in _payloads(data)
-
-    def test_confirm_is_positive(self):
-        data = _parse(hr_confirm_kb())
-        confirm_btn = [
-            btn for btn in _all_buttons(data)
-            if btn["action"]["payload"] == CMD_HR_CONFIRM
-        ]
-        assert len(confirm_btn) == 1
-        assert confirm_btn[0]["color"] == "positive"
-
-
-# ── hr_done_kb ─────────────────────────────────────────────────────
-
-
-class TestHrDoneKb:
-    def test_has_home_button(self):
-        data = _parse(hr_done_kb())
-        assert CMD_HOME in _payloads(data)
-
-    def test_has_new_request_button(self):
-        data = _parse(hr_done_kb())
-        labels = _labels(data)
-        assert _has_label(labels, "Новое обращение")

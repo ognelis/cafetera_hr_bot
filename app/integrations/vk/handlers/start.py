@@ -30,10 +30,6 @@ async def send_main_menu(message: Message, *, text: str = MAIN_MENU_TEXT) -> Non
 
 @bl.message(text=["/start", "Начать", "начать", "Start", "start"])
 async def on_start(message: Message) -> None:
-    # Clear any lingering dialog state
-    from app.integrations.vk.handlers.hr_request import _clear_state
-
-    await _clear_state(message.peer_id)
     await message.answer(GREETING, keyboard=main_menu_kb().get_json())
 
 
@@ -42,8 +38,4 @@ async def on_start(message: Message) -> None:
 
 @bl.message(payload=CMD_HOME)
 async def on_home(message: Message) -> None:
-    # Clear any lingering dialog state
-    from app.integrations.vk.handlers.hr_request import _clear_state
-
-    await _clear_state(message.peer_id)
     await send_main_menu(message)

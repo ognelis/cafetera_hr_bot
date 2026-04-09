@@ -8,7 +8,6 @@ from app.integrations.vk.handlers import (
     fire,
     get_state_dispenser,
     hire,
-    hr_request,
     pay,
     sections,
     start,
@@ -29,11 +28,6 @@ class TestHandlerLabelerOrder:
         idx_sections = _HANDLER_LABELERS.index(sections.bl)
         idx_fallback = _HANDLER_LABELERS.index(fallback.bl)
         assert idx_sections < idx_fallback
-
-    def test_hr_request_before_sections(self):
-        idx_hr = _HANDLER_LABELERS.index(hr_request.bl)
-        idx_sections = _HANDLER_LABELERS.index(sections.bl)
-        assert idx_hr < idx_sections
 
     def test_hire_fire_vacation_registered(self):
         assert hire.bl in _HANDLER_LABELERS
@@ -62,15 +56,14 @@ class TestCreateBot:
         bot = create_bot(settings)
         handler_count = len(bot.labeler.message_view.handlers)
         # start: 2 (on_start, on_home)
-        # hr_request: 9 (contact_hr, back, restart, 5 state handlers, confirm)
         # ask: 2 (on_ask, on_ask_text)
         # hire: 5 (hire, hire_entity, checklist, contract, onboarding)
-        # fire: 5 (fire, checklist, bypass, rag, grounds)
+        # fire: 5 (fire, fire_entity, checklist, bypass, rag, grounds)
         # vacation: 5 (vacation, select, template, rag, schedule)
         # pay: 3 (on_pay, on_pay_overtime, on_pay_bonus)
         # sections: 2 (sick, probation)
         # fallback: 1 (on_fallback)
-        assert handler_count == 34
+        assert handler_count == 25
 
     def test_token_forwarded_to_bot(self):
         """Verify test placeholder token is used, not a real one (09-security)."""

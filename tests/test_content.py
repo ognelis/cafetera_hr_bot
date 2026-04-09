@@ -3,10 +3,7 @@
 from app.domain.content import (
     FIRE_BYPASS_SHEET_TEXT,
     FIRE_LAST_DAY_CHECKLIST,
-    HR_REQUEST_TOPICS,
-    HR_REQUEST_URGENCY_OPTIONS,
     TEMPLATE_DISCLAIMER,
-    format_hr_request,
     hire_checklist,
     hire_contract_text,
     onboarding_checklist,
@@ -62,31 +59,4 @@ class TestVacationContent:
         assert TEMPLATE_DISCLAIMER in text
 
 
-class TestHrRequest:
-    def test_topics_not_empty(self):
-        assert len(HR_REQUEST_TOPICS) >= 3
 
-    def test_urgency_options_count(self):
-        assert len(HR_REQUEST_URGENCY_OPTIONS) == 2
-
-    def test_format_hr_request_contains_all_fields(self):
-        entity = ENTITIES[0]
-        text = format_hr_request(
-            name="Иванов Иван Иванович",
-            topic="Отпуск",
-            details="Прошу уточнить остаток дней.",
-            entity=entity,
-            urgency="🔴 Срочно",
-        )
-        assert "Иванов Иван Иванович" in text
-        assert "Отпуск" in text
-        assert "Прошу уточнить" in text
-        assert entity.full_name in text
-        assert "Срочно" in text
-
-    def test_format_hr_request_has_header(self):
-        entity = ENTITIES[0]
-        text = format_hr_request(
-            name="Тест", topic="Тест", details="Тест", entity=entity, urgency="Тест",
-        )
-        assert "Обращение в HR" in text

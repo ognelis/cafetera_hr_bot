@@ -104,23 +104,6 @@ def vacation_template_text(entity: LegalEntity) -> str:
     )
 
 
-# ── 💬 HR-request topics (S-70 step 2) ────────────────────────────
-
-HR_REQUEST_TOPICS: tuple[str, ...] = (
-    "Оформление документов",
-    "Отпуск",
-    "Увольнение",
-    "Оплата труда",
-    "Больничный",
-    "Другое",
-)
-
-HR_REQUEST_URGENCY_OPTIONS: tuple[str, ...] = (
-    "🔴 Срочно",
-    "⚪ Обычная",
-)
-
-
 # ── RAG stub (Block 3) — placeholder until real RAG is wired ────
 
 
@@ -154,23 +137,3 @@ ERR_INTEGRATION_REQUIRED = (
     "Обратитесь в HR-отдел — сотрудники помогут с вашим запросом."
 )
 
-
-def format_hr_request(
-    name: str,
-    topic: str,
-    details: str,
-    entity: LegalEntity,
-    urgency: str,
-) -> str:
-    """Build the final structured HR-request text (FR-16)."""
-    return (
-        "📋 Обращение в HR-отдел\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"👤 Сотрудник: {name}\n"
-        f"🏢 Юрлицо: {entity.full_name}\n"
-        f"📌 Тема: {topic}\n"
-        f"⚡ Срочность: {urgency}\n\n"
-        f"📝 Суть обращения:\n{details}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        "Скопируйте текст обращения и отправьте его в HR-отдел."
-    )

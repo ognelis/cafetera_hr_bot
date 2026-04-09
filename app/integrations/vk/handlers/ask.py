@@ -9,7 +9,7 @@ Flow: CMD_ASK -> set ASK_QUESTION state -> user types text -> RAG answer.
      RAG answer + topic-specific disclaimer.
 
 The state is needed so the fallback handler does not swallow the free-text input.
-Uses the shared state_dispenser from hr_request module.
+Uses the shared state_dispenser.
 """
 
 from __future__ import annotations

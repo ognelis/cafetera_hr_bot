@@ -7,7 +7,6 @@ from vkbottle import Keyboard
 
 from app.integrations.vk.keyboards import (
     CMD_ASK,
-    CMD_CONTACT_HR,
     CMD_FIRE,
     CMD_HIRE,
     CMD_HOME,
@@ -48,14 +47,14 @@ def _has_label(labels: list[str], substring: str) -> bool:
 
 
 class TestMainMenuKb:
-    def test_has_five_rows(self):
+    def test_has_four_rows(self):
         data = _parse(main_menu_kb())
-        assert len(data["buttons"]) == 5
+        assert len(data["buttons"]) == 4
 
-    def test_seven_section_buttons_plus_contact_hr(self):
+    def test_seven_section_buttons(self):
         data = _parse(main_menu_kb())
-        # 7 section buttons + 1 contact HR = 8 total
-        assert len(_all_buttons(data)) == 8
+        # 7 section buttons total
+        assert len(_all_buttons(data)) == 7
 
     def test_all_seven_sections_present(self):
         expected_payloads = [
@@ -66,17 +65,6 @@ class TestMainMenuKb:
         payloads = _payloads(data)
         for p in expected_payloads:
             assert p in payloads, f"Missing payload {p}"
-
-    def test_contact_hr_in_last_row(self):
-        data = _parse(main_menu_kb())
-        last_row = data["buttons"][-1]
-        assert len(last_row) == 1
-        assert last_row[0]["action"]["payload"] == CMD_CONTACT_HR
-
-    def test_contact_hr_color_positive(self):
-        data = _parse(main_menu_kb())
-        last_btn = data["buttons"][-1][0]
-        assert last_btn["color"] == "positive"
 
     def test_not_inline_not_one_time(self):
         data = _parse(main_menu_kb())
@@ -96,13 +84,12 @@ class TestMainMenuKb:
 
 
 class TestWithServiceRow:
-    def test_adds_home_and_hr_by_default(self):
+    def test_adds_home_by_default(self):
         kb = Keyboard(one_time=False, inline=False)
         with_service_row(kb)
         data = _parse(kb)
         labels = _labels(data)
         assert _has_label(labels, "Главное меню")
-        assert _has_label(labels, "Написать в HR")
 
     def test_no_back_by_default(self):
         kb = Keyboard(one_time=False, inline=False)
@@ -137,13 +124,6 @@ class TestWithServiceRow:
         labels = _labels(data)
         assert not _has_label(labels, "Главное меню")
 
-    def test_hide_hr(self):
-        kb = Keyboard(one_time=False, inline=False)
-        with_service_row(kb, show_hr=False)
-        data = _parse(kb)
-        labels = _labels(data)
-        assert not _has_label(labels, "Написать в HR")
-
     def test_returns_same_keyboard(self):
         kb = Keyboard(one_time=False, inline=False)
         result = with_service_row(kb)
@@ -154,17 +134,16 @@ class TestWithServiceRow:
 
 
 class TestStubKb:
-    def test_without_back_has_home_and_hr(self):
+    def test_without_back_has_home(self):
         data = _parse(stub_kb())
         labels = _labels(data)
         assert _has_label(labels, "Главное меню")
-        assert _has_label(labels, "Написать в HR")
         assert not _has_label(labels, "Назад")
 
-    def test_with_back_has_three_buttons(self):
+    def test_with_back_has_two_buttons(self):
         data = _parse(stub_kb(back_payload=CMD_HOME))
         buttons = _all_buttons(data)
-        assert len(buttons) == 3
+        assert len(buttons) == 2
 
     def test_not_inline(self):
         data = _parse(stub_kb())
@@ -176,7 +155,7 @@ class TestStubKb:
 
 class TestPayloadConstants:
     @pytest.mark.parametrize("payload", [
-        CMD_HOME, CMD_CONTACT_HR, CMD_HIRE, CMD_FIRE,
+        CMD_HOME, CMD_HIRE, CMD_FIRE,
         CMD_VACATION, CMD_PAY, CMD_SICK, CMD_PROBATION, CMD_ASK,
     ])
     def test_payload_has_cmd_key(self, payload):
@@ -185,7 +164,7 @@ class TestPayloadConstants:
 
     def test_all_cmd_values_unique(self):
         all_cmds = [
-            CMD_HOME, CMD_CONTACT_HR, CMD_HIRE, CMD_FIRE,
+            CMD_HOME, CMD_HIRE, CMD_FIRE,
             CMD_VACATION, CMD_PAY, CMD_SICK, CMD_PROBATION, CMD_ASK,
         ]
         values = [p["cmd"] for p in all_cmds]
@@ -200,7 +179,6 @@ class TestAskResultKb:
         data = _parse(ask_result_kb())
         labels = _labels(data)
         assert _has_label(labels, "Главное меню")
-        assert _has_label(labels, "Написать в HR")
         assert _has_label(labels, "Назад")
 
     def test_back_points_to_ask(self):

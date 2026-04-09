@@ -1,6 +1,6 @@
 """Keyboard builders for the VK bot.
 
-Every screen gets service buttons (Back, Home, Contact HR) via
+Every screen gets service buttons (Back, Home) via
 ``with_service_row``.  The main menu keyboard is built by ``main_menu_kb``.
 """
 
@@ -14,7 +14,6 @@ from app.domain.entities import ENTITIES
 
 CMD_HOME = {"cmd": "home"}
 CMD_BACK = {"cmd": "back"}
-CMD_CONTACT_HR = {"cmd": "contact_hr"}
 
 CMD_HIRE = {"cmd": "hire"}
 CMD_FIRE = {"cmd": "fire"}
@@ -49,13 +48,6 @@ CMD_VACATION_TEMPLATE = "vacation_template"  # cmd value for PayloadCmdRule
 CMD_VACATION_RAG = {"cmd": "vacation_rag"}  # stub → Block 3
 CMD_VACATION_SCHEDULE = {"cmd": "vacation_schedule"}  # FR-11: schedule navigator (Block 5)
 
-# ── HR-request dialog payloads ─────────────────────────────────────
-
-CMD_HR_BACK = "hr_back"  # cmd value for PayloadCmdRule
-CMD_HR_CONFIRM = {"cmd": "hr_confirm"}
-CMD_HR_RESTART = {"cmd": "hr_restart"}
-
-
 # ── service row builder ────────────────────────────────────────────
 
 
@@ -64,22 +56,16 @@ def with_service_row(
     *,
     back_payload: dict | None = None,
     show_home: bool = True,
-    show_hr: bool = True,
 ) -> Keyboard:
     """Append the standard service-button row to *kb* and return it.
 
-    UXR-5: Back / Home / Contact HR must be reachable from every screen.
+    UXR-5: Back / Home must be reachable from every screen.
     """
     kb.row()
     if back_payload is not None:
         kb.add(Text("⬅ Назад", payload=back_payload))
     if show_home:
         kb.add(Text("🏠 Главное меню", payload=CMD_HOME))
-    if show_hr:
-        kb.add(
-            Text("💬 Написать в HR", payload=CMD_CONTACT_HR),
-            color=KeyboardButtonColor.PRIMARY,
-        )
     return kb
 
 
@@ -121,12 +107,6 @@ def main_menu_kb() -> Keyboard:
 
     kb.row()
     kb.add(Text("❓ Задать вопрос", payload=CMD_ASK))
-
-    kb.row()
-    kb.add(
-        Text("💬 Написать в HR", payload=CMD_CONTACT_HR),
-        color=KeyboardButtonColor.POSITIVE,
-    )
 
     return kb
 
@@ -251,71 +231,3 @@ def ask_result_kb(*, scenario_id: str | None = None) -> Keyboard:
         label, payload = _SCENARIO_BUTTONS[scenario_id]
         kb.add(Text(label, payload=payload))
     return with_service_row(kb, back_payload=CMD_ASK)
-
-
-# ── HR-request keyboards ──────────────────────────────────────────
-
-
-def hr_topic_kb() -> Keyboard:
-    """Topic selection buttons for HR-request step 2."""
-    from app.domain.content import HR_REQUEST_TOPICS
-
-    kb = Keyboard(one_time=False, inline=False)
-    for i, topic in enumerate(HR_REQUEST_TOPICS):
-        if i % 2 == 0 and i > 0:
-            kb.row()
-        kb.add(Text(topic))
-    kb.row()
-    kb.add(Text("⬅ Назад", payload={"cmd": CMD_HR_BACK, "step": "start"}))
-    kb.add(Text("🏠 Главное меню", payload=CMD_HOME))
-    return kb
-
-
-def hr_entity_kb() -> Keyboard:
-    """Entity selection for HR-request step 4."""
-    kb = Keyboard(one_time=False, inline=False)
-    for i, entity in enumerate(ENTITIES):
-        if i == 2:
-            kb.row()
-        kb.add(Text(entity.short_name))
-    kb.row()
-    kb.add(Text("⬅ Назад", payload={"cmd": CMD_HR_BACK, "step": "details"}))
-    kb.add(Text("🏠 Главное меню", payload=CMD_HOME))
-    return kb
-
-
-def hr_urgency_kb() -> Keyboard:
-    """Urgency selection for HR-request step 5."""
-    from app.domain.content import HR_REQUEST_URGENCY_OPTIONS
-
-    kb = Keyboard(one_time=False, inline=False)
-    for opt in HR_REQUEST_URGENCY_OPTIONS:
-        kb.add(Text(opt))
-    kb.row()
-    kb.add(Text("⬅ Назад", payload={"cmd": CMD_HR_BACK, "step": "entity"}))
-    kb.add(Text("🏠 Главное меню", payload=CMD_HOME))
-    return kb
-
-
-def hr_confirm_kb() -> Keyboard:
-    """Confirm / restart for HR-request step 6."""
-    kb = Keyboard(one_time=False, inline=False)
-    kb.add(
-        Text("✅ Подтвердить", payload=CMD_HR_CONFIRM),
-        color=KeyboardButtonColor.POSITIVE,
-    )
-    kb.add(Text("↩️ Начать заново", payload=CMD_HR_RESTART))
-    kb.row()
-    kb.add(Text("🏠 Главное меню", payload=CMD_HOME))
-    return kb
-
-
-def hr_done_kb() -> Keyboard:
-    """Keyboard shown after HR-request is confirmed."""
-    kb = Keyboard(one_time=False, inline=False)
-    kb.add(Text("🏠 Главное меню", payload=CMD_HOME))
-    kb.add(
-        Text("💬 Новое обращение", payload=CMD_CONTACT_HR),
-        color=KeyboardButtonColor.PRIMARY,
-    )
-    return kb
