@@ -51,6 +51,7 @@ def index_chunks(
     embeddings: Embeddings,
     collection_name: str,
     chunks: list[LCDocument],
+    sparse_embedding=None,
 ) -> int:
     """Add pre-prepared chunks to the Qdrant collection.
 
@@ -61,11 +62,10 @@ def index_chunks(
     if not chunks:
         return 0
 
-    vs = QdrantVectorStore(
-        client=client,
-        collection_name=collection_name,
-        embedding=embeddings,
-    )
+    kwargs = dict(client=client, collection_name=collection_name, embedding=embeddings)
+    if sparse_embedding is not None:
+        kwargs["sparse_embedding"] = sparse_embedding
+    vs = QdrantVectorStore(**kwargs)
     vs.add_documents(chunks)
     logger.info("Indexed %d chunk(s) in '%s'", len(chunks), collection_name)
     return len(chunks)

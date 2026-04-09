@@ -85,17 +85,39 @@ def build_embeddings(settings: Settings) -> Embeddings:
     )
 
 
+def build_sparse_embeddings(settings: Settings):
+    """Build sparse embeddings for hybrid search. Returns None if mode is dense."""
+    if settings.retrieval_mode != "hybrid":
+        return None
+    try:
+        from langchain_qdrant import FastEmbedSparse
+    except ImportError as exc:
+        raise ImportError(
+            "Install the 'hybrid' extra: uv sync --extra hybrid"
+        ) from exc
+    try:
+        return FastEmbedSparse(model_name=settings.sparse_embedding_model)
+    except (ImportError, ValueError) as exc:
+        raise ImportError(
+            "Install the 'hybrid' extra: uv sync --extra hybrid"
+        ) from exc
+
+
 def build_vectorstore(
     client: QdrantClient,
     embeddings: Embeddings,
     collection_name: str = COLLECTION_NAME,
+    sparse_embedding=None,
 ) -> QdrantVectorStore:
     """Wrap an existing Qdrant collection into a LangChain vectorstore."""
-    return QdrantVectorStore(
+    kwargs = dict(
         client=client,
         collection_name=collection_name,
         embedding=embeddings,
     )
+    if sparse_embedding is not None:
+        kwargs["sparse_embedding"] = sparse_embedding
+    return QdrantVectorStore(**kwargs)
 
 
 def build_retriever(
@@ -105,6 +127,7 @@ def build_retriever(
     embeddings: Embeddings | None = None,
     collection_name: str = COLLECTION_NAME,
     k: int = 4,
+    sparse_embedding=None,
 ) -> VectorStoreRetriever:
     """Build a dense retriever over the given Qdrant collection.
 
@@ -119,7 +142,12 @@ def build_retriever(
     if embeddings is None:
         embeddings = build_embeddings(settings)
 
-    vs = build_vectorstore(qdrant_client, embeddings, collection_name)
+    vs = build_vectorstore(
+        qdrant_client,
+        embeddings,
+        collection_name,
+        sparse_embedding=sparse_embedding,
+    )
     search_filter = models.Filter(
         must=[
             models.FieldCondition(
@@ -139,6 +167,7 @@ def build_retriever_for_document(
     embeddings: Embeddings | None = None,
     collection_name: str = COLLECTION_NAME,
     k: int = 4,
+    sparse_embedding=None,
 ) -> VectorStoreRetriever:
     """Build a dense retriever scoped to a single document.
 
@@ -153,7 +182,12 @@ def build_retriever_for_document(
     if embeddings is None:
         embeddings = build_embeddings(settings)
 
-    vs = build_vectorstore(qdrant_client, embeddings, collection_name)
+    vs = build_vectorstore(
+        qdrant_client,
+        embeddings,
+        collection_name,
+        sparse_embedding=sparse_embedding,
+    )
     search_filter = models.Filter(
         must=[
             models.FieldCondition(

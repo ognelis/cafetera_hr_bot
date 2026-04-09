@@ -30,7 +30,7 @@ sys.path.insert(0, ".")
 from app.config import Settings, configure_logging
 from app.rag.indexer import prepare_chunks
 from app.rag.parser import load_document
-from app.rag.retriever import build_embeddings, build_qdrant_client
+from app.rag.retriever import build_embeddings, build_qdrant_client, build_sparse_embeddings
 from app.storage.database import init_db
 from app.storage.document_repo import DocumentRepository
 from app.storage.models import DocumentRecord, DocumentStatus
@@ -73,6 +73,7 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
 
     # Build embeddings (needed for semantic chunking)
     embeddings = build_embeddings(settings)
+    sparse = build_sparse_embeddings(settings)
 
     for path in all_files:
         logger.info("Processing %s ...", path.name)
@@ -127,13 +128,16 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
             client.delete_collection(collection)
             logger.info("Deleted existing collection '%s'", collection)
 
-        QdrantVectorStore.from_documents(
+        kwargs = dict(
             documents=all_docs,
             embedding=embeddings,
             url=settings.qdrant_url,
             api_key=settings.qdrant_api_key,
             collection_name=collection,
         )
+        if sparse is not None:
+            kwargs["sparse_embedding"] = sparse
+        QdrantVectorStore.from_documents(**kwargs)
         logger.info(
             "Ingestion complete: %d chunk(s) stored in '%s'",
             len(all_docs),

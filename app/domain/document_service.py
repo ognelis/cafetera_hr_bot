@@ -46,11 +46,13 @@ class DocumentService:
         qdrant_client: QdrantClient,
         embeddings: Embeddings,
         collection_name: str = "hr_documents",
+        sparse_embedding: object | None = None,
     ) -> None:
         self._repo = repo
         self._qdrant = qdrant_client
         self._embeddings = embeddings
         self._collection = collection_name
+        self._sparse_embedding = sparse_embedding
 
     # ── create ────────────────────────────────────────────────────
 
@@ -114,6 +116,7 @@ class DocumentService:
                 self._embeddings,
                 self._collection,
                 enriched,
+                sparse_embedding=self._sparse_embedding,
             )
             return await self._repo.update(
                 document_id,
@@ -220,6 +223,7 @@ class DocumentService:
                 self._embeddings,
                 self._collection,
                 enriched,
+                sparse_embedding=self._sparse_embedding,
             )
             return await self._repo.update(
                 document_id,

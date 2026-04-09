@@ -17,7 +17,12 @@ from app.domain.document_service import DocumentService
 from app.domain.qa_service import QAService
 from app.rag.chain import build_llm, build_rag_chain
 from app.rag.prompts import GLOBAL_EXPERTS_PROMPT, SYSTEM_PROMPT
-from app.rag.retriever import build_embeddings, build_qdrant_client, build_retriever
+from app.rag.retriever import (
+    build_embeddings,
+    build_qdrant_client,
+    build_retriever,
+    build_sparse_embeddings,
+)
 from app.storage.document_repo import DocumentRepository
 from app.storage.s3 import S3Storage
 
@@ -47,6 +52,7 @@ class AppResources:
     doc_service: DocumentService | None = None
     qa_service: QAService | None = None
     vk_qa_service: QAService | None = None
+    sparse_embeddings: object | None = None
 
 
 async def build_resources(
@@ -109,6 +115,20 @@ async def build_resources(
         )
         res.qdrant_client = None
         res.embeddings = None
+        res.sparse_embeddings = None
+
+    # 2b. Sparse embeddings for hybrid search (optional, degrades gracefully)
+    if res.embeddings is not None:
+        try:
+            res.sparse_embeddings = build_sparse_embeddings(settings)
+            if res.sparse_embeddings is not None:
+                logger.info("Sparse embeddings initialized (hybrid search enabled)")
+        except Exception:
+            logger.warning(
+                "Sparse embeddings not available — falling back to dense search",
+                exc_info=True,
+            )
+            res.sparse_embeddings = None
 
     # 3. Document repository and service (if requested)
     if with_db:
@@ -123,6 +143,7 @@ async def build_resources(
                     qdrant_client=qdrant_client,
                     embeddings=embeddings,
                     collection_name=settings.qdrant_collection,
+                    sparse_embedding=res.sparse_embeddings,
                 )
                 res.doc_service = doc_service
                 logger.info("DocumentService initialized")
@@ -142,6 +163,7 @@ async def build_resources(
                 settings,
                 qdrant_client=qdrant_client,
                 embeddings=embeddings,
+                sparse_embedding=res.sparse_embeddings,
             )
             chain = build_rag_chain(retriever, llm, system_prompt=GLOBAL_EXPERTS_PROMPT)
 
@@ -153,6 +175,7 @@ async def build_resources(
                 settings=settings,
                 global_system_prompt=GLOBAL_EXPERTS_PROMPT,
                 include_metadata=True,
+                sparse_embedding=res.sparse_embeddings,
             )
             res.qa_service = qa_service
 
@@ -163,6 +186,7 @@ async def build_resources(
                 llm=llm,
                 settings=settings,
                 global_system_prompt=SYSTEM_PROMPT,
+                sparse_embedding=res.sparse_embeddings,
             )
             res.vk_qa_service = vk_qa_service
             logger.info("QA service initialized successfully")
@@ -210,6 +234,7 @@ async def close_resources(res: AppResources) -> None:
     res.s3 = None
     res.qdrant_client = None
     res.embeddings = None
+    res.sparse_embeddings = None
     res.llm = None
     res.doc_repo = None
     res.doc_service = None

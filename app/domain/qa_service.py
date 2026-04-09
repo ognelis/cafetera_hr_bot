@@ -57,6 +57,7 @@ class QAService:
         settings: Settings | None = None,
         global_system_prompt: str | None = None,
         include_metadata: bool = False,
+        sparse_embedding: object | None = None,
     ) -> None:
         self._chain = chain
         self._qdrant_client = qdrant_client
@@ -65,6 +66,7 @@ class QAService:
         self._settings = settings
         self._global_system_prompt = global_system_prompt
         self._include_metadata = include_metadata
+        self._sparse_embedding = sparse_embedding
         self._document_chains_cache: OrderedDict[str, Runnable] = OrderedDict()
         self._max_cache_size = 50
 
@@ -103,6 +105,7 @@ class QAService:
             qdrant_client=self._qdrant_client,
             embeddings=self._embeddings,
             collection_name=self._settings.qdrant_collection,
+            sparse_embedding=self._sparse_embedding,
         )
         chain = build_rag_chain(
             retriever,
@@ -141,6 +144,7 @@ class QAService:
             embeddings=self._embeddings,
             collection_name=self._settings.qdrant_collection,
             k=k,
+            sparse_embedding=self._sparse_embedding,
         )
         return build_rag_chain(
             retriever,
@@ -289,4 +293,5 @@ class QAService:
         self._settings = None
         self._embeddings = None
         self._llm = None
+        self._sparse_embedding = None
         self._document_chains_cache.clear()

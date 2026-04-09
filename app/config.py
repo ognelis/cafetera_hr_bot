@@ -55,3 +55,7 @@ class Settings(BaseSettings):
     chunk_strategy: str = "recursive"  # "recursive" | "semantic"
     semantic_breakpoint_threshold_type: str = "percentile"
     semantic_breakpoint_threshold_amount: float = 95
+
+    # Retrieval mode: "dense" (vector only) or "hybrid" (dense + sparse BM25)
+    retrieval_mode: str = "dense"  # "dense" | "hybrid"
+    sparse_embedding_model: str = "Qdrant/bm25"
