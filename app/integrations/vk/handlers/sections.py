@@ -8,7 +8,7 @@ This module keeps RAG handlers for:
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain import qa_service
+from app.integrations.vk.handlers import get_qa_service
 from app.integrations.vk.keyboards import (
     CMD_HOME,
     CMD_PROBATION,
@@ -25,7 +25,7 @@ bl = BotLabeler()
 @bl.message(payload=CMD_SICK)
 async def on_sick(message: Message) -> None:
     await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
-    answer = await qa_service.ask("Больничный / ЭЛН")
+    answer = await get_qa_service().ask("Больничный / ЭЛН")
     await message.answer(
         answer,
         keyboard=stub_kb(back_payload=CMD_HOME).get_json(),
@@ -38,7 +38,7 @@ async def on_sick(message: Message) -> None:
 @bl.message(payload=CMD_PROBATION)
 async def on_probation(message: Message) -> None:
     await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
-    answer = await qa_service.ask("Испытательный срок")
+    answer = await get_qa_service().ask("Испытательный срок")
     await message.answer(
         answer,
         keyboard=stub_kb(back_payload=CMD_HOME).get_json(),

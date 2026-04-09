@@ -12,6 +12,7 @@
 - [app/api/documents.py](file://app/api/documents.py)
 - [app/domain/qa_service.py](file://app/domain/qa_service.py)
 - [app/rag/prompts.py](file://app/rag/prompts.py)
+- [templates/documents.html](file://templates/documents.html)
 - [scripts/polling_vk.py](file://scripts/polling_vk.py)
 - [tests/test_config.py](file://tests/test_config.py)
 - [tests/test_bot_factory.py](file://tests/test_bot_factory.py)
@@ -24,11 +25,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added new Document Question Answering API section documenting the `/api/documents/{document_id}/ask` endpoint
-- Updated Document Admin API section to include the new ask endpoint
-- Added validation logic and error handling documentation for document query requests
-- Updated architecture overview to include the QA service integration
-- Enhanced error handling documentation for document-specific operations
+- Added new Global Question Answering API section documenting the `/api/qa/ask-global` endpoint with Server-Sent Events streaming
+- Updated Document Administration API section to include both document-specific and global question processing capabilities
+- Enhanced QA service API documentation to cover both global and document-specific streaming capabilities
+- Added comprehensive SSE streaming documentation for real-time question answering
+- Updated architecture overview to include global knowledge base processing
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -50,6 +51,7 @@ This document provides a comprehensive API reference for cafetera_hr_bot. It cov
 - Handler registration API for routing user interactions
 - Configuration settings API and environment-driven loading
 - **NEW** Document administration API including document-specific question answering capabilities
+- **NEW** Global question answering API with Server-Sent Events streaming for knowledge base-wide queries
 
 It includes parameter specifications, return value descriptions, usage examples, integration patterns, and versioning considerations.
 
@@ -62,6 +64,7 @@ The VK integration resides under app/integrations/vk/, with the following key mo
 - Handlers: app/integrations/vk/handlers/start.py, sections.py, fallback.py
 - **NEW** Document administration: app/api/documents.py
 - **NEW** QA service: app/domain/qa_service.py
+- **NEW** Global question interface: templates/documents.html
 - Local development entrypoint: scripts/polling_vk.py
 - Tests validating APIs: tests/test_config.py, tests/test_bot_factory.py, tests/test_keyboards.py, tests/test_states.py, tests/test_api_documents.py, tests/test_qa_service.py
 - Project metadata and dependencies: pyproject.toml
@@ -81,6 +84,7 @@ subgraph "Document Administration"
 DOC_API["documents.py"]
 QA_SERVICE["qa_service.py"]
 PROMPTS["prompts.py"]
+GLOBAL_UI["documents.html (Global QA)"]
 end
 DEV["scripts/polling_vk.py"]
 CFG --> BOT
@@ -93,6 +97,7 @@ HD_FALL --> KB
 BOT --> ST
 DOC_API --> QA_SERVICE
 QA_SERVICE --> PROMPTS
+GLOBAL_UI --> DOC_API
 DEV --> BOT
 ```
 
@@ -104,8 +109,9 @@ DEV --> BOT
 - [app/integrations/vk/handlers/sections.py:1-82](file://app/integrations/vk/handlers/sections.py#L1-L82)
 - [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
 - [app/api/documents.py:1-1046](file://app/api/documents.py#L1-L1046)
-- [app/domain/qa_service.py:1-167](file://app/domain/qa_service.py#L1-L167)
-- [app/rag/prompts.py:1-38](file://app/rag/prompts.py#L1-L38)
+- [app/domain/qa_service.py:1-236](file://app/domain/qa_service.py#L1-L236)
+- [app/rag/prompts.py:1-57](file://app/rag/prompts.py#L1-L57)
+- [templates/documents.html:760-826](file://templates/documents.html#L760-L826)
 - [scripts/polling_vk.py:24-28](file://scripts/polling_vk.py#L24-L28)
 
 **Section sources**
@@ -116,8 +122,9 @@ DEV --> BOT
 - [app/integrations/vk/handlers/sections.py:1-82](file://app/integrations/vk/handlers/sections.py#L1-L82)
 - [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
 - [app/api/documents.py:1-1046](file://app/api/documents.py#L1-L1046)
-- [app/domain/qa_service.py:1-167](file://app/domain/qa_service.py#L1-L167)
-- [app/rag/prompts.py:1-38](file://app/rag/prompts.py#L1-L38)
+- [app/domain/qa_service.py:1-236](file://app/domain/qa_service.py#L1-L236)
+- [app/rag/prompts.py:1-57](file://app/rag/prompts.py#L1-L57)
+- [templates/documents.html:1-1039](file://templates/documents.html#L1-L1039)
 - [scripts/polling_vk.py:1-33](file://scripts/polling_vk.py#L1-L33)
 
 ## Core Components
@@ -193,27 +200,57 @@ This section documents the primary APIs exposed by the VK integration and docume
     - Handlers send responses and attach keyboards via .get_json()
 
 - **NEW** Document administration API
-  - Purpose: Manage HR documents and provide document-specific question answering
+  - Purpose: Manage HR documents and provide question answering capabilities
   - Module: app/api/documents.py
   - Endpoints:
     - POST /api/documents/{document_id}/ask - Ask a question about a specific document
+    - **NEW** POST /api/qa/ask-global - Ask a question across the entire knowledge base
   - Validation logic:
-    - Document existence check
-    - Status verification (must be "completed")
-    - Search enablement check
+    - Document existence check for document-specific queries
+    - Status verification (must be "completed") for document-specific queries
+    - Search enablement check for document-specific queries
   - Error handling:
     - 404 for non-existent documents
     - 400 for documents not ready for questions
+    - **NEW** Real-time error streaming for global queries
+  - **NEW** SSE streaming support for both document-specific and global queries
   - Related tests: tests/test_api_documents.py
 
+- **NEW** Global Question Answering API
+  - Purpose: Process questions across the entire knowledge base with real-time streaming
+  - Module: app/api/documents.py (endpoint), templates/documents.html (UI)
+  - Endpoint: POST /api/qa/ask-global
+  - Features:
+    - Server-Sent Events (SSE) streaming for real-time token delivery
+    - Global knowledge base processing using GLOBAL_EXPERTS_PROMPT
+    - Real-time error handling and completion signaling
+    - Client-side SSE event parsing and token concatenation
+  - Streaming format:
+    - data: {"token": "..." } - individual tokens during generation
+    - data: {"done": true} - completion signal
+    - data: {"error": "..."} - error notification
+  - Integration pattern:
+    - Requires admin authentication cookie
+    - Uses QA service stream_ask() for global processing
+    - Supports Ctrl+Enter submission in admin interface
+
 - **NEW** QA service API
-  - Purpose: Provide document-specific question answering using RAG chain
+  - Purpose: Provide question answering using RAG chain with dual streaming capabilities
   - Module: app/domain/qa_service.py
-  - Function: ask_about_document(question: str, document_id: str) -> str
+  - Functions:
+    - ask(question: str) -> str - Single answer retrieval
+    - ask_about_document(question: str, document_id: str) -> str - Document-specific answer
+    - **NEW** stream_ask(question: str) - Async generator for global SSE streaming
+    - **NEW** stream_about_document(question: str, document_id: str) - Async generator for document-specific SSE streaming
   - Features:
     - Document-scoped retrieval using specialized prompt
+    - **NEW** Global knowledge base processing with GLOBAL_EXPERTS_PROMPT
+    - **NEW** Real-time token streaming for SSE responses
     - Answer truncation for VK message limits
     - Fallback error handling
+  - **NEW** Dual prompt system:
+    - GLOBAL_EXPERTS_PROMPT: Knowledge base-wide processing
+    - DOCUMENT_EXPERTS_PROMPT: Document-specific processing
   - Related tests: tests/test_qa_service.py
 
 **Section sources**
@@ -228,17 +265,21 @@ This section documents the primary APIs exposed by the VK integration and docume
 - [app/integrations/vk/handlers/start.py:12-55](file://app/integrations/vk/handlers/start.py#L12-L55)
 - [app/integrations/vk/handlers/sections.py:17-82](file://app/integrations/vk/handlers/sections.py#L17-L82)
 - [app/integrations/vk/handlers/fallback.py:7-18](file://app/integrations/vk/handlers/fallback.py#L7-L18)
-- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
-- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
+- [app/api/documents.py:791-853](file://app/api/documents.py#L791-L853)
+- [app/domain/qa_service.py:167-218](file://app/domain/qa_service.py#L167-L218)
+- [app/rag/prompts.py:40-56](file://app/rag/prompts.py#L40-L56)
+- [templates/documents.html:766-826](file://templates/documents.html#L766-L826)
 
 ## Architecture Overview
-The VK integration follows a modular architecture with document administration capabilities:
+The VK integration follows a modular architecture with enhanced document administration and global question answering capabilities:
 - Configuration is loaded via Settings and passed to the bot factory
 - The bot factory wires three handler labelers in a strict order
 - Handlers use keyboard builders to render consistent UI
 - States define multi-step dialog steps
 - **NEW** Document administration API provides CRUD operations and question answering
-- **NEW** QA service integrates with RAG chain for document-specific responses
+- **NEW** Global question answering API processes queries across the entire knowledge base
+- **NEW** QA service integrates with RAG chain for both document-specific and global responses
+- **NEW** Server-Sent Events streaming enables real-time question answering
 
 ```mermaid
 sequenceDiagram
@@ -452,54 +493,107 @@ end
 - [app/integrations/vk/bot.py:14-20](file://app/integrations/vk/bot.py#L14-L20)
 
 ### **NEW** Document Administration API
-- Purpose: Manage HR documents and provide document-specific question answering
+- Purpose: Manage HR documents and provide question answering capabilities
 - Module: app/api/documents.py
 - Endpoints:
   - POST /api/documents/{document_id}/ask - Ask a question about a specific document
+  - **NEW** POST /api/qa/ask-global - Ask a question across the entire knowledge base
 - Validation logic:
-  - Document existence check using repository.get(document_id)
-  - Status verification: doc.status.value != "completed"
-  - Search enablement check: not doc.is_search_enabled
+  - Document existence check using repository.get(document_id) for document-specific queries
+  - Status verification: doc.status.value != "completed" for document-specific queries
+  - Search enablement check: not doc.is_search_enabled for document-specific queries
 - Error handling:
   - 404 for non-existent documents: "Документ не найден"
   - 400 for documents not ready for questions: "Документ не готов для вопросов"
+  - **NEW** Real-time error streaming for global queries
+- **NEW** SSE streaming support:
+  - Both endpoints return Server-Sent Events streams
+  - Tokens are JSON-encoded and streamed in real-time
+  - Completion signaled by {"done": true}
+  - Errors streamed as {"error": "..."}
 - Response format:
   - JSON object with "answer" field containing the generated response
+  - **NEW** SSE format for streaming responses
 - Integration pattern:
   - Requires admin authentication cookie
-  - Uses QA service for document-specific question answering
+  - Uses QA service for question answering
+  - **NEW** Supports both document-specific and global knowledge base queries
   - Returns truncated responses suitable for VK message limits
 
-**Updated** Added comprehensive validation logic and error handling for document query requests
+**Updated** Added comprehensive validation logic, error handling, and SSE streaming support for both document-specific and global queries
 
 **Section sources**
-- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
+- [app/api/documents.py:791-853](file://app/api/documents.py#L791-L853)
 - [tests/test_api_documents.py:1-751](file://tests/test_api_documents.py#L1-L751)
 
+### **NEW** Global Question Answering API
+- Purpose: Process questions across the entire knowledge base with real-time streaming
+- Module: app/api/documents.py (endpoint), templates/documents.html (UI)
+- Endpoint: POST /api/qa/ask-global
+- Authentication:
+  - Requires admin cookie authentication
+  - Uses AdminDep dependency for validation
+- Request format:
+  - Form-encoded: question=str
+  - FormData body with 'question' field
+- Response format:
+  - Server-Sent Events (SSE) stream
+  - Each token delivered as: data: {"token": "..." }
+  - Completion signaled by: data: {"done": true}
+  - Errors streamed as: data: {"error": "..."}
+- Streaming behavior:
+  - Real-time token-by-token delivery from LLM
+  - Client-side event parsing and token concatenation
+  - Automatic error handling and completion detection
+- Integration pattern:
+  - Admin interface provides Ctrl+Enter submission
+  - Client-side SSE reader handles streaming responses
+  - Supports unlimited knowledge base queries
+- **NEW** Prompt system:
+  - Uses GLOBAL_EXPERTS_PROMPT for knowledge base-wide processing
+  - Emphasizes synthesis across multiple documents
+  - Handles cases where complete answers aren't available in single documents
+
+**Updated** Added new Global Question Answering API with comprehensive SSE streaming documentation
+
+**Section sources**
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
+- [templates/documents.html:766-826](file://templates/documents.html#L766-L826)
+- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
+- [app/rag/prompts.py:40-56](file://app/rag/prompts.py#L40-L56)
+
 ### **NEW** QA Service API
-- Purpose: Provide document-specific question answering using RAG chain
+- Purpose: Provide question answering using RAG chain with dual streaming capabilities
 - Module: app/domain/qa_service.py
-- Function: ask_about_document(question: str, document_id: str) -> str
+- Functions:
+  - ask(question: str) -> str - Single answer retrieval using global chain
+  - ask_about_document(question: str, document_id: str) -> str - Document-specific answer
+  - **NEW** stream_ask(question: str) - Async generator for global SSE streaming
+  - **NEW** stream_about_document(question: str, document_id: str) - Async generator for document-specific SSE streaming
 - Key features:
   - Document-scoped retrieval using specialized prompt (DOCUMENT_EXPERTS_PROMPT)
+  - **NEW** Global knowledge base processing with GLOBAL_EXPERTS_PROMPT
+  - **NEW** Real-time token streaming for SSE responses
   - Answer truncation for VK message limits (4096 characters)
   - Fallback error handling for unavailable services
-- System prompt:
-  - DOCUMENT_EXPERTS_PROMPT: Specialized prompt for HR document experts
-  - Rules emphasize document-specific context and structured responses
+- **NEW** Dual prompt system:
+  - GLOBAL_EXPERTS_PROMPT: Knowledge base-wide processing with synthesis capability
+  - DOCUMENT_EXPERTS_PROMPT: Document-specific processing with contextual focus
 - Error handling:
   - Returns ERR_NO_ANSWER when service not initialized
   - Returns ERR_DOCUMENT_UNAVAILABLE on runtime errors
   - Handles empty answers gracefully
+  - **NEW** Streams error messages via SSE for real-time feedback
 - Integration pattern:
   - Built with document-specific retriever and LLM
   - Uses specialized system prompt for HR document context
+  - **NEW** Supports both single-shot and streaming responses
 
-**Updated** Added new QA service with document-specific question answering capabilities
+**Updated** Added new QA service with document-specific and global streaming capabilities
 
 **Section sources**
-- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
-- [app/rag/prompts.py:21-37](file://app/rag/prompts.py#L21-L37)
+- [app/domain/qa_service.py:167-218](file://app/domain/qa_service.py#L167-L218)
+- [app/rag/prompts.py:21-56](file://app/rag/prompts.py#L21-L56)
 - [tests/test_qa_service.py:1-142](file://tests/test_qa_service.py#L1-L142)
 
 ## Dependency Analysis
@@ -510,6 +604,7 @@ External dependencies relevant to the VK integration and document administration
 - **NEW** FastAPI for document administration API endpoints
 - **NEW** LangChain for RAG chain integration
 - **NEW** Qdrant for vector database operations
+- **NEW** Starlette for StreamingResponse and SSE support
 
 ```mermaid
 graph LR
@@ -518,11 +613,13 @@ P --> PS["pydantic-settings>=2.4.0"]
 P --> FA["fastapi>=0.104.0"]
 P --> LC["langchain>=0.1.0"]
 P --> QC["qdrant-client>=1.7.0"]
+P --> ST["starlette>=0.27.0"]
 T["tests/*"] --> V
 T --> PS
 T --> FA
 T --> LC
 T --> QC
+T --> ST
 ```
 
 **Diagram sources**
@@ -541,8 +638,13 @@ T --> QC
   - The bot token is forwarded directly to the underlying API client; ensure tokens are managed securely
 - **NEW** Document query performance:
   - QA service uses specialized document retrievers for faster document-specific searches
+  - **NEW** Global queries leverage knowledge base-wide retrieval with streaming
   - Answer truncation prevents large responses that could impact performance
   - Document status checks prevent queries on unprocessed documents
+- **NEW** SSE streaming optimization:
+  - Real-time token streaming reduces perceived latency
+  - Client-side buffering and incremental rendering improve user experience
+  - Proper SSE headers ensure efficient connection handling
 
 ## Troubleshooting Guide
 - Configuration not loading:
@@ -564,6 +666,15 @@ T --> QC
   - Check that document exists in repository
   - Ensure QA service is properly initialized
   - Validate that document-specific retriever is available
+- **NEW** Global question streaming issues:
+  - Verify admin authentication cookie is present
+  - Check that QA service stream_ask() is properly initialized
+  - Ensure SSE headers are correctly set (Cache-Control: no-cache)
+  - Validate client-side SSE event parsing logic
+- **NEW** SSE connection problems:
+  - Verify StreamingResponse is properly configured
+  - Check that event_generator() yields proper SSE format
+  - Ensure proper error handling with {"error": "..."} format
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
@@ -574,14 +685,16 @@ T --> QC
 - [tests/test_qa_service.py:1-142](file://tests/test_qa_service.py#L1-L142)
 
 ## Conclusion
-The cafetera_hr_bot VK integration exposes a clean, modular API with enhanced document administration capabilities:
+The cafetera_hr_bot VK integration exposes a clean, modular API with enhanced document administration and global question answering capabilities:
 - Settings loads configuration from environment
 - create_bot wires handlers deterministically
 - Keyboard builders provide consistent UI
 - BotStates supports multi-step dialogs
 - Handler registration uses payload routing for predictable UX
 - **NEW** Document administration API provides comprehensive document management
-- **NEW** QA service enables document-specific question answering with validation and error handling
+- **NEW** Global question answering API enables knowledge base-wide queries with real-time streaming
+- **NEW** QA service enables both document-specific and global question answering with streaming support
+- **NEW** Server-Sent Events streaming provides responsive, real-time user experiences
 
 Adhering to the documented patterns ensures reliable operation and maintainable extensions.
 
@@ -592,12 +705,14 @@ Adhering to the documented patterns ensures reliable operation and maintainable 
 - VK integration relies on vkbottle >= 4.7.0
 - Keyboard and state APIs are stable within current implementation
 - **NEW** Document administration API is newly introduced
-- **NEW** QA service API is newly introduced
+- **NEW** Global question answering API is newly introduced
+- **NEW** QA service API is newly introduced with streaming capabilities
 - Backward compatibility:
   - Handler registration order is enforced by _HANDLER_LABELERS
   - Keyboard builder functions return the same Keyboard instance to preserve references
   - State names and payloads are validated by tests
   - **NEW** Document administration endpoints maintain backward compatibility with existing authentication
+  - **NEW** SSE streaming maintains compatibility with existing client-side event handling patterns
 
 **Section sources**
 - [pyproject.toml:3](file://pyproject.toml#L3)
@@ -605,5 +720,5 @@ Adhering to the documented patterns ensures reliable operation and maintainable 
 - [app/integrations/vk/bot.py:16-20](file://app/integrations/vk/bot.py#L16-L20)
 - [app/integrations/vk/keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
 - [tests/test_states.py:20-30](file://tests/test_states.py#L20-L30)
-- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
-- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
+- [app/api/documents.py:791-853](file://app/api/documents.py#L791-L853)
+- [app/domain/qa_service.py:167-218](file://app/domain/qa_service.py#L167-L218)

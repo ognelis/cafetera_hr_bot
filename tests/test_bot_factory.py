@@ -6,6 +6,7 @@ from app.integrations.vk.handlers import (
     ask,
     fallback,
     fire,
+    get_state_dispenser,
     hire,
     hr_request,
     pay,
@@ -81,4 +82,4 @@ class TestCreateBot:
     def test_state_dispenser_shared(self):
         settings = Settings(vk_access_token="test_token_placeholder")
         bot = create_bot(settings)
-        assert bot.state_dispenser is hr_request.state_dispenser
+        assert bot.state_dispenser is get_state_dispenser()

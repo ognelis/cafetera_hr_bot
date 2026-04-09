@@ -21,11 +21,9 @@
 
 ## Update Summary
 **Changes Made**
-- Added new chunk_size and chunk_overlap configuration settings with default values of 1000 and 200 respectively
-- Updated document processing pipeline to use configurable chunking parameters
-- Enhanced admin interface to support custom chunking configuration for document uploads
-- Updated ingestion scripts to utilize configurable chunking parameters
-- Added comprehensive documentation for chunking configuration options and best practices
+- Added centralized logging configuration via configure_logging() function, replacing ad-hoc logging setups across individual scripts
+- Ensures consistent log formatting and level configuration throughout the application
+- All scripts and modules now use the centralized logging configuration for uniform logging behavior
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -38,27 +36,29 @@
 8. [Security Best Practices](#security-best-practices)
 9. [Development vs Production Configurations](#development-vs-production-configurations)
 10. [Adding New Configuration Variables](#adding-new-configuration-variables)
-11. [Chunking Configuration](#chunking-configuration)
-12. [Storage Configuration](#storage-configuration)
-13. [S3 Storage Configuration](#s3-storage-configuration)
-14. [Admin Authentication Configuration](#admin-authentication-configuration)
-15. [LLM Provider Configuration](#llm-provider-configuration)
-16. [Embedding Provider Configuration](#embedding-provider-configuration)
-17. [Resource Management and Cleanup](#resource-management-and-cleanup)
-18. [Troubleshooting Guide](#troubleshooting-guide)
-19. [Conclusion](#conclusion)
+11. [Logging Configuration](#logging-configuration)
+12. [Chunking Configuration](#chunking-configuration)
+13. [Storage Configuration](#storage-configuration)
+14. [S3 Storage Configuration](#s3-storage-configuration)
+15. [Admin Authentication Configuration](#admin-authentication-configuration)
+16. [LLM Provider Configuration](#llm-provider-configuration)
+17. [Embedding Provider Configuration](#embedding-provider-configuration)
+18. [Resource Management and Cleanup](#resource-management-and-cleanup)
+19. [Troubleshooting Guide](#troubleshooting-guide)
+20. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the configuration management system used in cafetera_hr_bot. It focuses on the Pydantic Settings implementation, environment variable loading and validation, configuration structure, and security best practices. The system now supports separate LLM and embedding provider configurations, multiple LLM providers including llama.cpp with backward compatibility, alongside VK API credentials, Qdrant database connections, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, and configurable document chunking parameters for optimal RAG performance. It documents all current configuration options and provides examples of development versus production configurations along with templates for different deployment environments.
+This document explains the configuration management system used in cafetera_hr_bot. It focuses on the Pydantic Settings implementation, environment variable loading and validation, configuration structure, centralized logging configuration, and security best practices. The system now supports separate LLM and embedding provider configurations, multiple LLM providers including llama.cpp with backward compatibility, alongside VK API credentials, Qdrant database connections, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, configurable document chunking parameters for optimal RAG performance, and centralized logging configuration ensuring consistent log formatting across all application components. It documents all current configuration options and provides examples of development versus production configurations along with templates for different deployment environments.
 
 ## Project Structure
-The configuration system centers around a single Pydantic Settings class that loads environment variables from a .env file. The system supports separate LLM and embedding provider configurations with multiple LLM providers (ollama, openai, llama.cpp) and embedding providers (ollama, openai) with automatic fallback mechanisms, VK API integration, Qdrant vector storage, SQLite database integration for document metadata, S3-compatible storage for document files, admin authentication with API key security, and configurable document chunking parameters. The storage components consume these settings to initialize database connections, manage document lifecycle, and handle file uploads/downloads. Tests validate the loading behavior across different providers, storage configurations, authentication systems, and chunking parameters. Scripts demonstrate runtime usage with enhanced cleanup mechanisms and configurable chunking behavior.
+The configuration system centers around a single Pydantic Settings class that loads environment variables from a .env file. The system supports separate LLM and embedding provider configurations with multiple LLM providers (ollama, openai, llama.cpp) and embedding providers (ollama, openai) with automatic fallback mechanisms, VK API integration, Qdrant vector storage, SQLite database integration for document metadata, S3-compatible storage for document files, admin authentication with API key security, configurable document chunking parameters, and centralized logging configuration with consistent formatting and level control. The storage components consume these settings to initialize database connections, manage document lifecycle, and handle file uploads/downloads. Tests validate the loading behavior across different providers, storage configurations, authentication systems, chunking parameters, and logging configuration. Scripts demonstrate runtime usage with enhanced cleanup mechanisms and configurable chunking behavior, all using the centralized logging configuration.
 
 ```mermaid
 graph TB
 subgraph "Configuration Layer"
 SettingsClass["Settings (Pydantic BaseSettings)"]
 EnvFile[".env file"]
+LoggingConfig["Centralized Logging Configuration"]
 LLMProvider["LLM Provider Configuration"]
 EmbeddingProvider["Embedding Provider Configuration"]
 StorageConfig["Storage Configuration"]
@@ -82,8 +82,10 @@ TestStorage["Storage Tests"]
 TestAuth["Authentication Tests"]
 TestEmbeddings["Embedding Tests"]
 TestChunking["Chunking Tests"]
+TestLogging["Logging Configuration Tests"]
 end
 EnvFile --> SettingsClass
+SettingsClass --> LoggingConfig
 SettingsClass --> LLMProvider
 SettingsClass --> EmbeddingProvider
 SettingsClass --> VKBot
@@ -102,6 +104,7 @@ TestStorage --> StorageLayer
 TestAuth --> AdminAuth
 TestEmbeddings --> EmbeddingProvider
 TestChunking --> ChunkingConfig
+TestLogging --> LoggingConfig
 ```
 
 **Diagram sources**
@@ -125,31 +128,34 @@ TestChunking --> ChunkingConfig
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Core Components
-- **Settings class**: Defines typed configuration fields, environment file binding, and default values for all system components including separate LLM and embedding provider settings, storage configuration, S3 storage settings, admin authentication settings, and new chunking configuration parameters.
+- **Settings class**: Defines typed configuration fields, environment file binding, and default values for all system components including separate LLM and embedding provider settings, storage configuration, S3 storage settings, admin authentication settings, chunking configuration parameters, and centralized logging configuration.
+- **Centralized Logging Configuration**: Provides unified logging setup via configure_logging() function ensuring consistent log formatting and level control across all application components.
 - **LLM Provider System**: Supports multiple providers (ollama, openai, llama.cpp) with automatic fallback and backward compatibility.
 - **Embedding Provider System**: Supports separate embedding providers (ollama, openai) with independent configuration from LLM providers.
-- **Chunking Configuration**: Provides explicit control over document processing behavior with default values of 1000 characters for chunk_size and 200 characters for chunk_overlap.
+- **Chunking Configuration**: Provides explicit control over document processing behavior with default values of 500 for chunk_size and 50 for chunk_overlap.
 - **VK integration**: Uses Settings to configure the VK bot token and handler registration.
 - **RAG Components**: Build LLM chains and embeddings based on provider selection with separate embedding configuration.
 - **Storage System**: Manages SQLite database for document metadata with comprehensive CRUD operations.
 - **S3 Storage System**: Provides S3-compatible file storage using MinIO/AWS S3 with async operations.
 - **Admin Authentication**: Implements API key-based authentication with secure cookie management.
 - **Resource Cleanup**: Enhanced cleanup mechanisms for admin server and QA service resources.
-- **Tests**: Verify defaults, environment variable precedence, provider-specific behavior, storage functionality, authentication security, embedding configuration, and chunking parameter validation.
-- **Scripts**: Demonstrate runtime initialization using Settings for different providers, storage operations, admin access, cleanup procedures, and configurable chunking behavior.
+- **Tests**: Verify defaults, environment variable precedence, provider-specific behavior, storage functionality, authentication security, embedding configuration, chunking parameter validation, and centralized logging configuration.
+- **Scripts**: Demonstrate runtime initialization using Settings for different providers, storage operations, admin access, cleanup procedures, configurable chunking behavior, and centralized logging configuration.
 
 Key implementation details:
 - Settings class inherits from Pydantic BaseSettings and binds to a .env file with UTF-8 encoding.
-- Current fields include VK access token, group ID, Qdrant configuration, separate LLM and embedding provider settings, comprehensive storage configuration, S3 storage settings, admin authentication settings, and new chunking configuration parameters.
+- Centralized logging configuration uses configure_logging() function with INFO level and standardized format.
+- Current fields include VK access token, group ID, Qdrant configuration, separate LLM and embedding provider settings, comprehensive storage configuration, S3 storage settings, admin authentication settings, chunking configuration parameters, and centralized logging configuration.
 - The LLM system automatically selects providers based on LLM_PROVIDER environment variable with sensible defaults.
 - The embedding system automatically selects providers based on EMBEDDING_PROVIDER environment variable with independent configuration.
-- The chunking system provides configurable chunk_size (default: 1000) and chunk_overlap (default: 200) parameters for document processing optimization.
+- The chunking system provides configurable chunk_size (default: 500) and chunk_overlap (default: 50) parameters for document processing optimization.
 - The storage system uses db_path to configure SQLite database location with automatic table initialization.
 - The S3 storage system uses endpoint_url, access_key, secret_key, and bucket to configure S3-compatible storage.
 - The admin authentication system uses admin_api_key for secure access to administrative functions.
 - The VK bot factory reads the token from Settings to construct the bot instance.
 - The admin server includes enhanced cleanup mechanisms using atexit for proper resource management.
 - The document parser module uses both hardcoded defaults and configurable settings for chunking behavior.
+- All scripts and modules use centralized logging configuration for consistent log formatting.
 
 **Section sources**
 - [app/config.py:4-43](file://app/config.py#L4-L43)
@@ -164,15 +170,16 @@ Key implementation details:
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Architecture Overview
-The configuration architecture follows a layered approach with provider-aware components, integrated storage, configurable chunking parameters, and secure admin access with enhanced cleanup mechanisms:
-- **Configuration layer**: Settings class encapsulates environment-driven configuration with separate provider selections, storage settings, S3 configuration, admin authentication, and chunking parameters.
-- **Application layer**: Integrations consume Settings to initialize services with appropriate provider backends, database connections, S3 storage, configurable chunking behavior, and authentication mechanisms.
-- **Runtime layer**: Scripts and handlers access Settings at startup or during operation with automatic provider detection, storage initialization, authentication verification, configurable chunking parameters, and proper resource cleanup.
+The configuration architecture follows a layered approach with provider-aware components, integrated storage, configurable chunking parameters, centralized logging configuration, and secure admin access with enhanced cleanup mechanisms:
+- **Configuration layer**: Settings class encapsulates environment-driven configuration with separate provider selections, storage settings, S3 configuration, admin authentication, chunking parameters, and centralized logging configuration.
+- **Application layer**: Integrations consume Settings to initialize services with appropriate provider backends, database connections, S3 storage, configurable chunking behavior, centralized logging configuration, and authentication mechanisms.
+- **Runtime layer**: Scripts and handlers access Settings at startup or during operation with automatic provider detection, storage initialization, authentication verification, configurable chunking parameters, centralized logging configuration, and proper resource cleanup.
 
 ```mermaid
 sequenceDiagram
 participant Script as "main.py"
 participant Settings as "Settings"
+participant Logging as "configure_logging()"
 participant Provider as "LLM Provider"
 participant EmbeddingProvider as "Embedding Provider"
 participant Chunking as "Chunking Parameters"
@@ -184,6 +191,8 @@ participant VKBot as "VK Bot Factory"
 participant VK as "VK Bot"
 Script->>Settings : Initialize Settings()
 Settings-->>Script : Loaded values (defaults or env)
+Script->>Logging : configure_logging()
+Logging-->>Script : Centralized logging ready
 Settings->>Chunking : Configure chunk_size and chunk_overlap
 Chunking-->>Script : Chunking parameters ready
 Settings->>Storage : Configure db_path
@@ -217,15 +226,16 @@ Script->>VK : run_polling()
 ## Detailed Component Analysis
 
 ### Settings Class
-The Settings class defines the comprehensive configuration contract with separate provider configurations and new chunking parameters:
+The Settings class defines the comprehensive configuration contract with separate provider configurations, centralized logging configuration, and new chunking parameters:
 - **Environment file binding**: Loads variables from .env with UTF-8 encoding.
-- **Fields**: vk_access_token (str), vk_group_id (int), Qdrant configuration, LLM settings, separate embedding configuration, storage configuration, S3 storage configuration, admin authentication settings, and new chunking configuration parameters.
+- **Fields**: vk_access_token (str), vk_group_id (int), Qdrant configuration, LLM settings, separate embedding configuration, storage configuration, S3 storage configuration, admin authentication settings, chunking configuration parameters, and centralized logging configuration.
 - **Type safety**: Pydantic ensures type conversion and validation.
 - **Provider awareness**: LLM_PROVIDER and EMBEDDING_PROVIDER fields control which backend to use independently.
 - **Chunking awareness**: chunk_size (int) and chunk_overlap (int) control document processing behavior with sensible defaults.
 - **Storage awareness**: db_path field controls SQLite database location.
 - **S3 awareness**: s3_endpoint_url, s3_access_key, s3_secret_key, and s3_bucket control S3-compatible storage configuration.
 - **Admin awareness**: admin_api_key controls access to administrative functions.
+- **Logging awareness**: Centralized logging configuration via configure_logging() function.
 
 ```mermaid
 classDiagram
@@ -262,19 +272,36 @@ class Settings {
 **Section sources**
 - [app/config.py:4-43](file://app/config.py#L4-L43)
 
+### Centralized Logging Configuration
+The centralized logging configuration provides unified logging setup across all application components with consistent formatting and level control:
+
+- **Logging Function**: configure_logging() sets up project-wide logging configuration.
+- **Log Level**: INFO level logging for all components.
+- **Log Format**: Standardized format showing timestamp, level, logger name, and message.
+- **Consistent Application**: All scripts and modules use centralized logging configuration.
+- **Component Integration**: VK bot, admin server, ingestion scripts, and domain services all inherit the centralized logging setup.
+
+**Updated** Added centralized logging configuration via configure_logging() function, replacing ad-hoc logging setups across individual scripts and ensuring consistent log formatting and level configuration throughout the application.
+
+**Section sources**
+- [app/config.py:6-11](file://app/config.py#L6-L11)
+- [scripts/admin_server.py:33](file://scripts/admin_server.py#L33)
+- [scripts/ingest.py:38](file://scripts/ingest.py#L38)
+- [scripts/polling_vk.py:22](file://scripts/polling_vk.py#L22)
+
 ### Chunking Configuration
 The chunking configuration provides explicit control over document processing behavior with sensible defaults optimized for local LLM performance:
 
-- **Default Values**: chunk_size defaults to 1000 characters, chunk_overlap defaults to 200 characters.
+- **Default Values**: chunk_size defaults to 500 characters, chunk_overlap defaults to 50 characters.
 - **Purpose**: Controls document splitting behavior for optimal embedding performance and memory usage.
 - **Performance Impact**: Smaller chunks improve local model performance but increase processing overhead.
 - **Memory Considerations**: Larger chunks reduce memory usage but may exceed local model limits.
 - **Quality Trade-offs**: Higher overlap preserves context but increases processing time.
 
-**Updated** Added new chunk_size and chunk_overlap configuration parameters with default values optimized for local LLM performance.
+**Updated** Updated chunk_size and chunk_overlap default values from 1000/200 to 500/50 for better performance with tiktoken-based token counting.
 
 **Section sources**
-- [app/config.py:40-42](file://app/config.py#L40-L42)
+- [app/config.py:50-52](file://app/config.py#L50-L52)
 - [app/rag/parser.py:16-17](file://app/rag/parser.py#L16-L17)
 
 ### VK Bot Factory and Settings Usage
@@ -310,6 +337,7 @@ The test suite validates:
 - Admin authentication configuration behavior.
 - Separate embedding provider configuration defaults and validation.
 - **Chunking configuration defaults and validation** for new chunk_size and chunk_overlap parameters.
+- **Centralized logging configuration** for consistent log formatting across all components.
 
 ```mermaid
 flowchart TD
@@ -318,13 +346,14 @@ LoadEnv --> Defaults["Apply defaults"]
 Defaults --> EnvOverride{"Environment variables present?"}
 EnvOverride --> |Yes| ApplyEnv["Apply environment values"]
 EnvOverride --> |No| KeepDefaults["Keep defaults"]
-ApplyEnv --> ChunkingConfig["Configure chunking parameters"]
+ApplyEnv --> ChunkingConfig["Configure chunk_size and chunk_overlap"]
 ChunkingConfig --> ProviderSelect["Select LLM Provider"]
 ProviderSelect --> EmbeddingSelect["Select Embedding Provider"]
 EmbeddingSelect --> StorageConfig["Configure Storage"]
 StorageConfig --> S3Config["Configure S3 Storage"]
 S3Config --> AdminConfig["Configure Admin Auth"]
-AdminConfig --> Validate["Type validation"]
+AdminConfig --> LoggingConfig["Configure Centralized Logging"]
+LoggingConfig --> Validate["Type validation"]
 KeepDefaults --> ChunkingConfig
 ChunkingConfig --> ProviderSelect
 Validate --> Done(["Settings ready"])
@@ -341,8 +370,9 @@ Validate --> Done(["Settings ready"])
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Dependency Analysis
-The configuration system has minimal external dependencies with provider-specific extras, storage modules, authentication components, and chunking utilities:
+The configuration system has minimal external dependencies with provider-specific extras, storage modules, authentication components, chunking utilities, and centralized logging configuration:
 - **Pydantic Settings**: Provides environment file loading and type validation.
+- **Centralized Logging**: Universal logging configuration via configure_logging() function.
 - **VK integration**: Depends on Settings for bot initialization.
 - **LLM Providers**: Optional dependencies for different provider backends.
 - **Embedding Providers**: Independent optional dependencies for embedding generation.
@@ -359,6 +389,7 @@ The configuration system has minimal external dependencies with provider-specifi
 graph TB
 Settings["Settings (BaseSettings)"]
 Pydantic["pydantic-settings"]
+LoggingConfig["configure_logging()"]
 VKIntegration["VK Integration"]
 VKLib["vkbottle"]
 Qdrant["Qdrant Client"]
@@ -373,6 +404,7 @@ ChunkingUtils["Chunking Utilities"]
 RecursiveSplitter["RecursiveCharacterTextSplitter"]
 Pyproject["pyproject.toml"]
 Pydantic --> Settings
+Settings --> LoggingConfig
 Settings --> VKIntegration
 Settings --> Qdrant
 Settings --> SQLite
@@ -420,8 +452,9 @@ Pyproject --> RecursiveSplitter
 - Provider selection happens at runtime when building LLM and embedding instances, with minimal performance impact.
 - Separate provider configurations allow for independent optimization of LLM and embedding performance.
 - **Chunking optimization**: Configurable chunk_size and chunk_overlap parameters allow fine-tuning for different document types and model capabilities.
-- **Local model performance**: Default chunk_size of 1000 characters balances processing speed and context preservation for local LLMs.
+- **Local model performance**: Default chunk_size of 500 characters balances processing speed and context preservation for local LLMs.
 - **Memory management**: Proper chunk_overlap configuration prevents context loss while managing memory usage effectively.
+- **Centralized logging performance**: Single logging configuration reduces overhead compared to multiple ad-hoc logging setups.
 - SQLite database operations use asynchronous connections to minimize blocking.
 - S3 storage operations use async client sessions with connection pooling for efficient file operations.
 - Admin authentication uses constant-time comparison to prevent timing attacks.
@@ -432,6 +465,7 @@ Pyproject --> RecursiveSplitter
 - S3 operations benefit from connection reuse and proper error handling for network failures.
 - Concurrent indexing operations are controlled by max_concurrent_indexing setting.
 - Chunking parameters significantly impact processing time and memory usage in document ingestion pipelines.
+- **Logging consistency**: Centralized logging eliminates redundant logging setup overhead across multiple components.
 
 ## Security Best Practices
 - Never hardcode secrets. Use environment variables and the .env file.
@@ -451,14 +485,15 @@ Pyproject --> RecursiveSplitter
 - **Resource Cleanup Security**: Ensure proper cleanup mechanisms prevent resource leaks and unauthorized access.
 - **Provider Isolation**: Separate LLM and embedding providers to minimize security impact if one provider is compromised.
 - **Chunking Security**: Ensure chunk_size and chunk_overlap values don't expose sensitive data through improper context boundaries.
+- **Logging Security**: Centralized logging configuration ensures consistent log formatting and level control across all components.
 
 ## Development vs Production Configurations
-- **Development**: Use local LLM providers (ollama, llama.cpp) with localhost URLs and local SQLite database. Use local S3-compatible storage with MinIO for development. The VK polling script initializes Settings and runs the bot locally. Separate embedding provider can use Ollama for development. Chunking parameters can be tuned for faster local processing.
-- **Production**: Use cloud LLM providers with proper authentication and managed database services. Use production S3-compatible storage with proper IAM policies and HTTPS endpoints. Use strong admin API keys with rotation policies. Separate embedding provider can use OpenAI for production quality embeddings. Chunking parameters should be optimized for production workload characteristics.
+- **Development**: Use local LLM providers (ollama, llama.cpp) with localhost URLs and local SQLite database. Use local S3-compatible storage with MinIO for development. The VK polling script initializes Settings and runs the bot locally. Separate embedding provider can use Ollama for development. Chunking parameters can be tuned for faster local processing. Centralized logging configuration provides consistent log formatting across all development scripts.
+- **Production**: Use cloud LLM providers with proper authentication and managed database services. Use production S3-compatible storage with proper IAM policies and HTTPS endpoints. Use strong admin API keys with rotation policies. Separate embedding provider can use OpenAI for production quality embeddings. Chunking parameters should be optimized for production workload characteristics. Centralized logging configuration ensures consistent log formatting across all production components.
 
 Operational differences:
-- VK polling script demonstrates Settings usage at runtime.
-- Production requires webhook configuration and transport setup.
+- VK polling script demonstrates Settings usage at runtime with centralized logging configuration.
+- Production requires webhook configuration and transport setup with centralized logging.
 - LLM provider selection affects dependency requirements and resource allocation.
 - Separate embedding provider configuration allows for independent optimization.
 - Storage configuration requires proper database permissions and backup strategies.
@@ -468,6 +503,7 @@ Operational differences:
 - S3 storage should use managed services with proper backup and disaster recovery.
 - Resource cleanup mechanisms ensure proper shutdown in production environments.
 - **Chunking optimization**: Production environments may require different chunk_size and chunk_overlap values based on document types and performance requirements.
+- **Logging consistency**: Centralized logging configuration ensures uniform logging behavior across all development and production environments.
 
 **Section sources**
 - [app/main.py:23-82](file://app/main.py#L23-L82)
@@ -486,6 +522,7 @@ To add new configuration variables:
 8. For security-sensitive configurations, implement proper validation and error handling.
 9. For cleanup-related configurations, ensure proper resource management and error handling.
 10. **For chunking-related configurations**, consider performance implications and provide sensible defaults.
+11. **For logging-related configurations**, consider centralized logging integration and ensure consistent formatting.
 
 Example steps:
 - Add a new field to the Settings class.
@@ -497,45 +534,109 @@ Example steps:
 - For admin authentication, implement proper cookie security and rate limiting.
 - For resource cleanup, implement proper error handling and logging.
 - **For chunking parameters**, ensure they integrate with document processing pipelines and consider performance trade-offs.
+- **For logging configuration**, ensure centralized logging integration and consistent formatting across all components.
 
 **Section sources**
 - [app/config.py:4-43](file://app/config.py#L4-L43)
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
+
+## Logging Configuration
+
+### Centralized Logging Setup
+The centralized logging configuration provides unified logging setup across all application components:
+
+- **Logging Function**: configure_logging() establishes project-wide logging configuration.
+- **Log Level**: INFO level logging for all components.
+- **Log Format**: Standardized format showing timestamp, level, logger name, and message.
+- **Consistent Application**: All scripts and modules use centralized logging configuration.
+- **Component Integration**: VK bot, admin server, ingestion scripts, and domain services all inherit the centralized logging setup.
+
+### Logging Configuration Options
+Logging configuration options:
+
+- **LOG_LEVEL**: Environment variable to control logging level (default: INFO)
+- **LOG_FORMAT**: Standardized format string for log messages
+- **Logger Names**: Each component uses logging.getLogger(__name__) for consistent naming
+- **Centralized Control**: Single function to configure logging across all components
+
+### Environment Variable Configuration
+
+```bash
+# Logging configuration
+LOG_LEVEL=INFO
+```
+
+### Logging Configuration Process
+
+```mermaid
+flowchart TD
+Start(["configure_logging()"]) --> SetLevel["Set logging level to INFO"]
+SetLevel --> SetFormat["Set log format pattern"]
+SetFormat --> ApplyConfig["Apply to root logger"]
+ApplyConfig --> Components["All components inherit configuration"]
+Components --> LoggerNames["Each component uses logging.getLogger(__name__)"]
+LoggerNames --> ConsistentFormatting["Consistent log formatting across all components"]
+```
+
+**Diagram sources**
+- [app/config.py:6-11](file://app/config.py#L6-L11)
+
+### Component Logging Integration
+All major components use centralized logging configuration:
+
+- **Main Application**: app/main.py uses logger = logging.getLogger(__name__)
+- **Admin Server**: scripts/admin_server.py uses logger = logging.getLogger(__name__)
+- **Ingestion Scripts**: scripts/ingest.py uses logger = logging.getLogger(__name__)
+- **VK Bot**: app/integrations/vk/bot.py uses logger = logging.getLogger(__name__)
+- **Document Service**: app/domain/document_service.py uses logger = logging.getLogger(__name__)
+- **QA Service**: app/domain/qa_service.py uses logger = logging.getLogger(__name__)
+- **API Documents**: app/api/documents.py uses logger = logging.getLogger(__name__)
+
+**Section sources**
+- [app/config.py:6-11](file://app/config.py#L6-L11)
+- [app/main.py:30-31](file://app/main.py#L30-L31)
+- [scripts/admin_server.py:33](file://scripts/admin_server.py#L33)
+- [scripts/ingest.py:38](file://scripts/ingest.py#L38)
+- [scripts/polling_vk.py:22](file://scripts/polling_vk.py#L22)
+- [app/integrations/vk/bot.py:22](file://app/integrations/vk/bot.py#L22)
+- [app/domain/document_service.py:32](file://app/domain/document_service.py#L32)
+- [app/domain/qa_service.py:22](file://app/domain/qa_service.py#L22)
+- [app/api/documents.py:64](file://app/api/documents.py#L64)
 
 ## Chunking Configuration
 
 ### Chunking Parameters Overview
 The chunking configuration provides explicit control over document processing behavior with two key parameters:
 
-- **chunk_size**: Maximum characters per document chunk (default: 1000)
-- **chunk_overlap**: Characters shared between consecutive chunks (default: 200)
+- **chunk_size**: Maximum characters per document chunk (default: 500)
+- **chunk_overlap**: Characters shared between consecutive chunks (default: 50)
 
 ### Default Values and Rationale
-- **chunk_size**: 1000 characters - Optimized for local LLM performance while maintaining reasonable context
-- **chunk_overlap**: 200 characters - Preserves context between chunks without excessive duplication
+- **chunk_size**: 500 characters - Optimized for local LLM performance while maintaining reasonable context
+- **chunk_overlap**: 50 characters - Preserves context between chunks without excessive duplication
 - **Performance balance**: These defaults provide a good balance between processing speed and contextual integrity for local models
 
 ### Configuration Options
 Chunking configuration options:
 
-- **CHUNK_SIZE**: Integer value controlling maximum chunk length (default: 1000)
-- **CHUNK_OVERLAP**: Integer value controlling context overlap between chunks (default: 200)
+- **CHUNK_SIZE**: Integer value controlling maximum chunk length (default: 500)
+- **CHUNK_OVERLAP**: Integer value controlling context overlap between chunks (default: 50)
 - **Environment variable mapping**: CHUNK_SIZE and CHUNK_OVERLAP environment variables map to chunk_size and chunk_overlap settings
 
 ### Environment Variable Configuration
 
 ```bash
 # Chunking configuration
-CHUNK_SIZE=1000
-CHUNK_OVERLAP=200
+CHUNK_SIZE=500
+CHUNK_OVERLAP=50
 
 # Alternative configuration for larger documents
-CHUNK_SIZE=2000
-CHUNK_OVERLAP=400
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=100
 
 # Alternative configuration for memory-constrained environments
-CHUNK_SIZE=500
-CHUNK_OVERLAP=100
+CHUNK_SIZE=250
+CHUNK_OVERLAP=25
 ```
 
 ### Chunking Parameter Effects
@@ -553,7 +654,7 @@ Chunking parameters are used throughout the document processing pipeline:
 - **Background indexing tasks**: Apply chunking parameters during document indexing operations
 
 **Section sources**
-- [app/config.py:40-42](file://app/config.py#L40-L42)
+- [app/config.py:50-52](file://app/config.py#L50-L52)
 - [app/rag/parser.py:16-17](file://app/rag/parser.py#L16-L17)
 - [app/api/documents.py:132-133](file://app/api/documents.py#L132-L133)
 - [app/api/documents.py:839-840](file://app/api/documents.py#L839-L840)
@@ -628,7 +729,7 @@ Log --> End(["Database ready"])
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 
 **Section sources**
-- [app/config.py:28-29](file://app/config.py#L28-L29)
+- [app/config.py:37-38](file://app/config.py#L37-L38)
 - [app/storage/database.py:12-28](file://app/storage/database.py#L12-L28)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
@@ -691,7 +792,7 @@ Ready --> Operations["Ready for file operations"]
 - [app/storage/s3.py:71-77](file://app/storage/s3.py#L71-L77)
 
 **Section sources**
-- [app/config.py:29-32](file://app/config.py#L29-L32)
+- [app/config.py:39-42](file://app/config.py#L39-L42)
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [app/main.py:30-47](file://app/main.py#L30-L47)
 
@@ -749,7 +850,7 @@ Success --> End
 - [app/api/documents.py:146-166](file://app/api/documents.py#L146-L166)
 
 **Section sources**
-- [app/config.py:35](file://app/config.py#L35)
+- [app/config.py:44](file://app/config.py#L44)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 - [app/api/documents.py:146-166](file://app/api/documents.py#L146-L166)
 - [templates/login.html:22-38](file://templates/login.html#L22-L38)
@@ -845,7 +946,7 @@ The project includes a script for managing Ollama models:
 - **Model management**: Pulls models if not found locally
 
 **Section sources**
-- [app/config.py:15-25](file://app/config.py#L15-L25)
+- [app/config.py:25-29](file://app/config.py#L25-L29)
 - [app/rag/retriever.py:30-62](file://app/rag/retriever.py#L30-L62)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [scripts/run_llama_qwen.sh:1-60](file://scripts/run_llama_qwen.sh#L1-L60)
@@ -918,7 +1019,7 @@ The admin server includes enhanced setup for embedding providers:
 - **HTTP/2 support**: Improved performance for admin interface
 
 **Section sources**
-- [app/config.py:21-25](file://app/config.py#L21-L25)
+- [app/config.py:31-35](file://app/config.py#L31-L35)
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 - [scripts/admin_server.py:16-18](file://scripts/admin_server.py#L16-L18)
 - [scripts/run_admin.sh:129-159](file://scripts/run_admin.sh#L129-L159)
@@ -982,7 +1083,7 @@ MAX_CONCURRENT_INDEXING=2
 **Section sources**
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 - [scripts/admin_server.py:64-68](file://scripts/admin_server.py#L64-L68)
-- [app/config.py:38](file://app/config.py#L38)
+- [app/config.py:47](file://app/config.py#L47)
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -1007,6 +1108,9 @@ Common issues and resolutions:
 - **Chunking parameter issues**: Verify chunk_size and chunk_overlap values are appropriate for document types and model capabilities.
 - **Document processing errors**: Check chunking parameters for documents that fail processing.
 - **Memory issues with chunking**: Adjust chunk_size and chunk_overlap for memory-constrained environments.
+- **Logging configuration issues**: Verify centralized logging setup and log formatting consistency.
+- **Log level problems**: Check LOG_LEVEL environment variable and logging configuration.
+- **Cross-component logging inconsistencies**: Ensure all components use centralized logging configuration.
 
 Validation tips:
 - Use the test suite to verify defaults and environment precedence.
@@ -1023,6 +1127,8 @@ Validation tips:
 - Validate concurrent indexing limits with system capabilities.
 - **Test chunking parameters**: Validate chunk_size and chunk_overlap combinations with representative documents.
 - **Monitor processing performance**: Track ingestion time and memory usage with different chunking configurations.
+- **Verify logging consistency**: Ensure centralized logging configuration provides uniform log formatting across all components.
+- **Test log level configuration**: Validate LOG_LEVEL environment variable effects on logging output.
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
@@ -1032,4 +1138,4 @@ Validation tips:
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 
 ## Conclusion
-The configuration management system in cafetera_hr_bot uses Pydantic Settings to load environment variables from a .env file, providing type-safe configuration for the VK integration, separate LLM and embedding provider support, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, and configurable document chunking parameters for optimal RAG performance. The system now supports independent LLM and embedding provider configurations (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, covering VK API credentials, Qdrant database connections, flexible provider-specific behaviors, robust storage management, secure S3 file operations, comprehensive admin access control, enhanced resource cleanup mechanisms, and explicit control over document processing behavior through chunk_size and chunk_overlap parameters. By following the documented patterns and security practices, teams can safely manage configuration across development and production environments while maintaining flexibility for different LLM and embedding backends, reliable operation with clear provider-specific behaviors, comprehensive document metadata persistence with proper storage configuration and security measures, secure S3 file storage with proper access controls, robust admin authentication with proper security protocols, proper resource management with enhanced cleanup mechanisms, and optimized document processing through configurable chunking parameters that balance performance and context preservation.
+The configuration management system in cafetera_hr_bot uses Pydantic Settings to load environment variables from a .env file, providing type-safe configuration for the VK integration, separate LLM and embedding provider support, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, configurable document chunking parameters for optimal RAG performance, and centralized logging configuration ensuring consistent log formatting across all application components. The system now supports independent LLM and embedding provider configurations (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, covering VK API credentials, Qdrant database connections, flexible provider-specific behaviors, robust storage management, secure S3 file operations, comprehensive admin access control, enhanced resource cleanup mechanisms, explicit control over document processing behavior through chunk_size and chunk_overlap parameters, and centralized logging configuration that provides uniform logging behavior across all development and production environments. By following the documented patterns and security practices, teams can safely manage configuration across development and production environments while maintaining flexibility for different LLM and embedding backends, reliable operation with clear provider-specific behaviors, comprehensive document metadata persistence with proper storage configuration and security measures, secure S3 file storage with proper access controls, robust admin authentication with proper security protocols, proper resource management with enhanced cleanup mechanisms, optimized document processing through configurable chunking parameters that balance performance and context preservation, and consistent logging behavior through centralized logging configuration that ensures uniform log formatting across all application components.

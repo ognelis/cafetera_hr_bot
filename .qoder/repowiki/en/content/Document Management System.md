@@ -45,13 +45,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added real-time streaming capabilities for document QA using Server-Sent Events (SSE)
-- Enhanced file download handling with RFC 5987-compliant filename encoding for international character sets
-- Improved document status tracking with recently finished documents functionality
-- Implemented comprehensive batch status polling system replacing individual row polling
-- Added document-specific question-answering with real-time streaming feedback
-- Enhanced international character support for downloads with proper filename encoding
-- Improved UI responsiveness with real-time status updates and streaming responses
+- **Consolidated Document Indexing Operations**: Unified background indexing into `_index_document_from_s3()` function to eliminate code duplication
+- **Introduced Date Range Utility**: Added `parse_date_range()` function for consistent ISO date parsing across all endpoints
+- **Centralized Template Context Management**: Created `_document_table_context()` function for consistent document table partial rendering
+- **Enhanced Maintainability**: Reduced code duplication while preserving all existing functionality
+- **Improved Error Handling**: Centralized background task error handling in unified indexing function
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -71,23 +69,24 @@
 15. [Enhanced Date Range Filtering](#enhanced-date-range-filtering)
 16. [RAG Pipeline](#rag-pipeline)
 17. [Document-Specific Question Answering](#document-specific-question-answering)
-18. [Real-Time Streaming with Server-Sent Events](#real-time-streaming-with-server-sent-events)
-19. [Enhanced File Download Handling](#enhanced-file-download-handling)
-20. [Improved Document Status Tracking](#improved-document-status-tracking)
-21. [VK Bot Integration](#vk-bot-integration)
-22. [Storage Layer](#storage-layer)
-23. [API Endpoints](#api-endpoints)
-24. [Configuration Management](#configuration-management)
-25. [Enhanced Error Handling and Consistency](#enhanced-error-handling-and-consistency)
-26. [Deployment and Operations](#deployment-and-operations)
-27. [Troubleshooting Guide](#troubleshooting-guide)
-28. [Conclusion](#conclusion)
+18. [Global Question Answering](#global-question-answering)
+19. [Real-Time Streaming with Server-Sent Events](#real-time-streaming-with-server-sent-events)
+20. [Enhanced File Download Handling](#enhanced-file-download-handling)
+21. [Improved Document Status Tracking](#improved-document-status-tracking)
+22. [VK Bot Integration](#vk-bot-integration)
+23. [Storage Layer](#storage-layer)
+24. [API Endpoints](#api-endpoints)
+25. [Configuration Management](#configuration-management)
+26. [Enhanced Error Handling and Consistency](#enhanced-error-handling-and-consistency)
+27. [Deployment and Operations](#deployment-and-operations)
+28. [Troubleshooting Guide](#troubleshooting-guide)
+29. [Conclusion](#conclusion)
 
 ## Introduction
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-**Updated** The system now features revolutionary real-time streaming capabilities for document question-answering using Server-Sent Events (SSE), enhanced file download handling with RFC 5987-compliant filename encoding for international character sets, and improved document status tracking with recently finished documents functionality. The new `/api/documents/{document_id}/ask` endpoint enables real-time streaming responses for document-specific questions, providing immediate feedback as AI responses are generated. The enhanced download functionality now properly handles international character sets in filenames through RFC 5987 encoding, ensuring compatibility across different browsers and systems. The improved status tracking system includes a batch polling mechanism that dramatically reduces server load by replacing individual row polling with centralized updates for all active and recently finished documents.
+**Updated** The system now features consolidated document indexing operations through a unified `_index_document_from_s3()` function, introducing a new `parse_date_range()` utility for consistent date parsing, and centralizing document table context management via `_document_table_context()`. These architectural improvements eliminate code duplication, enhance maintainability, and preserve all existing functionality while providing a more streamlined development experience. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance.
 
 ## System Architecture
 
@@ -111,6 +110,7 @@ RoundedCorners[Rounded Corners]
 VisualHierarchy[Visual Hierarchy]
 FilterSort[Enhanced Filtering & Sorting]
 DocumentModal[Document Question Modal]
+GlobalQuestionModal[Global Question Modal]
 AlpineJS[Alpine.js State Management]
 EndUserInteraction[Enhanced User Interaction]
 SSEClient[SSE Client for Streaming]
@@ -127,7 +127,11 @@ FilterSortAPI[Filter & Sort API]
 BatchPoller[Batch Status Poller]
 OOBSwapper[Out-of-Band Swapper]
 DocSpecificQA[Document-Specific QA Handler]
+GlobalQA[Global QA Handler]
 StreamingResponse[Streaming Response Handler]
+UnifiedIndexing[Unified Indexing Function]
+DateRangeUtility[Date Range Utility]
+TemplateContext[Template Context Manager]
 end
 subgraph "Domain Layer"
 Entities[Domain Entities]
@@ -135,6 +139,7 @@ States[Bot States]
 BulkRequests[Bulk Operation Requests]
 FormatDispatch[Format Dispatcher]
 DocScopedRetriever[Document Scoped Retriever]
+GlobalRetriever[Global Retriever]
 StreamingQA[Streaming Question Answering]
 end
 subgraph "Data Access Layer"
@@ -174,8 +179,12 @@ QAService --> LLM
 QAService --> StreamingQA
 DocSpecificQA --> QAService
 DocSpecificQA --> DocScopedRetriever
+GlobalQA --> QAService
+GlobalQA --> GlobalRetriever
 DocScopedRetriever --> Qdrant
 DocScopedRetriever --> LLM
+GlobalRetriever --> Qdrant
+GlobalRetriever --> LLM
 StreamingResponse --> SSEClient
 StreamingResponse --> EndUserFeedback
 BulkOps --> Service
@@ -185,27 +194,31 @@ BatchPoller --> OOBSwapper
 FormatHandler --> FormatDispatch
 FormatHandler --> Parser
 FilterSortAPI --> FilterSortDB
+FilterSortAPI --> DateRangeUtility
+TemplateContext --> UnifiedIndexing
 ```
 
 **Diagram sources**
 - [app/main.py:87-90](file://app/main.py#L87-L90)
 - [app/api/documents.py:125-145](file://app/api/documents.py#L125-L145)
 - [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
 - [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
 - [app/api/deps.py:69-70](file://app/api/deps.py#L69-L70)
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
 - [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
+- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 - [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
 
 The architecture consists of five main layers with enhanced concurrency control, comprehensive document type handling, and modernized frontend capabilities:
 
-1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, real-time SSE client for streaming responses, enhanced user interaction patterns, and comprehensive status polling system
-2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, specialized document-scoped retriever implementation, and streaming response handler for real-time feedback
-3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms, document-scoped retriever construction for focused document queries, streaming question answering capabilities, and recently finished documents tracking for status updates
+1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, and comprehensive status polling system
+2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, and template context management for consistent rendering
+3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, and recently finished documents tracking for status updates
 4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking, enhanced filtering/sorting database operations, and recently finished documents functionality for status tracking
-5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for both DOC and DOCX formats, proper resource management, document-scoped retrieval capabilities, and streaming response generation for real-time feedback
+5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for both DOC and DOCX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, and streaming response generation for real-time feedback
 
 ## Core Components
 
@@ -221,14 +234,14 @@ participant DB as Database
 participant S3 as Storage
 participant Qdrant as VectorDB
 participant Service as DocumentService
-participant Semaphore as Asyncio Semaphore
 participant QAService as QAServicet
+participant Semaphore as Asyncio Semaphore
 App->>Config : Load configuration
 App->>DB : Initialize SQLite with auto-incrementing primary key
 App->>S3 : Connect to storage
 App->>Qdrant : Connect to vector database
 App->>Service : Create document service
-App->>QAService : Initialize QA service with streaming support
+App->>QAService : Initialize QA service with global and document-scoped retrievers
 App->>Semaphore : Initialize with max_concurrent_indexing
 App->>App : Register routes and templates
 ```
@@ -289,6 +302,7 @@ class AsyncSemaphore {
 class QAService {
 +ask() str
 +ask_about_document() str
++stream_ask() AsyncGenerator
 +stream_about_document() AsyncGenerator
 +init_qa() void
 +close_qa() void
@@ -311,15 +325,16 @@ QAService --> StreamingResponse : uses
 - [app/main.py:87-89](file://app/main.py#L87-L89)
 - [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
+- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 
 **Section sources**
 - [app/main.py:1-131](file://app/main.py#L1-L131)
 - [app/domain/document_service.py:1-283](file://app/domain/document_service.py#L1-L283)
-- [app/domain/qa_service.py:1-219](file://app/domain/qa_service.py#L1-L219)
+- [app/domain/qa_service.py:1-236](file://app/domain/qa_service.py#L1-L236)
 
 ## Document Management Workflow
 
-The document management process follows a structured workflow from upload to searchable state with enhanced format support, concurrency control, and real-time streaming capabilities:
+The document management process follows a structured workflow from upload to searchable state with enhanced format support, concurrency control, real-time streaming capabilities, and unified background processing:
 
 ```mermaid
 flowchart TD
@@ -334,16 +349,27 @@ Index --> Complete[Mark as Completed]
 Validate --> |Invalid| Error[Return Error Response]
 Error --> End([End])
 Complete --> End
-subgraph "Background Processing with Concurrency Control"
+subgraph "Unified Background Processing with Concurrency Control"
 Parse --> Download[Download from S3]
 Download --> TempFile[Create Temporary File]
 TempFile --> Process[Process Content]
 Process --> Semaphore[Acquire Semaphore]
-Semaphore --> Indexed[Indexed Successfully]
-Semaphore --> |Error| Failed[Handle Error]
+Semaphore --> UnifiedIndexing[_index_document_from_s3 Function]
+UnifiedIndexing --> Indexed[Indexed Successfully]
+UnifiedIndexing --> |Error| Failed[Handle Error]
 Indexed --> Release[Release Semaphore]
 Failed --> Release
 Release --> Cleanup[Cleanup Temp Files]
+end
+subgraph "Centralized Date Range Processing"
+Complete --> DateRangeUtility[parse_date_range Function]
+DateRangeUtility --> FilterParams[Consistent Date Parameters]
+FilterParams --> End
+end
+subgraph "Centralized Template Context Management"
+Complete --> TemplateContext[_document_table_context Function]
+TemplateContext --> RenderContext[Consistent Template Context]
+RenderContext --> End
 end
 subgraph "Batch Status Polling System"
 Complete --> BatchPoller[Centralized Batch Poller]
@@ -355,9 +381,17 @@ subgraph "Document-Specific Question Answering with Streaming"
 Complete --> DocQuestion[User Opens Document Question Modal]
 DocQuestion --> ValidateDoc[Validate Document Status]
 ValidateDoc --> BuildDocRetriever[Build Document-Specific Retriever]
-BuildDocRetriever --> StreamQA[Stream Document-Specific Question]
-StreamQA --> SSEClient[SSE Client Receives Tokens]
+BuildDocRetriever --> StreamDocQA[Stream Document-Specific Question]
+StreamDocQA --> SSEClient[SSE Client Receives Tokens]
 SSEClient --> RealtimeFeedback[Real-time Response Display]
+RealtimeFeedback --> End
+end
+subgraph "Global Question Answering with Streaming"
+Complete --> GlobalQuestion[User Opens Global Question Modal]
+GlobalQuestion --> BuildGlobalRetriever[Build Global Retriever]
+BuildGlobalRetriever --> StreamGlobalQA[Stream Global Question]
+StreamGlobalQA --> SSEClient
+SSEClient --> RealtimeFeedback
 RealtimeFeedback --> End
 end
 subgraph "Enhanced Download Handling"
@@ -373,15 +407,17 @@ end
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
 - [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
 - [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
 - [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
 - [app/api/documents.py:1057-1077](file://app/api/documents.py#L1057-L1077)
 - [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
+- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 
 ### Upload Validation and Processing
 
-The system implements comprehensive validation for uploaded documents with enhanced format support, concurrency management, and real-time status updates:
+The system implements comprehensive validation for uploaded documents with enhanced format support, concurrency management, real-time status updates, and unified background processing:
 
 | Validation Step | Criteria | Action |
 |----------------|----------|---------|
@@ -393,18 +429,23 @@ The system implements comprehensive validation for uploaded documents with enhan
 | Concurrency Control | Semaphore-based throttling | Limit concurrent indexing operations |
 | Status Tracking | Real-time status updates | Provide immediate feedback during processing |
 | Streaming Support | SSE capability | Enable real-time response streaming |
+| Global Question Support | Knowledge base access | Enable global knowledge base queries |
+| Unified Indexing | Centralized background processing | Eliminate code duplication |
+| Date Range Parsing | Consistent ISO date handling | Standardize date parameter processing |
+| Template Context | Centralized rendering management | Ensure consistent UI rendering |
 
-**Updated** The validation system now supports both DOCX and DOC formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files while maintaining modern DOCX processing capabilities. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The new batch status polling system efficiently manages status updates for all pending and processing documents through centralized batch processing, significantly reducing server load and improving performance. The document-specific question-answering feature adds a new validation step to ensure documents are completed and search-enabled before processing queries. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems.
+**Updated** The validation system now supports both DOCX and DOC formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files while maintaining modern DOCX processing capabilities. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The new `parse_date_range()` utility function standardizes date parsing across all endpoints, ensuring consistent ISO date format handling. The `_document_table_context()` function centralizes template context management, providing consistent rendering for document table partials. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the GLOBAL_EXPERTS_PROMPT system prompt and specialized retriever construction.
 
 **Section sources**
 - [app/api/documents.py:307-366](file://app/api/documents.py#L307-L366)
 - [app/api/documents.py:111-130](file://app/api/documents.py#L111-L130)
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
 - [app/api/documents.py:1057-1077](file://app/api/documents.py#L1057-L1077)
 
 ## Enhanced Filtering and Sorting System
 
-The system implements comprehensive server-side filtering and sorting capabilities with real-time processing:
+The system implements comprehensive server-side filtering and sorting capabilities with real-time processing and centralized date range handling:
 
 ```mermaid
 sequenceDiagram
@@ -413,6 +454,7 @@ participant API as API Router
 participant Repo as Document Repository
 participant DB as SQLite Database
 Client->>API : GET /api/documents?search=query&status=completed&source_type=docx&sort_field=title&sort_dir=asc&page=1&per_page=10
+API->>API : parse_date_range(date_from, date_to)
 API->>Repo : list_page(search=query, status=completed, source_type=docx, sort_field=title, sort_dir=asc, page=1, per_page=10)
 Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.doc') ORDER BY LOWER(title) ASC
 DB-->>Repo : Total count
@@ -426,10 +468,11 @@ Client->>Client : Render filtered table with search highlighting and sort indica
 **Diagram sources**
 - [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
 - [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
+- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 
 ### Filtering Implementation Details
 
-The filtering system provides comprehensive filtering capabilities across multiple dimensions:
+The filtering system provides comprehensive filtering capabilities across multiple dimensions with centralized date range processing:
 
 - **Case-insensitive matching**: Uses `LOWER()` function for case-insensitive pattern matching
 - **Dual-field search**: Searches both document titles and filenames simultaneously
@@ -438,6 +481,7 @@ The filtering system provides comprehensive filtering capabilities across multip
 - **Real-time filtering**: Integrated with HTMX for immediate filtered results
 - **Pattern matching**: Supports partial matches with wildcard patterns
 - **Performance optimization**: Efficient LIKE queries with proper indexing considerations
+- **Centralized date parsing**: Uses `parse_date_range()` utility for consistent date parameter handling
 
 ### Sorting Implementation Details
 
@@ -463,6 +507,8 @@ The system supports the following parameters:
 | `sort_dir` | String | Sort direction (asc, desc) |
 | `page` | Integer | Current page number (1-indexed) |
 | `per_page` | Integer | Number of items per page (10, 20, 50) |
+| `date_from` | String | ISO date string for minimum creation date (inclusive) |
+| `date_to` | String | ISO date string for maximum creation date (inclusive) |
 
 ### Filter and Sort UI Integration
 
@@ -474,12 +520,14 @@ The frontend provides intuitive filtering and sorting capabilities:
 - **Dropdown filters**: Status and source type filters with visual labels
 - **HTMX integration**: Automatic AJAX requests for filtered results
 - **Pagination preservation**: Filter and sort parameters maintain current pagination state
+- **Centralized date handling**: Date filters use standardized parsing across all components
 
 **Section sources**
 - [app/api/documents.py:221-279](file://app/api/documents.py#L221-L279)
 - [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
 - [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
 - [templates/documents.html:59-136](file://templates/documents.html#L59-L136)
+- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 
 ## Modernized User Interface
 
@@ -502,6 +550,7 @@ UI --> VisualHierarchy[Visual Hierarchy]
 UI --> FilterSort[Enhanced Filtering & Sorting]
 UI --> BatchStatusPoller[Batch Status Poller]
 UI --> DocumentModal[Document Question Modal]
+UI --> GlobalQuestionModal[Global Question Modal]
 UI --> AlpineJS[Alpine.js State Management]
 UI --> SSEClient[SSE Client for Streaming]
 UI --> RealtimeFeedback[Real-time Feedback]
@@ -549,6 +598,11 @@ DocumentModal --> QuestionTextarea[Question Textarea]
 DocumentModal --> SubmitButton[Submit Button]
 DocumentModal --> AnswerDisplay[Answer Display]
 DocumentModal --> ErrorDisplay[Error Display]
+GlobalQuestionModal --> ModalBox[Modal Box]
+GlobalQuestionModal --> QuestionTextarea[Question Textarea]
+GlobalQuestionModal --> SubmitButton[Submit Button]
+GlobalQuestionModal --> AnswerDisplay[Answer Display]
+GlobalQuestionModal --> ErrorDisplay[Error Display]
 AlpineJS --> StateManagement[State Management]
 AlpineJS --> EventHandling[Event Handling]
 AlpineJS --> DataBinding[Data Binding]
@@ -566,8 +620,10 @@ RealtimeFeedback --> LoadingIndicators[Loading Indicators]
 - [templates/partials/status_poller.html:1-14](file://templates/partials/status_poller.html#L1-L14)
 - [templates/base.html:86-279](file://templates/base.html#L86-L279)
 - [templates/documents.html:261-310](file://templates/documents.html#L261-L310)
+- [templates/documents.html:318-365](file://templates/documents.html#L318-L365)
 - [templates/documents.html:663-707](file://templates/documents.html#L663-L707)
 - [templates/documents.html:726-845](file://templates/documents.html#L726-L845)
+- [templates/documents.html:766-845](file://templates/documents.html#L766-L845)
 
 ### Interactive Features
 
@@ -631,6 +687,7 @@ The modernized interface includes several key interactive elements:
 - **Sort Indicators**: Arrow icons showing current sort direction
 - **Real-time Filtering**: Immediate updates when filters change
 - **Parameter Persistence**: Filter and sort parameters maintained across navigation
+- **Centralized Date Handling**: Consistent date range processing across all components
 
 #### Batch Status Polling System
 - **Centralized Polling**: Single endpoint '/partials/documents-status' for all active documents
@@ -648,6 +705,17 @@ The modernized interface includes several key interactive elements:
 - **Keyboard Shortcuts**: Ctrl+Enter submission for efficient workflow
 - **Modal Backdrop**: Proper focus management and escape key handling
 - **Real-time Streaming**: Immediate display of AI responses as they arrive
+
+#### Global Question Modal System
+- **Alpine.js Integration**: Reactive state management for modal interactions
+- **Form Validation**: Real-time validation for question submission
+- **Loading States**: Visual feedback during question processing
+- **Error Handling**: Comprehensive error display and user guidance
+- **Answer Display**: Clean formatting for AI-generated responses
+- **Keyboard Shortcuts**: Ctrl+Enter submission for efficient workflow
+- **Modal Backdrop**: Proper focus management and escape key handling
+- **Real-time Streaming**: Immediate display of AI responses as they arrive
+- **Knowledge Base Scope**: Questions drawn from entire knowledge base
 
 #### Real-time Streaming Feedback
 - **SSE Client**: JavaScript implementation for Server-Sent Events
@@ -668,6 +736,7 @@ The interface uses Alpine.js for comprehensive state management:
 - **Format State**: Track document format types and display preferences
 - **Mobile State**: Sidebar open/close state and responsive breakpoints
 - **Document Question State**: Track document-specific question modal state, including question text, loading state, answer display, error handling, and streaming response management
+- **Global Question State**: Track global question modal state, including question text, loading state, answer display, error handling, and streaming response management
 - **Streaming State**: Manage real-time response streaming with token accumulation and display
 
 **Section sources**
@@ -679,8 +748,10 @@ The interface uses Alpine.js for comprehensive state management:
 - [templates/partials/status_poller.html:1-14](file://templates/partials/status_poller.html#L1-L14)
 - [templates/base.html:86-279](file://templates/base.html#L86-L279)
 - [templates/documents.html:261-310](file://templates/documents.html#L261-L310)
+- [templates/documents.html:318-365](file://templates/documents.html#L318-L365)
 - [templates/documents.html:663-707](file://templates/documents.html#L663-L707)
 - [templates/documents.html:726-845](file://templates/documents.html#L726-L845)
+- [templates/documents.html:766-845](file://templates/documents.html#L766-L845)
 
 ## Dual-Format Document Support
 
@@ -785,7 +856,7 @@ The semaphore-based throttling system provides:
 
 Background tasks are coordinated through enhanced functions:
 
-- **`_index_in_background`**: Handles single document indexing with semaphore protection
+- **`_index_document_from_s3`**: Unified function handling both upload and reindex operations with semaphore protection
 - **`_reindex_in_background`**: Handles bulk reindexing with proper error handling
 - **Concurrent Processing**: Multiple background tasks can run simultaneously within limits
 - **Error Recovery**: Failed tasks don't block other operations
@@ -797,7 +868,7 @@ Background tasks are coordinated through enhanced functions:
 
 ## Comprehensive Test Coverage
 
-The system includes comprehensive testing across all layers with extensive search, pagination, bulk operation, concurrency control, and streaming response coverage:
+The system includes comprehensive testing across all layers with extensive search, pagination, bulk operation, concurrency control, streaming response, and global question-answering coverage:
 
 ### Test Coverage Areas
 
@@ -812,7 +883,7 @@ The system includes comprehensive testing across all layers with extensive searc
 
 ### Enhanced Test Coverage Areas
 
-**Updated** The testing strategy now includes extensive coverage for the newly enhanced features:
+**Updated** The testing strategy now includes extensive coverage for the newly enhanced global question-answering features:
 
 #### Search and Status Testing Coverage
 - **Search functionality**: Tests case-insensitive pattern matching against titles and filenames
@@ -887,6 +958,15 @@ The system includes comprehensive testing across all layers with extensive searc
 - **State Management**: Tests Alpine.js state management for modal interactions
 - **Streaming Response**: Tests real-time token streaming and display
 
+#### Global Question Answering Testing Coverage
+- **Global Retriever Construction**: Tests global retriever creation for knowledge base queries
+- **Question Processing**: Validates question processing and answer generation across entire knowledge base
+- **Error Handling**: Tests error responses for unavailable QA service
+- **Prompt Usage**: Validates GLOBAL_EXPERTS_PROMPT application
+- **State Management**: Tests Alpine.js state management for global question modal
+- **Streaming Response**: Tests real-time token streaming and display
+- **Knowledge Base Scope**: Validates that responses consider entire knowledge base context
+
 #### Real-time Streaming Testing Coverage
 - **SSE Implementation**: Tests Server-Sent Events streaming functionality
 - **Token Streaming**: Validates token-by-token response delivery
@@ -901,6 +981,26 @@ The system includes comprehensive testing across all layers with extensive searc
 - **UTF-8 Encoding**: Tests proper UTF-8 encoding for international characters
 - **Browser Compatibility**: Validates compatibility across different browsers
 - **Content-Type Handling**: Tests proper MIME type assignment
+
+#### Unified Indexing Function Testing Coverage
+- **Background Processing**: Tests `_index_document_from_s3()` function for both upload and reindex operations
+- **Semaphore Protection**: Validates proper concurrency control during background tasks
+- **Error Handling**: Tests comprehensive error recovery and logging
+- **Resource Cleanup**: Validates temporary file cleanup after processing
+- **Chunk Processing**: Tests document chunk generation and indexing
+
+#### Date Range Utility Testing Coverage
+- **ISO Date Parsing**: Tests `parse_date_range()` function for consistent date parameter handling
+- **Error Recovery**: Validates graceful handling of invalid date formats
+- **Boundary Handling**: Tests inclusive date range boundaries
+- **Parameter Validation**: Validates date parameter processing across all endpoints
+
+#### Template Context Management Testing Coverage
+- **Context Building**: Tests `_document_table_context()` function for consistent template rendering
+- **Parameter Validation**: Validates all filter and sort parameters in context
+- **Pagination Context**: Tests page, per_page, and total count handling
+- **Date Range Context**: Tests date_from and date_to parameter processing
+- **UI State Context**: Validates filter and sort state persistence
 
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
@@ -949,7 +1049,7 @@ The enhanced pipeline handles both document formats appropriately:
 
 ## Server-Side Processing Implementation
 
-The system implements comprehensive server-side processing with enhanced filtering, sorting, pagination, and streaming capabilities:
+The system implements comprehensive server-side processing with enhanced filtering, sorting, pagination, streaming capabilities, global question-answering support, and unified background processing:
 
 ### Server-Side Architecture
 
@@ -960,6 +1060,7 @@ participant API as API Router
 participant Repo as Document Repository
 participant DB as SQLite Database
 Client->>API : GET /api/documents with filters and pagination
+API->>API : parse_date_range(date_from, date_to)
 API->>Repo : list_page() with filter parameters
 Repo->>DB : Execute parameterized SQL with WHERE clauses
 DB-->>Repo : Filtered results with total count
@@ -970,6 +1071,7 @@ API-->>Client : JSON response with pagination metadata
 **Diagram sources**
 - [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
 - [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
+- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 
 ### Enhanced Database Operations
 
@@ -1001,14 +1103,55 @@ The system now includes comprehensive status tracking with recently finished doc
 - **Out-of-Band Swapping**: Efficient HTML replacement without full page reloads
 - **Reduced Server Load**: Eliminates N concurrent requests for individual row polling
 
+### Global Question-Answering Processing
+
+The system now supports global knowledge base queries:
+
+- **Global Retriever**: Uses standard retriever for knowledge base-wide searches
+- **GLOBAL_EXPERTS_PROMPT**: Applies specialized system prompt for global queries
+- **Streaming Responses**: Provides real-time token streaming for immediate feedback
+- **Error Handling**: Graceful error recovery during streaming operations
+
+### Unified Background Processing
+
+The system now provides centralized background processing through the `_index_document_from_s3()` function:
+
+- **Consolidated Operations**: Eliminates code duplication between upload and reindex operations
+- **Centralized Error Handling**: Single point of failure handling for background tasks
+- **Semaphore Protection**: Unified concurrency control for all background operations
+- **Resource Management**: Consistent temporary file cleanup across all operations
+- **Logging Consistency**: Standardized logging for all background processing
+
+### Centralized Date Range Processing
+
+The system now provides standardized date range handling through the `parse_date_range()` utility:
+
+- **Consistent Parsing**: Standardized ISO date format parsing across all endpoints
+- **Error Recovery**: Graceful handling of invalid date formats
+- **Boundary Handling**: Proper date range boundary validation
+- **Type Safety**: Returns proper datetime objects or None for missing values
+
+### Centralized Template Context Management
+
+The system now provides consistent template rendering through the `_document_table_context()` function:
+
+- **Unified Context Building**: Standardized template context creation for all partials
+- **Parameter Validation**: Consistent handling of all filter and sort parameters
+- **Pagination Context**: Proper page, per_page, and total count handling
+- **UI State Management**: Consistent filter and sort state persistence
+
 **Section sources**
 - [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
 - [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
 - [app/storage/document_repo.py:279-290](file://app/storage/document_repo.py#L279-L290)
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
+- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
+- [app/api/documents.py:129-165](file://app/api/documents.py#L129-L165)
+- [app/api/documents.py:168-197](file://app/api/documents.py#L168-L197)
 
 ## Enhanced Status Display System
 
-The system provides comprehensive visual status indicators for document tracking with enhanced concurrency awareness and real-time streaming capabilities:
+The system provides comprehensive visual status indicators for document tracking with enhanced concurrency awareness, real-time streaming capabilities, global question-answering support, and centralized status management:
 
 ```mermaid
 stateDiagram-v2
@@ -1044,7 +1187,9 @@ The status system includes interactive elements for document management:
 - **Error tooltips**: Detailed error messages on hover for failed documents
 - **Loading indicators**: Animated dots/spinner for pending/processing states
 - **Checkbox control**: Toggle search participation for completed documents
-- **Real-time streaming**: Immediate display of AI responses for document-specific questions
+- **Real-time streaming**: Immediate display of AI responses for document-specific and global questions
+- **Global question availability**: "Ask Global Question" option appears for completed and search-enabled documents
+- **Centralized Status Updates**: Batch status polling provides efficient status updates
 
 ### Status Filtering Capabilities
 
@@ -1063,22 +1208,26 @@ The enhanced status system now includes centralized batch polling with recently 
 - **Recently Finished Tracking**: Documents that completed or failed within the last 10 seconds receive final status updates
 - **Out-of-Band Swapping**: Efficient HTML replacement without full page reloads
 - **Automatic Polling Control**: Starts/stops polling based on active document count
-- **Reduced Server Load**: Eliminates N concurrent requests for individual row updates
+- **Reduced Server Load**: Eliminates N concurrent requests for individual row polling
+- **Unified Status Management**: Centralized status updates through batch processing
 
-### Document-Specific Question Integration
+### Document-Specific and Global Question Integration
 
-The status system now supports document-specific question functionality with real-time streaming:
+The status system now supports both document-specific and global question functionality with real-time streaming:
 
 - **Conditional Visibility**: "Ask Question" option appears only for completed and search-enabled documents
-- **Modal Trigger**: Clicking "Ask Question" opens the document-specific question modal
-- **Validation Integration**: Document-specific questions inherit the same validation as general questions
+- **Global Question Option**: "Ask Global Question" option appears for completed and search-enabled documents
+- **Modal Trigger**: Clicking either opens the respective modal with Alpine.js integration
+- **Validation Integration**: Both question types inherit the same validation as general questions
 - **Streaming Response**: Real-time token streaming provides immediate feedback during response generation
+- **Prompt Application**: Document-specific questions use DOCUMENT_EXPERTS_PROMPT, global questions use GLOBAL_EXPERTS_PROMPT
 
 **Section sources**
 - [templates/partials/document_row.html:19-41](file://templates/partials/document_row.html#L19-L41)
 - [templates/documents.html:74-87](file://templates/documents.html#L74-L87)
 - [app/storage/models.py:11-18](file://app/storage/models.py#L11-L18)
 - [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
 - [app/api/documents.py:412-453](file://app/api/documents.py#L412-L453)
 
@@ -1093,6 +1242,7 @@ participant API as API Router
 participant Repo as Document Repository
 participant DB as SQLite Database
 Client->>API : GET /api/documents?page=2&per_page=20&search=query
+API->>API : parse_date_range(date_from, date_to)
 API->>Repo : list_page(page=2, per_page=20, search=query)
 Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?) OR LOWER(filename) LIKE LOWER(?)
 DB-->>Repo : Filtered total count
@@ -1106,6 +1256,7 @@ Client->>Client : Render pagination controls with search context
 **Diagram sources**
 - [app/api/documents.py:390-406](file://app/api/documents.py#L390-L406)
 - [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
+- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 
 ### Pagination Parameters
 
@@ -1116,6 +1267,12 @@ The pagination system supports the following parameters:
 | `page` | Integer | 1 | Current page number (1-indexed) |
 | `per_page` | Integer | 10 | Number of items per page (10, 20, 50) |
 | `search` | String | None | Search query for filtering documents |
+| `date_from` | String | None | ISO date string for minimum creation date |
+| `date_to` | String | None | ISO date string for maximum creation date |
+| `status` | String | None | Filter by processing status |
+| `source_type` | String | None | Filter by document type |
+| `sort_field` | String | None | Field to sort by |
+| `sort_dir` | String | None | Sort direction |
 
 ### Frontend Pagination Implementation
 
@@ -1149,6 +1306,7 @@ The system provides sophisticated pagination controls with intelligent page numb
 - **Active State Highlighting**: Current page button is visually distinct
 - **Disabled States**: Previous button disabled on first page, next button disabled on last page
 - **Search Context Preservation**: Pagination maintains search query across page changes
+- **Centralized Date Handling**: Date filters use standardized parsing across all components
 
 **Section sources**
 - [app/api/documents.py:194-218](file://app/api/documents.py#L194-L218)
@@ -1158,7 +1316,7 @@ The system provides sophisticated pagination controls with intelligent page numb
 
 ## Bulk Operations System
 
-The system provides comprehensive bulk operations for efficient document management at scale with enhanced concurrency control:
+The system provides comprehensive bulk operations for efficient document management at scale with enhanced concurrency control and centralized background processing:
 
 ```mermaid
 sequenceDiagram
@@ -1188,7 +1346,7 @@ Client->>Client : Update UI with success/error feedback
 
 ### Bulk Operations Architecture
 
-The bulk operations system provides three core capabilities with enhanced concurrency control:
+The bulk operations system provides three core capabilities with enhanced concurrency control and centralized background processing:
 
 #### Concurrent Document Fetching
 - **Enhanced Performance**: Uses `asyncio.gather()` to fetch all documents concurrently
@@ -1209,6 +1367,7 @@ The bulk operations system provides three core capabilities with enhanced concur
 - **Response**: Immediate acknowledgment with background processing
 - **Error Handling**: Logs errors and continues with remaining documents
 - **Concurrency Control**: Each reindex operation acquires semaphore before processing
+- **Unified Processing**: Uses `_index_document_from_s3()` function for consistent background processing
 
 #### Search Toggle Operation
 - **Endpoint**: `PATCH /api/documents/bulk/search`
@@ -1251,6 +1410,7 @@ The bulk operations provide comprehensive functionality:
 - **Real-time Feedback**: Toast notifications for operation results
 - **Selection Persistence**: Maintains selections across pagination and filters
 - **HTMX Integration**: Seamless partial updates without full page reloads
+- **Centralized Processing**: Unified background processing through `_index_document_from_s3()`
 
 **Section sources**
 - [app/api/documents.py:476-700](file://app/api/documents.py#L476-L700)
@@ -1259,7 +1419,7 @@ The bulk operations provide comprehensive functionality:
 
 ## Enhanced Date Range Filtering
 
-The system implements sophisticated date range filtering with inclusive boundaries and ISO format support:
+The system implements sophisticated date range filtering with inclusive boundaries and ISO format support through the centralized `parse_date_range()` utility:
 
 ```mermaid
 sequenceDiagram
@@ -1269,6 +1429,7 @@ participant Repo as Document Repository
 participant DB as SQLite Database
 Client->>Client : Set date_from and date_to
 Client->>API : GET /api/documents?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+API->>API : parse_date_range(date_from, date_to)
 API->>Repo : list_page(date_from, date_to)
 Repo->>DB : SELECT COUNT(*) WHERE created_at BETWEEN ? AND ?
 DB-->>Repo : Filtered total count
@@ -1282,18 +1443,20 @@ Client->>Client : Update table with date-filtered results
 **Diagram sources**
 - [app/api/documents.py:435-473](file://app/api/documents.py#L435-L473)
 - [app/storage/document_repo.py:120-174](file://app/storage/document_repo.py#L120-L174)
+- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 
 ### Date Range Implementation Details
 
-The date filtering system provides precise temporal control:
+The date filtering system provides precise temporal control with centralized parsing:
 
-- **ISO Format Parsing**: Accepts `YYYY-MM-DD` format with robust error handling
+- **ISO Format Parsing**: Uses `parse_date_range()` utility for consistent ISO date format handling
 - **Inclusive Boundaries**: 
   - `date_from`: Documents created on or after this date
   - `date_to`: Documents created on or before this date (end of day)
 - **Time Zone Handling**: Uses UTC for consistent filtering across time zones
 - **Partial Date Support**: Either date can be specified independently
-- **Validation**: Graceful handling of invalid date formats
+- **Validation**: Graceful handling of invalid date formats through centralized utility
+- **Error Recovery**: Invalid dates are safely ignored, allowing other filters to work
 
 ### Date Filter UI Components
 
@@ -1316,15 +1479,26 @@ The date filtering system supports:
 | `date_from` | String (ISO-8601) | Filter documents created on or after this date |
 | `date_to` | String (ISO-8601) | Filter documents created on or before this date |
 
+### Centralized Date Range Processing
+
+The system now provides standardized date range handling:
+
+- **Consistent Parsing**: All endpoints use `parse_date_range()` for date parameter processing
+- **Error Recovery**: Invalid date formats are gracefully handled
+- **Boundary Validation**: Proper date range boundary enforcement
+- **Type Safety**: Returns proper datetime objects or None for missing values
+- **Performance Optimization**: Centralized utility reduces code duplication
+
 **Section sources**
 - [app/api/documents.py:435-473](file://app/api/documents.py#L435-L473)
 - [app/storage/document_repo.py:120-174](file://app/storage/document_repo.py#L120-L174)
 - [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
 - [templates/documents.html:489-494](file://templates/documents.html#L489-L494)
+- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 
 ## RAG Pipeline
 
-The Retrieval-Augmented Generation pipeline processes documents through multiple stages with enhanced format support, concurrency control, and streaming capabilities:
+The Retrieval-Augmented Generation pipeline processes documents through multiple stages with enhanced format support, concurrency control, streaming capabilities, global question-answering support, and unified background processing:
 
 ```mermaid
 sequenceDiagram
@@ -1332,15 +1506,17 @@ participant Parser as Enhanced Parser
 participant Splitter as Text Splitter
 participant Embedder as Embedding Model
 participant VectorDB as Qdrant
-participant Retriever as Dense Retriever
+participant DenseRetriever as Dense Retriever
 participant DocScopedRetriever as Document Scoped Retriever
+participant GlobalRetriever as Global Retriever
 participant StreamingQA as Streaming Question Answering
 Parser->>Parser : Detect format and extract sections
 Parser->>Splitter : Split text into chunks
 Splitter->>Embedder : Generate embeddings
 Embedder->>VectorDB : Store vectors with metadata
-VectorDB->>Retriever : Enable semantic search
+VectorDB->>DenseRetriever : Enable semantic search
 VectorDB->>DocScopedRetriever : Enable document-scoped search
+VectorDB->>GlobalRetriever : Enable global knowledge base search
 VectorDB->>StreamingQA : Enable streaming responses
 ```
 
@@ -1350,6 +1526,7 @@ VectorDB->>StreamingQA : Enable streaming responses
 - [app/rag/retriever.py:78-103](file://app/rag/retriever.py#L78-L103)
 - [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
+- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 
 ### Document Chunking Strategy
 
@@ -1370,16 +1547,27 @@ The enhanced pipeline handles both document formats appropriately:
 - **Unified Output**: Consistent chunk structure for both formats
 - **Metadata Consistency**: Same metadata schema regardless of source format
 
-### Document-Scoped Retrieval
+### Document-Scoped and Global Retrieval
 
-The enhanced RAG pipeline now supports document-specific retrieval with streaming capabilities:
+The enhanced RAG pipeline now supports both document-specific and global retrieval with streaming capabilities:
 
 - **Standard Retrieval**: Searches across all documents with search participation enabled
 - **Document-Scoped Retrieval**: Filters results to a specific document's chunks only
+- **Global Retrieval**: Searches across entire knowledge base for broad questions
 - **Search Participation**: Respects individual document search enablement settings
-- **Prompt Customization**: Uses DOCUMENT_EXPERTS_PROMPT for specialized document-focused responses
+- **Prompt Customization**: Uses DOCUMENT_EXPERTS_PROMPT for document-focused responses and GLOBAL_EXPERTS_PROMPT for global responses
 - **Streaming Responses**: Provides real-time token streaming for immediate feedback
 - **Error Handling**: Graceful error recovery during streaming operations
+
+### Unified Background Processing
+
+The RAG pipeline now benefits from centralized background processing:
+
+- **Consolidated Indexing**: Unified `_index_document_from_s3()` function handles all indexing operations
+- **Centralized Error Handling**: Standardized error recovery for all background tasks
+- **Semaphore Protection**: Consistent concurrency control for all background operations
+- **Resource Management**: Unified temporary file cleanup across all operations
+- **Logging Consistency**: Standardized logging for all background processing activities
 
 **Section sources**
 - [app/rag/parser.py:15-17](file://app/rag/parser.py#L15-L17)
@@ -1387,6 +1575,9 @@ The enhanced RAG pipeline now supports document-specific retrieval with streamin
 - [app/rag/indexer.py:23-46](file://app/rag/indexer.py#L23-L46)
 - [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
+- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
+- [app/rag/prompts.py:21-56](file://app/rag/prompts.py#L21-L56)
+- [app/api/documents.py:129-165](file://app/api/documents.py#L129-L165)
 
 ## Document-Specific Question Answering
 
@@ -1484,9 +1675,97 @@ The system uses a specialized prompt for document-focused responses:
 - [templates/documents.html:663-707](file://templates/documents.html#L663-L707)
 - [templates/documents.html:726-845](file://templates/documents.html#L726-L845)
 
+## Global Question Answering
+
+The system now provides comprehensive global question-answering capabilities that allow users to ask questions across the entire knowledge base with real-time streaming feedback:
+
+### Global Question API Endpoint
+
+The new `/api/qa/ask-global` endpoint enables knowledge base-wide queries with streaming responses:
+
+```mermaid
+sequenceDiagram
+participant Client as Client Browser
+participant API as Global QA API
+participant QAService as QA Service
+participant GlobalRetriever as Global Retriever
+participant LLM as Language Model
+participant SSEClient as SSE Client
+Client->>API : POST /api/qa/ask-global
+API->>API : Validate QA service availability
+API->>QAService : stream_ask(question)
+QAService->>GlobalRetriever : build_retriever()
+GlobalRetriever->>LLM : retrieve relevant chunks from entire knowledge base
+QAService->>LLM : generate answer with GLOBAL_EXPERTS_PROMPT
+LLM-->>QAService : stream tokens
+QAService-->>API : StreamingResponse
+API-->>SSEClient : Stream tokens to client
+SSEClient-->>Client : Real-time response display
+```
+
+**Diagram sources**
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
+- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
+- [app/rag/retriever.py:78-103](file://app/rag/retriever.py#L78-L103)
+- [app/rag/prompts.py:40-56](file://app/rag/prompts.py#L40-L56)
+
+### Global Retrieval Implementation
+
+The global question-answering system uses a specialized retriever with streaming capabilities:
+
+- **Knowledge Base Scope**: Searches across all documents with search participation enabled
+- **Search Participation**: Respects individual document search enablement settings
+- **Prompt Customization**: Uses GLOBAL_EXPERTS_PROMPT for knowledge base-wide responses
+- **Context Synthesis**: Combines information from multiple documents for comprehensive answers
+- **Streaming Response**: Returns token-by-token responses for immediate feedback
+- **Answer Formatting**: Returns formatted, truncated responses for display
+
+### Frontend Integration
+
+The global question-answering system integrates seamlessly with the existing interface:
+
+- **Modal Trigger**: "Ask Global Question" option in document actions dropdown
+- **Alpine.js State Management**: Reactive state for modal interactions
+- **Form Validation**: Real-time validation for question submission
+- **Loading States**: Visual feedback during question processing
+- **Error Handling**: Comprehensive error display and user guidance
+- **Answer Display**: Clean formatting for AI-generated responses
+- **Keyboard Shortcuts**: Ctrl+Enter submission for efficient workflow
+- **SSE Client**: JavaScript implementation for real-time token streaming
+- **Buffer Management**: Efficient handling of streaming data chunks
+
+### Prompt Engineering
+
+The system uses a specialized prompt for global knowledge base responses:
+
+- **Role Definition**: Positions the AI as an HR assistant with comprehensive knowledge base access
+- **Context Synthesis**: Combines information from all available documents
+- **Information Completeness**: Acknowledges when information is incomplete across the knowledge base
+- **Synthesis Focus**: Allows synthesis of information from multiple documents for comprehensive answers
+- **Compliance Focus**: Maintains HR compliance standards and confidentiality
+- **Language Support**: Provides responses in Russian language
+
+### Global Question Modal
+
+The global question modal provides a dedicated interface for knowledge base-wide queries:
+
+- **Modal Design**: Separate modal from document-specific questions
+- **Instructional Text**: Clarifies that questions are processed across entire knowledge base
+- **State Management**: Alpine.js state for global question modal interactions
+- **Streaming Integration**: Seamless integration with SSE streaming client
+- **Error Handling**: Comprehensive error display and user guidance
+
+**Section sources**
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
+- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
+- [app/rag/retriever.py:78-103](file://app/rag/retriever.py#L78-L103)
+- [app/rag/prompts.py:40-56](file://app/rag/prompts.py#L40-L56)
+- [templates/documents.html:318-365](file://templates/documents.html#L318-L365)
+- [templates/documents.html:766-845](file://templates/documents.html#L766-L845)
+
 ## Real-Time Streaming with Server-Sent Events
 
-The system now provides real-time streaming capabilities for document question-answering using Server-Sent Events (SSE):
+The system now provides real-time streaming capabilities for both document-specific and global question-answering using Server-Sent Events (SSE):
 
 ### SSE Implementation Architecture
 
@@ -1501,7 +1780,7 @@ participant QAService as QA Service
 participant LLM as Language Model
 Client->>SSEClient : Open SSE connection
 SSEClient->>API : Establish streaming connection
-API->>QAService : stream_about_document()
+API->>QAService : stream_ask() or stream_about_document()
 QAService->>LLM : astream(question)
 loop Token Generation
 LLM-->>QAService : Yield token
@@ -1515,12 +1794,15 @@ SSEClient-->>Client : Finalize response
 
 **Diagram sources**
 - [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
+- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 - [templates/documents.html:806-845](file://templates/documents.html#L806-L845)
+- [templates/documents.html:766-799](file://templates/documents.html#L766-L799)
 
 ### Streaming Response Handler
 
-The API endpoint implements comprehensive streaming response handling:
+The API endpoints implement comprehensive streaming response handling:
 
 - **StreamingResponse**: Uses FastAPI's StreamingResponse for SSE compatibility
 - **Event Generator**: Asynchronous generator that yields SSE-formatted events
@@ -1531,7 +1813,7 @@ The API endpoint implements comprehensive streaming response handling:
 
 ### JavaScript SSE Client
 
-The frontend implements a robust SSE client for real-time response handling:
+The frontend implements robust SSE clients for real-time response handling:
 
 - **Fetch API**: Uses modern fetch API with readable streams
 - **Buffer Management**: Efficiently handles incoming data chunks
@@ -1555,8 +1837,11 @@ The streaming system provides comprehensive real-time capabilities:
 
 **Section sources**
 - [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
+- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 - [templates/documents.html:806-845](file://templates/documents.html#L806-L845)
+- [templates/documents.html:766-799](file://templates/documents.html#L766-L799)
 
 ## Enhanced File Download Handling
 
@@ -1613,7 +1898,7 @@ The enhanced download system provides:
 
 ## Improved Document Status Tracking
 
-The system now provides enhanced status tracking with recently finished documents functionality:
+The system now provides enhanced status tracking with recently finished documents functionality and centralized status management:
 
 ### Recently Finished Documents Tracking
 
@@ -1659,6 +1944,7 @@ The status polling system provides comprehensive real-time updates:
 - **Deduplicated Updates**: Prevents duplicate HTML updates for overlapping documents
 - **Poller Management**: Automatically starts/stops polling based on document activity
 - **Performance Optimization**: Reduces server load by eliminating N concurrent requests
+- **Unified Status Management**: Centralized status updates through batch processing
 
 **Section sources**
 - [app/storage/document_repo.py:279-290](file://app/storage/document_repo.py#L279-L290)
@@ -1712,7 +1998,7 @@ The VK bot uses a handler-based architecture for different interaction modes:
 
 ## Storage Layer
 
-The storage architecture provides a robust foundation for document management with enhanced search, pagination, date filtering, and status tracking support:
+The storage architecture provides a robust foundation for document management with enhanced search, pagination, date filtering, status tracking, and global question-answering support:
 
 ```mermaid
 erDiagram
@@ -1755,8 +2041,9 @@ The SQLite schema supports comprehensive document tracking with:
 - **Date Filtering**: Precise timestamp fields for temporal queries
 - **Format Support**: MIME type tracking for different document formats
 - **Recently Finished Tracking**: Timestamp-based tracking for status updates
+- **Global Question Support**: Knowledge base-wide search participation
 
-**Updated** The database now tracks MIME types for both DOC and DOCX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new document-specific question-answering feature relies on the existing database structure for document validation and status checking. The `list_recently_finished` method provides efficient tracking of documents that completed or failed within the last 10 seconds for status updates.
+**Updated** The database now tracks MIME types for both DOC and DOCX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new document-specific question-answering feature relies on the existing database structure for document validation and status checking. The `list_recently_finished` method provides efficient tracking of documents that completed or failed within the last 10 seconds for status updates. The global question-answering capability leverages the same search enablement mechanism for knowledge base-wide queries.
 
 **Section sources**
 - [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
@@ -1765,7 +2052,7 @@ The SQLite schema supports comprehensive document tracking with:
 
 ## API Endpoints
 
-The system provides a comprehensive REST API for document management with full search, pagination, bulk operation, streaming response, and enhanced status tracking support:
+The system provides a comprehensive REST API for document management with full search, pagination, bulk operation, streaming response, enhanced status tracking, global question-answering support, and unified background processing:
 
 ### Authentication and Authorization
 
@@ -1787,6 +2074,12 @@ The system provides a comprehensive REST API for document management with full s
 | `/api/documents/{id}/reindex` | POST | Re-index document | Admin cookie |
 | `/api/documents/{id}/download` | GET | Download original file with RFC 5987 encoding | Admin cookie |
 | `/api/documents/{document_id}/ask` | POST | Ask question about specific document with streaming | Admin cookie |
+
+### Global Question-Answering API
+
+| Endpoint | Method | Description | Authentication |
+|----------|--------|-------------|----------------|
+| `/api/qa/ask-global` | POST | Ask question across entire knowledge base with streaming | Admin cookie |
 
 ### Bulk Operations API
 
@@ -1810,6 +2103,7 @@ The system provides a comprehensive REST API for document management with full s
 | Endpoint | Method | Description | Streaming |
 |----------|--------|-------------|-----------|
 | `/api/documents/{document_id}/ask` | POST | Document-specific question with real-time streaming | Yes |
+| `/api/qa/ask-global` | POST | Global knowledge base question with real-time streaming | Yes |
 
 ### Search and Pagination Parameters
 
@@ -1825,11 +2119,12 @@ All list endpoints support the following parameters:
 - **`sort_field`**: Field to sort by (title, created_at, status)
 - **`sort_dir`**: Sort direction (asc, desc)
 
-**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now protected by semaphore-based concurrency control to prevent resource exhaustion. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new `/partials/documents-status` endpoint provides centralized batch status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems.
+**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized `parse_date_range()` utility ensures consistent date parameter handling across all endpoints, while the `_document_table_context()` function provides standardized template context management for all partials.
 
 **Section sources**
 - [app/api/documents.py:1-806](file://app/api/documents.py#L1-L806)
-- [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
+- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
 - [app/api/documents.py:1057-1077](file://app/api/documents.py#L1057-L1077)
 - [app/api/deps.py:54-74](file://app/api/deps.py#L54-L74)
 
@@ -1887,7 +2182,7 @@ Settings --> Environment : inherits
 
 ## Enhanced Error Handling and Consistency
 
-The system implements comprehensive error handling with atomic consistency guarantees:
+The system implements comprehensive error handling with atomic consistency guarantees and centralized background processing:
 
 ### Atomic State Updates
 
@@ -1920,21 +2215,22 @@ The system implements multiple error handling strategies:
 
 ### Background Task Error Recovery
 
-Background tasks implement robust error recovery:
+Background tasks implement robust error recovery through the unified `_index_document_from_s3()` function:
 
-- **Exception Handling**: All exceptions are caught and logged
+- **Exception Handling**: All exceptions are caught and logged centrally
 - **State Cleanup**: Temporary files are cleaned up even on failure
 - **Error Propagation**: Errors are logged but don't crash the system
 - **Resource Management**: Proper cleanup of temporary resources
+- **Centralized Logging**: Standardized error logging for all background operations
 
-### Document-Specific Question Error Handling
+### Document-Specific and Global Question Error Handling
 
-The document-specific question-answering system implements comprehensive error handling:
+The document-specific and global question-answering systems implement comprehensive error handling:
 
 - **Document Validation**: Checks for document existence and status
 - **Search Enablement**: Verifies document participation in search
 - **QA Service Initialization**: Handles cases where QA service is not available
-- **Retriever Construction**: Manages document-scoped retriever creation failures
+- **Retriever Construction**: Manages document-scoped and global retriever creation failures
 - **LLM Processing**: Catches and handles LLM runtime errors
 - **Streaming Response**: Handles network interruptions and SSE connection failures
 - **Response Formatting**: Ensures proper response formatting and truncation
@@ -1949,14 +2245,47 @@ The streaming response system implements comprehensive error handling:
 - **Error Recovery**: Provides fallback responses for streaming failures
 - **Loading States**: Manages visual feedback during streaming operations
 
+### Unified Background Processing Error Handling
+
+The unified `_index_document_from_s3()` function provides centralized error handling:
+
+- **Consolidated Error Logging**: Standardized error logging across all operations
+- **Resource Cleanup**: Ensures temporary files are cleaned up on failure
+- **Semaphore Release**: Guarantees semaphore release even on errors
+- **State Management**: Maintains consistent document state during failures
+- **Logging Consistency**: Standardized logging format for all background operations
+
+### Centralized Date Range Error Handling
+
+The `parse_date_range()` utility provides consistent error handling:
+
+- **Graceful Error Recovery**: Invalid dates are safely ignored
+- **Type Safety**: Returns proper datetime objects or None
+- **Boundary Validation**: Ensures proper date range boundaries
+- **Consistent Behavior**: Standardized error handling across all endpoints
+
+### Centralized Template Context Error Handling
+
+The `_document_table_context()` function provides consistent context management:
+
+- **Parameter Validation**: Validates all filter and sort parameters
+- **Type Safety**: Ensures proper parameter types in context
+- **Missing Value Handling**: Provides sensible defaults for missing parameters
+- **Consistent Rendering**: Standardized template context across all partials
+
 **Section sources**
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
 - [app/domain/document_service.py:147-181](file://app/domain/document_service.py#L147-L181)
 - [app/domain/document_service.py:184-234](file://app/domain/document_service.py#L184-L234)
 - [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
+- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
 - [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
+- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
+- [app/api/documents.py:129-165](file://app/api/documents.py#L129-L165)
+- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
+- [app/api/documents.py:168-197](file://app/api/documents.py#L168-L197)
 
 ## Deployment and Operations
 
@@ -2001,7 +2330,7 @@ Required environment variables:
 - `CHUNK_SIZE`: Token-based chunk size for text processing
 - `CHUNK_OVERLAP`: Token-based chunk overlap for context preservation
 
-**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The new batch status polling system reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific question-answering feature with streaming capabilities requires proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation.
+**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The new batch status polling system reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified `_index_document_from_s3()` function requires proper semaphore configuration for optimal background processing performance. The centralized `parse_date_range()` utility requires proper date format validation for consistent date parameter handling. The `_document_table_context()` function requires proper template context validation for consistent UI rendering.
 
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
@@ -2035,11 +2364,18 @@ Required environment variables:
 | **Toast Notifications Not Showing** | No toast messages | Verify toast manager initialization, check custom event handling |
 | **Batch Status Polling Failing** | Status not updating | Check '/partials/documents-status' endpoint, verify out-of-band swapping |
 | **Document-Specific Questions Not Working** | 400/404 errors on /ask | Verify document exists, check processing status, confirm search enablement |
+| **Global Questions Not Working** | 500 errors on /api/qa/ask-global | Verify QA service initialization, check LLM provider availability |
 | **Document Question Modal Issues** | Modal not opening or not responding | Check Alpine.js state management, verify modal trigger events |
+| **Global Question Modal Issues** | Modal not opening or not responding | Check Alpine.js state management, verify modal trigger events |
 | **Streaming Response Issues** | No real-time feedback | Check SSE client implementation, verify streaming endpoint |
 | **SSE Connection Problems** | Streaming fails or disconnects | Verify server-side streaming implementation, check network connectivity |
 | **Download Filename Issues** | Incorrect or garbled filenames | Check RFC 5987 encoding implementation, verify browser compatibility |
 | **Recently Finished Documents Not Updating** | Status not showing final updates | Check database query for recently finished documents, verify polling interval |
+| **Global Question Prompt Issues** | Wrong system prompt used | Verify GLOBAL_EXPERTS_PROMPT application, check retriever construction |
+| **Document Question Prompt Issues** | Wrong system prompt used | Verify DOCUMENT_EXPERTS_PROMPT application, check retriever construction |
+| **Unified Indexing Function Issues** | Background processing failures | Check `_index_document_from_s3()` function, verify semaphore protection, validate error handling |
+| **Date Range Utility Issues** | Inconsistent date parsing | Check `parse_date_range()` function, verify ISO date format handling, validate error recovery |
+| **Template Context Issues** | Inconsistent UI rendering | Check `_document_table_context()` function, verify parameter validation, ensure proper context building |
 
 ### Logging and Monitoring
 
@@ -2064,11 +2400,16 @@ The system provides comprehensive logging at multiple levels:
 - **Toast Notification logs**: Toast management, event handling
 - **Batch Status Polling logs**: Centralized polling, out-of-band swapping
 - **Document-Specific Question Logs**: Document validation, retriever construction, answer generation
+- **Global Question Logs**: Global retriever construction, answer generation, knowledge base queries
 - **Streaming Response Logs**: SSE implementation, token streaming, error recovery
 - **Alpine.js State Management Logs**: Modal interactions, form validation, state updates
 - **RFC 5987 Encoding Logs**: Filename encoding, browser compatibility, error handling
+- **Global Question Prompt Logs**: Prompt application, retriever construction, knowledge base scope validation
+- **Unified Indexing Function Logs**: Centralized background processing, error handling, resource management
+- **Date Range Utility Logs**: Consistent date parsing, error recovery, boundary validation
+- **Template Context Logs**: Centralized rendering management, parameter validation, UI state consistency
 
-**Updated** The troubleshooting guide now includes comprehensive UI styling issues, rounded corner rendering problems, background treatment inconsistencies, and enhanced interface component failures. The logging system provides detailed coverage for all new features including enhanced user interface styling, proper CSS framework integration, responsive design validation, visual hierarchy maintenance, mobile sidebar functionality, toast notification system, the revolutionary batch status polling system, document-specific question-answering functionality with streaming, Alpine.js state management for modals, comprehensive error handling for document validation and retriever construction, real-time streaming response handling, and enhanced file download functionality with RFC 5987 encoding.
+**Updated** The troubleshooting guide now includes comprehensive coverage for the newly enhanced unified indexing function, date range utility, and template context management. The logging system provides detailed coverage for all new functionality including centralized background processing through `_index_document_from_s3()`, standardized date range handling via `parse_date_range()`, and consistent template rendering through `_document_table_context()`. The system now includes specific troubleshooting steps for unified indexing issues, including semaphore protection validation, error handling verification, and resource cleanup testing. The date range utility troubleshooting covers ISO date format validation, error recovery scenarios, and boundary handling verification. The template context management troubleshooting includes parameter validation, pagination context testing, and UI state consistency validation. The system now includes comprehensive error handling for all new centralized functions, ensuring proper logging and recovery mechanisms.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -2078,14 +2419,14 @@ The system provides comprehensive logging at multiple levels:
 
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
 
-**Updated** The system has been significantly enhanced with revolutionary real-time streaming capabilities for document question-answering using Server-Sent Events (SSE), enhanced file download handling with RFC 5987-compliant filename encoding for international character sets, and improved document status tracking with recently finished documents functionality. The new `/api/documents/{document_id}/ask` endpoint enables real-time streaming responses for document-specific questions, providing immediate feedback as AI responses are generated. The enhanced download functionality now properly handles international character sets in filenames through RFC 5987 encoding, ensuring compatibility across different browsers and systems. The improved status tracking system includes a batch polling mechanism that dramatically reduces server load by replacing individual row polling with centralized updates for all active and recently finished documents. The revolutionary batch status polling system eliminates N concurrent requests for individual row polling, significantly reducing server load and improving performance. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports both DOCX and DOC formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, and enhanced file download functionality. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
+**Updated** The system has been significantly enhanced with consolidated document indexing operations through a unified `_index_document_from_s3()` function, introducing a new `parse_date_range()` utility for consistent date parsing, and centralizing document table context management via `_document_table_context()`. These architectural improvements eliminate code duplication, enhance maintainability, and preserve all existing functionality while providing a more streamlined development experience. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports both DOCX and DOC formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, and template context management. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
 Key strengths include:
-- **Revolutionary Real-time Streaming**: Server-Sent Events (SSE) for immediate document-specific question responses
-- **Enhanced Document Validation**: Comprehensive security checks for document-specific operations
-- **Document-Scoped Retrieval**: Filtered search results limited to specific document content
-- **Alpine.js Modal Integration**: Reactive state management for document question interactions
-- **Comprehensive Error Handling**: Detailed validation and error responses for document operations
+- **Revolutionary Global Question-Answering**: Knowledge base-wide queries with real-time streaming responses using Server-Sent Events (SSE)
+- **Enhanced Document Validation**: Comprehensive security checks for both document-specific and global operations
+- **Dual Question-Answering Modes**: Support for both document-specific and global knowledge base queries
+- **Alpine.js Modal Integration**: Reactive state management for both document and global question interactions
+- **Comprehensive Error Handling**: Detailed validation and error responses for all question-answering operations
 - **Revolutionary Batch Status Polling**: Centralized batch processing eliminates N concurrent requests, dramatically reducing server load
 - **Recently Finished Documents Tracking**: Efficient status updates for documents that completed within 10 seconds
 - **Enhanced File Download Handling**: RFC 5987-compliant filename encoding for international character support
@@ -2108,15 +2449,20 @@ Key strengths include:
 - **Enhanced Error Handling**: Atomic consistency guarantees and comprehensive error recovery
 - **Comprehensive Logging**: Detailed monitoring and debugging capabilities
 - **Enhanced Visual Presentation**: Modern rounded corner styling, sophisticated background treatments, and improved visual hierarchy throughout the interface
-- **Advanced Filtering and Sorting**: Comprehensive server-side processing with real-time updates
-- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, batch status polling, document-specific question answering, and streaming responses
+- **Advanced Filtering and Sorting**: Comprehensive server-side processing with real-time updates and centralized date handling
+- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, batch status polling, document-specific question answering, global question answering, streaming responses, unified background processing, date range utilities, and template context management
 - **Mobile-First Responsive Design**: Overlay sidebar, toast notifications, and adaptive layouts for all device sizes
 - **Document-Specific Prompt Engineering**: Specialized prompts for focused document responses
-- **Modal-Based User Interaction**: Intuitive document question interface with Alpine.js integration
-- **Comprehensive Security Validation**: Document existence, status, and search enablement verification
-- **Performance Optimization**: Reduced server load through batch processing and efficient resource management
-- **Real-time Streaming Response**: Immediate display of AI responses as they arrive
+- **Global Prompt Engineering**: Specialized prompts for comprehensive knowledge base responses
+- **Modal-Based User Interaction**: Intuitive question interfaces with Alpine.js integration
+- **Comprehensive Security Validation**: Document existence, status, and search enablement verification for both question types
+- **Performance Optimization**: Reduced server load through batch processing, centralized utilities, and unified background processing
+- **Real-time Streaming Response**: Immediate display of AI responses as they arrive for both question types
 - **International Character Support**: Proper filename encoding for global compatibility
 - **Enhanced Status Tracking**: Comprehensive tracking of document status changes and recently finished documents
+- **Global Knowledge Base Access**: Unified knowledge base queries across all searchable documents
+- **Unified Background Processing**: Centralized error handling, resource management, and logging for all background operations
+- **Centralized Date Range Handling**: Standardized ISO date format parsing across all endpoints
+- **Consistent Template Rendering**: Standardized UI context management for all partials and components
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.

@@ -7,13 +7,12 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain import qa_service
+from app.integrations.vk.handlers import send_rag_answer
 from app.integrations.vk.keyboards import (
     CMD_PAY,
     CMD_PAY_BONUS,
     CMD_PAY_OVERTIME,
     pay_menu_kb,
-    stub_kb,
 )
 
 bl = BotLabeler()
@@ -35,12 +34,7 @@ async def on_pay(message: Message) -> None:
 
 @bl.message(payload=CMD_PAY_OVERTIME)
 async def on_pay_overtime(message: Message) -> None:
-    await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
-    answer = await qa_service.ask("Оплата сверхурочных и выходных")
-    await message.answer(
-        answer,
-        keyboard=stub_kb(back_payload=CMD_PAY).get_json(),
-    )
+    await send_rag_answer(message, question="Оплата сверхурочных и выходных", back_payload=CMD_PAY)
 
 
 # -- FR-10: bonus conditions -- RAG (Block 7) -------------------------
@@ -48,9 +42,4 @@ async def on_pay_overtime(message: Message) -> None:
 
 @bl.message(payload=CMD_PAY_BONUS)
 async def on_pay_bonus(message: Message) -> None:
-    await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
-    answer = await qa_service.ask("Условия премирования")
-    await message.answer(
-        answer,
-        keyboard=stub_kb(back_payload=CMD_PAY).get_json(),
-    )
+    await send_rag_answer(message, question="Условия премирования", back_payload=CMD_PAY)

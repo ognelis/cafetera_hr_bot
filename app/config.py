@@ -1,4 +1,14 @@
+import logging
+
 from pydantic_settings import BaseSettings
+
+
+def configure_logging() -> None:
+    """Set up project-wide logging configuration."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+    )
 
 
 class Settings(BaseSettings):

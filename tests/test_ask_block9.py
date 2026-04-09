@@ -95,7 +95,7 @@ class TestAskHandlerImports:
     def test_ask_handler_imports_qa_service(self):
         from app.integrations.vk.handlers import ask
 
-        assert hasattr(ask, "qa_service")
+        assert hasattr(ask, "get_qa_service")
 
     def test_ask_handler_does_not_import_rag_stub(self):
         import inspect

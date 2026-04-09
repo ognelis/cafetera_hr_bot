@@ -18,8 +18,8 @@ import logging
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain import qa_service
 from app.domain.topic_hints import detect_topic_hint
+from app.integrations.vk.handlers import get_qa_service, get_state_dispenser
 from app.integrations.vk.keyboards import (
     CMD_ASK,
     ask_input_kb,
@@ -37,9 +37,7 @@ bl = BotLabeler()
 
 @bl.message(payload=CMD_ASK)
 async def on_ask(message: Message) -> None:
-    from app.integrations.vk.handlers.hr_request import state_dispenser
-
-    await state_dispenser.set(message.peer_id, BotStates.ASK_QUESTION)
+    await get_state_dispenser().set(message.peer_id, BotStates.ASK_QUESTION)
     await message.answer(
         "❓ Задать вопрос\n\n"
         "Напишите ваш вопрос — я постараюсь найти ответ в базе знаний.",
@@ -52,8 +50,6 @@ async def on_ask(message: Message) -> None:
 
 @bl.message(state=BotStates.ASK_QUESTION)
 async def on_ask_text(message: Message) -> None:
-    from app.integrations.vk.handlers.hr_request import state_dispenser
-
     question = message.text.strip()
     if not question:
         await message.answer(
@@ -64,7 +60,7 @@ async def on_ask_text(message: Message) -> None:
 
     # Clear state before answering
     try:
-        await state_dispenser.delete(message.peer_id)
+        await get_state_dispenser().delete(message.peer_id)
     except Exception:
         logger.warning("Failed to clear state for peer %s", message.peer_id, exc_info=True)
 
@@ -77,7 +73,7 @@ async def on_ask_text(message: Message) -> None:
     hint = detect_topic_hint(question)
 
     # Query the RAG chain
-    answer = await qa_service.ask(question)
+    answer = await get_qa_service().ask(question)
 
     # Append background-topic disclaimer if detected (9.2)
     if hint.disclaimer:

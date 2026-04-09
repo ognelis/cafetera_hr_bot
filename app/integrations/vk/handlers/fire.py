@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain import qa_service
 from app.domain.content import FIRE_BYPASS_SHEET_TEXT, FIRE_LAST_DAY_CHECKLIST
+from app.integrations.vk.handlers import send_rag_answer
 from app.integrations.vk.keyboards import (
     CMD_FIRE,
     CMD_FIRE_BYPASS,
@@ -60,11 +60,8 @@ async def on_fire_bypass(message: Message) -> None:
 
 @bl.message(payload=CMD_FIRE_RAG)
 async def on_fire_rag(message: Message) -> None:
-    await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
-    answer = await qa_service.ask("Увольнение по собственному желанию")
-    await message.answer(
-        answer,
-        keyboard=stub_kb(back_payload=CMD_FIRE).get_json(),
+    await send_rag_answer(
+        message, question="Увольнение по собственному желанию", back_payload=CMD_FIRE,
     )
 
 
@@ -73,9 +70,4 @@ async def on_fire_rag(message: Message) -> None:
 
 @bl.message(payload=CMD_FIRE_GROUNDS)
 async def on_fire_grounds(message: Message) -> None:
-    await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
-    answer = await qa_service.ask("Основания увольнения")
-    await message.answer(
-        answer,
-        keyboard=stub_kb(back_payload=CMD_FIRE).get_json(),
-    )
+    await send_rag_answer(message, question="Основания увольнения", back_payload=CMD_FIRE)

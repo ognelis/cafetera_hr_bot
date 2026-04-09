@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from vkbottle import Bot
+from vkbottle import Bot, BuiltinStateDispenser
 
 from app.config import Settings
 from app.integrations.vk.handlers import (
@@ -15,6 +15,7 @@ from app.integrations.vk.handlers import (
     hr_request,
     pay,
     sections,
+    set_state_dispenser,
     start,
     vacation,
 )
@@ -45,8 +46,10 @@ def create_bot(settings: Settings) -> Bot:
     """Build a fully-wired vkbottle Bot ready for polling or callback mode."""
     bot = Bot(token=settings.vk_access_token)
 
-    # Share state dispenser between bot and hr_request handlers
-    bot.state_dispenser = hr_request.state_dispenser
+    # Create and share state dispenser between bot and handlers
+    sd = BuiltinStateDispenser()
+    bot.state_dispenser = sd
+    set_state_dispenser(sd)
 
     for labeler in _HANDLER_LABELERS:
         bot.labeler.load(labeler)

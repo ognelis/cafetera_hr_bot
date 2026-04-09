@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 
-from vkbottle import BuiltinStateDispenser
 from vkbottle.bot import BotLabeler, Message
 
 from app.domain.content import (
@@ -17,6 +16,7 @@ from app.domain.content import (
     format_hr_request,
 )
 from app.domain.entities import ENTITIES, ENTITY_BY_ID
+from app.integrations.vk.handlers import get_state_dispenser
 from app.integrations.vk.keyboards import (
     CMD_CONTACT_HR,
     CMD_HOME,
@@ -37,9 +37,6 @@ logger = logging.getLogger(__name__)
 
 bl = BotLabeler()
 
-# Shared state dispenser — assigned to Bot in bot.py
-state_dispenser = BuiltinStateDispenser()
-
 _ENTITY_SHORT_NAMES = {e.short_name for e in ENTITIES}
 _ENTITY_BY_SHORT = {e.short_name: e for e in ENTITIES}
 
@@ -58,7 +55,7 @@ def _name_input_kb() -> str:
 
 async def _clear_state(peer_id: int) -> None:
     try:
-        await state_dispenser.delete(peer_id)
+        await get_state_dispenser().delete(peer_id)
     except Exception:
         pass
 
@@ -69,7 +66,7 @@ async def _clear_state(peer_id: int) -> None:
 @bl.message(payload=CMD_CONTACT_HR)
 async def on_contact_hr(message: Message) -> None:
     """Start the HR-request dialog (FR-18: reachable from every screen)."""
-    await state_dispenser.set(message.peer_id, BotStates.HR_REQUEST_NAME)
+    await get_state_dispenser().set(message.peer_id, BotStates.HR_REQUEST_NAME)
     await message.answer(
         "💬 Формирование обращения в HR\n\n"
         "Шаг 1 из 5. Введите ФИО сотрудника:",
@@ -86,16 +83,16 @@ async def on_hr_back(message: Message, payload_data: dict) -> None:
 
     if step == "start":
         # back from topic → re-ask name
-        await state_dispenser.set(message.peer_id, BotStates.HR_REQUEST_NAME)
+        await get_state_dispenser().set(message.peer_id, BotStates.HR_REQUEST_NAME)
         await message.answer(
             "Шаг 1 из 5. Введите ФИО сотрудника:",
             keyboard=_name_input_kb(),
         )
     elif step == "details":
         # back from entity → re-ask details
-        ctx = await state_dispenser.get(message.peer_id)
+        ctx = await get_state_dispenser().get(message.peer_id)
         payload = ctx.payload if ctx else {}
-        await state_dispenser.set(
+        await get_state_dispenser().set(
             message.peer_id,
             BotStates.HR_REQUEST_DETAILS,
             **{k: v for k, v in payload.items() if k in ("name", "topic")},
@@ -106,9 +103,9 @@ async def on_hr_back(message: Message, payload_data: dict) -> None:
         )
     elif step == "entity":
         # back from urgency → re-ask entity
-        ctx = await state_dispenser.get(message.peer_id)
+        ctx = await get_state_dispenser().get(message.peer_id)
         payload = ctx.payload if ctx else {}
-        await state_dispenser.set(
+        await get_state_dispenser().set(
             message.peer_id,
             BotStates.HR_REQUEST_ENTITY,
             **{k: v for k, v in payload.items() if k in ("name", "topic", "details")},
@@ -124,7 +121,7 @@ async def on_hr_back(message: Message, payload_data: dict) -> None:
 
 @bl.message(payload=CMD_HR_RESTART)
 async def on_hr_restart(message: Message) -> None:
-    await state_dispenser.set(message.peer_id, BotStates.HR_REQUEST_NAME)
+    await get_state_dispenser().set(message.peer_id, BotStates.HR_REQUEST_NAME)
     await message.answer(
         "↩️ Начинаем заново.\n\nШаг 1 из 5. Введите ФИО сотрудника:",
         keyboard=_name_input_kb(),
@@ -140,7 +137,7 @@ async def on_hr_name(message: Message) -> None:
     if not name or len(name) < 2:
         await message.answer("Пожалуйста, введите ФИО (минимум 2 символа):")
         return
-    await state_dispenser.set(
+    await get_state_dispenser().set(
         message.peer_id, BotStates.HR_REQUEST_TOPIC, name=name,
     )
     await message.answer(
@@ -161,9 +158,9 @@ async def on_hr_topic(message: Message) -> None:
             keyboard=hr_topic_kb().get_json(),
         )
         return
-    ctx = await state_dispenser.get(message.peer_id)
+    ctx = await get_state_dispenser().get(message.peer_id)
     prev = ctx.payload if ctx else {}
-    await state_dispenser.set(
+    await get_state_dispenser().set(
         message.peer_id,
         BotStates.HR_REQUEST_DETAILS,
         name=prev.get("name", ""),
@@ -184,9 +181,9 @@ async def on_hr_details(message: Message) -> None:
     if not details or len(details) < 5:
         await message.answer("Пожалуйста, опишите суть подробнее (минимум 5 символов):")
         return
-    ctx = await state_dispenser.get(message.peer_id)
+    ctx = await get_state_dispenser().get(message.peer_id)
     prev = ctx.payload if ctx else {}
-    await state_dispenser.set(
+    await get_state_dispenser().set(
         message.peer_id,
         BotStates.HR_REQUEST_ENTITY,
         name=prev.get("name", ""),
@@ -212,9 +209,9 @@ async def on_hr_entity(message: Message) -> None:
         )
         return
     entity = _ENTITY_BY_SHORT[entity_name]
-    ctx = await state_dispenser.get(message.peer_id)
+    ctx = await get_state_dispenser().get(message.peer_id)
     prev = ctx.payload if ctx else {}
-    await state_dispenser.set(
+    await get_state_dispenser().set(
         message.peer_id,
         BotStates.HR_REQUEST_URGENCY,
         name=prev.get("name", ""),
@@ -240,7 +237,7 @@ async def on_hr_urgency(message: Message) -> None:
             keyboard=hr_urgency_kb().get_json(),
         )
         return
-    ctx = await state_dispenser.get(message.peer_id)
+    ctx = await get_state_dispenser().get(message.peer_id)
     prev = ctx.payload if ctx else {}
     entity = ENTITY_BY_ID.get(prev.get("entity_id", 0))
     if entity is None:
@@ -256,7 +253,7 @@ async def on_hr_urgency(message: Message) -> None:
         urgency=urgency,
     )
 
-    await state_dispenser.set(
+    await get_state_dispenser().set(
         message.peer_id,
         BotStates.HR_REQUEST_CONFIRM,
         name=prev.get("name", ""),
@@ -276,7 +273,7 @@ async def on_hr_urgency(message: Message) -> None:
 
 @bl.message(payload=CMD_HR_CONFIRM)
 async def on_hr_confirm(message: Message) -> None:
-    ctx = await state_dispenser.get(message.peer_id)
+    ctx = await get_state_dispenser().get(message.peer_id)
     if ctx is None:
         await message.answer("Сессия истекла. Начните заново.", keyboard=main_menu_kb().get_json())
         return

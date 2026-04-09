@@ -8,7 +8,7 @@ from __future__ import annotations
 from vkbottle.bot import BotLabeler, Message
 
 from app.domain.content import hire_checklist, hire_contract_text, onboarding_checklist
-from app.domain.entities import ENTITY_BY_ID
+from app.integrations.vk.handlers import get_entity_or_error
 from app.integrations.vk.keyboards import (
     CMD_HIRE,
     CMD_HIRE_CHECKLIST,
@@ -43,12 +43,8 @@ async def on_hire(message: Message) -> None:
 @bl.message(PayloadCmdRule(HIRE_ENTITY_CMD))
 async def on_hire_entity(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
-    entity = ENTITY_BY_ID.get(entity_id)
+    entity = await get_entity_or_error(message, entity_id, back_payload=CMD_HOME)
     if entity is None:
-        await message.answer(
-            "Юрлицо не найдено. Попробуйте ещё раз.",
-            keyboard=entity_select_kb(HIRE_ENTITY_CMD, back_payload=CMD_HOME).get_json(),
-        )
         return
     await message.answer(
         f"👤 Приём сотрудника — {entity.full_name}\n\nВыберите действие:",
@@ -62,10 +58,8 @@ async def on_hire_entity(message: Message, payload_data: dict) -> None:
 @bl.message(PayloadCmdRule(CMD_HIRE_CHECKLIST))
 async def on_hire_checklist(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
-    entity = ENTITY_BY_ID.get(entity_id)
-    err_kb = stub_kb(back_payload=CMD_HIRE).get_json()
+    entity = await get_entity_or_error(message, entity_id, back_payload=CMD_HIRE)
     if entity is None:
-        await message.answer("Ошибка. Вернитесь в меню.", keyboard=err_kb)
         return
     await message.answer(
         hire_checklist(entity),
@@ -79,10 +73,8 @@ async def on_hire_checklist(message: Message, payload_data: dict) -> None:
 @bl.message(PayloadCmdRule(CMD_HIRE_CONTRACT))
 async def on_hire_contract(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
-    entity = ENTITY_BY_ID.get(entity_id)
-    err_kb = stub_kb(back_payload=CMD_HIRE).get_json()
+    entity = await get_entity_or_error(message, entity_id, back_payload=CMD_HIRE)
     if entity is None:
-        await message.answer("Ошибка. Вернитесь в меню.", keyboard=err_kb)
         return
     await message.answer(
         hire_contract_text(entity),
@@ -96,10 +88,8 @@ async def on_hire_contract(message: Message, payload_data: dict) -> None:
 @bl.message(PayloadCmdRule(CMD_HIRE_ONBOARDING))
 async def on_hire_onboarding(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
-    entity = ENTITY_BY_ID.get(entity_id)
-    err_kb = stub_kb(back_payload=CMD_HIRE).get_json()
+    entity = await get_entity_or_error(message, entity_id, back_payload=CMD_HIRE)
     if entity is None:
-        await message.answer("Ошибка. Вернитесь в меню.", keyboard=err_kb)
         return
     await message.answer(
         onboarding_checklist(entity),

@@ -19,6 +19,13 @@ logger = logging.getLogger(__name__)
 COLLECTION_NAME = "hr_documents"
 
 
+def build_qdrant_client(settings: Settings) -> QdrantClient:
+    """Create a Qdrant client from settings."""
+    from qdrant_client import QdrantClient
+
+    return QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
+
+
 def build_embeddings(settings: Settings) -> Embeddings:
     """Create an embedding model based on ``settings.embedding_provider``."""
     if settings.embedding_provider == "openai":
@@ -76,10 +83,11 @@ def build_vectorstore(
 
 
 def build_retriever(
-    client: QdrantClient,
-    embeddings: Embeddings,
-    collection_name: str = COLLECTION_NAME,
+    settings: Settings,
     *,
+    qdrant_client: QdrantClient | None = None,
+    embeddings: Embeddings | None = None,
+    collection_name: str = COLLECTION_NAME,
     k: int = 4,
 ) -> VectorStoreRetriever:
     """Build a dense retriever over the given Qdrant collection.
@@ -90,7 +98,12 @@ def build_retriever(
     """
     from qdrant_client import models
 
-    vs = build_vectorstore(client, embeddings, collection_name)
+    if qdrant_client is None:
+        qdrant_client = build_qdrant_client(settings)
+    if embeddings is None:
+        embeddings = build_embeddings(settings)
+
+    vs = build_vectorstore(qdrant_client, embeddings, collection_name)
     search_filter = models.Filter(
         must_not=[
             models.FieldCondition(
@@ -103,11 +116,12 @@ def build_retriever(
 
 
 def build_retriever_for_document(
-    client: QdrantClient,
-    embeddings: Embeddings,
+    settings: Settings,
     document_id: str,
-    collection_name: str = COLLECTION_NAME,
     *,
+    qdrant_client: QdrantClient | None = None,
+    embeddings: Embeddings | None = None,
+    collection_name: str = COLLECTION_NAME,
     k: int = 4,
 ) -> VectorStoreRetriever:
     """Build a dense retriever scoped to a single document.
@@ -118,7 +132,12 @@ def build_retriever_for_document(
     """
     from qdrant_client import models
 
-    vs = build_vectorstore(client, embeddings, collection_name)
+    if qdrant_client is None:
+        qdrant_client = build_qdrant_client(settings)
+    if embeddings is None:
+        embeddings = build_embeddings(settings)
+
+    vs = build_vectorstore(qdrant_client, embeddings, collection_name)
     search_filter = models.Filter(
         must=[
             models.FieldCondition(

@@ -5,22 +5,49 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from qdrant_client import QdrantClient
 
 from app.config import Settings
 from app.domain.document_service import DocumentService
-from app.domain.qa_service import close_qa, init_qa
-from app.rag.retriever import build_embeddings
+from app.domain.qa_service import QAService
+from app.integrations.vk.handlers import set_qa_service
+from app.rag.chain import build_llm, build_rag_chain
+from app.rag.prompts import GLOBAL_EXPERTS_PROMPT
+from app.rag.retriever import build_embeddings, build_qdrant_client, build_retriever
 from app.storage.database import init_db
 from app.storage.document_repo import DocumentRepository
 from app.storage.s3 import S3Storage
 
+if TYPE_CHECKING:
+    from langchain_core.embeddings import Embeddings
+    from qdrant_client import QdrantClient
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AppState:
+    """Typed application state for FastAPI app.state.
+
+    All attributes are optional (None) by default and are initialized
+    during application lifespan.
+    """
+
+    settings: Settings = field(default_factory=Settings)
+    templates: Jinja2Templates | None = None
+    s3: S3Storage | None = None
+    qdrant_client: QdrantClient | None = None
+    embeddings: Embeddings | None = None
+    doc_repo: DocumentRepository | None = None
+    doc_service: DocumentService | None = None
+    qa_service: QAService | None = None
+    indexing_semaphore: asyncio.Semaphore | None = None
 
 
 @asynccontextmanager
@@ -50,12 +77,11 @@ async def lifespan(app: FastAPI):
         app.state.s3 = None
 
     # Qdrant client
+    from qdrant_client import QdrantClient
+
     qdrant_client: QdrantClient | None = None
     try:
-        qdrant_client = QdrantClient(
-            url=settings.qdrant_url,
-            api_key=settings.qdrant_api_key,
-        )
+        qdrant_client = build_qdrant_client(settings)
         embeddings = build_embeddings(settings)
 
         repo = DocumentRepository(settings.db_path)
@@ -89,7 +115,33 @@ async def lifespan(app: FastAPI):
     app.state.indexing_semaphore = asyncio.Semaphore(settings.max_concurrent_indexing)
 
     # QA service (for document-scoped questions in admin UI)
-    init_qa(settings)
+    # Create shared resources ONCE and pass to both DocumentService and QAService
+    qa_service_instance: QAService | None = None
+    if qdrant_client is not None:
+        try:
+            llm = build_llm(settings)
+            retriever = build_retriever(
+                settings,
+                qdrant_client=qdrant_client,
+                embeddings=embeddings,
+            )
+            chain = build_rag_chain(retriever, llm, system_prompt=GLOBAL_EXPERTS_PROMPT)
+            qa_service_instance = QAService(
+                chain=chain,
+                qdrant_client=qdrant_client,
+                embeddings=embeddings,
+                llm=llm,
+                settings=settings,
+            )
+            # Set module-level singleton for backward compat (VK handlers use qa_service.ask())
+            set_qa_service(qa_service_instance)
+            app.state.qa_service = qa_service_instance
+            logger.info("QA service initialised successfully")
+        except Exception:
+            logger.warning("QA service not available — handlers will use fallback", exc_info=True)
+            app.state.qa_service = None
+    else:
+        app.state.qa_service = None
 
     yield
 
@@ -100,7 +152,11 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.warning("Error closing S3 client", exc_info=True)
 
-    close_qa()
+    # Close QA service (but NOT the shared qdrant_client - that will be closed below)
+    if qa_service_instance is not None:
+        # Set _qdrant_client to None to prevent double-close since we close it below
+        qa_service_instance._qdrant_client = None
+        qa_service_instance.close()
 
     if qdrant_client is not None:
         try:
@@ -118,7 +174,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title="Cafetera HR Bot Admin",
         lifespan=lifespan,
     )
-    app.state.settings = settings
+    # Initialize typed state
+    app.state = AppState(settings=settings)
 
     # Static files
     static_dir = Path(__file__).resolve().parent.parent / "static"

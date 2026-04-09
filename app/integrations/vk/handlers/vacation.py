@@ -7,9 +7,8 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain import qa_service
 from app.domain.content import vacation_template_text
-from app.domain.entities import ENTITY_BY_ID
+from app.integrations.vk.handlers import get_entity_or_error, send_rag_answer
 from app.integrations.vk.keyboards import (
     CMD_VACATION,
     CMD_VACATION_RAG,
@@ -53,12 +52,8 @@ async def on_vacation_select(message: Message) -> None:
 @bl.message(PayloadCmdRule(CMD_VACATION_TEMPLATE))
 async def on_vacation_template(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
-    entity = ENTITY_BY_ID.get(entity_id)
+    entity = await get_entity_or_error(message, entity_id, back_payload=CMD_VACATION)
     if entity is None:
-        await message.answer(
-            "Юрлицо не найдено. Попробуйте ещё раз.",
-            keyboard=entity_select_kb(CMD_VACATION_TEMPLATE, back_payload=CMD_VACATION).get_json(),
-        )
         return
     await message.answer(
         vacation_template_text(entity),
@@ -71,12 +66,7 @@ async def on_vacation_template(message: Message, payload_data: dict) -> None:
 
 @bl.message(payload=CMD_VACATION_RAG)
 async def on_vacation_rag(message: Message) -> None:
-    await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
-    answer = await qa_service.ask("Порядок оформления отпуска")
-    await message.answer(
-        answer,
-        keyboard=stub_kb(back_payload=CMD_VACATION).get_json(),
-    )
+    await send_rag_answer(message, question="Порядок оформления отпуска", back_payload=CMD_VACATION)
 
 
 # ── FR-11: vacation schedule navigator — RAG (Block 8) ─────────────
@@ -84,9 +74,6 @@ async def on_vacation_rag(message: Message) -> None:
 
 @bl.message(payload=CMD_VACATION_SCHEDULE)
 async def on_vacation_schedule(message: Message) -> None:
-    await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
-    answer = await qa_service.ask("Навигатор по графику отпусков")
-    await message.answer(
-        answer,
-        keyboard=stub_kb(back_payload=CMD_VACATION).get_json(),
+    await send_rag_answer(
+        message, question="Навигатор по графику отпусков", back_payload=CMD_VACATION,
     )

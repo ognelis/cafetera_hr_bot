@@ -31,12 +31,12 @@ class TestRagStub:
 
 
 class TestFireRagUsesQaService:
-    """3.2 — fire handler uses qa_service for RAG (Block 7+8)."""
+    """3.2 — fire handler uses send_rag_answer helper for RAG (Block 7+8)."""
 
-    def test_fire_handler_imports_qa_service(self):
+    def test_fire_handler_imports_send_rag_answer(self):
         from app.integrations.vk.handlers import fire
 
-        assert hasattr(fire, "qa_service")
+        assert hasattr(fire, "send_rag_answer")
 
     def test_fire_module_has_no_section_stub(self):
         import app.integrations.vk.handlers.fire as fire_mod
@@ -45,12 +45,12 @@ class TestFireRagUsesQaService:
 
 
 class TestVacationRagUsesQaService:
-    """3.3 — vacation handler uses qa_service for RAG (Block 7+8)."""
+    """3.3 — vacation handler uses send_rag_answer helper for RAG (Block 7+8)."""
 
-    def test_vacation_handler_imports_qa_service(self):
+    def test_vacation_handler_imports_send_rag_answer(self):
         from app.integrations.vk.handlers import vacation
 
-        assert hasattr(vacation, "qa_service")
+        assert hasattr(vacation, "send_rag_answer")
 
     def test_vacation_module_has_no_rag_stub_const(self):
         import app.integrations.vk.handlers.vacation as vac_mod
@@ -59,12 +59,12 @@ class TestVacationRagUsesQaService:
 
 
 class TestPaySectionUsesQaService:
-    """3.4 — pay section uses qa_service for RAG (Block 7+8)."""
+    """3.4 — pay section uses send_rag_answer helper for RAG (Block 7+8)."""
 
-    def test_pay_handler_imports_qa_service(self):
+    def test_pay_handler_imports_send_rag_answer(self):
         from app.integrations.vk.handlers import pay
 
-        assert hasattr(pay, "qa_service")
+        assert hasattr(pay, "send_rag_answer")
 
 
 class TestSectionsUsesQaService:
@@ -73,7 +73,7 @@ class TestSectionsUsesQaService:
     def test_sections_handler_imports_qa_service(self):
         from app.integrations.vk.handlers import sections
 
-        assert hasattr(sections, "qa_service")
+        assert hasattr(sections, "get_qa_service")
 
 
 # ── Block 5/8 — handlers now RAG-powered ──────────────────────────

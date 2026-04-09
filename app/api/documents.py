@@ -49,14 +49,15 @@ from starlette.responses import StreamingResponse
 from app.api.deps import (
     AdminDep,
     IndexingSemaphoreDep,
+    QAServiceDep,
     RepoDep,
     S3Dep,
     ServiceDep,
     SettingsDep,
     TemplatesDep,
+    parse_date_range,
 )
 from app.config import Settings
-from app.domain import qa_service
 from app.rag.parser import load_document
 from app.storage.models import DocumentRecord, DocumentStatus
 from app.storage.s3 import S3Storage
@@ -125,7 +126,7 @@ def _doc_to_dict(doc: DocumentRecord) -> dict:
     }
 
 
-async def _index_in_background(
+async def _index_document_from_s3(
     service,
     s3: S3Storage,
     document_id: str,
@@ -133,8 +134,9 @@ async def _index_in_background(
     semaphore: asyncio.Semaphore,
     chunk_size: int,
     chunk_overlap: int,
+    is_reindex: bool = False,
 ) -> None:
-    """Download from S3, parse, and index a document.  Runs as a background task."""
+    """Download from S3, parse, and index/reindex a document. Runs as a background task."""
     async with semaphore:
         try:
             data = await s3.download(s3_key)
@@ -148,14 +150,51 @@ async def _index_in_background(
                     chunk_size=chunk_size,
                     chunk_overlap=chunk_overlap,
                 )
-                await service.index_document(document_id, chunks)
-                logger.info("Background indexing completed for %s", document_id)
+                if is_reindex:
+                    await service.reindex_document(document_id, chunks)
+                    logger.info("Background reindex completed for %s", document_id)
+                else:
+                    await service.index_document(document_id, chunks)
+                    logger.info("Background indexing completed for %s", document_id)
             finally:
                 await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
         except Exception:
+            action = "reindexing" if is_reindex else "indexing"
             logger.error(
-                "Background indexing failed for %s", document_id, exc_info=True
+                "Background %s failed for %s", action, document_id, exc_info=True
             )
+
+
+def _document_table_context(
+    documents: list,
+    total: int,
+    page: int = 1,
+    per_page: int = 10,
+    search: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    status: str | None = None,
+    source_type: str | None = None,
+    sort_field: str | None = None,
+    sort_dir: str | None = None,
+) -> dict:
+    """Build template context dict for document table partials."""
+    pages = math.ceil(total / per_page) if per_page > 0 else 0
+    return {
+        "documents": documents,
+        "human_size": _human_size,
+        "page": page,
+        "per_page": per_page,
+        "pages": pages,
+        "total": total,
+        "search": search,
+        "date_from": date_from,
+        "date_to": date_to,
+        "status_filter": status or "",
+        "source_type_filter": source_type or "",
+        "sort_field": sort_field or "",
+        "sort_dir": sort_dir or "",
+    }
 
 
 # ── Auth pages ────────────────────────────────────────────────────
@@ -236,20 +275,7 @@ async def documents_page(
     sort_field: str | None = None,
     sort_dir: str | None = None,
 ):
-    # Parse date strings to datetime objects
-    from datetime import datetime
-    dt_from = None
-    dt_to = None
-    if date_from:
-        try:
-            dt_from = datetime.fromisoformat(date_from)
-        except ValueError:
-            pass
-    if date_to:
-        try:
-            dt_to = datetime.fromisoformat(date_to)
-        except ValueError:
-            pass
+    dt_from, dt_to = parse_date_range(date_from, date_to)
 
     documents, total = await repo.list_page(
         page=page, per_page=per_page, search=search,
@@ -259,25 +285,22 @@ async def documents_page(
         sort_field=sort_field or None,
         sort_dir=sort_dir or None,
     )
-    pages = math.ceil(total / per_page) if per_page > 0 else 0
     return templates.TemplateResponse(
         request,
         "documents.html",
-        {
-            "documents": documents,
-            "human_size": _human_size,
-            "page": page,
-            "per_page": per_page,
-            "pages": pages,
-            "total": total,
-            "search": search,
-            "date_from": date_from,
-            "date_to": date_to,
-            "status_filter": status or "",
-            "source_type_filter": source_type or "",
-            "sort_field": sort_field or "",
-            "sort_dir": sort_dir or "",
-        },
+        _document_table_context(
+            documents=documents,
+            total=total,
+            page=page,
+            per_page=per_page,
+            search=search,
+            date_from=date_from,
+            date_to=date_to,
+            status=status,
+            source_type=source_type,
+            sort_field=sort_field,
+            sort_dir=sort_dir,
+        ),
     )
 
 
@@ -300,20 +323,7 @@ async def document_table_partial(
     sort_field: str | None = None,
     sort_dir: str | None = None,
 ):
-    # Parse date strings to datetime objects
-    from datetime import datetime
-    dt_from = None
-    dt_to = None
-    if date_from:
-        try:
-            dt_from = datetime.fromisoformat(date_from)
-        except ValueError:
-            pass
-    if date_to:
-        try:
-            dt_to = datetime.fromisoformat(date_to)
-        except ValueError:
-            pass
+    dt_from, dt_to = parse_date_range(date_from, date_to)
 
     documents, total = await repo.list_page(
         page=page, per_page=per_page, search=search,
@@ -323,25 +333,22 @@ async def document_table_partial(
         sort_field=sort_field or None,
         sort_dir=sort_dir or None,
     )
-    pages = math.ceil(total / per_page) if per_page > 0 else 0
     return templates.TemplateResponse(
         request,
         "partials/document_table.html",
-        {
-            "documents": documents,
-            "human_size": _human_size,
-            "page": page,
-            "per_page": per_page,
-            "pages": pages,
-            "total": total,
-            "search": search,
-            "date_from": date_from,
-            "date_to": date_to,
-            "status_filter": status or "",
-            "source_type_filter": source_type or "",
-            "sort_field": sort_field or "",
-            "sort_dir": sort_dir or "",
-        },
+        _document_table_context(
+            documents=documents,
+            total=total,
+            page=page,
+            per_page=per_page,
+            search=search,
+            date_from=date_from,
+            date_to=date_to,
+            status=status,
+            source_type=source_type,
+            sort_field=sort_field,
+            sort_dir=sort_dir,
+        ),
     )
 
 
@@ -532,7 +539,7 @@ async def upload_documents(
         # Schedule background indexing
         settings: Settings = request.app.state.settings
         background_tasks.add_task(
-            _index_in_background,
+            _index_document_from_s3,
             service,
             s3,
             record.document_id,
@@ -540,6 +547,7 @@ async def upload_documents(
             request.app.state.indexing_semaphore,
             settings.chunk_size,
             settings.chunk_overlap,
+            is_reindex=False,
         )
 
         results.append(_doc_to_dict(record))
@@ -577,20 +585,7 @@ async def list_documents(
     sort_field: str | None = None,
     sort_dir: str | None = None,
 ):
-    # Parse date strings to datetime objects
-    from datetime import datetime
-    dt_from = None
-    dt_to = None
-    if date_from:
-        try:
-            dt_from = datetime.fromisoformat(date_from)
-        except ValueError:
-            pass
-    if date_to:
-        try:
-            dt_to = datetime.fromisoformat(date_to)
-        except ValueError:
-            pass
+    dt_from, dt_to = parse_date_range(date_from, date_to)
 
     docs, total = await repo.list_page(
         page=page, per_page=per_page, search=search,
@@ -674,21 +669,10 @@ async def bulk_delete_documents(
 
     # Return refreshed table partial (HTMX pattern)
     documents, total = await repo.list_page(page=1, per_page=10)
-    pages = math.ceil(total / 10) if 10 > 0 else 0
     return templates.TemplateResponse(
         request,
         "partials/document_table.html",
-        {
-            "documents": documents,
-            "human_size": _human_size,
-            "page": 1,
-            "per_page": 10,
-            "pages": pages,
-            "total": total,
-            "search": None,
-            "date_from": None,
-            "date_to": None,
-        },
+        _document_table_context(documents=documents, total=total),
     )
 
 
@@ -735,7 +719,7 @@ async def bulk_reindex_documents(
             await repo.update(document_id, status=DocumentStatus.processing, error=None)
 
             background_tasks.add_task(
-                _reindex_in_background,
+                _index_document_from_s3,
                 service,
                 s3,
                 document_id,
@@ -743,6 +727,7 @@ async def bulk_reindex_documents(
                 semaphore,
                 settings.chunk_size,
                 settings.chunk_overlap,
+                is_reindex=True,
             )
         except Exception as exc:
             logger.error("Bulk reindex failed for %s", document_id, exc_info=True)
@@ -750,21 +735,10 @@ async def bulk_reindex_documents(
 
     # Return refreshed table partial (HTMX pattern)
     documents, total = await repo.list_page(page=1, per_page=10)
-    pages = math.ceil(total / 10) if 10 > 0 else 0
     return templates.TemplateResponse(
         request,
         "partials/document_table.html",
-        {
-            "documents": documents,
-            "human_size": _human_size,
-            "page": 1,
-            "per_page": 10,
-            "pages": pages,
-            "total": total,
-            "search": None,
-            "date_from": None,
-            "date_to": None,
-        },
+        _document_table_context(documents=documents, total=total),
     )
 
 
@@ -807,27 +781,17 @@ async def bulk_toggle_search(
 
     # Return refreshed table partial (HTMX pattern)
     documents, total = await repo.list_page(page=1, per_page=10)
-    pages = math.ceil(total / 10) if 10 > 0 else 0
     return templates.TemplateResponse(
         request,
         "partials/document_table.html",
-        {
-            "documents": documents,
-            "human_size": _human_size,
-            "page": 1,
-            "per_page": 10,
-            "pages": pages,
-            "total": total,
-            "search": None,
-            "date_from": None,
-            "date_to": None,
-        },
+        _document_table_context(documents=documents, total=total),
     )
 
 
 @router.post("/api/qa/ask-global")
 async def ask_global_question(
     _: AdminDep,
+    qa: QAServiceDep,
     question: str = Form(...),
 ):
     """Ask a question across the entire knowledge base. Returns SSE stream."""
@@ -835,7 +799,7 @@ async def ask_global_question(
     async def event_generator():
         """Generate SSE events with tokens from the LLM."""
         try:
-            async for token in qa_service.stream_ask(question):
+            async for token in qa.stream_ask(question):
                 escaped_token = token.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
                 yield f'data: {{"token": "{escaped_token}"}}\n\n'
             yield 'data: {"done": true}\n\n'
@@ -858,6 +822,7 @@ async def ask_about_document(
     document_id: str,
     _auth: AdminDep,
     repo: RepoDep,
+    qa: QAServiceDep,
     question: Annotated[str, Form()],
 ):
     """Ask a question about a specific document. Returns SSE stream."""
@@ -871,7 +836,7 @@ async def ask_about_document(
     async def event_generator():
         """Generate SSE events with tokens from the LLM."""
         try:
-            async for token in qa_service.stream_about_document(question, document_id):
+            async for token in qa.stream_about_document(question, document_id):
                 # Escape newlines and quotes for JSON serialization
                 escaped_token = token.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
                 yield f'data: {{"token": "{escaped_token}"}}\n\n'
@@ -976,7 +941,7 @@ async def reindex_document(
 
     settings: Settings = request.app.state.settings
     background_tasks.add_task(
-        _reindex_in_background,
+        _index_document_from_s3,
         service,
         s3,
         document_id,
@@ -984,6 +949,7 @@ async def reindex_document(
         semaphore,
         settings.chunk_size,
         settings.chunk_overlap,
+        is_reindex=True,
     )
 
     is_htmx = request.headers.get("HX-Request") == "true"
@@ -997,36 +963,7 @@ async def reindex_document(
     return {"status": "reindexing", "document_id": document_id}
 
 
-async def _reindex_in_background(
-    service,
-    s3: S3Storage,
-    document_id: str,
-    s3_key: str,
-    semaphore: asyncio.Semaphore,
-    chunk_size: int,
-    chunk_overlap: int,
-):
-    async with semaphore:
-        try:
-            data = await s3.download(s3_key)
-            with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
-                tmp.write(data)
-                tmp_path = Path(tmp.name)
-            try:
-                chunks = await asyncio.to_thread(
-                    load_document,
-                    tmp_path,
-                    chunk_size=chunk_size,
-                    chunk_overlap=chunk_overlap,
-                )
-                await service.reindex_document(document_id, chunks)
-                logger.info("Background reindex completed for %s", document_id)
-            finally:
-                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-        except Exception:
-            logger.error(
-                "Background reindex failed for %s", document_id, exc_info=True
-            )
+
 
 
 @router.delete("/api/documents/{document_id}")

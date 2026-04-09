@@ -2,24 +2,42 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.domain import qa_service
 from app.domain.content import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
+from app.domain.qa_service import (
+    _TRUNCATION_SUFFIX,
+    VK_MSG_LIMIT,
+    QAService,
+    _truncate,
+)
 
-# ── helpers ────────────────────────────────────────────────────────
+# ── fixtures ────────────────────────────────────────────────────────
 
 
-@pytest.fixture(autouse=True)
-def _reset_qa_state():
-    """Ensure module-level state is clean before and after each test."""
-    qa_service._chain = None
-    qa_service._qdrant_client = None
-    yield
-    qa_service._chain = None
-    qa_service._qdrant_client = None
+@pytest.fixture
+def mock_settings():
+    """Create mock settings for QAService tests."""
+    settings = MagicMock()
+    settings.qdrant_url = "http://localhost:6333"
+    settings.qdrant_api_key = None
+    settings.qdrant_collection = "hr_documents"
+    return settings
+
+
+@pytest.fixture
+def qa_service_with_mock_chain(mock_settings):
+    """Create a QAService instance with a mock chain."""
+    mock_chain = AsyncMock()
+    return QAService(
+        chain=mock_chain,
+        qdrant_client=MagicMock(),
+        embeddings=MagicMock(),
+        llm=MagicMock(),
+        settings=mock_settings,
+    ), mock_chain
 
 
 # ── ask() ──────────────────────────────────────────────────────────
@@ -27,46 +45,43 @@ def _reset_qa_state():
 
 class TestAsk:
     async def test_returns_fallback_when_chain_is_none(self):
-        result = await qa_service.ask("Любой вопрос")
+        service = QAService()
+        result = await service.ask("Любой вопрос")
         assert result == ERR_NO_ANSWER
 
-    async def test_returns_answer_from_chain(self):
-        mock_chain = AsyncMock()
+    async def test_returns_answer_from_chain(self, qa_service_with_mock_chain):
+        service, mock_chain = qa_service_with_mock_chain
         mock_chain.ainvoke.return_value = "Ответ из базы знаний."
-        qa_service._chain = mock_chain
 
-        result = await qa_service.ask("Условия премирования")
+        result = await service.ask("Условия премирования")
 
         assert result == "Ответ из базы знаний."
         mock_chain.ainvoke.assert_awaited_once_with("Условия премирования")
 
-    async def test_catches_chain_exception(self):
-        mock_chain = AsyncMock()
+    async def test_catches_chain_exception(self, qa_service_with_mock_chain):
+        service, mock_chain = qa_service_with_mock_chain
         mock_chain.ainvoke.side_effect = RuntimeError("LLM timeout")
-        qa_service._chain = mock_chain
 
-        result = await qa_service.ask("Вопрос")
+        result = await service.ask("Вопрос")
 
         assert result == ERR_DOCUMENT_UNAVAILABLE
 
-    async def test_returns_fallback_for_empty_answer(self):
-        mock_chain = AsyncMock()
+    async def test_returns_fallback_for_empty_answer(self, qa_service_with_mock_chain):
+        service, mock_chain = qa_service_with_mock_chain
         mock_chain.ainvoke.return_value = "   "
-        qa_service._chain = mock_chain
 
-        result = await qa_service.ask("Вопрос")
+        result = await service.ask("Вопрос")
 
         assert result == ERR_NO_ANSWER
 
-    async def test_truncates_long_response(self):
+    async def test_truncates_long_response(self, qa_service_with_mock_chain):
+        service, mock_chain = qa_service_with_mock_chain
         long_text = "Слово " * 1500  # ~9000 chars
-        mock_chain = AsyncMock()
         mock_chain.ainvoke.return_value = long_text
-        qa_service._chain = mock_chain
 
-        result = await qa_service.ask("Вопрос")
+        result = await service.ask("Вопрос")
 
-        assert len(result) <= qa_service.VK_MSG_LIMIT
+        assert len(result) <= VK_MSG_LIMIT
         assert result.endswith("…Обратитесь в HR-отдел для полной информации.")
 
 
@@ -76,122 +91,153 @@ class TestAsk:
 class TestTruncate:
     def test_preserves_short_text(self):
         text = "Короткий ответ."
-        assert qa_service._truncate(text) == text
+        assert _truncate(text) == text
 
     def test_truncates_at_limit(self):
         text = "a " * 3000  # 6000 chars
-        result = qa_service._truncate(text)
-        assert len(result) <= qa_service.VK_MSG_LIMIT
+        result = _truncate(text)
+        assert len(result) <= VK_MSG_LIMIT
 
     def test_cuts_at_word_boundary(self):
         # Build text that is slightly over limit
         text = "word " * 1000  # 5000 chars
-        result = qa_service._truncate(text)
+        result = _truncate(text)
         # The truncated part (before suffix) should not end mid-word
-        before_suffix = result.removesuffix(qa_service._TRUNCATION_SUFFIX)
+        before_suffix = result.removesuffix(_TRUNCATION_SUFFIX)
         assert not before_suffix.endswith("wor")  # no partial word
 
     def test_exact_limit_not_truncated(self):
-        text = "a" * qa_service.VK_MSG_LIMIT
-        assert qa_service._truncate(text) == text
+        text = "a" * VK_MSG_LIMIT
+        assert _truncate(text) == text
 
 
-# ── init_qa() ──────────────────────────────────────────────────────
+# ── QAService.__init__() ───────────────────────────────────────────
 
 
-class TestInitQa:
-    @patch("app.rag.chain.build_rag_chain")
-    @patch("app.rag.chain.build_llm")
-    @patch("app.rag.retriever.build_retriever")
-    @patch("app.rag.retriever.build_embeddings")
-    @patch("qdrant_client.QdrantClient")
-    def test_success_with_mocks(
-        self,
-        mock_qc,
-        mock_embeddings,
-        mock_retriever,
-        mock_llm,
-        mock_chain,
-    ):
-        mock_chain.return_value = MagicMock()
-        mock_settings = MagicMock()
-        mock_settings.qdrant_url = "http://localhost:6333"
-        mock_settings.qdrant_api_key = None
-        mock_settings.qdrant_collection = "hr_documents"
+class TestQAServiceInit:
+    def test_initializes_with_all_dependencies(self, mock_settings):
+        mock_chain = MagicMock()
+        mock_qdrant = MagicMock()
+        mock_embeddings = MagicMock()
+        mock_llm = MagicMock()
 
-        qa_service.init_qa(mock_settings)
+        service = QAService(
+            chain=mock_chain,
+            qdrant_client=mock_qdrant,
+            embeddings=mock_embeddings,
+            llm=mock_llm,
+            settings=mock_settings,
+        )
 
-        assert qa_service._chain is not None
-        assert qa_service._qdrant_client is not None
+        assert service._chain is mock_chain
+        assert service._qdrant_client is mock_qdrant
+        assert service._embeddings is mock_embeddings
+        assert service._llm is mock_llm
+        assert service._settings is mock_settings
 
-    @patch(
-        "qdrant_client.QdrantClient",
-        side_effect=RuntimeError("Connection refused"),
-    )
-    def test_survives_qdrant_failure(self, _mock_qc):
-        mock_settings = MagicMock()
-        mock_settings.qdrant_url = "http://localhost:6333"
-        mock_settings.qdrant_api_key = None
-        mock_settings.qdrant_collection = "hr_documents"
+    def test_initializes_with_none_defaults(self):
+        service = QAService()
 
-        qa_service.init_qa(mock_settings)
+        assert service._chain is None
+        assert service._qdrant_client is None
+        assert service._embeddings is None
+        assert service._llm is None
+        assert service._settings is None
 
-        assert qa_service._chain is None
+    def test_initializes_with_partial_dependencies(self, mock_settings):
+        mock_chain = MagicMock()
+
+        service = QAService(
+            chain=mock_chain,
+            settings=mock_settings,
+        )
+
+        assert service._chain is mock_chain
+        assert service._qdrant_client is None
+        assert service._embeddings is None
+        assert service._llm is None
+        assert service._settings is mock_settings
 
 
-# ── close_qa() ─────────────────────────────────────────────────────
+# ── QAService.close() ──────────────────────────────────────────────
 
 
-class TestCloseQa:
-    def test_resets_state(self):
-        qa_service._chain = MagicMock()
-        qa_service._qdrant_client = MagicMock()
+class TestQAServiceClose:
+    def test_resets_state(self, mock_settings):
+        mock_chain = MagicMock()
+        mock_qdrant = MagicMock()
+        mock_embeddings = MagicMock()
+        mock_llm = MagicMock()
 
-        qa_service.close_qa()
+        service = QAService(
+            chain=mock_chain,
+            qdrant_client=mock_qdrant,
+            embeddings=mock_embeddings,
+            llm=mock_llm,
+            settings=mock_settings,
+        )
 
-        assert qa_service._chain is None
-        assert qa_service._qdrant_client is None
+        service.close()
 
-    def test_closes_qdrant_client(self):
+        assert service._chain is None
+        assert service._qdrant_client is None
+        assert service._embeddings is None
+        assert service._llm is None
+        assert service._settings is None
+
+    def test_closes_qdrant_client(self, mock_settings):
         mock_client = MagicMock()
-        qa_service._qdrant_client = mock_client
+        service = QAService(
+            qdrant_client=mock_client,
+            settings=mock_settings,
+        )
 
-        qa_service.close_qa()
+        service.close()
 
         mock_client.close.assert_called_once()
 
-    def test_survives_close_error(self):
+    def test_survives_close_error(self, mock_settings):
         mock_client = MagicMock()
         mock_client.close.side_effect = RuntimeError("close failed")
-        qa_service._qdrant_client = mock_client
+        service = QAService(
+            qdrant_client=mock_client,
+            settings=mock_settings,
+        )
 
-        qa_service.close_qa()  # should not raise
+        service.close()  # should not raise
 
-        assert qa_service._qdrant_client is None
+        assert service._qdrant_client is None
+
+    def test_close_with_none_qdrant_client(self):
+        service = QAService()
+
+        service.close()  # should not raise
+
+        assert service._qdrant_client is None
 
 
 # ── handler imports ────────────────────────────────────────────────
 
 
 class TestHandlerImports:
-    """Verify that P0+P1 handlers import qa_service (Block 7+8)."""
+    """Verify that P0+P1 handlers use send_rag_answer helper (Block 7+8)."""
 
-    def test_fire_handler_imports_qa_service(self):
+    def test_fire_handler_imports_send_rag_answer(self):
         from app.integrations.vk.handlers import fire
 
-        assert hasattr(fire, "qa_service")
+        assert hasattr(fire, "send_rag_answer")
 
-    def test_vacation_handler_imports_qa_service(self):
+    def test_vacation_handler_imports_send_rag_answer(self):
         from app.integrations.vk.handlers import vacation
 
-        assert hasattr(vacation, "qa_service")
+        assert hasattr(vacation, "send_rag_answer")
 
-    def test_pay_handler_imports_qa_service(self):
+    def test_pay_handler_imports_send_rag_answer(self):
         from app.integrations.vk.handlers import pay
 
-        assert hasattr(pay, "qa_service")
+        assert hasattr(pay, "send_rag_answer")
 
-    def test_sections_handler_imports_qa_service(self):
+    def test_sections_handler_imports_get_qa_service(self):
         from app.integrations.vk.handlers import sections
 
-        assert hasattr(sections, "qa_service")
+        assert hasattr(sections, "get_qa_service")

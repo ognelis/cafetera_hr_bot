@@ -23,23 +23,19 @@ from pathlib import Path
 
 from langchain_core.documents import Document as LCDocument
 from langchain_qdrant import QdrantVectorStore
-from qdrant_client import QdrantClient
 
 # Allow running from project root
 sys.path.insert(0, ".")
 
-from app.config import Settings
+from app.config import Settings, configure_logging
 from app.rag.indexer import prepare_chunks
 from app.rag.parser import load_document
-from app.rag.retriever import build_embeddings
+from app.rag.retriever import build_embeddings, build_qdrant_client
 from app.storage.database import init_db
 from app.storage.document_repo import DocumentRepository
 from app.storage.models import DocumentRecord, DocumentStatus
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
-)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -116,10 +112,9 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
     embeddings = build_embeddings(settings)
 
     # Recreate collection for a clean ingest
-    client = QdrantClient(
-        url=settings.qdrant_url,
-        api_key=settings.qdrant_api_key,
-    )
+    from qdrant_client import QdrantClient
+
+    client: QdrantClient = build_qdrant_client(settings)
     try:
         collection = settings.qdrant_collection
         if client.collection_exists(collection):
