@@ -80,31 +80,31 @@ def main_menu_kb() -> Keyboard:
         Text("👤 Приём сотрудника", payload=CMD_HIRE),
         color=KeyboardButtonColor.PRIMARY,
     )
+    kb.row()
     kb.add(
         Text("🚪 Увольнение", payload=CMD_FIRE),
         color=KeyboardButtonColor.PRIMARY,
     )
-
     kb.row()
     kb.add(
         Text("🏖 Отпуск", payload=CMD_VACATION),
         color=KeyboardButtonColor.PRIMARY,
     )
+    kb.row()
     kb.add(
         Text("💰 Оплата и премии", payload=CMD_PAY),
         color=KeyboardButtonColor.PRIMARY,
     )
-
     kb.row()
     kb.add(
         Text("🏥 Больничный / ЭЛН", payload=CMD_SICK),
         color=KeyboardButtonColor.PRIMARY,
     )
+    kb.row()
     kb.add(
         Text("📝 Испытательный срок", payload=CMD_PROBATION),
         color=KeyboardButtonColor.PRIMARY,
     )
-
     kb.row()
     kb.add(Text("❓ Задать вопрос", payload=CMD_ASK))
 
@@ -132,7 +132,7 @@ def entity_select_kb(cmd: str, *, back_payload: dict) -> Keyboard:
     """
     kb = Keyboard(one_time=False, inline=False)
     for i, entity in enumerate(ENTITIES):
-        if i == 2:
+        if i > 0:
             kb.row()
         kb.add(Text(entity.full_name, payload={"cmd": cmd, "entity": entity.id}))
     return with_service_row(kb, back_payload=back_payload)

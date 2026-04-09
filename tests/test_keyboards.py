@@ -47,9 +47,9 @@ def _has_label(labels: list[str], substring: str) -> bool:
 
 
 class TestMainMenuKb:
-    def test_has_four_rows(self):
+    def test_has_seven_rows(self):
         data = _parse(main_menu_kb())
-        assert len(data["buttons"]) == 4
+        assert len(data["buttons"]) == 7
 
     def test_seven_section_buttons(self):
         data = _parse(main_menu_kb())
@@ -71,13 +71,21 @@ class TestMainMenuKb:
         assert data.get("one_time") is False
         assert data.get("inline") is False
 
-    def test_first_row_has_hire_and_fire(self):
+    def test_first_row_has_hire(self):
         data = _parse(main_menu_kb())
         first_row_payloads = [
             btn["action"]["payload"] for btn in data["buttons"][0]
         ]
         assert CMD_HIRE in first_row_payloads
-        assert CMD_FIRE in first_row_payloads
+        assert len(first_row_payloads) == 1
+
+    def test_second_row_has_fire(self):
+        data = _parse(main_menu_kb())
+        second_row_payloads = [
+            btn["action"]["payload"] for btn in data["buttons"][1]
+        ]
+        assert CMD_FIRE in second_row_payloads
+        assert len(second_row_payloads) == 1
 
 
 # ── with_service_row ───────────────────────────────────────────────
