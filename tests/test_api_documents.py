@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+import zipfile
 from datetime import UTC, datetime
 from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -17,6 +18,15 @@ from app.main import create_app
 from app.storage.database import init_db
 from app.storage.document_repo import DocumentRepository
 from app.storage.models import DocumentRecord, DocumentStatus
+
+
+def _make_minimal_docx_bytes() -> bytes:
+    """Create a minimal valid DOCX file (ZIP with word/document.xml)."""
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("word/document.xml", "<w:document xmlns:w='http://schemas.openxmlformats.org/wordprocessingml/2006/main'><w:body><w:p><w:r><w:t>Test</w:t></w:r></w:p></w:body></w:document>")
+        zf.writestr("[Content_Types].xml", "<?xml version='1.0' encoding='UTF-8' standalone='yes'?><Types xmlns='http://schemas.openxmlformats.org/package/2006/content-types'><Default Extension='xml' ContentType='application/xml'/><Override PartName='/word/document.xml' ContentType='application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml'/></Types>")
+    return buf.getvalue()
 
 TEST_API_KEY = "test-secret-key-12345"
 
@@ -393,7 +403,7 @@ class TestUpload:
     async def test_upload_valid_file(
         self, mock_bg, mock_parse, auth_client, mock_s3
     ):
-        fake_docx = BytesIO(b"PK\x03\x04fake docx content")
+        fake_docx = BytesIO(_make_minimal_docx_bytes())
         resp = auth_client.post(
             "/api/documents/upload",
             files=[("files", ("test.docx", fake_docx, "application/octet-stream"))],

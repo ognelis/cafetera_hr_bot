@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from docx import Document as DocxDocument
@@ -154,8 +154,10 @@ class TestLoadDocumentSemantic:
             "It enables computers to understand human language."
         )
 
-        with patch("app.rag.parser.docx2txt.process") as mock_process:
-            mock_process.return_value = sample_text
+        with patch("app.rag.parser.sharepoint2text.read_file") as mock_read_file:
+            mock_result = MagicMock()
+            mock_result.get_full_text.return_value = sample_text
+            mock_read_file.return_value = iter([mock_result])
             result = load_document(
                 multi_paragraph_doc,
                 strategy="semantic",
@@ -208,8 +210,10 @@ class TestSemanticStrategyRequiresEmbeddings:
     def test_load_doc_semantic_requires_embeddings(self, multi_paragraph_doc: Path):
         """Calling load_doc(path, strategy='semantic') without embeddings
         raises ValueError."""
-        with patch("app.rag.parser.docx2txt.process") as mock_process:
-            mock_process.return_value = "Some content here."
+        with patch("app.rag.parser.sharepoint2text.read_file") as mock_read_file:
+            mock_result = MagicMock()
+            mock_result.get_full_text.return_value = "Some content here."
+            mock_read_file.return_value = iter([mock_result])
 
             with pytest.raises(ValueError) as exc_info:
                 load_doc(multi_paragraph_doc, strategy="semantic")

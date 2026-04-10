@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from docx import Document as DocxDocument
@@ -18,19 +18,23 @@ class TestLoadDoc:
     def test_load_doc_returns_documents(self, tmp_path: Path):
         doc_path = tmp_path / "test.doc"
 
-        with patch("app.rag.parser.docx2txt.process") as mock_process:
-            mock_process.return_value = "First paragraph.\n\nSecond paragraph with more content."
+        with patch("app.rag.parser.sharepoint2text.read_file") as mock_read_file:
+            mock_result = MagicMock()
+            mock_result.get_full_text.return_value = "First paragraph.\n\nSecond paragraph with more content."
+            mock_read_file.return_value = iter([mock_result])
             result = load_doc(doc_path)
 
         assert len(result) > 0
         assert all(isinstance(doc, LCDocument) for doc in result)
-        mock_process.assert_called_once_with(str(doc_path))
+        mock_read_file.assert_called_once_with(str(doc_path), timeout_seconds=0)
 
     def test_load_doc_metadata(self, tmp_path: Path):
         doc_path = tmp_path / "my_document.doc"
 
-        with patch("app.rag.parser.docx2txt.process") as mock_process:
-            mock_process.return_value = "Some content here."
+        with patch("app.rag.parser.sharepoint2text.read_file") as mock_read_file:
+            mock_result = MagicMock()
+            mock_result.get_full_text.return_value = "Some content here."
+            mock_read_file.return_value = iter([mock_result])
             result = load_doc(doc_path)
 
         assert len(result) > 0
@@ -42,8 +46,10 @@ class TestLoadDoc:
         doc_path = tmp_path / "test.doc"
         sample_text = "Paragraph one.\n\nParagraph two.\n\nParagraph three with more text."
 
-        with patch("app.rag.parser.docx2txt.process") as mock_process:
-            mock_process.return_value = sample_text
+        with patch("app.rag.parser.sharepoint2text.read_file") as mock_read_file:
+            mock_result = MagicMock()
+            mock_result.get_full_text.return_value = sample_text
+            mock_read_file.return_value = iter([mock_result])
             result = load_doc(doc_path)
 
         assert len(result) > 0
@@ -74,13 +80,15 @@ class TestLoadDocumentDispatcher:
     def test_load_document_doc(self, tmp_path: Path):
         doc_path = tmp_path / "test.doc"
 
-        with patch("app.rag.parser.docx2txt.process") as mock_process:
-            mock_process.return_value = "Legacy document content."
+        with patch("app.rag.parser.sharepoint2text.read_file") as mock_read_file:
+            mock_result = MagicMock()
+            mock_result.get_full_text.return_value = "Legacy document content."
+            mock_read_file.return_value = iter([mock_result])
             result = load_document(doc_path)
 
         assert len(result) > 0
         assert all(isinstance(doc, LCDocument) for doc in result)
-        mock_process.assert_called_once_with(str(doc_path))
+        mock_read_file.assert_called_once_with(str(doc_path), timeout_seconds=0)
 
     def test_load_document_unsupported_extension(self, tmp_path: Path):
         txt_path = tmp_path / "test.txt"

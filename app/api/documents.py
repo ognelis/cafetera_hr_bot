@@ -24,11 +24,13 @@ HTMX partials (require admin cookie):
 from __future__ import annotations
 
 import asyncio
+import io
 import logging
 import math
 import re
 import secrets
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import Annotated
 
@@ -73,7 +75,7 @@ _MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 _ALLOWED_EXTENSIONS = {".docx", ".doc"}
 _ALLOWED_MIMES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
-    "application/msword",                                                          # .doc
+    "application/msword",  # .doc
     "application/octet-stream",  # browsers sometimes send this
 }
 
@@ -84,6 +86,15 @@ _EXT_TO_MIME = {
 
 
 # ── Helpers ───────────────────────────────────────────────────────
+
+
+def _validate_docx_bytes(data: bytes) -> bool:
+    """Validate that bytes represent a valid DOCX file by checking for word/document.xml."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(data), 'r') as zf:
+            return 'word/document.xml' in zf.namelist()
+    except zipfile.BadZipFile:
+        return False
 
 
 def _sanitize_filename(name: str) -> str:
@@ -147,8 +158,27 @@ async def _index_document_from_s3(
     async with semaphore:
         try:
             data = await s3.download(s3_key)
-            with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+
+            # Determine file extension from s3_key
+            ext = Path(s3_key).suffix.lower()
+
+            # Validate DOCX content before processing (only for .docx files)
+            if ext == ".docx" and not _validate_docx_bytes(data):
+                logger.warning(
+                    "Document %s failed validation: not a valid DOCX file (data size: %d bytes)",
+                    document_id,
+                    len(data),
+                )
+                await service._repo.update(
+                    document_id,
+                    status=DocumentStatus.failed,
+                    error="Invalid or corrupted DOCX file",
+                )
+                return
+
+            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
                 tmp.write(data)
+                tmp.flush()
                 tmp_path = Path(tmp.name)
             try:
                 chunks = await asyncio.to_thread(
@@ -161,14 +191,23 @@ async def _index_document_from_s3(
                     breakpoint_threshold_type=breakpoint_threshold_type,
                     breakpoint_threshold_amount=breakpoint_threshold_amount,
                 )
-                if is_reindex:
-                    await service.reindex_document(document_id, chunks)
-                    logger.info("Background reindex completed for %s", document_id)
-                else:
-                    await service.index_document(document_id, chunks)
-                    logger.info("Background indexing completed for %s", document_id)
+            except ValueError as exc:
+                if "not a Word file" in str(exc):
+                    logger.error(
+                        "Document %s failed to parse: %s (data size: %d bytes)",
+                        document_id,
+                        exc,
+                        len(data),
+                    )
+                raise
             finally:
                 await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+            if is_reindex:
+                await service.reindex_document(document_id, chunks)
+                logger.info("Background reindex completed for %s", document_id)
+            else:
+                await service.index_document(document_id, chunks)
+                logger.info("Background indexing completed for %s", document_id)
         except Exception:
             action = "reindexing" if is_reindex else "indexing"
             logger.error(
@@ -523,6 +562,14 @@ async def upload_documents(
             errors.append({
                 "filename": safe_name,
                 "error": "Empty file",
+            })
+            continue
+
+        # Validate DOCX content for .docx files
+        if ext == ".docx" and not _validate_docx_bytes(content):
+            errors.append({
+                "filename": safe_name,
+                "error": "Invalid or corrupted DOCX file",
             })
             continue
 

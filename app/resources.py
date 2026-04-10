@@ -34,6 +34,70 @@ if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
     from qdrant_client import QdrantClient
 
+
+def _ensure_collection(
+    client: QdrantClient,
+    embeddings: Embeddings,
+    settings: Settings,
+    sparse_embedding=None,
+) -> None:
+    """Ensure the Qdrant collection exists, creating it if necessary.
+
+    This function checks if the collection exists and creates it with the
+    correct vector configuration if it doesn't. This allows the QA service
+    to initialize properly even on first startup before any documents are
+    indexed.
+    """
+    from qdrant_client import models
+
+    collection_name = settings.qdrant_collection
+
+    # Check if collection already exists
+    if client.collection_exists(collection_name):
+        logger.info("Qdrant collection '%s' already exists", collection_name)
+        return
+
+    # Collection doesn't exist - need to create it
+    logger.info("Qdrant collection '%s' not found - creating it", collection_name)
+
+    # Get embedding dimensions by doing a test embed
+    try:
+        test_embedding = embeddings.embed_documents(["test"])
+        vector_size = len(test_embedding[0])
+    except Exception as exc:
+        logger.warning("Failed to get embedding dimensions: %s", exc)
+        raise
+
+    # Build vector parameters
+    vectors_config = models.VectorParams(
+        size=vector_size,
+        distance=models.Distance.COSINE,
+    )
+
+    # Build sparse vector config for hybrid search if enabled
+    sparse_vectors_config = None
+    if settings.retrieval_mode == "hybrid" and sparse_embedding is not None:
+        sparse_vectors_config = {
+            "text-sparse": models.SparseVectorParams(
+                index=models.SparseIndexParams(
+                    on_disk=False,
+                ),
+            )
+        }
+        logger.info("Hybrid search enabled - adding sparse vector configuration")
+
+    # Create the collection
+    client.create_collection(
+        collection_name=collection_name,
+        vectors_config=vectors_config,
+        sparse_vectors_config=sparse_vectors_config,
+    )
+    logger.info(
+        "Created Qdrant collection '%s' with vector_size=%d",
+        collection_name,
+        vector_size,
+    )
+
 logger = logging.getLogger(__name__)
 
 
@@ -176,6 +240,14 @@ async def build_resources(
     # 4. LLM, retriever, chain, and QA service
     if qdrant_client is not None and embeddings is not None:
         try:
+            # Ensure collection exists before building retriever
+            _ensure_collection(
+                qdrant_client,
+                embeddings,
+                settings,
+                sparse_embedding=res.sparse_embeddings,
+            )
+
             llm = build_llm(settings)
             res.llm = llm
 

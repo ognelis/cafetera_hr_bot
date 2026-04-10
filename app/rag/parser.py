@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-import docx2txt
+import sharepoint2text
 from docx import Document as DocxDocument
 from langchain_core.documents import Document as LCDocument
 from langchain_core.embeddings import Embeddings
@@ -210,7 +210,11 @@ def load_doc(
     Raises:
         ValueError: If strategy is "semantic" and embeddings is None.
     """
-    text = docx2txt.process(str(path))
+    # Use sharepoint2text to extract text from legacy .doc files
+    # timeout_seconds=0 disables signal-based timeout (requires main thread)
+    # since this function may be called via asyncio.to_thread() in a worker thread
+    result = next(sharepoint2text.read_file(str(path), timeout_seconds=0))
+    text = result.get_full_text()
 
     if strategy == "recursive":
         splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
