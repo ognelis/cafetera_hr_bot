@@ -38,8 +38,12 @@ CMD_PAY_BONUS = {"cmd": "pay_bonus"}         # FR-10: bonus conditions
 
 CMD_FIRE_CHECKLIST = {"cmd": "fire_checklist"}
 CMD_FIRE_BYPASS = {"cmd": "fire_bypass"}
-CMD_FIRE_RAG = {"cmd": "fire_rag"}  # stub → Block 3
+CMD_FIRE_RAG = {"cmd": "fire_rag"}  # stub → Block 3 (kept for compatibility)
 CMD_FIRE_GROUNDS = {"cmd": "fire_grounds"}  # FR-12: dismissal grounds (Block 5)
+
+# FR-5: voluntary dismissal — entity selection → template
+CMD_FIRE_RESIGNATION = {"cmd": "fire_resignation"}
+FIRE_RESIGNATION_ENTITY_CMD = "fire_resignation_entity"
 
 # ── vacation sub-action payloads ───────────────────────────────────
 
@@ -181,7 +185,7 @@ def fire_menu_kb() -> Keyboard:
     kb.row()
     kb.add(Text("📥 Обходной лист", payload=CMD_FIRE_BYPASS))
     kb.row()
-    kb.add(Text("🚪 Увольнение по собственному", payload=CMD_FIRE_RAG))
+    kb.add(Text("🚪 Увольнение по собственному", payload=CMD_FIRE_RESIGNATION))
     kb.row()
     kb.add(Text("📖 Основания увольнения", payload=CMD_FIRE_GROUNDS))
     return with_service_row(kb, back_payload=CMD_HOME)

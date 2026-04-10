@@ -44,6 +44,7 @@ CATEGORY_SLOTS: dict[str, dict] = {
         "subcategories": {
             "fire_checklist": "Чек-лист последнего дня",
             "fire_bypass": "Обходной лист",
+            "fire_resignation": "Заявление об увольнении по собственному",
         },
     },
     "vacation": {

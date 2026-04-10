@@ -9,7 +9,7 @@ from app.integrations.vk.keyboards import (
     CMD_FIRE_BYPASS,
     CMD_FIRE_CHECKLIST,
     CMD_FIRE_GROUNDS,
-    CMD_FIRE_RAG,
+    CMD_FIRE_RESIGNATION,
     CMD_HIRE,
     CMD_HOME,
     CMD_VACATION_RAG,
@@ -132,9 +132,9 @@ class TestFireMenuKb:
         data = _parse(fire_menu_kb())
         assert CMD_FIRE_BYPASS in _payloads(data)
 
-    def test_rag_payload(self):
+    def test_resignation_payload(self):
         data = _parse(fire_menu_kb())
-        assert CMD_FIRE_RAG in _payloads(data)
+        assert CMD_FIRE_RESIGNATION in _payloads(data)
 
     def test_grounds_payload(self):
         data = _parse(fire_menu_kb())
