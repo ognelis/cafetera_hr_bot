@@ -41,6 +41,7 @@ def settings(db_path):
         s3_secret_key="minioadmin",
         s3_bucket="test-bucket",
         qdrant_url="http://localhost:6333",
+        _env_file=None,
     )
 
 

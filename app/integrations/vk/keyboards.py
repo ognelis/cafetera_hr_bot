@@ -43,7 +43,8 @@ CMD_FIRE_GROUNDS = {"cmd": "fire_grounds"}  # FR-12: dismissal grounds (Block 5)
 
 # ── vacation sub-action payloads ───────────────────────────────────
 
-CMD_VACATION_SELECT = {"cmd": "vacation_select"}  # opens entity selection
+CMD_VACATION_SELECT = {"cmd": "vacation_select"}  # opens vacation type selection
+CMD_VACATION_TYPE = {"cmd": "vacation_type"}  # vacation type selection step
 CMD_VACATION_TEMPLATE = "vacation_template"  # cmd value for PayloadCmdRule
 CMD_VACATION_RAG = {"cmd": "vacation_rag"}  # stub → Block 3
 CMD_VACATION_SCHEDULE = {"cmd": "vacation_schedule"}  # FR-11: schedule navigator (Block 5)
@@ -123,18 +124,29 @@ def stub_kb(*, back_payload: dict | None = None) -> Keyboard:
 # ── entity selection keyboard ──────────────────────────────────────
 
 
-def entity_select_kb(cmd: str, *, back_payload: dict) -> Keyboard:
+def entity_select_kb(
+    cmd: str,
+    *,
+    back_payload: dict,
+    extra_payload: dict | None = None,
+) -> Keyboard:
     """4 legal-entity buttons (NFR-7) + service row.
 
     *cmd* is the ``cmd`` value embedded in each button payload so the
     receiving handler can distinguish contexts (e.g. ``hire_entity``
     vs ``vacation_template``).
+
+    *extra_payload* is merged into each button's payload to carry
+    additional context (e.g. vacation type) through the flow.
     """
     kb = Keyboard(one_time=False, inline=False)
     for i, entity in enumerate(ENTITIES):
         if i > 0:
             kb.row()
-        kb.add(Text(entity.full_name, payload={"cmd": cmd, "entity": entity.id}))
+        payload = {"cmd": cmd, "entity": entity.id}
+        if extra_payload:
+            payload.update(extra_payload)
+        kb.add(Text(entity.full_name, payload=payload))
     return with_service_row(kb, back_payload=back_payload)
 
 
@@ -187,6 +199,25 @@ def vacation_menu_kb() -> Keyboard:
     kb.row()
     kb.add(Text("🗓️ Навигатор по графику отпусков", payload=CMD_VACATION_SCHEDULE))
     return with_service_row(kb, back_payload=CMD_HOME)
+
+
+def vacation_type_kb() -> Keyboard:
+    """Vacation type selection keyboard (FR-8 intermediate step)."""
+    kb = Keyboard(one_time=False, inline=False)
+    kb.add(
+        Text(
+            "💰 Оплачиваемый",
+            payload={"cmd": "vacation_type", "vtype": "paid"},
+        )
+    )
+    kb.row()
+    kb.add(
+        Text(
+            "💸 За свой счет",
+            payload={"cmd": "vacation_type", "vtype": "unpaid"},
+        )
+    )
+    return with_service_row(kb, back_payload=CMD_VACATION)
 
 
 # ── pay menu ──────────────────────────────────────────────────────

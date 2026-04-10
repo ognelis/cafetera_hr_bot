@@ -18,6 +18,7 @@ from app.integrations.vk.keyboards import (
     entity_select_kb,
     stub_kb,
     vacation_menu_kb,
+    vacation_type_kb,
 )
 from app.integrations.vk.rules import PayloadCmdRule
 
@@ -35,14 +36,35 @@ async def on_vacation(message: Message) -> None:
     )
 
 
-# ── FR-8: select entity for leave application template ─────────────
+# ── FR-8: select vacation type for leave application template ──────
 
 
 @bl.message(payload=CMD_VACATION_SELECT)
 async def on_vacation_select(message: Message) -> None:
     await message.answer(
-        "📄 Заявление на отпуск\n\nВыберите юридическое лицо:",
-        keyboard=entity_select_kb(CMD_VACATION_TEMPLATE, back_payload=CMD_VACATION).get_json(),
+        "📄 Заявление на отпуск\n\nВыберите тип отпуска:",
+        keyboard=vacation_type_kb().get_json(),
+    )
+
+
+# ── FR-8: vacation type selected → entity selection ────────────────
+
+
+@bl.message(PayloadCmdRule("vacation_type"))
+async def on_vacation_type(message: Message, payload_data: dict) -> None:
+    vtype = payload_data.get("vtype", "paid")
+    vtype_label = (
+        "За свой счет"
+        if vtype == "unpaid"
+        else "Оплачиваемый"
+    )
+    await message.answer(
+        f"📄 Заявление на отпуск — {vtype_label}\n\nВыберите юридическое лицо:",
+        keyboard=entity_select_kb(
+            CMD_VACATION_TEMPLATE,
+            back_payload=CMD_VACATION_SELECT,
+            extra_payload={"vtype": vtype},
+        ).get_json(),
     )
 
 
@@ -52,12 +74,15 @@ async def on_vacation_select(message: Message) -> None:
 @bl.message(PayloadCmdRule(CMD_VACATION_TEMPLATE))
 async def on_vacation_template(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
-    entity = await get_entity_or_error(message, entity_id, back_payload=CMD_VACATION)
+    entity = await get_entity_or_error(
+        message, entity_id, back_payload=CMD_VACATION_SELECT
+    )
     if entity is None:
         return
+    vtype = payload_data.get("vtype", "paid")
     await message.answer(
-        vacation_template_text(entity),
-        keyboard=stub_kb(back_payload=CMD_VACATION).get_json(),
+        vacation_template_text(entity, vtype),
+        keyboard=stub_kb(back_payload=CMD_VACATION_SELECT).get_json(),
     )
 
 

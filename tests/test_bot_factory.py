@@ -46,33 +46,33 @@ class TestHandlerLabelerOrder:
 
 class TestCreateBot:
     def test_returns_bot_instance(self):
-        settings = Settings(vk_access_token="test_token_placeholder")
+        settings = Settings(vk_access_token="test_token_placeholder", _env_file=None)
         bot = create_bot(settings)
         from vkbottle import Bot
         assert isinstance(bot, Bot)
 
     def test_handlers_registered(self):
-        settings = Settings(vk_access_token="test_token_placeholder")
+        settings = Settings(vk_access_token="test_token_placeholder", _env_file=None)
         bot = create_bot(settings)
         handler_count = len(bot.labeler.message_view.handlers)
         # start: 2 (on_start, on_home)
         # ask: 2 (on_ask, on_ask_text)
         # hire: 5 (hire, hire_entity, checklist, contract, onboarding)
         # fire: 5 (fire, fire_entity, checklist, bypass, rag, grounds)
-        # vacation: 5 (vacation, select, template, rag, schedule)
+        # vacation: 6 (vacation, select, type, template, rag, schedule)
         # pay: 3 (on_pay, on_pay_overtime, on_pay_bonus)
         # sections: 2 (sick, probation)
         # fallback: 1 (on_fallback)
-        assert handler_count == 25
+        assert handler_count == 26
 
     def test_token_forwarded_to_bot(self):
         """Verify test placeholder token is used, not a real one (09-security)."""
         token = "test_token_placeholder"
-        settings = Settings(vk_access_token=token)
+        settings = Settings(vk_access_token=token, _env_file=None)
         bot = create_bot(settings)
         assert bot.api.token_generator.token == token
 
     def test_state_dispenser_shared(self):
-        settings = Settings(vk_access_token="test_token_placeholder")
+        settings = Settings(vk_access_token="test_token_placeholder", _env_file=None)
         bot = create_bot(settings)
         assert bot.state_dispenser is get_state_dispenser()

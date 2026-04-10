@@ -14,10 +14,10 @@ class LegalEntity:
 
 # NFR-7: buttons must show full legal-entity names.
 ENTITIES: tuple[LegalEntity, ...] = (
-    LegalEntity(1, "Кофейни Кафетера", 'ООО «Кофейни Кафетера»'),
-    LegalEntity(2, "Кафетера Рус", 'ООО «Кафетера Рус»'),
-    LegalEntity(3, "ИП Кафетера", "ИП Кафетера"),
-    LegalEntity(4, "Кафетера Групп", 'ООО «Кафетера Групп»'),
+    LegalEntity(1, "Кафетера", 'ООО «Кафетера Групп Рус»'),
+    LegalEntity(2, "Вкусно", 'ООО «Вкусно»'),
+    LegalEntity(3, "Аврора", 'ООО «Аврора РусКо»'),
+    LegalEntity(4, "СМАРТ", 'ООО «СМАРТ ПИТАНИЕ»'),
 )
 
 ENTITY_BY_ID: dict[int, LegalEntity] = {e.id: e for e in ENTITIES}

@@ -225,12 +225,12 @@ class TestConfigChunkingDefaults:
 
     def test_config_chunk_strategy_default(self):
         """Settings defaults chunk_strategy to 'recursive'."""
-        settings = Settings()
+        settings = Settings(_env_file=None)
         assert settings.chunk_strategy == "recursive"
 
     def test_config_semantic_defaults(self):
         """Settings defaults semantic_breakpoint_threshold_type to 'percentile'
         and semantic_breakpoint_threshold_amount to 95."""
-        settings = Settings()
+        settings = Settings(_env_file=None)
         assert settings.semantic_breakpoint_threshold_type == "percentile"
         assert settings.semantic_breakpoint_threshold_amount == 95

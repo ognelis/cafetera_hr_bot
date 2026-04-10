@@ -96,9 +96,15 @@ FIRE_BYPASS_SHEET_TEXT = (
 # ── 🏖 Vacation: leave application template (FR-8) ────────────────
 
 
-def vacation_template_text(entity: LegalEntity) -> str:
+def vacation_template_text(entity: LegalEntity, vtype: str = "paid") -> str:
+    vtype_label = (
+        "За свой счет"
+        if vtype == "unpaid"
+        else "Оплачиваемый"
+    )
     return (
-        f"📄 Шаблон заявления на отпуск — {entity.full_name}\n\n"
+        f"📄 Шаблон заявления на отпуск — {entity.full_name}\n"
+        f"Тип: {vtype_label}\n\n"
         f"{TEMPLATE_DISCLAIMER}\n\n"
         f"{TEMPLATE_FILE_STUB}"
     )

@@ -14,7 +14,10 @@
 - [documents.py](file://app/api/documents.py)
 - [qa_service.py](file://app/domain/qa_service.py)
 - [main.py](file://app/main.py)
+- [resources.py](file://app/resources.py)
 - [test_parser.py](file://tests/test_parser.py)
+- [test_semantic_chunker.py](file://tests/test_semantic_chunker.py)
+- [test_hybrid_search.py](file://tests/test_hybrid_search.py)
 - [test_rag_block6.py](file://tests/test_rag_block6.py)
 - [test_indexer.py](file://tests/test_indexer.py)
 - [pyproject.toml](file://pyproject.toml)
@@ -22,12 +25,15 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced chunking algorithms with token-based processing using tiktoken encoding for accurate token counting
-- Improved text segmentation with 500-token chunk size and 50-token overlap for optimal LLM performance
-- Updated parser functions to use `RecursiveCharacterTextSplitter.from_tiktoken_encoder()` for precise token-based splitting
-- Added comprehensive test coverage for new token-based chunking functionality
-- Updated configuration system to support token-based chunking parameters with cl100k_base encoding
-- Enhanced backward compatibility while maintaining existing .docx and .doc format support
+- Added semantic chunking functionality with new chunking strategies ('recursive' and 'semantic')
+- Enhanced configuration options for breakpoint thresholds with four threshold types
+- Integrated LangChain's SemanticChunker for embedding-based semantic chunking
+- Added hybrid search capabilities with sparse embeddings support for BM25 keyword matching
+- Extended parser functions to support semantic chunking with configurable breakpoint thresholds
+- Updated retriever to support hybrid dense-sparse retrieval modes
+- Enhanced indexer to support sparse embeddings during vector indexing
+- Added comprehensive test coverage for semantic chunking and hybrid search functionality
+- Updated configuration system to support semantic chunking parameters and hybrid retrieval modes
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -41,43 +47,48 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the RAG (Retrieval-Augmented Generation) Parser Enhancement for the Cafetera HR Bot. The enhancement significantly improves document processing capabilities by implementing token-based chunking with tiktoken encoding, replacing character-based chunking with precise token counting for optimal LLM performance. The system now features enhanced chunking algorithms with 500-token chunk size and 50-token overlap, comprehensive test coverage for new functionality, and robust integration with Qdrant vector storage. The enhancement maintains backward compatibility while providing superior text segmentation accuracy and improved retrieval performance across both modern .docx and legacy .doc document formats.
+This document describes the RAG (Retrieval-Augmented Generation) Parser Enhancement for the Cafetera HR Bot. The enhancement significantly expands document processing capabilities by implementing advanced chunking strategies including semantic chunking with LangChain's SemanticChunker, enhanced configuration options for breakpoint thresholds, and hybrid search functionality with sparse embeddings support for BM25 keyword matching. The system now features dual chunking strategies ('recursive' and 'semantic'), comprehensive test coverage for new functionality, and robust integration with Qdrant vector storage supporting both dense and sparse embeddings. The enhancement maintains backward compatibility while providing superior text segmentation accuracy, improved retrieval performance through semantic understanding, and enhanced search capabilities through hybrid dense-sparse retrieval modes.
 
 ## Project Structure
-The RAG system is organized into cohesive modules with enhanced token-based chunking capabilities and comprehensive testing infrastructure:
-- app/rag: Core RAG components with token-based processing (parser, indexer, retriever, chain, prompts)
-- scripts: Batch ingestion utilities with token-based chunking and configurable parameters
-- app/domain: Business services orchestrating document lifecycle with enhanced chunking
+The RAG system is organized into cohesive modules with enhanced semantic chunking capabilities, hybrid search support, and comprehensive testing infrastructure:
+- app/rag: Core RAG components with semantic chunking and hybrid search (parser, indexer, retriever, chain, prompts)
+- scripts: Batch ingestion utilities with semantic chunking and configurable parameters
+- app/domain: Business services orchestrating document lifecycle with enhanced chunking strategies
 - app/storage: Metadata persistence and S3 integration
-- app/api: Admin endpoints for document management with token-aware processing
-- app/config: Environment-driven configuration with token-based chunking parameters
-- tests: Comprehensive unit and integration tests for token-based chunking functionality
+- app/api: Admin endpoints for document management with semantic-aware processing
+- app/config: Environment-driven configuration with semantic chunking and hybrid retrieval parameters
+- app/resources: Resource management with hybrid search capability initialization
+- tests: Comprehensive unit and integration tests for semantic chunking and hybrid search functionality
 
 ```mermaid
 graph TB
-subgraph "Enhanced Token-Based RAG Core"
-P["parser.py<br/>Token-based parsing & chunking<br/>tiktoken encoding<br/>500-token chunks"]
-I["indexer.py<br/>Chunk prep & Qdrant ops"]
-R["retriever.py<br/>Embeddings & retriever"]
+subgraph "Enhanced Semantic Chunking RAG Core"
+P["parser.py<br/>Semantic chunking & dual strategies<br/>LangChain SemanticChunker<br/>4 breakpoint threshold types"]
+I["indexer.py<br/>Chunk prep & Qdrant ops<br/>Sparse embeddings support"]
+R["retriever.py<br/>Dense & hybrid retriever<br/>BM25 sparse embeddings"]
 C["chain.py<br/>RAG chain builder"]
 PR["prompts.py<br/>System prompts"]
+RES["resources.py<br/>Hybrid search resource init<br/>FastEmbedSparse"]
 end
 subgraph "Application Layer"
-DS["document_service.py<br/>Document lifecycle"]
+DS["document_service.py<br/>Document lifecycle<br/>Semantic chunking support"]
 DR["document_repo.py<br/>SQLite metadata"]
-API["documents.py<br/>Admin API<br/>Token-aware chunking"]
-QA["qa_service.py<br/>QA handler"]
-CFG["config.py<br/>Settings<br/>token-based chunking"]
+API["documents.py<br/>Admin API<br/>Semantic-aware chunking"]
+QA["qa_service.py<br/>QA handler<br/>Hybrid retrieval support"]
+CFG["config.py<br/>Settings<br/>semantic chunking & hybrid"]
 MAIN["main.py<br/>App lifecycle"]
 end
 subgraph "External Systems"
 QD["Qdrant"]
 S3["S3 Storage"]
 LLM["LLM Provider"]
+SEM["SemanticChunker"]
+FE["FastEmbedSparse"]
 end
 P --> I
 I --> QD
 R --> QD
+R --> FE
 C --> LLM
 API --> DS
 DS --> DR
@@ -85,6 +96,8 @@ DS --> QD
 DS --> S3
 QA --> R
 QA --> C
+RES --> FE
+RES --> SEM
 MAIN --> DS
 MAIN --> QA
 CFG --> R
@@ -92,74 +105,82 @@ CFG --> C
 ```
 
 **Diagram sources**
-- [parser.py:1-146](file://app/rag/parser.py#L1-L146)
-- [indexer.py:1-152](file://app/rag/indexer.py#L1-L152)
-- [retriever.py:1-103](file://app/rag/retriever.py#L1-L103)
-- [chain.py:1-95](file://app/rag/chain.py#L1-L95)
+- [parser.py:16-174](file://app/rag/parser.py#L16-L174)
+- [indexer.py:49-71](file://app/rag/indexer.py#L49-L71)
+- [retriever.py:88-160](file://app/rag/retriever.py#L88-L160)
+- [chain.py:98-122](file://app/rag/chain.py#L98-L122)
 - [prompts.py:1-19](file://app/rag/prompts.py#L1-L19)
-- [document_service.py:1-280](file://app/domain/document_service.py#L1-L280)
-- [document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
-- [documents.py:1-531](file://app/api/documents.py#L1-L531)
-- [qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
-- [config.py:1-43](file://app/config.py#L1-L43)
-- [main.py:1-119](file://app/main.py#L1-L119)
+- [resources.py:120-132](file://app/resources.py#L120-L132)
+- [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
+- [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [qa_service.py:102-148](file://app/domain/qa_service.py#L102-L148)
+- [config.py:54-62](file://app/config.py#L54-L62)
+- [main.py:29-38](file://app/main.py#L29-L38)
 
 **Section sources**
-- [parser.py:1-146](file://app/rag/parser.py#L1-L146)
-- [indexer.py:1-152](file://app/rag/indexer.py#L1-L152)
-- [retriever.py:1-103](file://app/rag/retriever.py#L1-L103)
-- [chain.py:1-95](file://app/rag/chain.py#L1-L95)
+- [parser.py:16-174](file://app/rag/parser.py#L16-L174)
+- [indexer.py:49-71](file://app/rag/indexer.py#L49-L71)
+- [retriever.py:88-160](file://app/rag/retriever.py#L88-L160)
+- [chain.py:98-122](file://app/rag/chain.py#L98-L122)
 - [prompts.py:1-19](file://app/rag/prompts.py#L1-L19)
-- [ingest.py:1-188](file://scripts/ingest.py#L1-L188)
-- [document_service.py:1-280](file://app/domain/document_service.py#L1-L280)
-- [document_repo.py:1-202](file://app/storage/document_repo.py#L1-L202)
-- [config.py:1-43](file://app/config.py#L1-L43)
-- [documents.py:1-531](file://app/api/documents.py#L1-L531)
-- [qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
-- [main.py:1-119](file://app/main.py#L1-L119)
+- [resources.py:120-132](file://app/resources.py#L120-L132)
+- [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
+- [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [qa_service.py:102-148](file://app/domain/qa_service.py#L102-L148)
+- [config.py:54-62](file://app/config.py#L54-L62)
+- [main.py:29-38](file://app/main.py#L29-L38)
 
 ## Core Components
-This section outlines the primary components of the RAG Parser Enhancement with token-based chunking capabilities and comprehensive testing infrastructure.
+This section outlines the primary components of the RAG Parser Enhancement with semantic chunking capabilities, hybrid search support, and comprehensive testing infrastructure.
 
-- Token-Based Multi-Format Document Parser and Chunker
-  - Extracts text from both .docx and .doc files using tiktoken encoding for precise token counting
-  - .docx files: Structured section extraction using heading styles with intelligent grouping and token-based splitting
-  - .doc files: Legacy format processing using docx2txt with unified section treatment and token-based chunking
-  - **Enhanced**: Token-based chunking with 500-token chunk size and 50-token overlap for optimal LLM performance
-  - Splits content into overlapping chunks using cl100k_base encoding for accurate token counting
-  - Preserves metadata (source filename, nearest section heading for .docx, filename stem for .doc)
-  - Returns LangChain Document objects ready for embedding with token-aware chunking
+- **Semantic Chunking Parser and Dual Strategy Engine**
+  - Implements dual chunking strategies: 'recursive' (token-based) and 'semantic' (embedding-based)
+  - Integrates LangChain's SemanticChunker for intelligent semantic boundary detection
+  - Supports four breakpoint threshold types: 'percentile', 'standard_deviation', 'interquartile', 'gradient'
+  - Configurable breakpoint threshold amounts with default 95th percentile setting
+  - Extracts text from both .docx and .doc files with semantic-aware processing
+  - .docx files: Structured section extraction with semantic chunking preserving heading relationships
+  - .doc files: Legacy format processing with semantic chunking treating entire text as single section
+  - **Enhanced**: Semantic chunking with configurable breakpoint thresholds for optimal chunk boundaries
+  - Returns LangChain Document objects with semantic-aware metadata and chunk positioning
 
-- Indexer
-  - Enriches chunk metadata with document-level identifiers and unique chunk IDs
-  - Adds chunks to Qdrant vector collection with token-based metadata
-  - Supports deletion, toggling search availability, and counting chunks per document
+- **Hybrid Search Retriever with Sparse Embeddings**
+  - Supports both dense vector retrieval and hybrid dense-sparse retrieval modes
+  - Integrates FastEmbedSparse for BM25 keyword matching alongside dense vector embeddings
+  - Configurable retrieval modes: 'dense' (vector-only) and 'hybrid' (dense + sparse)
+  - Automatic sparse embedding initialization when hybrid mode is enabled
+  - Graceful fallback to dense-only retrieval when sparse embeddings are unavailable
+  - Maintains backward compatibility with existing dense retrieval workflows
 
-- Retriever
-  - Builds embeddings based on provider configuration (OpenAI-compatible, Llama.cpp, Ollama)
-  - Wraps Qdrant collection as a LangChain vector store
-  - Constructs a dense retriever with filters for searchable chunks
+- **Enhanced Indexer with Sparse Embedding Support**
+  - Extends chunk preparation to support sparse embeddings alongside dense vectors
+  - Passes sparse_embedding parameter through to QdrantVectorStore constructor
+  - Maintains consistency between dense and sparse embedding indexing operations
+  - Supports hybrid indexing workflows with both embedding types
 
-- RAG Chain Builder
-  - Composes retriever, formatted context, system prompt, LLM, and output parser
-  - Supports multiple LLM providers with provider-specific configuration
-  - Provides a unified interface for QA queries with token-efficient context
+- **Resource Management with Hybrid Search Integration**
+  - Initializes sparse embeddings automatically when hybrid search mode is enabled
+  - Graceful degradation when sparse embedding dependencies are unavailable
+  - Integrates FastEmbedSparse model initialization with configurable model names
+  - Supports both automatic and manual sparse embedding configuration
 
-- QA Service
-  - Initializes the RAG chain at application startup
-  - Handles runtime errors gracefully and truncates long answers to platform limits
-  - Offers a simple ask() API for transport handlers
+- **Configuration System with Semantic and Hybrid Capabilities**
+  - Centralized Settings class with semantic chunking parameters
+  - Default chunk_strategy set to 'recursive' for backward compatibility
+  - Semantic breakpoint threshold configuration with four supported types
+  - Hybrid retrieval mode configuration with sparse embedding model specification
+  - Retrieval mode selection between 'dense' and 'hybrid' operations
 
 **Section sources**
-- [parser.py:24-146](file://app/rag/parser.py#L24-L146)
-- [indexer.py:23-151](file://app/rag/indexer.py#L23-L151)
-- [retriever.py:22-102](file://app/rag/retriever.py#L22-L102)
-- [chain.py:25-94](file://app/rag/chain.py#L25-L94)
-- [prompts.py:5-18](file://app/rag/prompts.py#L5-L18)
-- [qa_service.py:51-105](file://app/domain/qa_service.py#L51-L105)
+- [parser.py:58-174](file://app/rag/parser.py#L58-L174)
+- [parser.py:177-266](file://app/rag/parser.py#L177-L266)
+- [retriever.py:88-160](file://app/rag/retriever.py#L88-L160)
+- [indexer.py:49-71](file://app/rag/indexer.py#L49-L71)
+- [resources.py:120-132](file://app/resources.py#L120-L132)
+- [config.py:54-62](file://app/config.py#L54-L62)
 
 ## Architecture Overview
-The RAG Parser Enhancement integrates token-based ingestion, storage, retrieval, and generation into a cohesive pipeline with enhanced chunking accuracy and comprehensive testing. The flow begins with document ingestion (batch or admin upload), continues through token-aware chunk preparation and vector indexing with precise token counting, and concludes with retrieval augmented generation for answering questions with optimal context length.
+The RAG Parser Enhancement integrates semantic chunking, hybrid search capabilities, and dual retrieval strategies into a comprehensive pipeline with enhanced chunking accuracy and flexible retrieval modes. The system now supports both traditional token-based chunking and intelligent semantic chunking, with optional hybrid search combining dense vector similarity with sparse BM25 keyword matching for superior retrieval performance.
 
 ```mermaid
 sequenceDiagram
@@ -167,289 +188,259 @@ participant Admin as "Admin UI/API"
 participant API as "Documents API"
 participant Service as "DocumentService"
 participant S3 as "S3 Storage"
-participant Parser as "Token-Based Parser<br/>tiktoken encoding<br/>500-token chunks"
-participant Indexer as "Indexer"
-participant Qdrant as "Qdrant"
-Admin->>API : Upload .docx or .doc<br/>with token-based chunking
+participant Parser as "Semantic Parser<br/>Dual strategies<br/>4 breakpoint types"
+participant Indexer as "Indexer<br/>Sparse embedding support"
+participant Qdrant as "Qdrant<br/>Dense + Sparse"
+Admin->>API : Upload .docx or .doc<br/>with semantic chunking
 API->>S3 : Store file
 API->>Service : Create metadata record
-API->>Service : Schedule background indexing<br/>with token-aware chunking
+API->>Service : Schedule background indexing<br/>with semantic-aware chunking
 Service->>S3 : Download file
-Service->>Parser : load_document(path)<br/>500-token chunks
-Parser->>Parser : load_docx() or load_doc()<br/>tiktoken encoding
-Parser-->>Service : List of Documents<br/>token-aware chunks
+Service->>Parser : load_document(path)<br/>semantic or recursive strategy
+Parser->>Parser : SemanticChunker or Recursive splitter<br/>breakpoint thresholds
+Parser-->>Service : List of Documents<br/>semantic chunks
 Service->>Indexer : Enrich metadata + prepare chunks
-Indexer->>Qdrant : Add vectors with token metadata
+Indexer->>Qdrant : Add vectors + sparse embeddings
 Service-->>API : Update status to completed
 API-->>Admin : Show indexed document
 ```
 
 **Diagram sources**
-- [documents.py:265-351](file://app/api/documents.py#L265-L351)
-- [document_service.py:56-132](file://app/domain/document_service.py#L56-L132)
-- [document_repo.py:69-99](file://app/storage/document_repo.py#L69-L99)
-- [parser.py:125-146](file://app/rag/parser.py#L125-L146)
-- [indexer.py:23-71](file://app/rag/indexer.py#L23-L71)
+- [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
+- [parser.py:134-140](file://app/rag/parser.py#L134-L140)
+- [indexer.py:65-71](file://app/rag/indexer.py#L65-L71)
 
 **Section sources**
-- [documents.py:109-128](file://app/api/documents.py#L109-L128)
-- [document_service.py:83-132](file://app/domain/document_service.py#L83-L132)
+- [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
 - [ingest.py:49-155](file://scripts/ingest.py#L49-L155)
 
 ## Detailed Component Analysis
 
-### Token-Based Chunking System with Tiktoken Encoding
-The parser now features a sophisticated token-based chunking system using tiktoken encoding for precise token counting. The enhanced parser extracts structured sections from .docx files using heading styles while providing unified processing for .doc files through docx2txt integration, with all chunking operations utilizing cl100k_base encoding for accurate token measurement.
+### Semantic Chunking System with Multiple Strategies
+The parser now features a sophisticated dual-strategy chunking system supporting both traditional token-based chunking and intelligent semantic chunking. The semantic chunking leverages LangChain's SemanticChunker with configurable breakpoint thresholds for optimal chunk boundaries based on semantic similarity.
 
 ```mermaid
 flowchart TD
 Start(["load_document(path)"]) --> CheckExt{"Check file extension"}
-CheckExt --> |".docx"| LoadDocx["load_docx(path)<br/>tiktoken encoding<br/>500-token chunks"]
-CheckExt --> |".doc"| LoadDoc["load_doc(path)<br/>tiktoken encoding<br/>500-token chunks"]
+CheckExt --> |".docx"| LoadDocx["load_docx(path)<br/>Dual strategies<br/>SemanticChunker"]
+CheckExt --> |".doc"| LoadDoc["load_doc(path)<br/>Dual strategies<br/>SemanticChunker"]
 LoadDocx --> Extract["_extract_sections(path)"]
 LoadDoc --> ProcessLegacy["docx2txt.process(path)"]
-Extract --> Split["RecursiveCharacterTextSplitter.from_tiktoken_encoder()<br/>cl100k_base encoding<br/>500-token chunks"]
-ProcessLegacy --> CreateSection["Create single section from filename stem"]
-SplitLegacy["RecursiveCharacterTextSplitter.from_tiktoken_encoder()<br/>cl100k_base encoding<br/>500-token chunks"] --> CreateSection
-Split --> Append["Create LCDocument with metadata"]
-SplitLegacy --> Append
-Append --> Return["Return list of Documents"]
-subgraph "Token-Based Configuration"
-Config["Settings.chunk_size & chunk_overlap<br/>500 & 50 tokens"]
-Default["CHUNK_SIZE & CHUNK_OVERLAP defaults<br/>500 & 50 tokens"]
-Config --> LoadDocx
-Config --> LoadDoc
-Default --> LoadDocx
-Default --> LoadDoc
+Extract --> Strategy{"Strategy: recursive or semantic"}
+ProcessLegacy --> Strategy
+Strategy --> |"recursive"| RecursiveSplit["RecursiveCharacterTextSplitter<br/>tiktoken encoding<br/>500-token chunks"]
+Strategy --> |"semantic"| SemanticSplit["SemanticChunker<br/>4 breakpoint types<br/>Breakpoint thresholds"]
+RecursiveSplit --> CreateDocs["Create LCDocument with metadata"]
+SemanticSplit --> PositionMapping["Position mapping & section assignment"]
+PositionMapping --> CreateDocs
+CreateDocs --> Return["Return list of Documents"]
+subgraph "Semantic Configuration"
+Config["chunk_strategy: 'recursive' or 'semantic'<br/>breakpoint_threshold_type:<br/>percentile | std | iq | gradient<br/>breakpoint_threshold_amount: 95"]
 end
+Config --> Strategy
 ```
 
 **Diagram sources**
-- [parser.py:24-52](file://app/rag/parser.py#L24-L52)
-- [parser.py:55-86](file://app/rag/parser.py#L55-L86)
-- [parser.py:89-123](file://app/rag/parser.py#L89-L123)
-- [parser.py:127-146](file://app/rag/parser.py#L127-L146)
-- [config.py:40-42](file://app/config.py#L40-L42)
+- [parser.py:270-323](file://app/rag/parser.py#L270-L323)
+- [parser.py:58-174](file://app/rag/parser.py#L58-L174)
+- [parser.py:177-266](file://app/rag/parser.py#L177-L266)
+- [config.py:54-57](file://app/config.py#L54-L57)
 
 **Section sources**
-- [parser.py:15-20](file://app/rag/parser.py#L15-L20)
-- [parser.py:24-52](file://app/rag/parser.py#L24-L52)
-- [parser.py:55-86](file://app/rag/parser.py#L55-L86)
-- [parser.py:89-123](file://app/rag/parser.py#L89-L123)
-- [parser.py:127-146](file://app/rag/parser.py#L127-L146)
-- [config.py:40-42](file://app/config.py#L40-L42)
+- [parser.py:270-323](file://app/rag/parser.py#L270-L323)
+- [parser.py:58-174](file://app/rag/parser.py#L58-L174)
+- [parser.py:177-266](file://app/rag/parser.py#L177-L266)
+- [config.py:54-57](file://app/config.py#L54-L57)
 
-### Legacy .doc Format Processing with Token-Based Chunking
-The new `load_doc()` function provides comprehensive support for legacy Microsoft Word documents (.doc format) with token-based chunking using tiktoken encoding. Unlike .docx files, .doc files lack structured heading styles, so the entire document text is treated as a single section with the filename stem serving as the section heading, processed through the token-aware chunking system with 500-token chunk size and 50-token overlap.
+### Semantic Chunking with LangChain SemanticChunker
+The semantic chunking functionality integrates LangChain's SemanticChunker for intelligent boundary detection based on embedding similarity. This approach identifies natural semantic boundaries rather than relying solely on structural markers or fixed token counts.
 
 ```mermaid
 flowchart TD
-StartDoc[".doc Processing"] --> ImportLib["Import docx2txt"]
-ImportLib --> ProcessText["docx2txt.process(path)"]
-ProcessText --> GetStem["Get filename stem as section heading"]
-GetStem --> SplitText["RecursiveCharacterTextSplitter.from_tiktoken_encoder()<br/>cl100k_base encoding<br/>500-token chunks"]
-SplitText --> CreateDocs["Create LCDocument for each chunk"]
-CreateDocs --> SetMetadata["Set metadata: source=filename, section=stem"]
-SetMetadata --> ReturnDocs["Return list of Documents"]
-subgraph "Token-Based Parameters"
-Params["chunk_size=500 & chunk_overlap=50<br/>tiktoken encoding"]
+StartSemantic["Semantic Chunking Process"] --> BuildText["Build full text with section offsets<br/>Track positions for mapping"]
+BuildText --> CreateChunker["Create SemanticChunker<br/>with embeddings model"]
+CreateChunker --> GenerateChunks["Generate semantic chunks<br/>4 breakpoint threshold types"]
+GenerateChunks --> MapPositions["Map chunk positions<br/>to original text offsets"]
+MapPositions --> FindSection["Find best matching section<br/>by overlap calculation"]
+FindSection --> CreateDocs["Create LCDocument<br/>with semantic metadata"]
+CreateDocs --> ReturnDocs["Return semantic chunks"]
+subgraph "Breakpoint Threshold Types"
+Types["percentile: 95th percentile<br/>standard_deviation: std dev threshold<br/>interquartile: IQR method<br/>gradient: gradient-based detection"]
 end
-Params --> SplitText
+Types --> CreateChunker
 ```
 
 **Diagram sources**
-- [parser.py:89-123](file://app/rag/parser.py#L89-L123)
+- [parser.py:115-172](file://app/rag/parser.py#L115-L172)
+- [parser.py:240-264](file://app/rag/parser.py#L240-L264)
 
 **Section sources**
-- [parser.py:89-123](file://app/rag/parser.py#L89-L123)
+- [parser.py:115-172](file://app/rag/parser.py#L115-L172)
+- [parser.py:240-264](file://app/rag/parser.py#L240-L264)
 
-### Enhanced Document Format Dispatcher with Token-Based Processing
-The `load_document()` function serves as a central dispatcher that routes file processing based on file extensions, with support for token-based chunking parameters. This design ensures backward compatibility while enabling seamless support for multiple document formats with precise token counting and optimal chunk sizing.
-
-```mermaid
-flowchart TD
-StartDispatch["load_document(path)"] --> GetSuffix["Get lowercase file suffix"]
-GetSuffix --> CheckDocx{".docx?"}
-CheckDocx --> |Yes| RouteDocx["Return load_docx(path)<br/>500-token chunks"]
-CheckDocx --> |No| CheckDoc{".doc?"}
-CheckDoc --> |Yes| RouteDoc["Return load_doc(path)<br/>500-token chunks"]
-CheckDoc --> |No| RaiseError["Raise ValueError: Unsupported extension"]
-subgraph "Token-Based Processing"
-Params["500-token chunks & 50-token overlap<br/>tiktoken encoding"]
-end
-Params --> RouteDocx
-Params --> RouteDoc
-```
-
-**Diagram sources**
-- [parser.py:127-146](file://app/rag/parser.py#L127-L146)
-
-**Section sources**
-- [parser.py:127-146](file://app/rag/parser.py#L127-L146)
-
-### Token-Based Configuration System
-The chunking system is now centrally configured through the Settings class with token-based parameters, allowing administrators to fine-tune document processing granularity using precise token measurements. The default values (chunk_size: 500, chunk_overlap: 50) provide optimal performance for typical HR documents while ensuring accurate token counting using cl100k_base encoding.
-
-```mermaid
-classDiagram
-class Settings {
-+chunk_size : int = 500
-+chunk_overlap : int = 50
-+tiktoken encoding_name : "cl100k_base"
-}
-class ParserFunctions {
-+load_docx(path) : list[LCDocument]
-+load_doc(path) : list[LCDocument]
-+load_document(path) : list[LCDocument]
-}
-Settings --> ParserFunctions : provides token-based defaults
-ParserFunctions --> ParserFunctions : parameter propagation
-```
-
-**Diagram sources**
-- [config.py:40-42](file://app/config.py#L40-L42)
-- [parser.py:55-146](file://app/rag/parser.py#L55-L146)
-
-**Section sources**
-- [config.py:40-42](file://app/config.py#L40-L42)
-- [parser.py:55-146](file://app/rag/parser.py#L55-L146)
-
-### Indexer Operations with Token Metadata
-The indexer enriches raw chunks with document-level metadata and unique identifiers, then adds them to Qdrant with token-aware metadata. It supports bulk indexing, deletion by document ID, toggling search availability, and counting chunks per document. These operations maintain consistency between SQLite metadata and Qdrant payloads with enhanced token-based chunk information.
-
-```mermaid
-classDiagram
-class Indexer {
-+prepare_chunks(chunks, document_id, filename, s3_key, is_search_enabled) Document[]
-+index_chunks(client, embeddings, collection_name, chunks) int
-+delete_document_chunks(client, collection_name, document_id) void
-+set_search_enabled(client, collection_name, document_id, enabled) void
-+count_document_chunks(client, collection_name, document_id) int
-}
-```
-
-**Diagram sources**
-- [indexer.py:23-151](file://app/rag/indexer.py#L23-L151)
-
-**Section sources**
-- [indexer.py:23-46](file://app/rag/indexer.py#L23-L46)
-- [indexer.py:49-71](file://app/rag/indexer.py#L49-L71)
-- [indexer.py:74-97](file://app/rag/indexer.py#L74-L97)
-- [indexer.py:100-131](file://app/rag/indexer.py#L100-L131)
-- [indexer.py:134-151](file://app/rag/indexer.py#L134-L151)
-
-### Retriever and Token-Aware Embeddings
-The retriever builds embeddings based on provider configuration and wraps Qdrant as a vector store. It constructs a retriever that filters out chunks where search is disabled, ensuring only relevant content participates in retrieval. The token-based chunking configuration affects the granularity of embeddings generated and improves retrieval accuracy.
+### Hybrid Search Architecture with Sparse Embeddings
+The retriever system now supports hybrid dense-sparse retrieval combining vector similarity with BM25 keyword matching. This dual approach leverages both semantic understanding and lexical matching for superior search results.
 
 ```mermaid
 sequenceDiagram
 participant Settings as "Settings"
-participant Retriever as "build_retriever"
-participant Embeddings as "build_embeddings"
-participant Qdrant as "QdrantVectorStore"
-Settings->>Retriever : llm_provider, embedding_model, urls
-Retriever->>Embeddings : Select provider and create embeddings
-Embeddings-->>Retriever : Embeddings instance
-Retriever->>Qdrant : Wrap collection
-Qdrant-->>Retriever : VectorStore
-Retriever-->>Retriever : Filtered retriever (k, filter)
+participant Resources as "build_resources"
+participant Retriever as "build_sparse_embeddings"
+participant Sparse as "FastEmbedSparse"
+Settings->>Resources : retrieval_mode="hybrid"
+Resources->>Retriever : Call with settings
+Retriever->>Retriever : Check retrieval_mode
+Retriever->>Sparse : Initialize FastEmbedSparse
+Sparse-->>Retriever : Sparse embeddings instance
+Retriever-->>Resources : Return sparse embeddings
+Resources-->>Settings : Store in app.state
 ```
 
 **Diagram sources**
-- [retriever.py:22-102](file://app/rag/retriever.py#L22-L102)
-- [config.py:10-22](file://app/config.py#L10-L22)
+- [retriever.py:88-103](file://app/rag/retriever.py#L88-L103)
+- [resources.py:120-132](file://app/resources.py#L120-L132)
+- [config.py:59-62](file://app/config.py#L59-L62)
 
 **Section sources**
-- [retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
-- [retriever.py:65-102](file://app/rag/retriever.py#L65-L102)
-- [config.py:10-22](file://app/config.py#L10-L22)
+- [retriever.py:88-103](file://app/rag/retriever.py#L88-L103)
+- [resources.py:120-132](file://app/resources.py#L120-L132)
+- [config.py:59-62](file://app/config.py#L59-L62)
 
-### RAG Chain Composition with Token-Efficient Context
-The RAG chain composes a retriever, formatted context, system prompt, LLM, and output parser. It supports multiple providers and ensures consistent formatting and output handling. The token-based chunking configuration indirectly affects the quality and granularity of retrieved context, optimizing for token efficiency and retrieval performance.
+### Sparse Embeddings Integration for BM25 Keyword Matching
+The system integrates FastEmbedSparse for efficient BM25 keyword matching alongside dense vector embeddings. This enables keyword-based relevance scoring in addition to semantic similarity.
 
 ```mermaid
 classDiagram
-class RAGChain {
-+build_llm(settings) BaseChatModel
-+build_rag_chain(retriever, llm) Runnable
--_format_docs(docs) str
+class SparseEmbeddings {
++model_name : str = "Qdrant/bm25"
++initialize_fastembed_sparse()
++create_sparse_vectors(texts)
++passage_embed() method
++query_embed() method
 }
+class HybridRetriever {
++build_retriever_with_sparse()
++combine_dense_sparse_scores()
++normalize_hybrid_scores()
+}
+class QdrantVectorStore {
++add_documents_with_sparse()
++retrieve_with_sparse_filter()
+}
+SparseEmbeddings --> HybridRetriever : provides sparse vectors
+HybridRetriever --> QdrantVectorStore : uses sparse embeddings
 ```
 
 **Diagram sources**
-- [chain.py:30-94](file://app/rag/chain.py#L30-L94)
-- [prompts.py:5-18](file://app/rag/prompts.py#L5-L18)
+- [retriever.py:88-121](file://app/rag/retriever.py#L88-L121)
+- [indexer.py:65-71](file://app/rag/indexer.py#L65-L71)
 
 **Section sources**
-- [chain.py:25-27](file://app/rag/chain.py#L25-L27)
-- [chain.py:30-73](file://app/rag/chain.py#L30-L73)
-- [chain.py:76-94](file://app/rag/chain.py#L76-L94)
-- [prompts.py:5-18](file://app/rag/prompts.py#L5-L18)
+- [retriever.py:88-121](file://app/rag/retriever.py#L88-L121)
+- [indexer.py:65-71](file://app/rag/indexer.py#L65-L71)
 
-### QA Service Integration with Token-Based Processing
-The QA service initializes the RAG chain at application startup, handles runtime failures gracefully, and truncates long answers to platform limits. It exposes a simple ask() API for downstream handlers. The token-based chunking configuration affects the granularity of context provided to the LLM, improving response quality and token efficiency.
+### Enhanced Configuration System for Semantic and Hybrid Features
+The Settings class now includes comprehensive configuration for semantic chunking and hybrid retrieval modes, providing centralized control over all new functionality.
 
 ```mermaid
-sequenceDiagram
-participant App as "FastAPI App"
-participant QA as "qa_service.init_qa"
-participant Chain as "build_rag_chain"
-participant Retriever as "build_retriever"
-participant LLM as "build_llm"
-App->>QA : init_qa(settings)
-QA->>Retriever : Build retriever
-QA->>LLM : Build LLM
-QA->>Chain : Compose chain
-Chain-->>QA : Runnable
-QA-->>App : Ready
-App->>QA : ask(question)
-QA->>Chain : ainvoke(question)
-Chain-->>QA : answer
-QA-->>App : Truncated answer or fallback
+classDiagram
+class Settings {
++chunk_strategy : str = "recursive"
++semantic_breakpoint_threshold_type : str = "percentile"
++semantic_breakpoint_threshold_amount : float = 95
++retrieval_mode : str = "dense"
++sparse_embedding_model : str = "Qdrant/bm25"
++chunk_size : int = 500
++chunk_overlap : int = 50
+}
+class SemanticChunkingConfig {
++strategy : "recursive" | "semantic"
++threshold_type : "percentile" | "std" | "iq" | "gradient"
++threshold_amount : number
+}
+class HybridSearchConfig {
++mode : "dense" | "hybrid"
++sparse_model : string
+}
+Settings --> SemanticChunkingConfig : provides semantic params
+Settings --> HybridSearchConfig : provides hybrid params
 ```
 
 **Diagram sources**
-- [qa_service.py:51-105](file://app/domain/qa_service.py#L51-L105)
-- [main.py:23-82](file://app/main.py#L23-L82)
-- [chain.py:76-94](file://app/rag/chain.py#L76-L94)
-- [retriever.py:78-102](file://app/rag/retriever.py#L78-L102)
+- [config.py:54-62](file://app/config.py#L54-L62)
 
 **Section sources**
-- [qa_service.py:51-105](file://app/domain/qa_service.py#L51-L105)
-- [main.py:23-82](file://app/main.py#L23-L82)
+- [config.py:54-62](file://app/config.py#L54-L62)
 
-### Document Lifecycle Service with Token-Based Chunking
-The DocumentService orchestrates the full document lifecycle: creating metadata, indexing chunks with token-based granularity, toggling search participation, reindexing, and deletion. It maintains consistency between SQLite metadata and Qdrant payloads regardless of document format or token-based chunking configuration.
+### Semantic Chunking Test Coverage and Validation
+The testing infrastructure includes comprehensive validation for semantic chunking functionality, ensuring reliable operation across different document types and chunking strategies.
 
 ```mermaid
 flowchart TD
-Create["create_document(...)"] --> Register["Register in SQLite"]
-Index["index_document(document_id, chunks)"] --> Prepare["prepare_chunks(...)"]
-Prepare --> Enrich["Enrich metadata + chunk_id"]
-Enrich --> Add["index_chunks(client, embeddings, collection, chunks)"]
-Add --> Update["Update status to completed"]
-Toggle["toggle_search(document_id, enabled)"] --> QdrantUpdate["set_search_enabled(client, ...)"]
-QdrantUpdate --> SQLiteUpdate["Update SQLite"]
-Reindex["reindex_document(document_id, chunks)"] --> DeleteOld["delete_document_chunks(client, ...)"]
-DeleteOld --> Index
-Delete["delete_document(document_id, file_deleter)"] --> Cleanup["Delete chunks + file + metadata"]
+TestSuite["Semantic Chunking Tests"] --> RecursiveCompat["Recursive Strategy Backward Compatibility"]
+TestSuite --> SemanticDocx["Semantic Chunking .docx Files"]
+TestSuite --> SemanticDoc["Semantic Chunking .doc Files"]
+TestSuite --> EmbeddingsValidation["Embeddings Parameter Validation"]
+TestSuite --> ConfigDefaults["Configuration Defaults Testing"]
+RecursiveCompat --> Test1["load_document(strategy='recursive')<br/>preserves metadata"]
+SemanticDocx --> Test2["load_document(strategy='semantic', embeddings)<br/>creates semantic chunks"]
+SemanticDoc --> Test3["load_doc(strategy='semantic', embeddings)<br/>empty section metadata"]
+EmbeddingsValidation --> Test4["semantic strategy requires embeddings<br/>raises ValueError"]
+ConfigDefaults --> Test5["Settings defaults<br/>chunk_strategy='recursive'<br/>semantic defaults configured"]
 ```
 
 **Diagram sources**
-- [document_service.py:56-132](file://app/domain/document_service.py#L56-L132)
-- [document_service.py:146-177](file://app/domain/document_service.py#L146-L177)
-- [document_service.py:181-231](file://app/domain/document_service.py#L181-L231)
-- [document_service.py:235-279](file://app/domain/document_service.py#L235-L279)
+- [test_semantic_chunker.py:94-237](file://tests/test_semantic_chunker.py#L94-L237)
 
 **Section sources**
-- [document_service.py:35-53](file://app/domain/document_service.py#L35-L53)
-- [document_service.py:83-132](file://app/domain/document_service.py#L83-L132)
-- [document_service.py:146-177](file://app/domain/document_service.py#L146-L177)
-- [document_service.py:181-231](file://app/domain/document_service.py#L181-L231)
-- [document_service.py:235-279](file://app/domain/document_service.py#L235-L279)
+- [test_semantic_chunker.py:94-237](file://tests/test_semantic_chunker.py#L94-L237)
 
-### Admin Upload Flow with Token-Based Chunking
-The admin upload flow validates file types and sizes, uploads to S3, creates metadata records, and schedules background indexing with token-based chunking parameters. It supports both JSON API responses and HTMX partial updates for both .docx and .doc formats, with chunk_size and chunk_overlap passed through from settings using tiktoken encoding.
+### Hybrid Search Testing and Validation
+The hybrid search functionality includes comprehensive testing for sparse embeddings initialization, vector store integration, and retrieval mode switching.
+
+```mermaid
+flowchart TD
+HybridTests["Hybrid Search Tests"] --> DenseMode["Dense Mode Testing"]
+HybridTests --> HybridMode["Hybrid Mode Testing"]
+HybridTests --> SparseInit["Sparse Embeddings Initialization"]
+HybridTests --> VectorStore["Vector Store Integration"]
+HybridTests --> QAIntegration["QA Service Integration"]
+DenseMode --> Test1["retrieval_mode='dense'<br/>build_sparse_embeddings returns None"]
+HybridMode --> Test2["retrieval_mode='hybrid'<br/>returns FastEmbedSparse instance"]
+SparseInit --> Test3["FastEmbedSparse model initialization<br/>Qdrant/bm25 model name"]
+VectorStore --> Test4["QdrantVectorStore accepts sparse_embedding<br/>parameter"]
+QAIntegration --> Test5["QAService stores and uses sparse embeddings<br/>for hybrid retrieval"]
+```
+
+**Diagram sources**
+- [test_hybrid_search.py:17-169](file://tests/test_hybrid_search.py#L17-L169)
+
+**Section sources**
+- [test_hybrid_search.py:17-169](file://tests/test_hybrid_search.py#L17-L169)
+
+### Document Lifecycle Service with Semantic Chunking Support
+The DocumentService now supports semantic chunking through enhanced indexing operations that handle both dense and sparse embedding indexing workflows.
+
+```mermaid
+flowchart TD
+DocumentService["DocumentService"] --> IndexDocument["index_document(document_id, chunks)"]
+IndexDocument --> PrepareChunks["prepare_chunks(enriched metadata)"]
+PrepareChunks --> AsyncThread["asyncio.to_thread()"]
+AsyncThread --> IndexChunks["index_chunks(client, embeddings, collection, chunks,<br/>sparse_embedding=self._sparse_embedding)"]
+IndexChunks --> UpdateRepo["update repository status<br/>completed with chunk_count"]
+UpdateRepo --> Complete["Document indexing complete"]
+```
+
+**Diagram sources**
+- [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
+
+**Section sources**
+- [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
+
+### Admin Upload Flow with Semantic Chunking Options
+The admin upload flow now supports semantic chunking strategies with configurable breakpoint thresholds, providing users with flexible document processing options.
 
 ```mermaid
 sequenceDiagram
@@ -458,123 +449,132 @@ participant API as "documents.py"
 participant S3 as "S3Storage"
 participant Service as "DocumentService"
 participant BG as "Background Task"
-Client->>API : POST /api/documents/upload<br/>token-based chunking
+Client->>API : POST /api/documents/upload<br/>semantic chunking options
 API->>API : Validate file type/size (.doc/.docx)
 API->>S3 : Upload file
 API->>Service : create_document(...)
-API->>BG : Schedule _index_in_background<br/>with token-aware chunking
+API->>BG : Schedule _index_in_background<br/>with semantic-aware chunking
 BG->>S3 : Download file
-BG->>Service : index_document(document_id, chunks)<br/>using token-based chunking
+BG->>Service : index_document(document_id, chunks)<br/>semantic or recursive strategy
 Service-->>BG : Status updated
 BG-->>API : Background indexing complete
 API-->>Client : JSON or HTMX response
 ```
 
 **Diagram sources**
-- [documents.py:265-351](file://app/api/documents.py#L265-L351)
-- [documents.py:109-128](file://app/api/documents.py#L109-L128)
+- [documents.py:154-163](file://app/api/documents.py#L154-L163)
 
 **Section sources**
-- [documents.py:61-86](file://app/api/documents.py#L61-L86)
-- [documents.py:265-351](file://app/api/documents.py#L265-L351)
-- [documents.py:109-128](file://app/api/documents.py#L109-L128)
+- [documents.py:154-163](file://app/api/documents.py#L154-L163)
 
 ## Dependency Analysis
-The RAG Parser Enhancement exhibits clear separation of concerns with minimal coupling between modules. The addition of tiktoken for token-based processing introduces a new dependency while maintaining backward compatibility. The centralized token-based chunking configuration through Settings provides a single source of truth for chunking parameters across the entire system.
+The RAG Parser Enhancement exhibits enhanced dependency management with new semantic chunking and hybrid search capabilities while maintaining backward compatibility. The system now integrates LangChain Experimental for semantic chunking and FastEmbed for sparse embeddings, with graceful fallback mechanisms for optional dependencies.
 
 ```mermaid
 graph TB
-CFG["config.py<br/>Settings.token-based chunking<br/>500 & 50 tokens"] --> RET["retriever.py"]
-CFG --> CHAIN["chain.py"]
-PARSER["parser.py<br/>tiktoken encoding<br/>500-token chunks"] --> INDEXER["indexer.py"]
-PARSER --> DOCX2TXT["docx2txt (legacy .doc support)"]
-PARSER --> TIKTOKEN["tiktoken (token counting)"]
-INDEXER --> QDRANT["Qdrant"]
-INDEXER --> REPO["document_repo.py"]
-SERVICE["document_service.py"] --> INDEXER
-SERVICE --> REPO
-API["documents.py<br/>token-based chunking"] --> SERVICE
-API --> PARSER
-QA["qa_service.py"] --> RET
-QA --> CHAIN
-MAIN["main.py"] --> SERVICE
-MAIN --> QA
+CFG["config.py<br/>Semantic & hybrid settings<br/>chunk_strategy, sparse model"] --> RES["resources.py<br/>Hybrid search init<br/>FastEmbedSparse"]
+CFG --> RET["retriever.py<br/>Hybrid retriever<br/>sparse embeddings"]
+CFG --> PARSE["parser.py<br/>Semantic chunking<br/>SemanticChunker"]
+RES --> RET
+RES --> QDRANT["Qdrant"]
+PARSE --> LC["LangChain Experimental<br/>SemanticChunker"]
+PARSE --> TIKTOKEN["tiktoken"]
+RET --> FE["FastEmbedSparse"]
+RET --> QDRANT
+INDEXER["indexer.py<br/>Sparse embedding support"] --> QDRANT
+SERVICE["document_service.py<br/>Semantic chunking support"] --> INDEXER
+API["documents.py<br/>Semantic chunking API"] --> SERVICE
+QA["qa_service.py<br/>Hybrid retrieval"] --> RET
+MAIN["main.py<br/>Resource initialization"] --> RES
 ```
 
 **Diagram sources**
-- [config.py:40-42](file://app/config.py#L40-L42)
-- [retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
-- [chain.py:30-73](file://app/rag/chain.py#L30-L73)
-- [parser.py:11-14](file://app/rag/parser.py#L11-L14)
-- [indexer.py:23-46](file://app/rag/indexer.py#L23-L46)
-- [document_repo.py:69-99](file://app/storage/document_repo.py#L69-L99)
-- [document_service.py:17-22](file://app/domain/document_service.py#L17-L22)
-- [documents.py:53-55](file://app/api/documents.py#L53-L55)
-- [qa_service.py:63-77](file://app/domain/qa_service.py#L63-L77)
-- [main.py:58-68](file://app/main.py#L58-L68)
+- [config.py:54-62](file://app/config.py#L54-L62)
+- [resources.py:120-132](file://app/resources.py#L120-L132)
+- [retriever.py:88-160](file://app/rag/retriever.py#L88-L160)
+- [parser.py:16-17](file://app/rag/parser.py#L16-L17)
+- [indexer.py:65-71](file://app/rag/indexer.py#L65-L71)
+- [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
+- [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [qa_service.py:102-148](file://app/domain/qa_service.py#L102-L148)
+- [main.py:29-38](file://app/main.py#L29-L38)
 
 **Section sources**
-- [config.py:40-42](file://app/config.py#L40-L42)
-- [retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
-- [chain.py:30-73](file://app/rag/chain.py#L30-L73)
-- [parser.py:11-14](file://app/rag/parser.py#L11-L14)
-- [indexer.py:23-46](file://app/rag/indexer.py#L23-L46)
-- [document_repo.py:69-99](file://app/storage/document_repo.py#L69-L99)
-- [document_service.py:17-22](file://app/domain/document_service.py#L17-L22)
-- [documents.py:53-55](file://app/api/documents.py#L53-L55)
-- [qa_service.py:63-77](file://app/domain/qa_service.py#L63-L77)
-- [main.py:58-68](file://app/main.py#L58-L68)
+- [config.py:54-62](file://app/config.py#L54-L62)
+- [resources.py:120-132](file://app/resources.py#L120-L132)
+- [retriever.py:88-160](file://app/rag/retriever.py#L88-L160)
+- [parser.py:16-17](file://app/rag/parser.py#L16-L17)
+- [indexer.py:65-71](file://app/rag/indexer.py#L65-L71)
+- [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
+- [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [qa_service.py:102-148](file://app/domain/qa_service.py#L102-L148)
+- [main.py:29-38](file://app/main.py#L29-L38)
 
 ## Performance Considerations
-- **Enhanced Token-Based Chunking Strategy**
-  - The parser uses tiktoken encoding with cl100k_base for precise token counting, replacing character-based chunking with accurate token measurement
-  - Default values (chunk_size: 500, chunk_overlap: 50) provide optimal performance for typical HR documents while ensuring accurate token counting
-  - Token-based chunking improves LLM performance by providing context lengths that align with model token limits
-  - Adjust chunk size and overlap based on document complexity and retrieval accuracy needs - smaller chunks improve precision but increase storage and processing overhead
-  - Legacy .doc files are processed through docx2txt with token-based chunking, maintaining consistency across document formats
-- Provider Selection
-  - Embedding and LLM providers impact latency and quality. Choose providers aligned with deployment constraints and enable caching where supported.
-- Batch vs. Streaming
-  - Batch ingestion (scripts/ingest.py) is optimized for throughput and now supports both .docx and .doc files with token-based chunking parameters. Admin uploads leverage background tasks to avoid blocking requests.
-- Vector Store Efficiency
-  - Qdrant filtering excludes non-searchable chunks efficiently. Maintain collection indices and consider sharding for large-scale deployments.
-- Memory and Concurrency
-  - Background tasks handle file downloads and indexing; ensure adequate concurrency limits and resource allocation for sustained ingestion rates.
-  - Token-based processing through tiktoken may require additional memory for large documents with complex tokenization.
-  - Token-based chunking allows optimization for memory-constrained environments by reducing chunk_size while maintaining token count accuracy.
+- **Enhanced Semantic Chunking Strategy**
+  - The parser now supports dual chunking strategies with intelligent semantic boundary detection using LangChain's SemanticChunker
+  - Four breakpoint threshold types provide flexibility for different document characteristics: percentile (default 95%), standard deviation, interquartile, and gradient-based detection
+  - Semantic chunking requires embedding model initialization, adding computational overhead but improving semantic coherence
+  - Breakpoint threshold configuration allows tuning chunk granularity based on document complexity and retrieval requirements
+  - Legacy .doc files benefit from semantic chunking despite lacking structured headings, with empty section metadata for uniform processing
+- **Hybrid Search Performance Optimization**
+  - Sparse embeddings add minimal overhead compared to dense embeddings while providing complementary keyword matching capabilities
+  - FastEmbedSparse offers efficient BM25 implementation with configurable model selection
+  - Hybrid retrieval combines dense and sparse scores with configurable weighting strategies
+  - Automatic fallback to dense-only retrieval when sparse embeddings are unavailable prevents performance degradation
+- **Provider Selection and Resource Management**
+  - Embedding and LLM providers impact both semantic chunking performance and hybrid search capabilities
+  - Choose providers aligned with deployment constraints and enable caching where supported for semantic chunking operations
+  - Monitor resource usage during semantic chunking as it requires additional computational resources for embedding calculations
+- **Batch Processing and Memory Management**
+  - Batch ingestion (scripts/ingest.py) supports both semantic and recursive strategies with configurable parameters
+  - Admin uploads leverage background tasks with semantic-aware chunking parameters and breakpoint thresholds
+  - Memory considerations for semantic chunking include embedding model loading and breakpoint threshold calculations
+  - Consider chunk size adjustments when using semantic chunking to balance semantic coherence with computational efficiency
+- **Vector Store and Hybrid Indexing**
+  - Qdrant filtering excludes non-searchable chunks efficiently in both dense and hybrid modes
+  - Sparse embedding indexing requires additional storage space but enables keyword-based retrieval capabilities
+  - Collection indices should account for both dense and sparse embedding dimensions in hybrid configurations
+  - Monitor query performance differences between dense-only and hybrid retrieval modes for optimal configuration
 
 ## Troubleshooting Guide
-Common issues and resolutions:
-- **Missing Provider Modules**
-  - The system raises import errors when required extras are not installed. Install the appropriate extras for OpenAI-compatible or Ollama providers as indicated by error messages.
-- **Missing tiktoken Dependency**
-  - Token-based chunking requires tiktoken library. Ensure `tiktoken>=0.12.0` is installed as part of the project dependencies.
-- **Missing docx2txt Dependency**
-  - Legacy .doc file processing requires docx2txt library. Ensure `docx2txt>=0.8` is installed as part of the project dependencies.
-- **Qdrant Connectivity**
-  - Verify Qdrant URL, API key, and collection name in settings. Ensure the collection exists or allow the ingestion process to recreate it.
-- **Document Status Failures**
-  - Indexing failures update metadata to failed state with error details. Inspect logs and retry after resolving underlying issues.
-- **Large Responses**
-  - QA responses are truncated to platform limits. If answers are frequently truncated, consider adjusting chunk size or prompt to improve conciseness.
-- **Background Task Errors**
-  - Background indexing and reindexing log exceptions but do not block the API. Monitor logs for persistent failures and ensure temporary file cleanup occurs.
-- **Format Detection Issues**
-  - The load_document() dispatcher relies on file extensions. Ensure files have proper .doc or .docx extensions for correct format detection.
-- **Token-Based Chunking Issues**
-  - If token-based chunking parameters are not taking effect, verify they are properly passed through the call chain from Settings to the parser functions.
-  - Check that the default values (500, 50) are appropriate for your document types and adjust Settings accordingly.
-  - Ensure tiktoken encoding is properly configured with cl100k_base for accurate token counting.
+Common issues and resolutions for the enhanced RAG system:
+
+- **Missing Semantic Chunking Dependencies**
+  - The system requires langchain-experimental for SemanticChunker functionality. Ensure `langchain-experimental>=0.3.0` is installed as part of project dependencies.
+  - Semantic chunking raises ImportError if LangChain Experimental is not available during initialization.
+- **Missing Hybrid Search Dependencies**
+  - Hybrid search requires fastembed for sparse embeddings. Install the 'hybrid' extra: `uv sync --extra hybrid`
+  - FastEmbedSparse import failures trigger ImportError with guidance for installing hybrid dependencies.
+  - Sparse embeddings initialization gracefully falls back to dense-only retrieval when dependencies are unavailable.
+- **Semantic Chunking Configuration Issues**
+  - Invalid chunk_strategy values raise ValueError in parser functions. Use 'recursive' or 'semantic' only.
+  - Missing embeddings parameter for semantic strategy raises ValueError with clear error message.
+  - Breakpoint threshold type validation ensures only supported types are used: 'percentile', 'standard_deviation', 'interquartile', 'gradient'.
+  - Breakpoint threshold amount validation prevents invalid numeric values outside expected ranges.
+- **Hybrid Search Mode Configuration**
+  - retrieval_mode must be 'dense' or 'hybrid'. Invalid values fall back to dense mode.
+  - sparse_embedding_model configuration affects FastEmbedSparse initialization and model availability.
+  - Sparse embedding initialization failures log warnings and disable hybrid mode gracefully.
+- **Resource Initialization Failures**
+  - Qdrant client initialization failures prevent semantic chunking and hybrid search functionality.
+  - Embeddings model initialization errors affect both chunking strategies and retrieval operations.
+  - Resource cleanup handles partial initialization failures without blocking application shutdown.
+- **Performance and Memory Issues**
+  - Semantic chunking requires additional memory for embedding model loading and breakpoint calculations.
+  - Large documents with semantic chunking may require increased memory allocation for embedding computations.
+  - Monitor chunk count growth when switching from recursive to semantic chunking as semantic boundaries may create more chunks.
+- **Backward Compatibility**
+  - Default chunk_strategy remains 'recursive' to maintain backward compatibility with existing deployments.
+  - Legacy .doc files automatically use semantic chunking when strategy is 'semantic' with empty section metadata.
+  - Existing API endpoints continue to work with semantic chunking parameters passed through configuration.
 
 **Section sources**
-- [retriever.py:28-31](file://app/rag/retriever.py#L28-L31)
-- [retriever.py:56-58](file://app/rag/retriever.py#L56-L58)
-- [chain.py:36-39](file://app/rag/chain.py#L36-L39)
-- [chain.py:66-68](file://app/rag/chain.py#L66-L68)
-- [ingest.py:144-151](file://scripts/ingest.py#L144-L151)
-- [qa_service.py:98-100](file://app/domain/qa_service.py#L98-L100)
-- [parser.py:127-146](file://app/rag/parser.py#L127-L146)
-- [config.py:40-42](file://app/config.py#L40-L42)
+- [retriever.py:88-103](file://app/rag/retriever.py#L88-L103)
+- [parser.py:115-118](file://app/rag/parser.py#L115-L118)
+- [parser.py:240-242](file://app/rag/parser.py#L240-L242)
+- [config.py:54-62](file://app/config.py#L54-L62)
+- [resources.py:120-132](file://app/resources.py#L120-L132)
 
 ## Conclusion
-The RAG Parser Enhancement delivers a robust, extensible pipeline for processing HR documents into a searchable knowledge base with token-based chunking accuracy and comprehensive testing. By implementing tiktoken encoding with cl100k_base for precise token counting, structuring content around headings for .docx files and providing unified processing for legacy .doc files, intelligently chunking text with 500-token chunk size and 50-token overlap, enriching metadata with token-aware chunk information, and integrating seamlessly with Qdrant and multiple LLM providers, the system supports both automated batch ingestion and interactive admin workflows. The new token-based dispatcher ensures backward compatibility while expanding document ingestion capabilities with precise token measurement, and the centralized token-based configuration provides optimal chunking parameters across different document types. The modular design, comprehensive tests covering both .docx and .doc formats with token-based validation, and clear separation of concerns facilitate maintenance, scaling, and future enhancements with superior retrieval performance and token efficiency.
+The RAG Parser Enhancement delivers a comprehensive, production-ready pipeline for processing HR documents with advanced semantic understanding and hybrid search capabilities. By implementing dual chunking strategies (recursive and semantic) with configurable breakpoint thresholds, integrating LangChain's SemanticChunker for intelligent boundary detection, supporting hybrid dense-sparse retrieval with BM25 keyword matching, and providing robust configuration management, the system significantly enhances document processing accuracy and retrieval performance. The modular architecture with graceful fallback mechanisms ensures backward compatibility while enabling cutting-edge retrieval capabilities. The enhanced testing infrastructure validates both semantic chunking functionality and hybrid search operations, while the centralized configuration system provides fine-grained control over chunking strategies and retrieval modes. The system's ability to automatically initialize sparse embeddings for hybrid search, combined with comprehensive error handling and resource management, makes it suitable for enterprise-scale document processing with superior semantic understanding and flexible retrieval options.

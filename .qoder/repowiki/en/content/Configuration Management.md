@@ -10,20 +10,26 @@
 - [app/rag/retriever.py](file://app/rag/retriever.py)
 - [app/domain/qa_service.py](file://app/domain/qa_service.py)
 - [app/rag/parser.py](file://app/rag/parser.py)
+- [app/resources.py](file://app/resources.py)
 - [scripts/admin_server.py](file://scripts/admin_server.py)
 - [scripts/run_admin.sh](file://scripts/run_admin.sh)
 - [scripts/ingest.py](file://scripts/ingest.py)
 - [tests/test_config.py](file://tests/test_config.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
+- [tests/test_hybrid_search.py](file://tests/test_hybrid_search.py)
+- [tests/test_semantic_chunker.py](file://tests/test_semantic_chunker.py)
 - [templates/login.html](file://templates/login.html)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added centralized logging configuration via configure_logging() function, replacing ad-hoc logging setups across individual scripts
-- Ensures consistent log formatting and level configuration throughout the application
-- All scripts and modules now use the centralized logging configuration for uniform logging behavior
+- Added new chunking strategy configuration with chunk_strategy (default 'recursive')
+- Introduced semantic chunking with semantic_breakpoint_threshold_type and semantic_breakpoint_threshold_amount
+- Added hybrid search functionality with retrieval_mode settings and sparse_embedding_model configuration
+- Enhanced chunking system to support both recursive and semantic strategies
+- Updated parser module to support semantic chunking with embedding-based breakpoint detection
+- Added sparse embeddings support for hybrid search with FastEmbedSparse integration
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -38,20 +44,21 @@
 10. [Adding New Configuration Variables](#adding-new-configuration-variables)
 11. [Logging Configuration](#logging-configuration)
 12. [Chunking Configuration](#chunking-configuration)
-13. [Storage Configuration](#storage-configuration)
-14. [S3 Storage Configuration](#s3-storage-configuration)
-15. [Admin Authentication Configuration](#admin-authentication-configuration)
-16. [LLM Provider Configuration](#llm-provider-configuration)
-17. [Embedding Provider Configuration](#embedding-provider-configuration)
-18. [Resource Management and Cleanup](#resource-management-and-cleanup)
-19. [Troubleshooting Guide](#troubleshooting-guide)
-20. [Conclusion](#conclusion)
+13. [Hybrid Search Configuration](#hybrid-search-configuration)
+14. [Storage Configuration](#storage-configuration)
+15. [S3 Storage Configuration](#s3-storage-configuration)
+16. [Admin Authentication Configuration](#admin-authentication-configuration)
+17. [LLM Provider Configuration](#llm-provider-configuration)
+18. [Embedding Provider Configuration](#embedding-provider-configuration)
+19. [Resource Management and Cleanup](#resource-management-and-cleanup)
+20. [Troubleshooting Guide](#troubleshooting-guide)
+21. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the configuration management system used in cafetera_hr_bot. It focuses on the Pydantic Settings implementation, environment variable loading and validation, configuration structure, centralized logging configuration, and security best practices. The system now supports separate LLM and embedding provider configurations, multiple LLM providers including llama.cpp with backward compatibility, alongside VK API credentials, Qdrant database connections, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, configurable document chunking parameters for optimal RAG performance, and centralized logging configuration ensuring consistent log formatting across all application components. It documents all current configuration options and provides examples of development versus production configurations along with templates for different deployment environments.
+This document explains the configuration management system used in cafetera_hr_bot. It focuses on the Pydantic Settings implementation, environment variable loading and validation, configuration structure, centralized logging configuration, and security best practices. The system now supports separate LLM and embedding provider configurations, multiple LLM providers including llama.cpp with backward compatibility, alongside VK API credentials, Qdrant database connections, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, configurable document chunking parameters for optimal RAG performance, hybrid search functionality with sparse embeddings, and centralized logging configuration ensuring consistent log formatting across all application components. It documents all current configuration options and provides examples of development versus production configurations along with templates for different deployment environments.
 
 ## Project Structure
-The configuration system centers around a single Pydantic Settings class that loads environment variables from a .env file. The system supports separate LLM and embedding provider configurations with multiple LLM providers (ollama, openai, llama.cpp) and embedding providers (ollama, openai) with automatic fallback mechanisms, VK API integration, Qdrant vector storage, SQLite database integration for document metadata, S3-compatible storage for document files, admin authentication with API key security, configurable document chunking parameters, and centralized logging configuration with consistent formatting and level control. The storage components consume these settings to initialize database connections, manage document lifecycle, and handle file uploads/downloads. Tests validate the loading behavior across different providers, storage configurations, authentication systems, chunking parameters, and logging configuration. Scripts demonstrate runtime usage with enhanced cleanup mechanisms and configurable chunking behavior, all using the centralized logging configuration.
+The configuration system centers around a single Pydantic Settings class that loads environment variables from a .env file. The system supports separate LLM and embedding provider configurations with multiple LLM providers (ollama, openai, llama.cpp) and embedding providers (ollama, openai) with automatic fallback mechanisms, VK API integration, Qdrant vector storage, SQLite database integration for document metadata, S3-compatible storage for document files, admin authentication with API key security, configurable document chunking parameters with support for both recursive and semantic strategies, hybrid search functionality with sparse embeddings, and centralized logging configuration with consistent formatting and level control. The storage components consume these settings to initialize database connections, manage document lifecycle, and handle file uploads/downloads. Tests validate the loading behavior across different providers, storage configurations, authentication systems, chunking parameters, hybrid search functionality, and logging configuration. Scripts demonstrate runtime usage with enhanced cleanup mechanisms and configurable chunking behavior, all using the centralized logging configuration.
 
 ```mermaid
 graph TB
@@ -65,6 +72,7 @@ StorageConfig["Storage Configuration"]
 S3Config["S3 Storage Configuration"]
 AdminConfig["Admin Authentication"]
 ChunkingConfig["Chunking Configuration"]
+HybridSearchConfig["Hybrid Search Configuration"]
 CleanupMechanism["Resource Cleanup Mechanism"]
 end
 subgraph "Application Layer"
@@ -82,6 +90,7 @@ TestStorage["Storage Tests"]
 TestAuth["Authentication Tests"]
 TestEmbeddings["Embedding Tests"]
 TestChunking["Chunking Tests"]
+TestHybrid["Hybrid Search Tests"]
 TestLogging["Logging Configuration Tests"]
 end
 EnvFile --> SettingsClass
@@ -94,6 +103,7 @@ SettingsClass --> StorageConfig
 SettingsClass --> S3Config
 SettingsClass --> AdminConfig
 SettingsClass --> ChunkingConfig
+SettingsClass --> HybridSearchConfig
 SettingsClass --> CleanupMechanism
 SettingsClass --> StorageLayer
 SettingsClass --> AdminAuth
@@ -104,76 +114,83 @@ TestStorage --> StorageLayer
 TestAuth --> AdminAuth
 TestEmbeddings --> EmbeddingProvider
 TestChunking --> ChunkingConfig
+TestHybrid --> HybridSearchConfig
 TestLogging --> LoggingConfig
 ```
 
 **Diagram sources**
-- [app/config.py:4-43](file://app/config.py#L4-L43)
+- [app/config.py:4-62](file://app/config.py#L4-L62)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 - [app/rag/parser.py:16-17](file://app/rag/parser.py#L16-L17)
+- [app/resources.py:96-131](file://app/resources.py#L96-L131)
 - [scripts/admin_server.py:42-68](file://scripts/admin_server.py#L42-L68)
 - [scripts/ingest.py:78-82](file://scripts/ingest.py#L78-L82)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
+- [tests/test_hybrid_search.py:1-169](file://tests/test_hybrid_search.py#L1-L169)
+- [tests/test_semantic_chunker.py:1-237](file://tests/test_semantic_chunker.py#L1-L237)
 
 **Section sources**
-- [app/config.py:4-43](file://app/config.py#L4-L43)
+- [app/config.py:4-62](file://app/config.py#L4-L62)
 - [app/main.py:30-47](file://app/main.py#L30-L47)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Core Components
-- **Settings class**: Defines typed configuration fields, environment file binding, and default values for all system components including separate LLM and embedding provider settings, storage configuration, S3 storage settings, admin authentication settings, chunking configuration parameters, and centralized logging configuration.
+- **Settings class**: Defines typed configuration fields, environment file binding, and default values for all system components including separate LLM and embedding provider settings, storage configuration, S3 storage settings, admin authentication settings, chunking configuration parameters with support for both recursive and semantic strategies, hybrid search configuration with sparse embeddings, and centralized logging configuration.
 - **Centralized Logging Configuration**: Provides unified logging setup via configure_logging() function ensuring consistent log formatting and level control across all application components.
 - **LLM Provider System**: Supports multiple providers (ollama, openai, llama.cpp) with automatic fallback and backward compatibility.
 - **Embedding Provider System**: Supports separate embedding providers (ollama, openai) with independent configuration from LLM providers.
-- **Chunking Configuration**: Provides explicit control over document processing behavior with default values of 500 for chunk_size and 50 for chunk_overlap.
+- **Chunking Configuration**: Provides explicit control over document processing behavior with default values of 500 for chunk_size and 50 for chunk_overlap, plus new semantic chunking parameters for embedding-based breakpoint detection.
+- **Hybrid Search Configuration**: Enables dense vector search and hybrid search modes with sparse embeddings support for BM25-based retrieval.
 - **VK integration**: Uses Settings to configure the VK bot token and handler registration.
-- **RAG Components**: Build LLM chains and embeddings based on provider selection with separate embedding configuration.
+- **RAG Components**: Build LLM chains and embeddings based on provider selection with separate embedding configuration and hybrid search support.
 - **Storage System**: Manages SQLite database for document metadata with comprehensive CRUD operations.
 - **S3 Storage System**: Provides S3-compatible file storage using MinIO/AWS S3 with async operations.
 - **Admin Authentication**: Implements API key-based authentication with secure cookie management.
 - **Resource Cleanup**: Enhanced cleanup mechanisms for admin server and QA service resources.
-- **Tests**: Verify defaults, environment variable precedence, provider-specific behavior, storage functionality, authentication security, embedding configuration, chunking parameter validation, and centralized logging configuration.
-- **Scripts**: Demonstrate runtime initialization using Settings for different providers, storage operations, admin access, cleanup procedures, configurable chunking behavior, and centralized logging configuration.
+- **Tests**: Verify defaults, environment variable precedence, provider-specific behavior, storage functionality, authentication security, embedding configuration, chunking parameter validation, hybrid search functionality, and centralized logging configuration.
+- **Scripts**: Demonstrate runtime initialization using Settings for different providers, storage operations, admin access, cleanup procedures, configurable chunking behavior, hybrid search configuration, and centralized logging configuration.
 
 Key implementation details:
 - Settings class inherits from Pydantic BaseSettings and binds to a .env file with UTF-8 encoding.
 - Centralized logging configuration uses configure_logging() function with INFO level and standardized format.
-- Current fields include VK access token, group ID, Qdrant configuration, separate LLM and embedding provider settings, comprehensive storage configuration, S3 storage settings, admin authentication settings, chunking configuration parameters, and centralized logging configuration.
+- Current fields include VK access token, group ID, Qdrant configuration, separate LLM and embedding provider settings, comprehensive storage configuration, S3 storage settings, admin authentication settings, chunking configuration parameters with semantic chunking support, hybrid search configuration with sparse embeddings, and centralized logging configuration.
 - The LLM system automatically selects providers based on LLM_PROVIDER environment variable with sensible defaults.
 - The embedding system automatically selects providers based on EMBEDDING_PROVIDER environment variable with independent configuration.
-- The chunking system provides configurable chunk_size (default: 500) and chunk_overlap (default: 50) parameters for document processing optimization.
+- The chunking system provides configurable chunk_size (default: 500), chunk_overlap (default: 50), chunk_strategy (default: 'recursive'), semantic_breakpoint_threshold_type (default: 'percentile'), and semantic_breakpoint_threshold_amount (default: 95) parameters for document processing optimization.
+- The hybrid search system supports dense vector-only search and hybrid dense+sparse BM25 search modes with configurable sparse embedding model.
 - The storage system uses db_path to configure SQLite database location with automatic table initialization.
 - The S3 storage system uses endpoint_url, access_key, secret_key, and bucket to configure S3-compatible storage.
 - The admin authentication system uses admin_api_key for secure access to administrative functions.
 - The VK bot factory reads the token from Settings to construct the bot instance.
 - The admin server includes enhanced cleanup mechanisms using atexit for proper resource management.
-- The document parser module uses both hardcoded defaults and configurable settings for chunking behavior.
+- The document parser module uses both hardcoded defaults and configurable settings for chunking behavior, supporting both recursive and semantic strategies.
 - All scripts and modules use centralized logging configuration for consistent log formatting.
 
 **Section sources**
-- [app/config.py:4-43](file://app/config.py#L4-L43)
+- [app/config.py:4-62](file://app/config.py#L4-L62)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 - [app/rag/parser.py:16-17](file://app/rag/parser.py#L16-L17)
+- [app/resources.py:96-131](file://app/resources.py#L96-L131)
 - [scripts/admin_server.py:42-68](file://scripts/admin_server.py#L42-L68)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Architecture Overview
-The configuration architecture follows a layered approach with provider-aware components, integrated storage, configurable chunking parameters, centralized logging configuration, and secure admin access with enhanced cleanup mechanisms:
-- **Configuration layer**: Settings class encapsulates environment-driven configuration with separate provider selections, storage settings, S3 configuration, admin authentication, chunking parameters, and centralized logging configuration.
-- **Application layer**: Integrations consume Settings to initialize services with appropriate provider backends, database connections, S3 storage, configurable chunking behavior, centralized logging configuration, and authentication mechanisms.
-- **Runtime layer**: Scripts and handlers access Settings at startup or during operation with automatic provider detection, storage initialization, authentication verification, configurable chunking parameters, centralized logging configuration, and proper resource cleanup.
+The configuration architecture follows a layered approach with provider-aware components, integrated storage, configurable chunking parameters with semantic support, hybrid search functionality, centralized logging configuration, and secure admin access with enhanced cleanup mechanisms:
+- **Configuration layer**: Settings class encapsulates environment-driven configuration with separate provider selections, storage settings, S3 configuration, admin authentication, chunking parameters with semantic strategies, hybrid search configuration, and centralized logging configuration.
+- **Application layer**: Integrations consume Settings to initialize services with appropriate provider backends, database connections, S3 storage, configurable chunking behavior with semantic support, hybrid search modes, centralized logging configuration, and authentication mechanisms.
+- **Runtime layer**: Scripts and handlers access Settings at startup or during operation with automatic provider detection, storage initialization, authentication verification, configurable chunking parameters with semantic strategies, hybrid search configuration, centralized logging configuration, and proper resource cleanup.
 
 ```mermaid
 sequenceDiagram
@@ -183,6 +200,7 @@ participant Logging as "configure_logging()"
 participant Provider as "LLM Provider"
 participant EmbeddingProvider as "Embedding Provider"
 participant Chunking as "Chunking Parameters"
+participant HybridSearch as "Hybrid Search Configuration"
 participant Storage as "SQLite Database"
 participant S3Storage as "S3 Storage"
 participant AdminAuth as "Admin Authentication"
@@ -193,8 +211,10 @@ Script->>Settings : Initialize Settings()
 Settings-->>Script : Loaded values (defaults or env)
 Script->>Logging : configure_logging()
 Logging-->>Script : Centralized logging ready
-Settings->>Chunking : Configure chunk_size and chunk_overlap
+Settings->>Chunking : Configure chunk_size, chunk_overlap, chunk_strategy
 Chunking-->>Script : Chunking parameters ready
+Settings->>HybridSearch : Configure retrieval_mode, sparse_embedding_model
+HybridSearch-->>Script : Hybrid search configuration ready
 Settings->>Storage : Configure db_path
 Storage-->>Script : Database ready
 Settings->>S3Storage : Configure S3 settings
@@ -215,23 +235,25 @@ Script->>VK : run_polling()
 
 **Diagram sources**
 - [app/main.py:23-82](file://app/main.py#L23-L82)
-- [app/config.py:15-43](file://app/config.py#L15-L43)
+- [app/config.py:15-62](file://app/config.py#L15-L62)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/s3.py:38-48](file://app/storage/s3.py#L38-L48)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 - [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
+- [app/resources.py:96-131](file://app/resources.py#L96-L131)
 - [scripts/admin_server.py:64-68](file://scripts/admin_server.py#L64-L68)
 
 ## Detailed Component Analysis
 
 ### Settings Class
-The Settings class defines the comprehensive configuration contract with separate provider configurations, centralized logging configuration, and new chunking parameters:
+The Settings class defines the comprehensive configuration contract with separate provider configurations, centralized logging configuration, chunking parameters with semantic support, and hybrid search configuration:
 - **Environment file binding**: Loads variables from .env with UTF-8 encoding.
-- **Fields**: vk_access_token (str), vk_group_id (int), Qdrant configuration, LLM settings, separate embedding configuration, storage configuration, S3 storage configuration, admin authentication settings, chunking configuration parameters, and centralized logging configuration.
+- **Fields**: vk_access_token (str), vk_group_id (int), Qdrant configuration, LLM settings, separate embedding configuration, storage configuration, S3 storage configuration, admin authentication settings, chunking configuration parameters with semantic chunking support, hybrid search configuration with sparse embeddings, and centralized logging configuration.
 - **Type safety**: Pydantic ensures type conversion and validation.
 - **Provider awareness**: LLM_PROVIDER and EMBEDDING_PROVIDER fields control which backend to use independently.
-- **Chunking awareness**: chunk_size (int) and chunk_overlap (int) control document processing behavior with sensible defaults.
+- **Chunking awareness**: chunk_size (int), chunk_overlap (int), chunk_strategy (str), semantic_breakpoint_threshold_type (str), and semantic_breakpoint_threshold_amount (float) control document processing behavior with sensible defaults.
+- **Hybrid search awareness**: retrieval_mode (str) and sparse_embedding_model (str) control dense vs hybrid search modes with sparse embeddings.
 - **Storage awareness**: db_path field controls SQLite database location.
 - **S3 awareness**: s3_endpoint_url, s3_access_key, s3_secret_key, and s3_bucket control S3-compatible storage configuration.
 - **Admin awareness**: admin_api_key controls access to administrative functions.
@@ -263,14 +285,19 @@ class Settings {
 +max_concurrent_indexing : int
 +chunk_size : int
 +chunk_overlap : int
++chunk_strategy : str
++semantic_breakpoint_threshold_type : str
++semantic_breakpoint_threshold_amount : float
++retrieval_mode : str
++sparse_embedding_model : str
 }
 ```
 
 **Diagram sources**
-- [app/config.py:4-43](file://app/config.py#L4-L43)
+- [app/config.py:4-62](file://app/config.py#L4-L62)
 
 **Section sources**
-- [app/config.py:4-43](file://app/config.py#L4-L43)
+- [app/config.py:4-62](file://app/config.py#L4-L62)
 
 ### Centralized Logging Configuration
 The centralized logging configuration provides unified logging setup across all application components with consistent formatting and level control:
@@ -290,19 +317,39 @@ The centralized logging configuration provides unified logging setup across all 
 - [scripts/polling_vk.py:22](file://scripts/polling_vk.py#L22)
 
 ### Chunking Configuration
-The chunking configuration provides explicit control over document processing behavior with sensible defaults optimized for local LLM performance:
+The chunking configuration provides explicit control over document processing behavior with sensible defaults optimized for local LLM performance and enhanced semantic processing capabilities:
 
-- **Default Values**: chunk_size defaults to 500 characters, chunk_overlap defaults to 50 characters.
-- **Purpose**: Controls document splitting behavior for optimal embedding performance and memory usage.
+- **Default Values**: chunk_size defaults to 500 characters, chunk_overlap defaults to 50 characters, chunk_strategy defaults to 'recursive'.
+- **Semantic Chunking Support**: New semantic_breakpoint_threshold_type (default: 'percentile') and semantic_breakpoint_threshold_amount (default: 95) enable embedding-based breakpoint detection.
+- **Purpose**: Controls document splitting behavior for optimal embedding performance and memory usage, with support for both token-based and semantic chunking strategies.
 - **Performance Impact**: Smaller chunks improve local model performance but increase processing overhead.
 - **Memory Considerations**: Larger chunks reduce memory usage but may exceed local model limits.
 - **Quality Trade-offs**: Higher overlap preserves context but increases processing time.
+- **Semantic Strategy**: Uses embedding similarity to detect natural breakpoints in text for more meaningful chunk boundaries.
 
-**Updated** Updated chunk_size and chunk_overlap default values from 1000/200 to 500/50 for better performance with tiktoken-based token counting.
+**Updated** Added new chunking strategy configuration with chunk_strategy (default 'recursive'), semantic_breakpoint_threshold_type and semantic_breakpoint_threshold_amount for semantic chunking, and enhanced chunking parameters for embedding-based breakpoint detection.
 
 **Section sources**
-- [app/config.py:50-52](file://app/config.py#L50-L52)
-- [app/rag/parser.py:16-17](file://app/rag/parser.py#L16-L17)
+- [app/config.py:50-62](file://app/config.py#L50-L62)
+- [app/rag/parser.py:58-175](file://app/rag/parser.py#L58-L175)
+
+### Hybrid Search Configuration
+The hybrid search configuration enables advanced retrieval modes with sparse embeddings support:
+
+- **Default Values**: retrieval_mode defaults to 'dense', sparse_embedding_model defaults to 'Qdrant/bm25'.
+- **Dense Mode**: Vector-only search using embeddings for similarity matching.
+- **Hybrid Mode**: Combines dense vector search with sparse BM25-based lexical matching for improved recall and precision.
+- **Sparse Embeddings**: Uses FastEmbedSparse model for BM25-like sparse representations.
+- **Performance Benefits**: Hybrid search can improve recall for keyword-rich queries while maintaining semantic similarity for content-based queries.
+- **Dependency Management**: Requires 'hybrid' extra installation for FastEmbedSparse support.
+
+**Updated** Added hybrid search functionality with retrieval_mode settings and sparse_embedding_model configuration for dense vs hybrid search modes with sparse embeddings support.
+
+**Section sources**
+- [app/config.py:59-62](file://app/config.py#L59-L62)
+- [app/rag/retriever.py:88-103](file://app/rag/retriever.py#L88-L103)
+- [app/resources.py:120-131](file://app/resources.py#L120-L131)
+- [tests/test_hybrid_search.py:17-41](file://tests/test_hybrid_search.py#L17-L41)
 
 ### VK Bot Factory and Settings Usage
 The VK bot factory constructs a vkbottle Bot using the VK access token from Settings. This demonstrates how configuration flows into application components.
@@ -320,11 +367,11 @@ Bot-->>Factory : Ready instance
 
 **Diagram sources**
 - [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
-- [app/config.py:7-8](file://app/config.py#L7-L8)
+- [app/config.py:17-18](file://app/config.py#L17-L18)
 
 **Section sources**
 - [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
-- [app/config.py:7-8](file://app/config.py#L7-L8)
+- [app/config.py:17-18](file://app/config.py#L17-L18)
 
 ### Configuration Loading and Validation
 The test suite validates:
@@ -336,7 +383,8 @@ The test suite validates:
 - S3 storage configuration defaults and validation.
 - Admin authentication configuration behavior.
 - Separate embedding provider configuration defaults and validation.
-- **Chunking configuration defaults and validation** for new chunk_size and chunk_overlap parameters.
+- **Chunking configuration defaults and validation** for new chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount parameters.
+- **Hybrid search configuration defaults and validation** for retrieval_mode and sparse_embedding_model parameters.
 - **Centralized logging configuration** for consistent log formatting across all components.
 
 ```mermaid
@@ -346,8 +394,10 @@ LoadEnv --> Defaults["Apply defaults"]
 Defaults --> EnvOverride{"Environment variables present?"}
 EnvOverride --> |Yes| ApplyEnv["Apply environment values"]
 EnvOverride --> |No| KeepDefaults["Keep defaults"]
-ApplyEnv --> ChunkingConfig["Configure chunk_size and chunk_overlap"]
-ChunkingConfig --> ProviderSelect["Select LLM Provider"]
+ApplyEnv --> ChunkingConfig["Configure chunk_size, chunk_overlap, chunk_strategy"]
+ChunkingConfig --> SemanticConfig["Configure semantic chunking parameters"]
+SemanticConfig --> HybridConfig["Configure retrieval_mode, sparse_embedding_model"]
+HybridConfig --> ProviderSelect["Select LLM Provider"]
 ProviderSelect --> EmbeddingSelect["Select Embedding Provider"]
 EmbeddingSelect --> StorageConfig["Configure Storage"]
 StorageConfig --> S3Config["Configure S3 Storage"]
@@ -355,22 +405,28 @@ S3Config --> AdminConfig["Configure Admin Auth"]
 AdminConfig --> LoggingConfig["Configure Centralized Logging"]
 LoggingConfig --> Validate["Type validation"]
 KeepDefaults --> ChunkingConfig
-ChunkingConfig --> ProviderSelect
+ChunkingConfig --> SemanticConfig
+SemanticConfig --> HybridConfig
+HybridConfig --> ProviderSelect
 Validate --> Done(["Settings ready"])
 ```
 
 **Diagram sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
-- [app/config.py:4-43](file://app/config.py#L4-L43)
+- [app/config.py:4-62](file://app/config.py#L4-L62)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
+- [tests/test_hybrid_search.py:164-169](file://tests/test_hybrid_search.py#L164-L169)
+- [tests/test_semantic_chunker.py:223-237](file://tests/test_semantic_chunker.py#L223-L237)
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
-- [app/config.py:4-43](file://app/config.py#L4-L43)
+- [app/config.py:4-62](file://app/config.py#L4-L62)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
+- [tests/test_hybrid_search.py:164-169](file://tests/test_hybrid_search.py#L164-L169)
+- [tests/test_semantic_chunker.py:223-237](file://tests/test_semantic_chunker.py#L223-L237)
 
 ## Dependency Analysis
-The configuration system has minimal external dependencies with provider-specific extras, storage modules, authentication components, chunking utilities, and centralized logging configuration:
+The configuration system has minimal external dependencies with provider-specific extras, storage modules, authentication components, chunking utilities with semantic support, hybrid search dependencies, and centralized logging configuration:
 - **Pydantic Settings**: Provides environment file loading and type validation.
 - **Centralized Logging**: Universal logging configuration via configure_logging() function.
 - **VK integration**: Depends on Settings for bot initialization.
@@ -381,7 +437,8 @@ The configuration system has minimal external dependencies with provider-specifi
 - **S3 Storage**: S3-compatible file storage with async operations using aiobotocore.
 - **Admin Authentication**: Secure API key-based authentication with cookie management.
 - **Resource Cleanup**: Enhanced cleanup mechanisms for proper resource management.
-- **Chunking Utilities**: RecursiveCharacterTextSplitter for document processing with configurable parameters.
+- **Chunking Utilities**: RecursiveCharacterTextSplitter and SemanticChunker for document processing with configurable parameters.
+- **Hybrid Search Dependencies**: FastEmbedSparse for BM25-based sparse embeddings.
 - **Storage Dependencies**: aiosqlite for asynchronous database operations, aiobotocore for S3 operations.
 - **Authentication Dependencies**: secrets module for secure comparison, cryptography for cookie security.
 
@@ -402,6 +459,9 @@ Secrets["secrets module"]
 Cleanup["Resource Cleanup"]
 ChunkingUtils["Chunking Utilities"]
 RecursiveSplitter["RecursiveCharacterTextSplitter"]
+SemanticChunker["SemanticChunker"]
+HybridSearch["Hybrid Search"]
+FastEmbedSparse["FastEmbedSparse"]
 Pyproject["pyproject.toml"]
 Pydantic --> Settings
 Settings --> LoggingConfig
@@ -412,7 +472,10 @@ Settings --> S3Storage
 Settings --> AdminAuth
 Settings --> Cleanup
 Settings --> ChunkingUtils
+Settings --> HybridSearch
 ChunkingUtils --> RecursiveSplitter
+ChunkingUtils --> SemanticChunker
+HybridSearch --> FastEmbedSparse
 VKIntegration --> VKLib
 Qdrant --> Settings
 SQLite --> Aiosqlite
@@ -422,6 +485,8 @@ Cleanup --> Settings
 Pyproject --> Aiosqlite
 Pyproject --> Aiobotocore
 Pyproject --> RecursiveSplitter
+Pyproject --> SemanticChunker
+Pyproject --> FastEmbedSparse
 ```
 
 **Diagram sources**
@@ -434,6 +499,7 @@ Pyproject --> RecursiveSplitter
 - [app/api/deps.py:5](file://app/api/deps.py#L5)
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 - [app/rag/parser.py:14](file://app/rag/parser.py#L14)
+- [app/resources.py:96-131](file://app/resources.py#L96-L131)
 
 **Section sources**
 - [pyproject.toml:10-11](file://pyproject.toml#L10-L11)
@@ -445,15 +511,18 @@ Pyproject --> RecursiveSplitter
 - [app/api/deps.py:5](file://app/api/deps.py#L5)
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 - [app/rag/parser.py:14](file://app/rag/parser.py#L14)
+- [app/resources.py:96-131](file://app/resources.py#L96-L131)
 
 ## Performance Considerations
 - Environment file loading occurs at import-time when Settings is instantiated. This is lightweight and suitable for application startup.
 - Type conversion and validation are handled by Pydantic, adding negligible overhead during normal operation.
 - Provider selection happens at runtime when building LLM and embedding instances, with minimal performance impact.
 - Separate provider configurations allow for independent optimization of LLM and embedding performance.
-- **Chunking optimization**: Configurable chunk_size and chunk_overlap parameters allow fine-tuning for different document types and model capabilities.
+- **Chunking optimization**: Configurable chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount parameters allow fine-tuning for different document types and model capabilities.
 - **Local model performance**: Default chunk_size of 500 characters balances processing speed and context preservation for local LLMs.
 - **Memory management**: Proper chunk_overlap configuration prevents context loss while managing memory usage effectively.
+- **Semantic chunking performance**: Embedding-based breakpoint detection adds computational overhead but improves chunk quality.
+- **Hybrid search performance**: Sparse embeddings add minimal overhead while improving search effectiveness.
 - **Centralized logging performance**: Single logging configuration reduces overhead compared to multiple ad-hoc logging setups.
 - SQLite database operations use asynchronous connections to minimize blocking.
 - S3 storage operations use async client sessions with connection pooling for efficient file operations.
@@ -465,7 +534,8 @@ Pyproject --> RecursiveSplitter
 - S3 operations benefit from connection reuse and proper error handling for network failures.
 - Concurrent indexing operations are controlled by max_concurrent_indexing setting.
 - Chunking parameters significantly impact processing time and memory usage in document ingestion pipelines.
-- **Logging consistency**: Centralized logging eliminates redundant logging setup overhead across multiple components.
+- **Logging consistency**: Centralized logging configuration ensures uniform logging behavior across all development and production environments.
+- **Hybrid search efficiency**: Dense vectors provide fast similarity search, while sparse embeddings offer complementary lexical matching capabilities.
 
 ## Security Best Practices
 - Never hardcode secrets. Use environment variables and the .env file.
@@ -484,12 +554,13 @@ Pyproject --> RecursiveSplitter
 - **Environment Variable Security**: Store sensitive configuration in secure vaults, not in plain text files.
 - **Resource Cleanup Security**: Ensure proper cleanup mechanisms prevent resource leaks and unauthorized access.
 - **Provider Isolation**: Separate LLM and embedding providers to minimize security impact if one provider is compromised.
-- **Chunking Security**: Ensure chunk_size and chunk_overlap values don't expose sensitive data through improper context boundaries.
+- **Chunking Security**: Ensure chunk_size, chunk_overlap, and semantic chunking parameters don't expose sensitive data through improper context boundaries.
+- **Hybrid Search Security**: Validate sparse embedding model configuration and ensure proper dependency management.
 - **Logging Security**: Centralized logging configuration ensures consistent log formatting and level control across all components.
 
 ## Development vs Production Configurations
-- **Development**: Use local LLM providers (ollama, llama.cpp) with localhost URLs and local SQLite database. Use local S3-compatible storage with MinIO for development. The VK polling script initializes Settings and runs the bot locally. Separate embedding provider can use Ollama for development. Chunking parameters can be tuned for faster local processing. Centralized logging configuration provides consistent log formatting across all development scripts.
-- **Production**: Use cloud LLM providers with proper authentication and managed database services. Use production S3-compatible storage with proper IAM policies and HTTPS endpoints. Use strong admin API keys with rotation policies. Separate embedding provider can use OpenAI for production quality embeddings. Chunking parameters should be optimized for production workload characteristics. Centralized logging configuration ensures consistent log formatting across all production components.
+- **Development**: Use local LLM providers (ollama, llama.cpp) with localhost URLs and local SQLite database. Use local S3-compatible storage with MinIO for development. The VK polling script initializes Settings and runs the bot locally. Separate embedding provider can use Ollama for development. Chunking parameters can be tuned for faster local processing. Hybrid search can be disabled for development simplicity. Centralized logging configuration provides consistent log formatting across all development scripts.
+- **Production**: Use cloud LLM providers with proper authentication and managed database services. Use production S3-compatible storage with proper IAM policies and HTTPS endpoints. Use strong admin API keys with rotation policies. Separate embedding provider can use OpenAI for production quality embeddings. Chunking parameters should be optimized for production workload characteristics. Hybrid search can be enabled with appropriate sparse embedding models. Centralized logging configuration ensures consistent log formatting across all production components.
 
 Operational differences:
 - VK polling script demonstrates Settings usage at runtime with centralized logging configuration.
@@ -502,12 +573,13 @@ Operational differences:
 - Production databases should use managed services with proper monitoring and scaling.
 - S3 storage should use managed services with proper backup and disaster recovery.
 - Resource cleanup mechanisms ensure proper shutdown in production environments.
-- **Chunking optimization**: Production environments may require different chunk_size and chunk_overlap values based on document types and performance requirements.
+- **Chunking optimization**: Production environments may require different chunk_size, chunk_overlap, chunk_strategy, and semantic chunking parameters based on document types and performance requirements.
+- **Hybrid search optimization**: Production environments should enable hybrid search with appropriate sparse embedding models for improved search effectiveness.
 - **Logging consistency**: Centralized logging configuration ensures uniform logging behavior across all development and production environments.
 
 **Section sources**
 - [app/main.py:23-82](file://app/main.py#L23-L82)
-- [app/config.py:26-43](file://app/config.py#L26-L43)
+- [app/config.py:26-62](file://app/config.py#L26-L62)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 
 ## Adding New Configuration Variables
@@ -522,7 +594,8 @@ To add new configuration variables:
 8. For security-sensitive configurations, implement proper validation and error handling.
 9. For cleanup-related configurations, ensure proper resource management and error handling.
 10. **For chunking-related configurations**, consider performance implications and provide sensible defaults.
-11. **For logging-related configurations**, consider centralized logging integration and ensure consistent formatting.
+11. **For hybrid search configurations**, ensure proper dependency management and error handling for sparse embeddings.
+12. **For logging-related configurations**, consider centralized logging integration and ensure consistent formatting.
 
 Example steps:
 - Add a new field to the Settings class.
@@ -534,10 +607,11 @@ Example steps:
 - For admin authentication, implement proper cookie security and rate limiting.
 - For resource cleanup, implement proper error handling and logging.
 - **For chunking parameters**, ensure they integrate with document processing pipelines and consider performance trade-offs.
+- **For hybrid search parameters**, ensure proper dependency management and error handling for sparse embeddings.
 - **For logging configuration**, ensure centralized logging integration and consistent formatting across all components.
 
 **Section sources**
-- [app/config.py:4-43](file://app/config.py#L4-L43)
+- [app/config.py:4-62](file://app/config.py#L4-L62)
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
 
 ## Logging Configuration
@@ -606,14 +680,20 @@ All major components use centralized logging configuration:
 ## Chunking Configuration
 
 ### Chunking Parameters Overview
-The chunking configuration provides explicit control over document processing behavior with two key parameters:
+The chunking configuration provides explicit control over document processing behavior with two key strategies:
 
 - **chunk_size**: Maximum characters per document chunk (default: 500)
 - **chunk_overlap**: Characters shared between consecutive chunks (default: 50)
+- **chunk_strategy**: Chunking strategy - "recursive" (token-based) or "semantic" (embedding similarity) (default: "recursive")
+- **semantic_breakpoint_threshold_type**: Threshold type for semantic chunking ("percentile", "standard_deviation", "interquartile", "gradient") (default: "percentile")
+- **semantic_breakpoint_threshold_amount**: Threshold amount for semantic chunking (default: 95)
 
 ### Default Values and Rationale
 - **chunk_size**: 500 characters - Optimized for local LLM performance while maintaining reasonable context
 - **chunk_overlap**: 50 characters - Preserves context between chunks without excessive duplication
+- **chunk_strategy**: "recursive" - Backward compatible default using token-based splitting
+- **semantic_breakpoint_threshold_type**: "percentile" - Statistical threshold type for breakpoint detection
+- **semantic_breakpoint_threshold_amount**: 95 - High threshold for detecting meaningful text boundaries
 - **Performance balance**: These defaults provide a good balance between processing speed and contextual integrity for local models
 
 ### Configuration Options
@@ -621,7 +701,10 @@ Chunking configuration options:
 
 - **CHUNK_SIZE**: Integer value controlling maximum chunk length (default: 500)
 - **CHUNK_OVERLAP**: Integer value controlling context overlap between chunks (default: 50)
-- **Environment variable mapping**: CHUNK_SIZE and CHUNK_OVERLAP environment variables map to chunk_size and chunk_overlap settings
+- **CHUNK_STRATEGY**: String value controlling chunking approach ("recursive" or "semantic")
+- **SEMANTIC_BREAKPOINT_THRESHOLD_TYPE**: String value controlling semantic chunking threshold type
+- **SEMANTIC_BREAKPOINT_THRESHOLD_AMOUNT**: Float value controlling semantic chunking threshold amount
+- **Environment variable mapping**: CHUNK_SIZE, CHUNK_OVERLAP, CHUNK_STRATEGY, SEMANTIC_BREAKPOINT_THRESHOLD_TYPE, and SEMANTIC_BREAKPOINT_THRESHOLD_AMOUNT environment variables map to respective settings
 
 ### Environment Variable Configuration
 
@@ -629,36 +712,104 @@ Chunking configuration options:
 # Chunking configuration
 CHUNK_SIZE=500
 CHUNK_OVERLAP=50
+CHUNK_STRATEGY=recursive
+
+# Semantic chunking configuration
+SEMANTIC_BREAKPOINT_THRESHOLD_TYPE=percentile
+SEMANTIC_BREAKPOINT_THRESHOLD_AMOUNT=95
 
 # Alternative configuration for larger documents
 CHUNK_SIZE=1000
 CHUNK_OVERLAP=100
+CHUNK_STRATEGY=semantic
 
 # Alternative configuration for memory-constrained environments
 CHUNK_SIZE=250
 CHUNK_OVERLAP=25
+CHUNK_STRATEGY=recursive
 ```
 
-### Chunking Parameter Effects
+### Chunking Strategy Effects
+- **Recursive Strategy**: Uses token-based splitting with separators for logical text boundaries
+- **Semantic Strategy**: Uses embedding similarity to detect natural text breakpoints for more meaningful chunking
 - **Larger chunk_size**: Improves context preservation but increases memory usage and processing time
 - **Smaller chunk_size**: Reduces memory usage but may lose important context between chunks
 - **Higher chunk_overlap**: Preserves more context but increases processing overhead
 - **Lower chunk_overlap**: Reduces processing overhead but may lose important context
+- **Semantic threshold types**: Different statistical methods for determining breakpoint sensitivity
+- **Semantic threshold amounts**: Control sensitivity of breakpoint detection (higher = more breaks)
 
 ### Integration Points
 Chunking parameters are used throughout the document processing pipeline:
 
-- **Document ingestion scripts**: Use settings.chunk_size and settings.chunk_overlap for batch processing
+- **Document ingestion scripts**: Use settings.chunk_size, settings.chunk_overlap, settings.chunk_strategy, settings.semantic_breakpoint_threshold_type, and settings.semantic_breakpoint_threshold_amount for batch processing
 - **Admin upload interface**: Pass chunking parameters to background processing tasks
-- **Document parser module**: Utilize chunking parameters for individual document processing
+- **Document parser module**: Utilize chunking parameters for individual document processing with support for both recursive and semantic strategies
 - **Background indexing tasks**: Apply chunking parameters during document indexing operations
+- **API endpoints**: Use chunking parameters for document processing in REST API operations
 
 **Section sources**
-- [app/config.py:50-52](file://app/config.py#L50-L52)
-- [app/rag/parser.py:16-17](file://app/rag/parser.py#L16-L17)
-- [app/api/documents.py:132-133](file://app/api/documents.py#L132-L133)
-- [app/api/documents.py:839-840](file://app/api/documents.py#L839-L840)
-- [scripts/ingest.py:80-82](file://scripts/ingest.py#L80-L82)
+- [app/config.py:50-62](file://app/config.py#L50-L62)
+- [app/rag/parser.py:58-175](file://app/rag/parser.py#L58-L175)
+- [app/api/documents.py:566-570](file://app/api/documents.py#L566-L570)
+- [app/api/documents.py:756-760](file://app/api/documents.py#L756-L760)
+- [app/api/documents.py:992-996](file://app/api/documents.py#L992-L996)
+- [scripts/ingest.py:80-88](file://scripts/ingest.py#L80-L88)
+
+## Hybrid Search Configuration
+
+### Hybrid Search Parameters Overview
+The hybrid search configuration enables advanced retrieval modes with sparse embeddings support:
+
+- **retrieval_mode**: Search mode - "dense" (vector-only) or "hybrid" (dense + sparse BM25) (default: "dense")
+- **sparse_embedding_model**: Model name for sparse embeddings (default: "Qdrant/bm25")
+
+### Default Values and Rationale
+- **retrieval_mode**: "dense" - Default to vector-only search for simplicity and performance
+- **sparse_embedding_model**: "Qdrant/bm25" - High-quality BM25 model for lexical matching
+- **Performance balance**: Dense search provides fast similarity matching, while hybrid adds complementary lexical matching
+
+### Configuration Options
+Hybrid search configuration options:
+
+- **RETRIEVAL_MODE**: String value controlling search mode ("dense" or "hybrid")
+- **SPARSE_EMBEDDING_MODEL**: String value controlling sparse embedding model name
+- **Environment variable mapping**: RETRIEVAL_MODE and SPARSE_EMBEDDING_MODEL environment variables map to respective settings
+
+### Environment Variable Configuration
+
+```bash
+# Dense search configuration (default)
+RETRIEVAL_MODE=dense
+
+# Hybrid search configuration
+RETRIEVAL_MODE=hybrid
+SPARSE_EMBEDDING_MODEL=Qdrant/bm25
+
+# Alternative sparse model
+SPARSE_EMBEDDING_MODEL=avsolatorio/GIST-Embedding-v0
+```
+
+### Hybrid Search Modes
+- **Dense Mode**: Vector-only similarity search using embeddings for semantic matching
+- **Hybrid Mode**: Combines dense vector search with sparse BM25-based lexical matching for improved recall and precision
+- **Sparse Embeddings**: Uses FastEmbedSparse for BM25-like sparse representations
+- **Performance Benefits**: Hybrid search can improve recall for keyword-rich queries while maintaining semantic similarity for content-based queries
+
+### Integration Points
+Hybrid search parameters are used throughout the RAG pipeline:
+
+- **Retriever construction**: Use settings.retrieval_mode and settings.sparse_embedding_model to configure search behavior
+- **Sparse embeddings**: Build sparse embeddings only when retrieval_mode is "hybrid"
+- **Vector store configuration**: Pass sparse embeddings to QdrantVectorStore for hybrid search
+- **Indexing operations**: Include sparse embeddings during document indexing for hybrid search capability
+- **QA service**: Store sparse embeddings for hybrid search in question answering workflows
+
+**Section sources**
+- [app/config.py:59-62](file://app/config.py#L59-L62)
+- [app/rag/retriever.py:88-103](file://app/rag/retriever.py#L88-L103)
+- [app/resources.py:120-131](file://app/resources.py#L120-L131)
+- [tests/test_hybrid_search.py:17-41](file://tests/test_hybrid_search.py#L17-L41)
 
 ## Storage Configuration
 
@@ -1105,9 +1256,11 @@ Common issues and resolutions:
 - **S3 file upload/download errors**: Check network connectivity and file permissions.
 - **Resource cleanup failures**: Check cleanup mechanisms and error handling.
 - **Concurrent indexing issues**: Adjust MAX_CONCURRENT_INDEXING setting based on system resources.
-- **Chunking parameter issues**: Verify chunk_size and chunk_overlap values are appropriate for document types and model capabilities.
+- **Chunking parameter issues**: Verify chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount values are appropriate for document types and model capabilities.
 - **Document processing errors**: Check chunking parameters for documents that fail processing.
 - **Memory issues with chunking**: Adjust chunk_size and chunk_overlap for memory-constrained environments.
+- **Semantic chunking errors**: Verify embedding provider is available and properly configured for semantic chunking.
+- **Hybrid search errors**: Check sparse embedding model availability and hybrid search dependencies.
 - **Logging configuration issues**: Verify centralized logging setup and log formatting consistency.
 - **Log level problems**: Check LOG_LEVEL environment variable and logging configuration.
 - **Cross-component logging inconsistencies**: Ensure all components use centralized logging configuration.
@@ -1125,17 +1278,21 @@ Validation tips:
 - Implement proper error handling for all configuration failures.
 - Test resource cleanup mechanisms during shutdown.
 - Validate concurrent indexing limits with system capabilities.
-- **Test chunking parameters**: Validate chunk_size and chunk_overlap combinations with representative documents.
+- **Test chunking parameters**: Validate chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount combinations with representative documents.
+- **Test semantic chunking**: Verify embedding provider availability and semantic breakpoint detection accuracy.
+- **Test hybrid search**: Validate retrieval_mode configuration and sparse embedding model availability.
 - **Monitor processing performance**: Track ingestion time and memory usage with different chunking configurations.
 - **Verify logging consistency**: Ensure centralized logging configuration provides uniform log formatting across all components.
 - **Test log level configuration**: Validate LOG_LEVEL environment variable effects on logging output.
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
-- [app/config.py:4-43](file://app/config.py#L4-L43)
+- [app/config.py:4-62](file://app/config.py#L4-L62)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
+- [tests/test_hybrid_search.py:1-169](file://tests/test_hybrid_search.py#L1-L169)
+- [tests/test_semantic_chunker.py:1-237](file://tests/test_semantic_chunker.py#L1-L237)
 - [app/storage/s3.py:71-77](file://app/storage/s3.py#L71-L77)
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 
 ## Conclusion
-The configuration management system in cafetera_hr_bot uses Pydantic Settings to load environment variables from a .env file, providing type-safe configuration for the VK integration, separate LLM and embedding provider support, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, configurable document chunking parameters for optimal RAG performance, and centralized logging configuration ensuring consistent log formatting across all application components. The system now supports independent LLM and embedding provider configurations (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, covering VK API credentials, Qdrant database connections, flexible provider-specific behaviors, robust storage management, secure S3 file operations, comprehensive admin access control, enhanced resource cleanup mechanisms, explicit control over document processing behavior through chunk_size and chunk_overlap parameters, and centralized logging configuration that provides uniform logging behavior across all development and production environments. By following the documented patterns and security practices, teams can safely manage configuration across development and production environments while maintaining flexibility for different LLM and embedding backends, reliable operation with clear provider-specific behaviors, comprehensive document metadata persistence with proper storage configuration and security measures, secure S3 file storage with proper access controls, robust admin authentication with proper security protocols, proper resource management with enhanced cleanup mechanisms, optimized document processing through configurable chunking parameters that balance performance and context preservation, and consistent logging behavior through centralized logging configuration that ensures uniform log formatting across all application components.
+The configuration management system in cafetera_hr_bot uses Pydantic Settings to load environment variables from a .env file, providing type-safe configuration for the VK integration, separate LLM and embedding provider support, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, configurable document chunking parameters with support for both recursive and semantic strategies, hybrid search functionality with sparse embeddings, and centralized logging configuration ensuring consistent log formatting across all application components. The system now supports independent LLM and embedding provider configurations (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, covering VK API credentials, Qdrant database connections, flexible provider-specific behaviors, robust storage management, secure S3 file operations, comprehensive admin access control, enhanced resource cleanup mechanisms, explicit control over document processing behavior through chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount parameters, hybrid search modes with dense vector-only and hybrid dense+sparse BM25 approaches, sparse embeddings support with configurable models, and centralized logging configuration that provides uniform logging behavior across all development and production environments. By following the documented patterns and security practices, teams can safely manage configuration across development and production environments while maintaining flexibility for different LLM and embedding backends, reliable operation with clear provider-specific behaviors, comprehensive document metadata persistence with proper storage configuration and security measures, secure S3 file storage with proper access controls, robust admin authentication with proper security protocols, proper resource management with enhanced cleanup mechanisms, optimized document processing through configurable chunking parameters that balance performance and context preservation, hybrid search functionality that improves search effectiveness with sparse embeddings, and consistent logging behavior through centralized logging configuration that ensures uniform log formatting across all application components.
