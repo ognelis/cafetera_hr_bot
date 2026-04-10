@@ -96,7 +96,7 @@ class TestLoadDocumentRecursiveDefault:
 
     def test_load_document_recursive_default(self, tmp_path: Path):
         """Calling load_document(path, strategy='recursive') on a .docx file produces
-        chunks with correct source and section metadata."""
+        chunks with correct source, section, section_level, and section_path metadata."""
         docx_path = tmp_path / "test.docx"
         doc = DocxDocument()
         doc.add_heading("Test Section", level=1)
@@ -110,6 +110,8 @@ class TestLoadDocumentRecursiveDefault:
         for doc in result:
             assert doc.metadata["source"] == "test.docx"
             assert doc.metadata["section"] == "Test Section"
+            assert doc.metadata["section_level"] == 1
+            assert doc.metadata["section_path"] == "Test Section"
 
 
 # ── Tests for load_document with semantic strategy ──
@@ -122,7 +124,8 @@ class TestLoadDocumentSemantic:
         self, multi_section_docx: Path, mock_embeddings: FakeEmbeddings
     ):
         """Calling load_document(path, strategy='semantic', embeddings=mock_embeddings)
-        on a .docx file produces chunks with source and section metadata."""
+        on a .docx file produces chunks with source, section, section_level,
+        and section_path metadata."""
         result = load_document(
             multi_section_docx,
             strategy="semantic",
@@ -136,6 +139,8 @@ class TestLoadDocumentSemantic:
         for doc in result:
             assert doc.metadata["source"] == "multi_section.docx"
             assert "section" in doc.metadata
+            assert "section_level" in doc.metadata
+            assert "section_path" in doc.metadata
 
     def test_load_document_semantic_doc(
         self, multi_paragraph_doc: Path, mock_embeddings: FakeEmbeddings

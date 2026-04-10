@@ -45,11 +45,13 @@
 
 ## Update Summary
 **Changes Made**
-- **Consolidated Document Indexing Operations**: Unified background indexing into `_index_document_from_s3()` function to eliminate code duplication
-- **Introduced Date Range Utility**: Added `parse_date_range()` function for consistent ISO date parsing across all endpoints
-- **Centralized Template Context Management**: Created `_document_table_context()` function for consistent document table partial rendering
-- **Enhanced Maintainability**: Reduced code duplication while preserving all existing functionality
-- **Improved Error Handling**: Centralized background task error handling in unified indexing function
+- **Enhanced Document Upload Validation**: Added comprehensive .xlsx format support alongside existing .docx and .doc formats
+- **Extended MIME Type Validation**: Updated allowed extensions and MIME types to include .xlsx with proper validation
+- **DOCX Integrity Checking**: Implemented _validate_docx_bytes() function for DOCX content verification
+- **Spreadsheet Processing Pipeline**: Added load_xlsx() function for .xlsx file parsing and chunking
+- **Format-Specific Processing**: Unified processing pipeline supporting DOCX, DOC, and XLSX formats
+- **Enhanced Frontend Support**: Added XLSX format icons and filtering capabilities in the user interface
+- **Centralized Background Processing**: Unified _index_document_from_s3() function handles all document formats including .xlsx
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -58,7 +60,7 @@
 4. [Document Management Workflow](#document-management-workflow)
 5. [Enhanced Filtering and Sorting System](#enhanced-filtering-and-sorting-system)
 6. [Modernized User Interface](#modernized-user-interface)
-7. [Dual-Format Document Support](#dual-format-document-support)
+7. [Enhanced Dual-Format Document Support](#enhanced-dual-format-document-support)
 8. [Enhanced Concurrency Control](#enhanced-concurrency-control)
 9. [Comprehensive Test Coverage](#comprehensive-test-coverage)
 10. [Improved Text Chunking Algorithms](#improved-text-chunking-algorithms)
@@ -86,7 +88,7 @@
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-**Updated** The system now features consolidated document indexing operations through a unified `_index_document_from_s3()` function, introducing a new `parse_date_range()` utility for consistent date parsing, and centralizing document table context management via `_document_table_context()`. These architectural improvements eliminate code duplication, enhance maintainability, and preserve all existing functionality while providing a more streamlined development experience. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance.
+**Updated** The system now features enhanced document upload validation with comprehensive .xlsx format support alongside existing .docx and .doc formats. The validation system includes extended MIME type validation and DOCX integrity checking using the new _validate_docx_bytes() function. The system supports a unified processing pipeline for DOCX, DOC, and XLSX formats, with comprehensive spreadsheet parsing and chunking capabilities. These enhancements expand the system's document processing capabilities while maintaining all existing functionality and architectural improvements including consolidated document indexing operations, centralized date range utilities, and template context management.
 
 ## System Architecture
 
@@ -132,6 +134,7 @@ StreamingResponse[Streaming Response Handler]
 UnifiedIndexing[Unified Indexing Function]
 DateRangeUtility[Date Range Utility]
 TemplateContext[Template Context Manager]
+DocXValidator[DOCX Integrity Validator]
 end
 subgraph "Domain Layer"
 Entities[Domain Entities]
@@ -193,9 +196,11 @@ BulkOps --> Semaphore
 BatchPoller --> OOBSwapper
 FormatHandler --> FormatDispatch
 FormatHandler --> Parser
+FormatHandler --> DocXValidator
 FilterSortAPI --> FilterSortDB
 FilterSortAPI --> DateRangeUtility
 TemplateContext --> UnifiedIndexing
+DocXValidator --> UnifiedIndexing
 ```
 
 **Diagram sources**
@@ -214,11 +219,11 @@ TemplateContext --> UnifiedIndexing
 
 The architecture consists of five main layers with enhanced concurrency control, comprehensive document type handling, and modernized frontend capabilities:
 
-1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, and comprehensive status polling system
-2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, and template context management for consistent rendering
-3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, and recently finished documents tracking for status updates
-4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking, enhanced filtering/sorting database operations, and recently finished documents functionality for status tracking
-5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for both DOC and DOCX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, and streaming response generation for real-time feedback
+1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, and comprehensive status polling system
+2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, template context management for consistent rendering, and DOCX integrity validation for file content verification
+3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms supporting DOCX, DOC, and XLSX formats, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, and recently finished documents tracking for status updates
+4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking for all supported document types, enhanced filtering/sorting database operations, and recently finished documents functionality for status tracking
+5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for DOC, DOCX, and XLSX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, and streaming response generation for real-time feedback
 
 ## Core Components
 
@@ -342,7 +347,7 @@ Start([Document Upload]) --> DetectFormat[Detect Document Format]
 DetectFormat --> Validate[Validate File Type & Size]
 Validate --> Upload[Upload to S3 Storage]
 Upload --> CreateMeta[Create Metadata Record]
-CreateMeta --> Parse[Parse DOC/DOCX Content]
+CreateMeta --> Parse[Parse DOC/DOCX/XLSX Content]
 Parse --> Chunk[Chunk Text Content]
 Chunk --> Index[Index in Qdrant Vector DB]
 Index --> Complete[Mark as Completed]
@@ -421,9 +426,9 @@ The system implements comprehensive validation for uploaded documents with enhan
 
 | Validation Step | Criteria | Action |
 |----------------|----------|---------|
-| File Extension | Both `.docx` and `.doc` allowed | Accept both formats |
+| File Extension | .docx, .doc, and .xlsx allowed | Accept all three formats |
 | File Size | Maximum 10MB | Reject if exceeded |
-| Content Type | DOCX/DOC MIME types | Validate against allowed types |
+| Content Type | DOCX/DOC/XLSX MIME types | Validate against allowed types |
 | Format Detection | Automatic extension-based detection | Route to appropriate parser |
 | Duplicate Prevention | Unique S3 keys | Append counter suffix |
 | Concurrency Control | Semaphore-based throttling | Limit concurrent indexing operations |
@@ -433,8 +438,10 @@ The system implements comprehensive validation for uploaded documents with enhan
 | Unified Indexing | Centralized background processing | Eliminate code duplication |
 | Date Range Parsing | Consistent ISO date handling | Standardize date parameter processing |
 | Template Context | Centralized rendering management | Ensure consistent UI rendering |
+| DOCX Integrity | Zip file validation | Check word/document.xml presence |
+| Spreadsheet Processing | XLSX workbook parsing | Handle multiple worksheets |
 
-**Updated** The validation system now supports both DOCX and DOC formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files while maintaining modern DOCX processing capabilities. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The new `parse_date_range()` utility function standardizes date parsing across all endpoints, ensuring consistent ISO date format handling. The `_document_table_context()` function centralizes template context management, providing consistent rendering for document table partials. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the GLOBAL_EXPERTS_PROMPT system prompt and specialized retriever construction.
+**Updated** The validation system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files, modern DOCX files, and spreadsheet XLSX files. The new DOCX integrity checking using _validate_docx_bytes() function verifies that DOCX files contain valid content by checking for the required word/document.xml structure within the ZIP archive. Background indexing operations are now handled by the unified _index_document_from_s3() function, which eliminates code duplication and provides centralized error handling. The new load_xlsx() function in the parser module handles spreadsheet processing with worksheet-based sectioning and row formatting. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the GLOBAL_EXPERTS_PROMPT system prompt and specialized retriever construction.
 
 **Section sources**
 - [app/api/documents.py:307-366](file://app/api/documents.py#L307-L366)
@@ -453,12 +460,12 @@ participant Client as Client Browser
 participant API as API Router
 participant Repo as Document Repository
 participant DB as SQLite Database
-Client->>API : GET /api/documents?search=query&status=completed&source_type=docx&sort_field=title&sort_dir=asc&page=1&per_page=10
+Client->>API : GET /api/documents?search=query&status=completed&source_type=xlsx&sort_field=title&sort_dir=asc&page=1&per_page=10
 API->>API : parse_date_range(date_from, date_to)
-API->>Repo : list_page(search=query, status=completed, source_type=docx, sort_field=title, sort_dir=asc, page=1, per_page=10)
-Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.doc') ORDER BY LOWER(title) ASC
+API->>Repo : list_page(search=query, status=completed, source_type=xlsx, sort_field=title, sort_dir=asc, page=1, per_page=10)
+Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.doc' OR filename LIKE '%.xlsx') ORDER BY LOWER(title) ASC
 DB-->>Repo : Total count
-Repo->>DB : SELECT ... WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.doc') ORDER BY LOWER(title) ASC LIMIT 10 OFFSET 0
+Repo->>DB : SELECT ... WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.doc' OR filename LIKE '%.xlsx') ORDER BY LOWER(title) ASC LIMIT 10 OFFSET 0
 DB-->>Repo : Documents with pagination
 Repo-->>API : (documents, total)
 API-->>Client : JSON with filtered and sorted results
@@ -477,7 +484,7 @@ The filtering system provides comprehensive filtering capabilities across multip
 - **Case-insensitive matching**: Uses `LOWER()` function for case-insensitive pattern matching
 - **Dual-field search**: Searches both document titles and filenames simultaneously
 - **Status filtering**: Filters by processing status (pending, processing, completed, failed)
-- **Source type filtering**: Distinguishes between DOCX, DOC, and other document types
+- **Source type filtering**: Distinguishes between DOCX, DOC, XLSX, and other document types
 - **Real-time filtering**: Integrated with HTMX for immediate filtered results
 - **Pattern matching**: Supports partial matches with wildcard patterns
 - **Performance optimization**: Efficient LIKE queries with proper indexing considerations
@@ -502,7 +509,7 @@ The system supports the following parameters:
 |-----------|------|-------------|
 | `search` | String | Search query for filtering documents by title or filename |
 | `status` | String | Filter by processing status (all, completed, processing, pending, failed) |
-| `source_type` | String | Filter by document type (all, docx, doc, other) |
+| `source_type` | String | Filter by document type (all, docx, doc, xlsx, other) |
 | `sort_field` | String | Field to sort by (title, created_at, status) |
 | `sort_dir` | String | Sort direction (asc, desc) |
 | `page` | Integer | Current page number (1-indexed) |
@@ -576,6 +583,7 @@ Status --> AutoRefresh[Auto-refresh]
 Status --> Tooltips[Error Tooltips]
 FormatIcons --> DocIcon[DOC Format Icon]
 FormatIcons --> DocxIcon[DOCX Format Icon]
+FormatIcons --> XlsxIcon[XLSX Format Icon]
 TableStyling --> BorderStyling[Border Styling]
 TableStyling --> BackgroundStyling[Background Treatment]
 TableStyling --> RoundedCorners[Corner Radius]
@@ -677,10 +685,10 @@ The modernized interface includes several key interactive elements:
 - **Responsive Design**: Mobile-optimized pagination controls
 
 #### Format Type Display
-- **Visual Icons**: Distinct icons for DOC and DOCX formats
+- **Visual Icons**: Distinct icons for DOC, DOCX, and XLSX formats
 - **Color Coding**: Different visual treatments for different formats
 - **Tooltip Information**: Hover details showing exact format type
-- **Filtering Support**: Separate filters for DOC and DOCX formats
+- **Filtering Support**: Separate filters for DOC, DOCX, and XLSX formats
 
 #### Enhanced Filtering and Sorting
 - **Filter Chips**: Visual filter indicators with active state highlighting
@@ -753,21 +761,25 @@ The interface uses Alpine.js for comprehensive state management:
 - [templates/documents.html:726-845](file://templates/documents.html#L726-L845)
 - [templates/documents.html:766-845](file://templates/documents.html#L766-L845)
 
-## Dual-Format Document Support
+## Enhanced Dual-Format Document Support
 
-The system now provides comprehensive support for both modern DOCX and legacy DOC document formats:
+The system now provides comprehensive support for DOCX, DOC, and XLSX document formats with enhanced validation and processing capabilities:
 
 ```mermaid
 flowchart TD
 FormatDetection[Format Detection] --> DocxCheck{Is .docx?}
-DocxCheck --> |Yes| DocxParser[DOCX Parser]
+DocxCheck --> |Yes| DocxParser[DOCX Parser with Integrity Check]
 DocxCheck --> |No| DocCheck{Is .doc?}
 DocCheck --> |Yes| DocParser[Legacy DOC Parser]
-DocCheck --> |No| Unsupported[Unsupported Format]
-DocxParser --> DocxChunks[Generate DOCX Chunks]
+DocCheck --> |No| XlsxCheck{Is .xlsx?}
+XlsxCheck --> |Yes| XlsxParser[XLSX Parser with Worksheet Processing]
+XlsxCheck --> |No| Unsupported[Unsupported Format]
+DocxParser --> DocxChunks[Generate DOCX Chunks with Validation]
 DocParser --> DocChunks[Generate DOC Chunks]
+XlsxParser --> XlsxChunks[Generate XLSX Chunks with Worksheet Metadata]
 DocxChunks --> CombinedChunks[Combined Chunks]
 DocChunks --> CombinedChunks
+XlsxChunks --> CombinedChunks
 CombinedChunks --> VectorStore[Vector Store Indexing]
 Unsupported --> Error[Format Error Response]
 ```
@@ -775,25 +787,29 @@ Unsupported --> Error[Format Error Response]
 **Diagram sources**
 - [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
 - [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
+- [app/rag/parser.py:411-475](file://app/rag/parser.py#L411-L475)
 
 ### Format Detection and Validation
 
 The system implements comprehensive format detection and validation:
 
-- **Allowed Extensions**: Both `.docx` and `.doc` are supported
-- **MIME Type Validation**: Comprehensive MIME type checking for both formats
+- **Allowed Extensions**: .docx, .doc, and .xlsx are supported
+- **MIME Type Validation**: Comprehensive MIME type checking for all three formats
 - **Automatic Routing**: Format detection determines appropriate parsing strategy
 - **Error Handling**: Graceful handling of unsupported formats with clear error messages
+- **DOCX Integrity Check**: Zip file validation using _validate_docx_bytes() function
+- **Spreadsheet Processing**: Worksheet-based parsing with metadata preservation
 
-### Parser Architecture
+### Enhanced Parser Architecture
 
-The enhanced parser system supports both document formats:
+The enhanced parser system supports all three document formats:
 
-#### DOCX Parser
+#### DOCX Parser with Integrity Validation
 - **Structured Content**: Preserves document structure with heading-based sections
 - **Metadata Enrichment**: Maintains source filename and section information
 - **Chunk Processing**: Generates semantic chunks with proper metadata
 - **Vector Embedding**: Creates embeddings for semantic search
+- **Integrity Verification**: Validates DOCX content before processing
 
 #### Legacy DOC Parser
 - **Text Extraction**: Uses `docx2txt` for reliable text extraction
@@ -801,18 +817,28 @@ The enhanced parser system supports both document formats:
 - **Filename-Based Section**: Uses document stem as section heading
 - **Consistent Processing**: Mirrors DOCX processing approach for uniform results
 
+#### XLSX Parser with Worksheet Processing
+- **Worksheet Sections**: Each Excel worksheet becomes a separate section
+- **Row Formatting**: Preserves column structure with pipe separators
+- **Empty Row Handling**: Skips completely empty rows for clean content
+- **Metadata Enrichment**: Includes worksheet names as section information
+- **Chunk Processing**: Generates semantic chunks with worksheet context
+- **Vector Embedding**: Creates embeddings for spreadsheet content
+
 ### Format-Specific Features
 
-Both formats benefit from enhanced processing capabilities:
+All three formats benefit from enhanced processing capabilities:
 
 - **Unified Metadata**: Consistent metadata structure regardless of format
-- **Chunk Size Optimization**: Same chunk size and overlap for both formats
+- **Chunk Size Optimization**: Same chunk size and overlap for all formats
 - **Vector Database Integration**: Seamless integration with Qdrant vector store
-- **Search Compatibility**: Identical search behavior for both document types
+- **Search Compatibility**: Identical search behavior across all document types
+- **Spreadsheet Query Support**: XLSX documents can be queried with worksheet context
 
 **Section sources**
 - [app/rag/parser.py:55-138](file://app/rag/parser.py#L55-L138)
 - [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
+- [app/rag/parser.py:273-407](file://app/rag/parser.py#L273-L407)
 - [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
 
 ## Enhanced Concurrency Control
@@ -856,8 +882,8 @@ The semaphore-based throttling system provides:
 
 Background tasks are coordinated through enhanced functions:
 
-- **`_index_document_from_s3`**: Unified function handling both upload and reindex operations with semaphore protection
-- **`_reindex_in_background`**: Handles bulk reindexing with proper error handling
+- **_index_document_from_s3**: Unified function handling upload, reindex, and all format types with semaphore protection
+- **_reindex_in_background**: Handles bulk reindexing with proper error handling
 - **Concurrent Processing**: Multiple background tasks can run simultaneously within limits
 - **Error Recovery**: Failed tasks don't block other operations
 
@@ -883,7 +909,7 @@ The system includes comprehensive testing across all layers with extensive searc
 
 ### Enhanced Test Coverage Areas
 
-**Updated** The testing strategy now includes extensive coverage for the newly enhanced global question-answering features:
+**Updated** The testing strategy now includes extensive coverage for the newly enhanced global question-answering features and XLSX format support:
 
 #### Search and Status Testing Coverage
 - **Search functionality**: Tests case-insensitive pattern matching against titles and filenames
@@ -912,11 +938,13 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Background Processing**: Validates background task scheduling and execution with proper concurrency limits
 
 #### Enhanced Format Testing Coverage
-- **DOCX Upload**: Tests upload and processing of modern DOCX files
+- **DOCX Upload**: Tests upload and processing of modern DOCX files with integrity validation
 - **DOC Upload**: Tests upload and processing of legacy DOC files
+- **XLSX Upload**: Tests upload and processing of spreadsheet XLSX files with worksheet parsing
 - **Format Detection**: Validates automatic format detection and routing
-- **Parser Compatibility**: Ensures both formats produce identical chunk structures
+- **Parser Compatibility**: Ensures all formats produce identical chunk structures
 - **Metadata Consistency**: Verifies consistent metadata across formats
+- **DOCX Integrity Testing**: Validates _validate_docx_bytes() function with various DOCX samples
 
 #### Concurrency Control Testing Coverage
 - **Semaphore Limits**: Tests maximum concurrent indexing operations
@@ -927,7 +955,7 @@ The system includes comprehensive testing across all layers with extensive searc
 
 #### Filtering and Sorting Testing Coverage
 - **Status Filter**: Tests filtering by processing status
-- **Source Type Filter**: Tests filtering by document type (DOCX, DOC, other)
+- **Source Type Filter**: Tests filtering by document type (DOCX, DOC, XLSX, other)
 - **Sort Fields**: Tests sorting by title, created_at, and status
 - **Sort Directions**: Tests ascending and descending sort orders
 - **Combined Filters**: Tests multiple filters applied simultaneously
@@ -983,24 +1011,32 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Content-Type Handling**: Tests proper MIME type assignment
 
 #### Unified Indexing Function Testing Coverage
-- **Background Processing**: Tests `_index_document_from_s3()` function for both upload and reindex operations
+- **Background Processing**: Tests _index_document_from_s3() function for all document formats
 - **Semaphore Protection**: Validates proper concurrency control during background tasks
 - **Error Handling**: Tests comprehensive error recovery and logging
 - **Resource Cleanup**: Validates temporary file cleanup after processing
-- **Chunk Processing**: Tests document chunk generation and indexing
+- **Chunk Processing**: Tests document chunk generation and indexing for all formats
 
 #### Date Range Utility Testing Coverage
-- **ISO Date Parsing**: Tests `parse_date_range()` function for consistent date parameter handling
+- **ISO Date Parsing**: Tests parse_date_range() function for consistent date parameter handling
 - **Error Recovery**: Validates graceful handling of invalid date formats
 - **Boundary Handling**: Tests inclusive date range boundaries
 - **Parameter Validation**: Validates date parameter processing across all endpoints
 
 #### Template Context Management Testing Coverage
-- **Context Building**: Tests `_document_table_context()` function for consistent template rendering
+- **Context Building**: Tests _document_table_context() function for consistent template rendering
 - **Parameter Validation**: Validates all filter and sort parameters in context
 - **Pagination Context**: Tests page, per_page, and total count handling
 - **Date Range Context**: Tests date_from and date_to parameter processing
 - **UI State Context**: Validates filter and sort state persistence
+
+#### XLSX Format Testing Coverage
+- **Worksheet Processing**: Tests parsing of multiple Excel worksheets
+- **Row Formatting**: Validates proper row formatting with pipe separators
+- **Empty Row Handling**: Tests skipping of completely empty rows
+- **Metadata Preservation**: Validates worksheet name preservation as section information
+- **Chunk Generation**: Tests chunk generation with worksheet context
+- **Search Compatibility**: Validates XLSX content searchability
 
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
@@ -1021,7 +1057,9 @@ The system uses sophisticated chunking algorithms:
 - **Token-Based Processing**: Uses tiktoken encoder for accurate token counting
 - **Section Preservation**: Maintains semantic boundaries using heading-based sections for DOCX
 - **Legacy Support**: Single-section processing for DOC files with filename-based sectioning
+- **Spreadsheet Support**: Worksheet-based sectioning for XLSX files with row formatting
 - **Metadata Enrichment**: Each chunk carries document ID, chunk ID, filename, and search enablement status
+- **Worksheet Context**: XLSX chunks include worksheet name as section metadata
 
 ### Enhanced Chunk Processing
 
@@ -1031,21 +1069,25 @@ The enhanced chunking system provides:
 - **Hierarchical Splitting**: Multi-level splitting strategy for optimal semantic boundaries
 - **Overlap Management**: Consistent 10% overlap between chunks for context preservation
 - **Metadata Integration**: Rich metadata embedded in each chunk for retrieval optimization
-- **Format-Aware Processing**: Different handling for DOCX headings vs DOC text structure
+- **Format-Aware Processing**: Different handling for DOCX headings, DOC text structure, and XLSX worksheets
+- **Worksheet Awareness**: XLSX chunks preserve worksheet context for focused queries
 
 ### Format-Aware Processing
 
-The enhanced pipeline handles both document formats appropriately:
+The enhanced pipeline handles all three document formats appropriately:
 
 - **DOCX Processing**: Structured section extraction with heading preservation
 - **DOC Processing**: Text extraction with single-section approach
-- **Unified Output**: Consistent chunk structure for both formats
+- **XLSX Processing**: Worksheet extraction with row formatting and metadata preservation
+- **Unified Output**: Consistent chunk structure for all formats
 - **Metadata Consistency**: Same metadata schema regardless of source format
+- **Context Preservation**: Worksheet names preserved as section information for XLSX
 
 **Section sources**
 - [app/rag/parser.py:15-17](file://app/rag/parser.py#L15-L17)
 - [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
 - [app/rag/indexer.py:23-46](file://app/rag/indexer.py#L23-L46)
+- [app/rag/parser.py:273-407](file://app/rag/parser.py#L273-L407)
 
 ## Server-Side Processing Implementation
 
@@ -1114,17 +1156,18 @@ The system now supports global knowledge base queries:
 
 ### Unified Background Processing
 
-The system now provides centralized background processing through the `_index_document_from_s3()` function:
+The system now provides centralized background processing through the _index_document_from_s3() function:
 
 - **Consolidated Operations**: Eliminates code duplication between upload and reindex operations
 - **Centralized Error Handling**: Single point of failure handling for background tasks
 - **Semaphore Protection**: Unified concurrency control for all background operations
 - **Resource Management**: Consistent temporary file cleanup across all operations
 - **Logging Consistency**: Standardized logging for all background processing
+- **Format Support**: Handles DOCX, DOC, and XLSX formats uniformly
 
 ### Centralized Date Range Processing
 
-The system now provides standardized date range handling through the `parse_date_range()` utility:
+The system now provides standardized date range handling through the parse_date_range() utility:
 
 - **Consistent Parsing**: Standardized ISO date format parsing across all endpoints
 - **Error Recovery**: Graceful handling of invalid date formats
@@ -1133,12 +1176,21 @@ The system now provides standardized date range handling through the `parse_date
 
 ### Centralized Template Context Management
 
-The system now provides consistent template rendering through the `_document_table_context()` function:
+The system now provides consistent template rendering through the _document_table_context() function:
 
 - **Unified Context Building**: Standardized template context creation for all partials
 - **Parameter Validation**: Consistent handling of all filter and sort parameters
 - **Pagination Context**: Proper page, per_page, and total count handling
 - **UI State Management**: Consistent filter and sort state persistence
+
+### DOCX Integrity Validation
+
+The system now includes comprehensive DOCX validation:
+
+- **Zip File Validation**: Uses _validate_docx_bytes() to check for word/document.xml
+- **Content Verification**: Ensures DOCX files contain valid Office Open XML structure
+- **Error Handling**: Graceful handling of corrupted or invalid DOCX files
+- **Logging**: Detailed logging for DOCX validation failures
 
 **Section sources**
 - [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
@@ -1148,6 +1200,7 @@ The system now provides consistent template rendering through the `_document_tab
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 - [app/api/documents.py:129-165](file://app/api/documents.py#L129-L165)
 - [app/api/documents.py:168-197](file://app/api/documents.py#L168-L197)
+- [app/api/documents.py:93-100](file://app/api/documents.py#L93-L100)
 
 ## Enhanced Status Display System
 
@@ -1367,7 +1420,8 @@ The bulk operations system provides three core capabilities with enhanced concur
 - **Response**: Immediate acknowledgment with background processing
 - **Error Handling**: Logs errors and continues with remaining documents
 - **Concurrency Control**: Each reindex operation acquires semaphore before processing
-- **Unified Processing**: Uses `_index_document_from_s3()` function for consistent background processing
+- **Unified Processing**: Uses _index_document_from_s3() function for consistent background processing
+- **Format Support**: Handles DOCX, DOC, and XLSX formats uniformly
 
 #### Search Toggle Operation
 - **Endpoint**: `PATCH /api/documents/bulk/search`
@@ -1410,7 +1464,7 @@ The bulk operations provide comprehensive functionality:
 - **Real-time Feedback**: Toast notifications for operation results
 - **Selection Persistence**: Maintains selections across pagination and filters
 - **HTMX Integration**: Seamless partial updates without full page reloads
-- **Centralized Processing**: Unified background processing through `_index_document_from_s3()`
+- **Centralized Processing**: Unified background processing through _index_document_from_s3()
 
 **Section sources**
 - [app/api/documents.py:476-700](file://app/api/documents.py#L476-L700)
@@ -1419,7 +1473,7 @@ The bulk operations provide comprehensive functionality:
 
 ## Enhanced Date Range Filtering
 
-The system implements sophisticated date range filtering with inclusive boundaries and ISO format support through the centralized `parse_date_range()` utility:
+The system implements sophisticated date range filtering with inclusive boundaries and ISO format support through the centralized parse_date_range() utility:
 
 ```mermaid
 sequenceDiagram
@@ -1449,7 +1503,7 @@ Client->>Client : Update table with date-filtered results
 
 The date filtering system provides precise temporal control with centralized parsing:
 
-- **ISO Format Parsing**: Uses `parse_date_range()` utility for consistent ISO date format handling
+- **ISO Format Parsing**: Uses parse_date_range() utility for consistent ISO date format handling
 - **Inclusive Boundaries**: 
   - `date_from`: Documents created on or after this date
   - `date_to`: Documents created on or before this date (end of day)
@@ -1483,7 +1537,7 @@ The date filtering system supports:
 
 The system now provides standardized date range handling:
 
-- **Consistent Parsing**: All endpoints use `parse_date_range()` for date parameter processing
+- **Consistent Parsing**: All endpoints use parse_date_range() for date parameter processing
 - **Error Recovery**: Invalid date formats are gracefully handled
 - **Boundary Validation**: Proper date range boundary enforcement
 - **Type Safety**: Returns proper datetime objects or None for missing values
@@ -1536,16 +1590,19 @@ The system employs intelligent chunking for optimal retrieval performance:
 - **Splitting Strategy**: Hierarchical splitting by paragraphs, sentences, and words
 - **Section Preservation**: Maintains semantic boundaries using heading-based sections for DOCX
 - **Legacy Support**: Single-section processing for DOC files with filename-based sectioning
+- **Spreadsheet Support**: Worksheet-based sectioning for XLSX files with row formatting
 - **Metadata Enrichment**: Each chunk carries document ID, chunk ID, filename, and search enablement status
 
-### Format-Aware Processing
+### Enhanced Format-Aware Processing
 
-The enhanced pipeline handles both document formats appropriately:
+The enhanced pipeline handles all three document formats appropriately:
 
 - **DOCX Processing**: Structured section extraction with heading preservation
 - **DOC Processing**: Text extraction with single-section approach
-- **Unified Output**: Consistent chunk structure for both formats
+- **XLSX Processing**: Worksheet extraction with row formatting and metadata preservation
+- **Unified Output**: Consistent chunk structure for all formats
 - **Metadata Consistency**: Same metadata schema regardless of source format
+- **Context Preservation**: Worksheet names preserved as section information for XLSX
 
 ### Document-Scoped and Global Retrieval
 
@@ -1563,11 +1620,12 @@ The enhanced RAG pipeline now supports both document-specific and global retriev
 
 The RAG pipeline now benefits from centralized background processing:
 
-- **Consolidated Indexing**: Unified `_index_document_from_s3()` function handles all indexing operations
+- **Consolidated Indexing**: Unified _index_document_from_s3() function handles all indexing operations
 - **Centralized Error Handling**: Standardized error recovery for all background tasks
 - **Semaphore Protection**: Consistent concurrency control for all background operations
 - **Resource Management**: Unified temporary file cleanup across all operations
 - **Logging Consistency**: Standardized logging for all background processing activities
+- **Format Support**: Handles DOCX, DOC, and XLSX formats uniformly
 
 **Section sources**
 - [app/rag/parser.py:15-17](file://app/rag/parser.py#L15-L17)
@@ -2039,11 +2097,11 @@ The SQLite schema supports comprehensive document tracking with:
 - **Pagination Support**: Efficient ordering by ID for pagination queries
 - **Search Indexing**: Case-insensitive search columns for optimal query performance
 - **Date Filtering**: Precise timestamp fields for temporal queries
-- **Format Support**: MIME type tracking for different document formats
+- **Format Support**: MIME type tracking for DOC, DOCX, and XLSX formats
 - **Recently Finished Tracking**: Timestamp-based tracking for status updates
 - **Global Question Support**: Knowledge base-wide search participation
 
-**Updated** The database now tracks MIME types for both DOC and DOCX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new document-specific question-answering feature relies on the existing database structure for document validation and status checking. The `list_recently_finished` method provides efficient tracking of documents that completed or failed within the last 10 seconds for status updates. The global question-answering capability leverages the same search enablement mechanism for knowledge base-wide queries.
+**Updated** The database now tracks MIME types for DOC, DOCX, and XLSX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new document-specific question-answering feature relies on the existing database structure for document validation and status checking. The `list_recently_finished` method provides efficient tracking of documents that completed or failed within the last 10 seconds for status updates. The global question-answering capability leverages the same search enablement mechanism for knowledge base-wide queries.
 
 **Section sources**
 - [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
@@ -2066,7 +2124,7 @@ The system provides a comprehensive REST API for document management with full s
 
 | Endpoint | Method | Description | Authentication |
 |----------|--------|-------------|----------------|
-| `/api/documents/upload` | POST | Upload multiple DOC/DOCX files | Admin cookie |
+| `/api/documents/upload` | POST | Upload multiple DOC/DOCX/XLSX files | Admin cookie |
 | `/api/documents` | GET | List all documents with search, pagination, and date filtering | Admin cookie |
 | `/api/documents/{id}` | GET/PATCH/DELETE | Document operations | Admin cookie |
 | `/api/documents/{id}/title` | PATCH | Update document title | Admin cookie |
@@ -2115,11 +2173,11 @@ All list endpoints support the following parameters:
 - **`date_from`**: ISO date string for minimum creation date (inclusive)
 - **`date_to`**: ISO date string for maximum creation date (inclusive)
 - **`status`**: Filter by processing status (all, completed, processing, pending, failed)
-- **`source_type`**: Filter by document type (all, docx, doc, other)
+- **`source_type`**: Filter by document type (all, docx, doc, xlsx, other)
 - **`sort_field`**: Field to sort by (title, created_at, status)
 - **`sort_dir`**: Sort direction (asc, desc)
 
-**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized `parse_date_range()` utility ensures consistent date parameter handling across all endpoints, while the `_document_table_context()` function provides standardized template context management for all partials.
+**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified _index_document_from_s3() function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized parse_date_range() utility ensures consistent date parameter handling across all endpoints, while the _document_table_context() function provides standardized template context management for all partials. The new DOCX integrity validation using _validate_docx_bytes() function ensures file content validity before processing.
 
 **Section sources**
 - [app/api/documents.py:1-806](file://app/api/documents.py#L1-L806)
@@ -2215,13 +2273,14 @@ The system implements multiple error handling strategies:
 
 ### Background Task Error Recovery
 
-Background tasks implement robust error recovery through the unified `_index_document_from_s3()` function:
+Background tasks implement robust error recovery through the unified _index_document_from_s3() function:
 
 - **Exception Handling**: All exceptions are caught and logged centrally
 - **State Cleanup**: Temporary files are cleaned up even on failure
 - **Error Propagation**: Errors are logged but don't crash the system
 - **Resource Management**: Proper cleanup of temporary resources
 - **Centralized Logging**: Standardized error logging for all background operations
+- **Format Support**: Handles DOCX, DOC, and XLSX formats with appropriate validation
 
 ### Document-Specific and Global Question Error Handling
 
@@ -2247,17 +2306,18 @@ The streaming response system implements comprehensive error handling:
 
 ### Unified Background Processing Error Handling
 
-The unified `_index_document_from_s3()` function provides centralized error handling:
+The unified _index_document_from_s3() function provides centralized error handling:
 
 - **Consolidated Error Logging**: Standardized error logging across all operations
 - **Resource Cleanup**: Ensures temporary files are cleaned up on failure
 - **Semaphore Release**: Guarantees semaphore release even on errors
 - **State Management**: Maintains consistent document state during failures
 - **Logging Consistency**: Standardized logging format for all background operations
+- **Format Validation**: Validates DOCX integrity and handles XLSX processing errors
 
 ### Centralized Date Range Error Handling
 
-The `parse_date_range()` utility provides consistent error handling:
+The parse_date_range() utility provides consistent error handling:
 
 - **Graceful Error Recovery**: Invalid dates are safely ignored
 - **Type Safety**: Returns proper datetime objects or None
@@ -2266,12 +2326,21 @@ The `parse_date_range()` utility provides consistent error handling:
 
 ### Centralized Template Context Error Handling
 
-The `_document_table_context()` function provides consistent context management:
+The _document_table_context() function provides consistent context management:
 
 - **Parameter Validation**: Validates all filter and sort parameters
 - **Type Safety**: Ensures proper parameter types in context
 - **Missing Value Handling**: Provides sensible defaults for missing parameters
 - **Consistent Rendering**: Standardized template context across all partials
+
+### DOCX Integrity Validation Error Handling
+
+The _validate_docx_bytes() function provides comprehensive DOCX validation:
+
+- **Zip File Validation**: Checks for valid DOCX structure using word/document.xml
+- **BadZipFile Handling**: Graceful handling of corrupted ZIP archives
+- **Logging**: Detailed logging for DOCX validation failures
+- **Error Propagation**: Invalid DOCX files are rejected with clear error messages
 
 **Section sources**
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
@@ -2286,6 +2355,7 @@ The `_document_table_context()` function provides consistent context management:
 - [app/api/documents.py:129-165](file://app/api/documents.py#L129-L165)
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 - [app/api/documents.py:168-197](file://app/api/documents.py#L168-L197)
+- [app/api/documents.py:93-100](file://app/api/documents.py#L93-L100)
 
 ## Deployment and Operations
 
@@ -2330,7 +2400,7 @@ Required environment variables:
 - `CHUNK_SIZE`: Token-based chunk size for text processing
 - `CHUNK_OVERLAP`: Token-based chunk overlap for context preservation
 
-**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The new batch status polling system reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified `_index_document_from_s3()` function requires proper semaphore configuration for optimal background processing performance. The centralized `parse_date_range()` utility requires proper date format validation for consistent date parameter handling. The `_document_table_context()` function requires proper template context validation for consistent UI rendering.
+**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The new batch status polling system reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified _index_document_from_s3() function requires proper semaphore configuration for optimal background processing performance. The centralized parse_date_range() utility requires proper date format validation for consistent date parameter handling. The _document_table_context() function requires proper template context validation for consistent UI rendering. The new DOCX integrity validation function requires proper ZIP file handling and validation for DOCX file processing.
 
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
@@ -2341,7 +2411,7 @@ Required environment variables:
 
 | Issue | Symptoms | Solution |
 |-------|----------|----------|
-| **Document Upload Fails** | 400 errors on upload | Check file size limit (10MB), supported formats (.docx, .doc) |
+| **Document Upload Fails** | 400 errors on upload | Check file size limit (10MB), supported formats (.docx, .doc, .xlsx) |
 | **Vector Indexing Errors** | Documents show "failed" status | Verify Qdrant connectivity, embedding model availability, check semaphore limits |
 | **S3 Storage Issues** | Files not accessible | Confirm bucket existence, credentials, network connectivity |
 | **Admin Authentication Problems** | 403 Forbidden errors | Verify `admin_api_key` matches cookie value |
@@ -2373,9 +2443,12 @@ Required environment variables:
 | **Recently Finished Documents Not Updating** | Status not showing final updates | Check database query for recently finished documents, verify polling interval |
 | **Global Question Prompt Issues** | Wrong system prompt used | Verify GLOBAL_EXPERTS_PROMPT application, check retriever construction |
 | **Document Question Prompt Issues** | Wrong system prompt used | Verify DOCUMENT_EXPERTS_PROMPT application, check retriever construction |
-| **Unified Indexing Function Issues** | Background processing failures | Check `_index_document_from_s3()` function, verify semaphore protection, validate error handling |
-| **Date Range Utility Issues** | Inconsistent date parsing | Check `parse_date_range()` function, verify ISO date format handling, validate error recovery |
-| **Template Context Issues** | Inconsistent UI rendering | Check `_document_table_context()` function, verify parameter validation, ensure proper context building |
+| **Unified Indexing Function Issues** | Background processing failures | Check _index_document_from_s3() function, verify semaphore protection, validate error handling |
+| **Date Range Utility Issues** | Inconsistent date parsing | Check parse_date_range() function, verify ISO date format handling, validate error recovery |
+| **Template Context Issues** | Inconsistent UI rendering | Check _document_table_context() function, verify parameter validation, ensure proper context building |
+| **DOCX Integrity Validation Issues** | DOCX validation failures | Check _validate_docx_bytes() function, verify ZIP file handling, validate word/document.xml presence |
+| **XLSX Processing Issues** | Spreadsheet parsing failures | Verify openpyxl installation, check worksheet processing, validate row formatting |
+| **Spreadsheet Search Issues** | XLSX content not searchable | Check worksheet metadata preservation, verify chunk generation with section information |
 
 ### Logging and Monitoring
 
@@ -2408,8 +2481,10 @@ The system provides comprehensive logging at multiple levels:
 - **Unified Indexing Function Logs**: Centralized background processing, error handling, resource management
 - **Date Range Utility Logs**: Consistent date parsing, error recovery, boundary validation
 - **Template Context Logs**: Centralized rendering management, parameter validation, UI state consistency
+- **DOCX Integrity Validation Logs**: Zip file validation, word/document.xml verification, error handling
+- **XLSX Processing Logs**: Worksheet parsing, row formatting, metadata preservation, chunk generation
 
-**Updated** The troubleshooting guide now includes comprehensive coverage for the newly enhanced unified indexing function, date range utility, and template context management. The logging system provides detailed coverage for all new functionality including centralized background processing through `_index_document_from_s3()`, standardized date range handling via `parse_date_range()`, and consistent template rendering through `_document_table_context()`. The system now includes specific troubleshooting steps for unified indexing issues, including semaphore protection validation, error handling verification, and resource cleanup testing. The date range utility troubleshooting covers ISO date format validation, error recovery scenarios, and boundary handling verification. The template context management troubleshooting includes parameter validation, pagination context testing, and UI state consistency validation. The system now includes comprehensive error handling for all new centralized functions, ensuring proper logging and recovery mechanisms.
+**Updated** The troubleshooting guide now includes comprehensive coverage for the newly enhanced unified indexing function, date range utility, template context management, and DOCX integrity validation. The logging system provides detailed coverage for all new functionality including centralized background processing through _index_document_from_s3(), standardized date range handling via parse_date_range(), and consistent template rendering through _document_table_context(). The system now includes specific troubleshooting steps for unified indexing issues, including semaphore protection validation, error handling verification, and resource cleanup testing. The date range utility troubleshooting covers ISO date format validation, error recovery scenarios, and boundary handling verification. The template context management troubleshooting includes parameter validation, pagination context testing, and UI state consistency validation. The DOCX integrity validation troubleshooting covers ZIP file handling, word/document.xml verification, and error recovery scenarios. The XLSX processing troubleshooting includes worksheet parsing validation, row formatting verification, and metadata preservation testing. The system now includes comprehensive error handling for all new centralized functions, ensuring proper logging and recovery mechanisms.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -2419,18 +2494,21 @@ The system provides comprehensive logging at multiple levels:
 
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
 
-**Updated** The system has been significantly enhanced with consolidated document indexing operations through a unified `_index_document_from_s3()` function, introducing a new `parse_date_range()` utility for consistent date parsing, and centralizing document table context management via `_document_table_context()`. These architectural improvements eliminate code duplication, enhance maintainability, and preserve all existing functionality while providing a more streamlined development experience. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports both DOCX and DOC formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, and template context management. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
+**Updated** The system has been significantly enhanced with comprehensive .xlsx format support alongside existing .docx and .doc formats. The enhanced upload validation system now includes extended MIME type validation and DOCX integrity checking using the new _validate_docx_bytes() function. The system supports a unified processing pipeline for DOCX, DOC, and XLSX formats, with comprehensive spreadsheet parsing and chunking capabilities through the new load_xlsx() function. These enhancements expand the system's document processing capabilities while maintaining all existing functionality and architectural improvements including consolidated document indexing operations, centralized date range utilities, and template context management. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, and DOCX integrity validation. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
 Key strengths include:
 - **Revolutionary Global Question-Answering**: Knowledge base-wide queries with real-time streaming responses using Server-Sent Events (SSE)
 - **Enhanced Document Validation**: Comprehensive security checks for both document-specific and global operations
+- **Triple Format Support**: Support for DOCX, DOC, and XLSX document formats with unified processing pipeline
+- **DOCX Integrity Validation**: Zip file validation using _validate_docx_bytes() function for content verification
+- **Spreadsheet Processing**: Comprehensive XLSX parsing with worksheet-based sectioning and metadata preservation
 - **Dual Question-Answering Modes**: Support for both document-specific and global knowledge base queries
 - **Alpine.js Modal Integration**: Reactive state management for both document and global question interactions
 - **Comprehensive Error Handling**: Detailed validation and error responses for all question-answering operations
 - **Revolutionary Batch Status Polling**: Centralized batch processing eliminates N concurrent requests, dramatically reducing server load
 - **Recently Finished Documents Tracking**: Efficient status updates for documents that completed within 10 seconds
 - **Enhanced File Download Handling**: RFC 5987-compliant filename encoding for international character support
-- **Comprehensive Document Lifecycle Management**: From upload to searchable state with dual format support
+- **Comprehensive Document Lifecycle Management**: From upload to searchable state with triple format support
 - **Flexible Storage Backend**: Support for multiple storage providers
 - **Advanced RAG Pipeline**: Semantic search and question-answering capabilities with enhanced format handling
 - **Multi-channel Integration**: Web interface and VK social network bot
@@ -2443,14 +2521,12 @@ Key strengths include:
 - **Comprehensive Bulk Operations**: Atomic operations for efficient document management with concurrency control
 - **Advanced Date Filtering**: Precise temporal querying with inclusive boundaries
 - **Modernized Interface**: Interactive toolbar, enhanced user experience, overlay mobile sidebar
-- **Dual Format Support**: Comprehensive handling of both DOCX and legacy DOC documents
-- **Enhanced Parser Architecture**: Robust processing pipeline for diverse document formats
 - **Robust Concurrency Control**: Semaphore-based throttling for background operations
 - **Enhanced Error Handling**: Atomic consistency guarantees and comprehensive error recovery
 - **Comprehensive Logging**: Detailed monitoring and debugging capabilities
 - **Enhanced Visual Presentation**: Modern rounded corner styling, sophisticated background treatments, and improved visual hierarchy throughout the interface
 - **Advanced Filtering and Sorting**: Comprehensive server-side processing with real-time updates and centralized date handling
-- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, batch status polling, document-specific question answering, global question answering, streaming responses, unified background processing, date range utilities, and template context management
+- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, batch status polling, document-specific question answering, global question answering, streaming responses, unified background processing, date range utilities, template context management, DOCX integrity validation, and XLSX processing
 - **Mobile-First Responsive Design**: Overlay sidebar, toast notifications, and adaptive layouts for all device sizes
 - **Document-Specific Prompt Engineering**: Specialized prompts for focused document responses
 - **Global Prompt Engineering**: Specialized prompts for comprehensive knowledge base responses
@@ -2464,5 +2540,7 @@ Key strengths include:
 - **Unified Background Processing**: Centralized error handling, resource management, and logging for all background operations
 - **Centralized Date Range Handling**: Standardized ISO date format parsing across all endpoints
 - **Consistent Template Rendering**: Standardized UI context management for all partials and components
+- **Spreadsheet Query Support**: XLSX documents can be queried with worksheet context for focused analysis
+- **Format-Aware Processing**: Different handling for DOCX headings, DOC text structure, and XLSX worksheets with unified output
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.

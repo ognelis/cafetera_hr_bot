@@ -26,10 +26,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced vacation_template_text() function to accept optional vtype parameter with Russian labels mapping (paid/unpaid)
-- Updated vacation flow to support vacation type selection (paid/unpaid) with proper UI and payload handling
-- Added comprehensive testing for vacation template functionality with different vacation types
-- Improved template generation to clearly indicate vacation type in generated documents
+- Removed FIRE_LAST_DAY_CHECKLIST and FIRE_BYPASS_SHEET_TEXT constants from domain content management
+- Streamlined fire flow to maintain only essential HR templates and information
+- Simplified fire menu to include only "Увольнение по собственному" (voluntary resignation) and "Основания увольнения" (dismissal grounds)
+- Enhanced vacation template functionality to support paid and unpaid vacation types with clear Russian labeling
+- Updated fire handler to use category document system instead of hardcoded content constants
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -45,7 +46,7 @@
 ## Introduction
 This document describes the Domain Content Management system that powers the Cafetera HR Bot. The system centralizes static content, document templates, checklists, and structured formatters used across HR-related flows in the VKontakte chatbot. It ensures consistency, maintainability, and separation of concerns by keeping content definitions separate from handler logic, enabling thin handlers and reusable content modules.
 
-**Updated** The system now focuses exclusively on content management rather than multi-step HR request processing, with free-text question handling via RAG integration. The vacation template functionality has been enhanced to support both paid and unpaid vacation types with clear Russian labeling.
+**Updated** The system now focuses exclusively on content management rather than multi-step HR request processing, with free-text question handling via RAG integration. The fire flow has been streamlined to maintain only essential HR templates and information, removing redundant constants and simplifying the user interface. The vacation template functionality has been enhanced to support both paid and unpaid vacation types with clear Russian labeling.
 
 ## Project Structure
 The Domain Content Management spans three primary areas:
@@ -99,17 +100,17 @@ BOT --> POLL
 ```
 
 **Diagram sources**
-- [content.py:1-146](file://app/domain/content.py#L1-L146)
+- [content.py:1-129](file://app/domain/content.py#L1-L129)
 - [entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
 - [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [keyboards.py:1-265](file://app/integrations/vk/keyboards.py#L1-L265)
+- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
 - [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
 - [rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
 - [start.py:1-42](file://app/integrations/vk/handlers/start.py#L1-L42)
 - [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
 - [hire.py:1-108](file://app/integrations/vk/handlers/hire.py#L1-L108)
-- [fire.py:1-65](file://app/integrations/vk/handlers/fire.py#L1-L65)
+- [fire.py:1-76](file://app/integrations/vk/handlers/fire.py#L1-L76)
 - [vacation.py:1-105](file://app/integrations/vk/handlers/vacation.py#L1-L105)
 - [pay.py:1-53](file://app/integrations/vk/handlers/pay.py#L1-L53)
 - [sections.py:1-42](file://app/integrations/vk/handlers/sections.py#L1-L42)
@@ -117,11 +118,11 @@ BOT --> POLL
 - [polling_vk.py:1-32](file://scripts/polling_vk.py#L1-L32)
 
 **Section sources**
-- [content.py:1-146](file://app/domain/content.py#L1-L146)
+- [content.py:1-129](file://app/domain/content.py#L1-L129)
 - [entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
 - [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [keyboards.py:1-265](file://app/integrations/vk/keyboards.py#L1-L265)
+- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
 - [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
 - [rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
 - [polling_vk.py:1-32](file://scripts/polling_vk.py#L1-L32)
@@ -142,14 +143,14 @@ Key responsibilities:
 - Reusability: Formatters and templates are pure functions that accept entity context.
 - Extensibility: New content can be added to the domain module without changing handler logic.
 
-**Updated** Removed HR request multi-step state machine and replaced with single-state question handler using RAG integration. Enhanced vacation template functionality to support paid and unpaid vacation types with clear Russian labeling.
+**Updated** Removed redundant FIRE_LAST_DAY_CHECKLIST and FIRE_BYPASS_SHEET_TEXT constants from domain content management. Streamlined fire flow to maintain only essential HR templates and information. Enhanced vacation template functionality to support paid and unpaid vacation types with clear Russian labeling.
 
 **Section sources**
-- [content.py:1-146](file://app/domain/content.py#L1-L146)
+- [content.py:1-129](file://app/domain/content.py#L1-L129)
 - [entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
 - [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [keyboards.py:1-265](file://app/integrations/vk/keyboards.py#L1-L265)
+- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
 - [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
 
 ## Architecture Overview
@@ -185,10 +186,10 @@ LBLS --> RUL
 
 **Diagram sources**
 - [bot.py:44-56](file://app/integrations/vk/bot.py#L44-L56)
-- [content.py:1-146](file://app/domain/content.py#L1-L146)
+- [content.py:1-129](file://app/domain/content.py#L1-L129)
 - [entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
-- [keyboards.py:1-265](file://app/integrations/vk/keyboards.py#L1-L265)
+- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
 - [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
 - [rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
 
@@ -198,7 +199,6 @@ LBLS --> RUL
 The domain content module defines:
 - Disclaimers and file stubs for document templates
 - Hire-related checklists and onboarding lists
-- Fire-related checklists and bypass sheet text
 - Enhanced vacation template text with optional vacation type parameter
 - RAG stub placeholders for future knowledge base integration
 - Error messages for unavailable documents and missing answers
@@ -207,6 +207,7 @@ Implementation highlights:
 - Pure functions that accept a LegalEntity context to render localized content
 - Centralized error and disclaimer text for consistency
 - Standardized formatting for HR-related content with structured headers and fields
+- **Updated** Removed FIRE_LAST_DAY_CHECKLIST and FIRE_BYPASS_SHEET_TEXT constants to streamline content management
 - **Updated** Enhanced vacation_template_text() function accepts optional vtype parameter with Russian labels mapping (paid/unpaid)
 
 ```mermaid
@@ -214,8 +215,6 @@ classDiagram
 class DomainContent {
 +TEMPLATE_DISCLAIMER : string
 +TEMPLATE_FILE_STUB : string
-+FIRE_LAST_DAY_CHECKLIST : string
-+FIRE_BYPASS_SHEET_TEXT : string
 +ERR_DOCUMENT_UNAVAILABLE : string
 +ERR_NO_ANSWER : string
 +ERR_INTEGRATION_REQUIRED : string
@@ -228,10 +227,10 @@ class DomainContent {
 ```
 
 **Diagram sources**
-- [content.py:1-146](file://app/domain/content.py#L1-L146)
+- [content.py:1-129](file://app/domain/content.py#L1-L129)
 
 **Section sources**
-- [content.py:1-146](file://app/domain/content.py#L1-L146)
+- [content.py:1-129](file://app/domain/content.py#L1-L129)
 
 ### Entities Module
 Defines LegalEntity dataclass and a fixed set of legal entities used across flows. Provides:
@@ -321,10 +320,11 @@ Keyboards provide consistent navigation and action buttons:
 - Main menu keyboard with seven sections
 - Entity selection keyboards for hire and vacation flows
 - Action menus for hire (checklist, contract, onboarding)
-- Menus for fire (last-day checklist, bypass sheet, RAG stub)
+- Menus for fire (voluntary resignation, dismissal grounds)
 - Pay menu (overtime, bonuses)
 - Ask question input and result keyboards with scenario suggestions
 - Service row with Back/Home/Contact HR buttons
+- **Updated** Simplified fire menu with only two essential actions
 - **Updated** Vacation type selection keyboard with paid/unpaid options
 
 ```mermaid
@@ -352,10 +352,10 @@ AddService --> End(["Keyboard JSON"])
 ```
 
 **Diagram sources**
-- [keyboards.py:75-265](file://app/integrations/vk/keyboards.py#L75-L265)
+- [keyboards.py:75-263](file://app/integrations/vk/keyboards.py#L75-L263)
 
 **Section sources**
-- [keyboards.py:1-265](file://app/integrations/vk/keyboards.py#L1-L265)
+- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
 
 ### Free-Text Question Handler
 The ask handler processes free-text questions through a streamlined flow:
@@ -412,33 +412,33 @@ Hire-->>User : Send content
 **Diagram sources**
 - [hire.py:32-108](file://app/integrations/vk/handlers/hire.py#L32-L108)
 - [entities.py:16-24](file://app/domain/entities.py#L16-L24)
-- [content.py:40-72](file://app/domain/content.py#L40-L72)
+- [content.py:40-75](file://app/domain/content.py#L40-L75)
 
 **Section sources**
 - [hire.py:1-108](file://app/integrations/vk/handlers/hire.py#L1-L108)
-- [content.py:24-72](file://app/domain/content.py#L24-L72)
+- [content.py:24-75](file://app/domain/content.py#L24-L75)
 
-### Fire Flow
-The fire flow provides:
-- Last-day checklist
-- Bypass sheet text with disclaimer and file stub
-- RAG stub for voluntary dismissal
+### Streamlined Fire Flow
+The fire flow has been simplified to maintain only essential HR templates and information:
+- Voluntary resignation template via category document system
+- Dismissal grounds routed to RAG integration
+- **Updated** Removed FIRE_LAST_DAY_CHECKLIST and FIRE_BYPASS_SHEET_TEXT constants
+- **Updated** Simplified fire menu to include only two essential actions
 
 ```mermaid
 flowchart TD
-FireEntry["User selects Fire"] --> FireMenu["Show fire_menu_kb()"]
-FireMenu --> Checklist["Send FIRE_LAST_DAY_CHECKLIST"]
-FireMenu --> Bypass["Send FIRE_BYPASS_SHEET_TEXT"]
-FireMenu --> Rag["Send rag_stub('Voluntary Dismissal')"]
+FireEntry["User selects Fire"] --> FireMenu["Show simplified fire_menu_kb()"]
+FireMenu --> Resignation["Send category document: fire_resignation"]
+FireMenu --> Grounds["Send RAG answer: dismissal grounds"]
 ```
 
 **Diagram sources**
-- [fire.py:26-65](file://app/integrations/vk/handlers/fire.py#L26-L65)
-- [content.py:75-94](file://app/domain/content.py#L75-L94)
+- [fire.py:33-76](file://app/integrations/vk/handlers/fire.py#L33-L76)
+- [keyboards.py:179-185](file://app/integrations/vk/keyboards.py#L179-L185)
 
 **Section sources**
-- [fire.py:1-65](file://app/integrations/vk/handlers/fire.py#L1-L65)
-- [content.py:75-94](file://app/domain/content.py#L75-L94)
+- [fire.py:1-76](file://app/integrations/vk/handlers/fire.py#L1-L76)
+- [keyboards.py:179-185](file://app/integrations/vk/keyboards.py#L179-L185)
 
 ### Enhanced Vacation Flow
 The vacation flow now supports both paid and unpaid vacation types with clear Russian labeling:
@@ -471,13 +471,13 @@ Vac-->>User : Send content
 **Diagram sources**
 - [vacation.py:31-86](file://app/integrations/vk/handlers/vacation.py#L31-L86)
 - [entities.py:16-24](file://app/domain/entities.py#L16-L24)
-- [content.py:99-110](file://app/domain/content.py#L99-L110)
-- [keyboards.py:204-220](file://app/integrations/vk/keyboards.py#L204-L220)
+- [content.py:81-93](file://app/domain/content.py#L81-L93)
+- [keyboards.py:202-218](file://app/integrations/vk/keyboards.py#L202-L218)
 
 **Section sources**
 - [vacation.py:1-105](file://app/integrations/vk/handlers/vacation.py#L1-L105)
-- [content.py:96-110](file://app/domain/content.py#L96-L110)
-- [keyboards.py:204-220](file://app/integrations/vk/keyboards.py#L204-L220)
+- [content.py:81-93](file://app/domain/content.py#L81-L93)
+- [keyboards.py:202-218](file://app/integrations/vk/keyboards.py#L202-L218)
 
 ### Pay and Sections Flows
 - Pay flow: Overtime and bonus conditions routed to RAG stubs
@@ -501,6 +501,7 @@ The system exhibits low coupling and high cohesion:
 - Keyboard builders encapsulate UI logic
 - Single-state question handler processes free-text input efficiently
 - Payload rules enable flexible routing based on JSON payloads
+- **Updated** Simplified fire flow depends only on keyboard builders and category document system
 - **Updated** Enhanced vacation flow depends on both content module and keyboard builders for type selection
 
 ```mermaid
@@ -542,17 +543,17 @@ BOT --> HFALL
 - [pay.py:1-18](file://app/integrations/vk/handlers/pay.py#L1-L18)
 - [sections.py:1-18](file://app/integrations/vk/handlers/sections.py#L1-L18)
 - [fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [keyboards.py:1-265](file://app/integrations/vk/keyboards.py#L1-L265)
+- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
 - [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
-- [content.py:1-146](file://app/domain/content.py#L1-L146)
+- [content.py:1-129](file://app/domain/content.py#L1-L129)
 - [entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
 
 **Section sources**
 - [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [keyboards.py:1-265](file://app/integrations/vk/keyboards.py#L1-L265)
+- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
 - [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
-- [content.py:1-146](file://app/domain/content.py#L1-L146)
+- [content.py:1-129](file://app/domain/content.py#L1-L129)
 - [entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
 
@@ -563,6 +564,7 @@ BOT --> HFALL
 - Topic hint detection uses efficient keyword matching for fast response times
 - Handler logic remains thin, minimizing CPU overhead and improving responsiveness
 - RAG integration handles heavy computation asynchronously
+- **Updated** Simplified fire flow reduces unnecessary content lookups and improves response times
 - **Updated** Vacation type selection adds minimal overhead with simple payload parsing and Russian label mapping
 
 ## Troubleshooting Guide
@@ -572,6 +574,7 @@ Common issues and resolutions:
 - RAG processing delays: Typing indicators provide feedback during asynchronous processing
 - Session expiration: State clearing prevents stale contexts; handlers guide users to restart flows
 - Unmatched text input: Fallback handler redirects users to the main menu with clear guidance
+- **Updated** Simplified fire flow eliminates issues with redundant constants and streamlines error handling
 - **Updated** Vacation type parameter validation: Handlers validate vtype payload and default to "paid" if missing or invalid
 
 Operational tips:
@@ -579,6 +582,7 @@ Operational tips:
 - Ensure handler registration order is preserved to avoid unintended routing
 - Monitor logs for state management errors during question processing
 - Test topic hint detection with various question formulations
+- **Updated** Test simplified fire flow with category document system
 - **Updated** Test vacation template generation with both paid and unpaid vacation types
 
 **Section sources**
@@ -586,10 +590,11 @@ Operational tips:
 - [hire.py:44-52](file://app/integrations/vk/handlers/hire.py#L44-L52)
 - [vacation.py:51-60](file://app/integrations/vk/handlers/vacation.py#L51-L60)
 - [vacation.py:74-86](file://app/integrations/vk/handlers/vacation.py#L74-L86)
+- [fire.py:33-76](file://app/integrations/vk/handlers/fire.py#L33-L76)
 - [fallback.py:9-12](file://app/integrations/vk/handlers/fallback.py#L9-L12)
 - [config.py:4-9](file://app/config.py#L4-L9)
 
 ## Conclusion
-The Domain Content Management system successfully separates content from presentation, ensuring maintainable and scalable HR bot functionality. By centralizing content definitions, enforcing consistent entity handling, and using thin handlers with intelligent scenario detection, the system provides a solid foundation for future enhancements, including integration with a knowledge base and expanded HR workflows. 
+The Domain Content Management system successfully separates content from presentation, ensuring maintainable and scalable HR bot functionality. By centralizing content definitions, enforcing consistent entity handling, and using thin handlers with intelligent scenario detection, the system provides a solid foundation for future enhancements, including integration with a knowledge base and expanded HR workflows.
 
-**Updated** The enhancement to the vacation template functionality demonstrates the system's extensibility and attention to localizaton requirements. The addition of optional vacation type parameter with Russian labels mapping (paid/unpaid) improves clarity and usability for Russian-speaking users while maintaining backward compatibility through default parameter values. The transition from multi-step HR request processing to free-text question handling via RAG integration maintains system reliability while improving user experience and reducing complexity.
+**Updated** The removal of FIRE_LAST_DAY_CHECKLIST and FIRE_BYPASS_SHEET_TEXT constants demonstrates the system's commitment to maintaining only essential HR templates and information. The streamlined fire flow improves user experience by focusing on the most commonly used HR templates while preserving the ability to route complex requests to RAG integration. The enhancement to the vacation template functionality demonstrates the system's extensibility and attention to localization requirements. The addition of optional vacation type parameter with Russian labels mapping (paid/unpaid) improves clarity and usability for Russian-speaking users while maintaining backward compatibility through default parameter values. The transition from multi-step HR request processing to free-text question handling via RAG integration maintains system reliability while improving user experience and reducing complexity.

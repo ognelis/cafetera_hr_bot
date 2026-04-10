@@ -23,11 +23,11 @@
 
 ## Update Summary
 **Changes Made**
-- Redesigned voluntary dismissal flow (FR-5) from RAG-based to entity-based document generation system
-- Added new fire_resignation and fire_resignation_entity handlers for entity-based template generation
-- Updated handler count from 25 to 27 handlers
-- Enhanced keyboard system with new fire resignation payload constants and entity selection functionality
-- Added new fire resignation category slot with entity-specific document templates
+- **Simplified Fire Workflow**: Removed FR-6 checklist and S-21b bypass sheet functionality from fire workflow handlers
+- **Streamlined Employment Lifecycle**: Focus now exclusively on core resignation processes and dismissal grounds
+- **Updated Handler Count**: Reduced from 27 to 25 handlers with simplified fire flow
+- **Enhanced Keyboard System**: Maintained entity selection functionality for resignation templates
+- **Removed Fire Resignation Category Slot**: Fire category now only supports fire_resignation subcategory
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -42,6 +42,8 @@
 
 ## Introduction
 This document describes the Employment Lifecycle Management system implemented as a VKontakte chatbot. The system automates core HR tasks across the employee lifecycle: hiring, onboarding, employment termination, vacation requests, payroll questions, sick leave, and probation periods. It provides structured menus, multi-step dialogs, and standardized content templates while maintaining a clean separation between UI, business logic, and domain data. The system focuses exclusively on core HR operations without HR request integration or external communication workflows.
+
+**Updated** The fire workflow has been simplified to focus on core resignation processes, removing FR-6 checklist and S-21b bypass sheet functionality to streamline employment lifecycle management.
 
 ## Project Structure
 The project follows a layered architecture:
@@ -78,7 +80,7 @@ C1 --> I1
 
 **Diagram sources**
 - [app/domain/entities.py:1-24](file://app/domain/entities.py#L1-L24)
-- [app/domain/content.py:1-146](file://app/domain/content.py#L1-L146)
+- [app/domain/content.py:1-129](file://app/domain/content.py#L1-L129)
 - [app/storage/category_models.py:1-64](file://app/storage/category_models.py#L1-L64)
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 - [app/integrations/vk/keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
@@ -88,7 +90,7 @@ C1 --> I1
 
 **Section sources**
 - [app/domain/entities.py:1-24](file://app/domain/entities.py#L1-L24)
-- [app/domain/content.py:1-146](file://app/domain/content.py#L1-L146)
+- [app/domain/content.py:1-129](file://app/domain/content.py#L1-L129)
 - [app/storage/category_models.py:1-64](file://app/storage/category_models.py#L1-L64)
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
 - [app/integrations/vk/keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
@@ -99,7 +101,7 @@ C1 --> I1
 ## Core Components
 - LegalEntity and entity registry: central identifiers for Russian legal entities used across hiring and vacation flows.
 - Static content and templates: standardized messages, checklists, and placeholders for documents and RAG stubs.
-- Category file models: structured category and subcategory definitions for document templates including new fire resignation support.
+- Category file models: structured category and subcategory definitions for document templates including simplified fire resignation support.
 - VK bot factory: wires handlers and state dispensation to a vkbottle Bot instance.
 - Keyboard builders: reusable keyboards for main menu, entity selection, vacation type selection, and multi-step dialogs.
 - Handler modules: feature-specific flows for hire, fire, vacation, pay, sick leave, probation, ask-a-question, and fallback.
@@ -107,7 +109,7 @@ C1 --> I1
 
 **Section sources**
 - [app/domain/entities.py:8-24](file://app/domain/entities.py#L8-L24)
-- [app/domain/content.py:10-146](file://app/domain/content.py#L10-L146)
+- [app/domain/content.py:10-129](file://app/domain/content.py#L10-L129)
 - [app/storage/category_models.py:32-55](file://app/storage/category_models.py#L32-L55)
 - [app/integrations/vk/bot.py:42-56](file://app/integrations/vk/bot.py#L42-L56)
 - [app/integrations/vk/keyboards.py:75-263](file://app/integrations/vk/keyboards.py#L75-L263)
@@ -162,7 +164,7 @@ A --> O5
 - [app/integrations/vk/handlers/sections.py:24-35](file://app/integrations/vk/handlers/sections.py#L24-L35)
 - [app/integrations/vk/handlers/fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
 - [app/integrations/vk/keyboards.py:75-263](file://app/integrations/vk/keyboards.py#L75-L263)
-- [app/domain/content.py:10-146](file://app/domain/content.py#L10-L146)
+- [app/domain/content.py:10-129](file://app/domain/content.py#L10-L129)
 - [app/domain/entities.py:8-24](file://app/domain/entities.py#L8-L24)
 - [app/integrations/vk/states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
 - [app/integrations/vk/rules.py:11-31](file://app/integrations/vk/rules.py#L11-L31)
@@ -196,10 +198,12 @@ EntitiesModule --> LegalEntity : "defines"
 ### Static Content and Templates
 Centralized content for:
 - Hire: document checklists, onboarding checklist, contract template
-- Fire: last-day checklist, bypass sheet text, voluntary dismissal template
+- Fire: voluntary dismissal template (replaces previous FR-6 checklist and S-21b bypass sheet)
 - Vacation: leave application template with vacation type support
 - RAG stub: placeholder responses during knowledge base integration
 - Error states: document unavailable, no answer, integration required
+
+**Updated** The fire workflow has been simplified to focus on voluntary dismissal templates, removing the previous FR-6 checklist and S-21b bypass sheet functionality.
 
 ```mermaid
 flowchart TD
@@ -207,31 +211,29 @@ Start(["Content Request"]) --> Type{"Content Type?"}
 Type --> |Hire Checklist| HC["hire_checklist(entity)"]
 Type --> |Onboarding Checklist| OC["onboarding_checklist(entity)"]
 Type --> |Contract Template| CT["hire_contract_text(entity)"]
-Type --> |Fire Last Day| FL["FIRE_LAST_DAY_CHECKLIST"]
-Type --> |Fire Bypass Sheet| FB["FIRE_BYPASS_SHEET_TEXT"]
-Type --> |Voluntary Dismissal Template| VDT["fire_resignation_template(entity)"]
+Type --> |Fire Resignation Template| FRT["fire_resignation_template(entity)"]
 Type --> |Vacation Template| VT["vacation_template_text(entity, vtype)"]
 Type --> |RAG Stub| RS["rag_stub(topic)"]
 Type --> |Errors| ER["ERR_* constants"]
 HC --> End(["Response"])
 OC --> End
 CT --> End
-FL --> End
-FB --> End
-VDT --> End
+FRT --> End
 VT --> End
 RS --> End
 ER --> End
 ```
 
 **Diagram sources**
-- [app/domain/content.py:24-146](file://app/domain/content.py#L24-L146)
+- [app/domain/content.py:24-129](file://app/domain/content.py#L24-L129)
 
 **Section sources**
-- [app/domain/content.py:10-146](file://app/domain/content.py#L10-L146)
+- [app/domain/content.py:10-129](file://app/domain/content.py#L10-L129)
 
 ### Category File Models
-Structured category and subcategory definitions for document templates including new fire resignation support. Defines valid combinations and provides validation functions.
+Structured category and subcategory definitions for document templates including simplified fire resignation support. Defines valid combinations and provides validation functions.
+
+**Updated** The fire category now only supports the fire_resignation subcategory, removing the previous FR-6 checklist and S-21b bypass sheet functionality.
 
 ```mermaid
 classDiagram
@@ -291,6 +293,8 @@ Provides reusable keyboards for:
 - Action menus for hire, fire, vacation, pay
 - Service row with Back/Home buttons
 
+**Updated** The fire menu keyboard now only includes "Voluntary dismissal" and "Dismissal grounds" options, removing the previous checklist and bypass sheet selections.
+
 ```mermaid
 classDiagram
 class KeyboardBuilders {
@@ -347,13 +351,13 @@ Hire-->>User : Content + service buttons
 - [app/integrations/vk/keyboards.py:126-171](file://app/integrations/vk/keyboards.py#L126-L171)
 - [app/domain/content.py:24-73](file://app/domain/content.py#L24-L73)
 
-### Enhanced Termination Flow (S-20, S-21b)
-Redesigned flow for employment termination with entity-based document generation:
+### Simplified Termination Flow (S-20, S-21b)
+Simplified flow for employment termination focusing on core resignation processes:
 - Open fire menu with two options: voluntary dismissal and dismissal grounds
 - Voluntary dismissal: entity selection → entity-specific template generation
 - Dismissal grounds: RAG-powered response
 
-**Updated** The voluntary dismissal flow has been completely redesigned from RAG-based to entity-based document generation system, providing more accurate and entity-specific templates.
+**Updated** The fire workflow has been significantly simplified, removing FR-6 checklist and S-21b bypass sheet functionality to focus exclusively on core resignation processes.
 
 ```mermaid
 sequenceDiagram
@@ -605,7 +609,7 @@ B --> CFG
 - [app/integrations/vk/handlers/sections.py:24-35](file://app/integrations/vk/handlers/sections.py#L24-L35)
 - [app/integrations/vk/handlers/fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
 - [app/integrations/vk/keyboards.py:75-263](file://app/integrations/vk/keyboards.py#L75-L263)
-- [app/domain/content.py:10-146](file://app/domain/content.py#L10-L146)
+- [app/domain/content.py:10-129](file://app/domain/content.py#L10-L129)
 - [app/domain/entities.py:8-24](file://app/domain/entities.py#L8-L24)
 - [app/integrations/vk/states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
 - [app/integrations/vk/rules.py:11-31](file://app/integrations/vk/rules.py#L11-L31)
@@ -623,6 +627,8 @@ B --> CFG
 - Custom payload rules provide efficient matching without complex handler logic.
 - Entity-based document generation eliminates RAG processing overhead for template requests.
 
+**Updated** The simplified fire workflow improves performance by reducing the number of handlers from 27 to 25 and eliminating redundant checklist and bypass sheet processing.
+
 ## Troubleshooting Guide
 Common issues and resolutions:
 - Handler precedence: If a message is not recognized, verify the handler order in the bot factory and ensure fallback is last.
@@ -634,19 +640,21 @@ Common issues and resolutions:
 - Free-text input: For ask-a-question, ensure the state is set before accepting free text to prevent fallback consumption.
 - Payload matching: For custom payload rules, ensure the JSON payload structure matches the expected format.
 
+**Updated** The troubleshooting guide now reflects the simplified fire workflow, focusing on voluntary dismissal template generation and dismissal grounds RAG responses.
+
 **Section sources**
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
 - [app/integrations/vk/handlers/ask.py:51-90](file://app/integrations/vk/handlers/ask.py#L51-L90)
 - [app/integrations/vk/handlers/vacation.py:53-68](file://app/integrations/vk/handlers/vacation.py#L53-L68)
 - [app/integrations/vk/handlers/fire.py:48-67](file://app/integrations/vk/handlers/fire.py#L48-L67)
-- [app/domain/content.py:124-146](file://app/domain/content.py#L124-L146)
+- [app/domain/content.py:124-129](file://app/domain/content.py#L124-L129)
 - [app/integrations/vk/rules.py:21-31](file://app/integrations/vk/rules.py#L21-L31)
 
 ## Conclusion
 The Employment Lifecycle Management system provides a robust, extensible foundation for automating core HR-related workflows in a VKontakte chatbot. Its modular design, centralized content, and state-managed dialogs enable clear user experiences while keeping business logic maintainable. The system focuses exclusively on essential HR operations (hiring, firing, vacation, payment, sick leave, probation) without external communication workflows, providing a streamlined and efficient solution for employee lifecycle management.
 
-The recent redesign of the voluntary dismissal flow demonstrates the system's evolution toward more efficient and accurate document generation. The transition from RAG-based to entity-based document generation system significantly improves user experience by providing entity-specific templates directly from the document storage system. This change reduces processing overhead, eliminates RAG latency, and ensures users receive the correct template format for their specific legal entity.
+**Updated** The recent simplification of the fire workflow demonstrates the system's evolution toward greater efficiency and clarity. By removing FR-6 checklist and S-21b bypass sheet functionality, the system now focuses exclusively on core resignation processes, reducing complexity from 27 to 25 handlers while maintaining the technical excellence that characterizes the Employment Lifecycle Management system.
 
-The addition of the new fire_resignation and fire_resignation_entity handlers, along with the enhanced keyboard system supporting entity selection, represents a substantial improvement in the system's capabilities. The handler count has increased from 25 to 27, reflecting the expanded functionality while maintaining the system's modular architecture and clear separation of concerns.
+The simplified fire workflow maintains entity-based document generation for voluntary dismissals while preserving the RAG-powered dismissal grounds functionality. This streamlined approach provides users with direct access to essential resignation templates while keeping the system's architecture clean and maintainable. The enhanced keyboard system continues to support entity selection for resignation templates, ensuring users can quickly access the correct template for their specific legal entity.
 
-The enhanced keyboard system with entity selection functionality provides a more intuitive user experience, allowing users to quickly navigate to the correct template for their specific legal entity. This improvement, combined with the entity-based document generation approach, makes the system more reliable and user-friendly while maintaining the technical excellence that characterizes the Employment Lifecycle Management system.
+The reduction in handler count from 27 to 25 represents a significant improvement in system maintainability without sacrificing functionality. The simplified architecture makes the system easier to understand, debug, and extend, while the focused feature set ensures that users receive exactly what they need for employment lifecycle management.

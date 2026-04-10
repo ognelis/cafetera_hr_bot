@@ -11,6 +11,9 @@ from typing import Literal
 
 import sharepoint2text
 from docx import Document as DocxDocument
+from docx.oxml.ns import qn
+from docx.table import Table
+from docx.text.paragraph import Paragraph
 from langchain_core.documents import Document as LCDocument
 from langchain_core.embeddings import Embeddings
 from langchain_experimental.text_splitter import SemanticChunker
@@ -24,33 +27,74 @@ DOCX_MIME = (
 )
 
 
-def _extract_sections(path: Path) -> list[tuple[str, str]]:
-    """Extract ``(heading, body_text)`` pairs from a .docx file.
+def _parse_heading_level(style_name: str | None) -> int:
+    """Parse heading level from style name (e.g., 'Heading 2' -> 2).
+
+    Returns 0 for non-heading styles or if parsing fails.
+    """
+    if not style_name:
+        return 0
+    if not style_name.startswith("Heading"):
+        return 0
+    # Extract number from "Heading N" or "HeadingN"
+    parts = style_name.split()
+    if len(parts) == 2 and parts[1].isdigit():
+        return int(parts[1])
+    return 0
+
+
+def _extract_sections(path: Path) -> list[tuple[str, str, int, str]]:
+    """Extract ``(heading, body_text, level, section_path)`` tuples from a .docx file.
 
     Paragraphs with a ``Heading *`` style start a new section.  All
     subsequent paragraphs belong to the same section until the next
     heading.
+
+    Returns:
+        List of tuples containing:
+        - heading: The heading text (empty string for text before first heading)
+        - body_text: The body text of the section
+        - level: The heading level (0 for text before first heading)
+        - section_path: Breadcrumb path like "Heading1 > Heading2 > Heading3"
     """
     doc = DocxDocument(str(path))
-    sections: list[tuple[str, str]] = []
+    sections: list[tuple[str, str, int, str]] = []
     current_heading = ""
+    current_level = 0
     paragraphs: list[str] = []
+    heading_stack: list[tuple[int, str]] = []  # (level, heading_text)
 
     for para in doc.paragraphs:
         text = para.text.strip()
         if not text:
             continue
 
-        if para.style and para.style.name and para.style.name.startswith("Heading"):
+        style_name = para.style.name if para.style else None
+        if style_name and style_name.startswith("Heading"):
+            # Save previous section
             if paragraphs:
-                sections.append((current_heading, "\n".join(paragraphs)))
+                section_path = " > ".join([h for _, h in heading_stack]) if heading_stack else ""
+                sections.append(
+                    (current_heading, "\n".join(paragraphs), current_level, section_path)
+                )
                 paragraphs = []
+
+            # Parse heading level and update stack
+            level = _parse_heading_level(style_name)
             current_heading = text
+            current_level = level
+
+            # Pop headings of same or higher level, then push new one
+            while heading_stack and heading_stack[-1][0] >= level:
+                heading_stack.pop()
+            heading_stack.append((level, text))
 
         paragraphs.append(text)
 
+    # Save final section
     if paragraphs:
-        sections.append((current_heading, "\n".join(paragraphs)))
+        section_path = " > ".join([h for _, h in heading_stack]) if heading_stack else ""
+        sections.append((current_heading, "\n".join(paragraphs), current_level, section_path))
 
     return sections
 
@@ -87,8 +131,101 @@ def load_docx(
     Raises:
         ValueError: If strategy is "semantic" and embeddings is None.
     """
-    sections = _extract_sections(path)
+    doc = DocxDocument(str(path))
 
+    # Process document elements in order (paragraphs and tables interleaved)
+    text_sections: list[tuple[str, str, int, str]] = []  # (heading, body, level, section_path)
+    table_chunks: list[LCDocument] = []
+
+    current_heading = ""
+    current_level = 0
+    paragraphs: list[str] = []
+    heading_stack: list[tuple[int, str]] = []
+
+    def _get_section_path() -> str:
+        return " > ".join([h for _, h in heading_stack]) if heading_stack else ""
+
+    def _save_current_section() -> None:
+        nonlocal paragraphs
+        if paragraphs:
+            section_path = _get_section_path()
+            text_sections.append(
+                (current_heading, "\n".join(paragraphs), current_level, section_path)
+            )
+            paragraphs = []
+
+    def _format_table_as_markdown(table: Table) -> str:
+        """Format a docx table as a Markdown table."""
+        rows = []
+        for row in table.rows:
+            cells = [cell.text.strip() for cell in row.cells]
+            rows.append(cells)
+
+        if not rows:
+            return ""
+
+        # Build markdown table
+        lines = []
+        # Header row
+        header = " | ".join(rows[0])
+        lines.append(f"| {header} |")
+        # Separator
+        lines.append("| " + " | ".join(["---"] * len(rows[0])) + " |")
+        # Data rows
+        for row in rows[1:]:
+            # Pad row to match header length
+            padded = row + [""] * (len(rows[0]) - len(row))
+            lines.append(f"| {' | '.join(padded)} |")
+
+        return "\n".join(lines)
+
+    # Iterate through body elements in document order
+    for element in doc.element.body:
+        if element.tag == qn("w:p"):
+            # Paragraph
+            para = Paragraph(element, doc)
+            text = para.text.strip()
+            if not text:
+                continue
+
+            style_name = para.style.name if para.style else None
+            if style_name and style_name.startswith("Heading"):
+                _save_current_section()
+                level = _parse_heading_level(style_name)
+                current_heading = text
+                current_level = level
+                # Update heading stack
+                while heading_stack and heading_stack[-1][0] >= level:
+                    heading_stack.pop()
+                heading_stack.append((level, text))
+            else:
+                paragraphs.append(text)
+
+        elif element.tag == qn("w:tbl"):
+            # Table - save current text section first
+            _save_current_section()
+
+            table = Table(element, doc)
+            md_table = _format_table_as_markdown(table)
+            if md_table:
+                section_path = _get_section_path()
+                table_chunks.append(
+                    LCDocument(
+                        page_content=md_table,
+                        metadata={
+                            "source": path.name,
+                            "section": current_heading,
+                            "section_level": current_level,
+                            "section_path": section_path,
+                            "is_table": True,
+                        },
+                    )
+                )
+
+    # Save final text section
+    _save_current_section()
+
+    # Process text sections with chunking strategy
     if strategy == "recursive":
         splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
             encoding_name="cl100k_base",
@@ -98,7 +235,7 @@ def load_docx(
         )
 
         documents: list[LCDocument] = []
-        for heading, body in sections:
+        for heading, body, level, section_path in text_sections:
             chunks = splitter.split_text(body)
             for chunk in chunks:
                 documents.append(
@@ -107,9 +244,13 @@ def load_docx(
                         metadata={
                             "source": path.name,
                             "section": heading,
+                            "section_level": level,
+                            "section_path": section_path,
                         },
                     )
                 )
+        # Add table chunks (not split further)
+        documents.extend(table_chunks)
         return documents
 
     if strategy == "semantic":
@@ -117,15 +258,15 @@ def load_docx(
             raise ValueError("embeddings are required for semantic chunking strategy")
 
         # Build full text with section offsets tracking
-        section_offsets: list[tuple[int, int, str]] = []
+        section_offsets: list[tuple[int, int, str, int, str]] = []
         full_text_parts: list[str] = []
         current_offset = 0
 
-        for heading, body in sections:
+        for heading, body, level, section_path in text_sections:
             section_text = body
             start_offset = current_offset
             end_offset = current_offset + len(section_text)
-            section_offsets.append((start_offset, end_offset, heading))
+            section_offsets.append((start_offset, end_offset, heading, level, section_path))
             full_text_parts.append(section_text)
             current_offset = end_offset + 2  # +2 for "\n\n" separator
 
@@ -150,14 +291,18 @@ def load_docx(
 
             # Find section with largest overlap
             best_heading = ""
+            best_level = 0
+            best_section_path = ""
             best_overlap = 0
-            for start, end, heading in section_offsets:
+            for start, end, heading, level, section_path in section_offsets:
                 overlap_start = max(start, chunk_start)
                 overlap_end = min(end, chunk_end)
                 overlap = max(0, overlap_end - overlap_start)
                 if overlap > best_overlap:
                     best_overlap = overlap
                     best_heading = heading
+                    best_level = level
+                    best_section_path = section_path
 
             semantic_documents.append(
                 LCDocument(
@@ -165,10 +310,14 @@ def load_docx(
                     metadata={
                         "source": path.name,
                         "section": best_heading,
+                        "section_level": best_level,
+                        "section_path": best_section_path,
                     },
                 )
             )
 
+        # Add table chunks (not split further)
+        semantic_documents.extend(table_chunks)
         return semantic_documents
 
     raise ValueError(f"Unknown chunking strategy: {strategy}")
@@ -287,7 +436,11 @@ def load_xlsx(
     Each worksheet becomes a section (sheet name as heading). Rows are formatted
     with `` | `` separators to preserve column structure. Empty rows are skipped.
 
-    Each chunk carries metadata: ``source`` (filename) and ``section`` (sheet name).
+    The first non-empty row of each sheet is extracted as column headers and
+    prepended to each chunk for context.
+
+    Each chunk carries metadata: ``source`` (filename), ``section`` (sheet name),
+    and ``column_headers`` (the header row as a formatted string).
 
     Args:
         path: Path to the .xlsx file.
@@ -307,18 +460,31 @@ def load_xlsx(
     import openpyxl
 
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    sections: list[tuple[str, str]] = []
+    sections: list[tuple[str, str, str]] = []  # (sheet_name, body, column_headers)
 
     for sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
         rows_text: list[str] = []
+        column_headers = ""
+        header_found = False
+
         for row in ws.iter_rows(values_only=True):
             # Skip completely empty rows
             cells = [str(cell) if cell is not None else "" for cell in row]
-            if any(c.strip() for c in cells):
-                rows_text.append(" | ".join(cells))
+            if not any(c.strip() for c in cells):
+                continue
+
+            row_text = " | ".join(cells)
+
+            # First non-empty row becomes the header
+            if not header_found:
+                column_headers = row_text
+                header_found = True
+
+            rows_text.append(row_text)
+
         if rows_text:
-            sections.append((sheet_name, "\n".join(rows_text)))
+            sections.append((sheet_name, "\n".join(rows_text), column_headers))
 
     wb.close()
 
@@ -331,15 +497,18 @@ def load_xlsx(
         )
 
         documents: list[LCDocument] = []
-        for sheet_name, body in sections:
+        for sheet_name, body, column_headers in sections:
             chunks = splitter.split_text(body)
             for chunk in chunks:
+                # Prepend headers to chunk content for context
+                chunk_with_headers = f"{column_headers}\n{chunk}"
                 documents.append(
                     LCDocument(
-                        page_content=chunk,
+                        page_content=chunk_with_headers,
                         metadata={
                             "source": path.name,
                             "section": sheet_name,
+                            "column_headers": column_headers,
                         },
                     )
                 )
@@ -350,15 +519,15 @@ def load_xlsx(
             raise ValueError("embeddings are required for semantic chunking strategy")
 
         # Build full text with section offsets tracking
-        section_offsets: list[tuple[int, int, str]] = []
+        section_offsets: list[tuple[int, int, str, str]] = []
         full_text_parts: list[str] = []
         current_offset = 0
 
-        for sheet_name, body in sections:
+        for sheet_name, body, column_headers in sections:
             section_text = body
             start_offset = current_offset
             end_offset = current_offset + len(section_text)
-            section_offsets.append((start_offset, end_offset, sheet_name))
+            section_offsets.append((start_offset, end_offset, sheet_name, column_headers))
             full_text_parts.append(section_text)
             current_offset = end_offset + 2  # +2 for "\n\n" separator
 
@@ -383,21 +552,26 @@ def load_xlsx(
 
             # Find section with largest overlap
             best_sheet_name = ""
+            best_column_headers = ""
             best_overlap = 0
-            for start, end, sheet_name in section_offsets:
+            for start, end, sheet_name, column_headers in section_offsets:
                 overlap_start = max(start, chunk_start)
                 overlap_end = min(end, chunk_end)
                 overlap = max(0, overlap_end - overlap_start)
                 if overlap > best_overlap:
                     best_overlap = overlap
                     best_sheet_name = sheet_name
+                    best_column_headers = column_headers
 
+            # Prepend headers to chunk content for context
+            chunk_with_headers = f"{best_column_headers}\n{chunk_text}"
             semantic_documents.append(
                 LCDocument(
-                    page_content=chunk_text,
+                    page_content=chunk_with_headers,
                     metadata={
                         "source": path.name,
                         "section": best_sheet_name,
+                        "column_headers": best_column_headers,
                     },
                 )
             )
