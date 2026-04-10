@@ -7,13 +7,11 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain.content import FIRE_BYPASS_SHEET_TEXT, FIRE_LAST_DAY_CHECKLIST, TEMPLATE_DISCLAIMER
+from app.domain.content import TEMPLATE_DISCLAIMER
 from app.integrations.vk.attachments import send_category_document
 from app.integrations.vk.handlers import get_category_file_service, get_entity_or_error, send_rag_answer
 from app.integrations.vk.keyboards import (
     CMD_FIRE,
-    CMD_FIRE_BYPASS,
-    CMD_FIRE_CHECKLIST,
     CMD_FIRE_GROUNDS,
     CMD_FIRE_RESIGNATION,
     FIRE_RESIGNATION_ENTITY_CMD,
@@ -37,28 +35,6 @@ async def on_fire(message: Message) -> None:
     )
 
 
-# ── FR-6: last-day checklist ──────────────────────────────────────
-
-
-@bl.message(payload=CMD_FIRE_CHECKLIST)
-async def on_fire_checklist(message: Message) -> None:
-    await message.answer(
-        FIRE_LAST_DAY_CHECKLIST,
-        keyboard=stub_kb(back_payload=CMD_FIRE).get_json(),
-    )
-
-
-# ── S-21b: bypass sheet ───────────────────────────────────────────
-
-
-@bl.message(payload=CMD_FIRE_BYPASS)
-async def on_fire_bypass(message: Message) -> None:
-    await message.answer(
-        FIRE_BYPASS_SHEET_TEXT,
-        keyboard=stub_kb(back_payload=CMD_FIRE).get_json(),
-    )
-
-
 # ── FR-5: voluntary dismissal — entity selection → template ───────
 
 
@@ -78,7 +54,7 @@ async def on_fire_resignation_entity(message: Message, payload_data: dict) -> No
         return
 
     caption = f"📄 Заявление об увольнении — {entity.full_name}\n\n{TEMPLATE_DISCLAIMER}"
-    sent = await send_category_document(
+    await send_category_document(
         message,
         get_category_file_service(),
         category="fire",
@@ -86,10 +62,6 @@ async def on_fire_resignation_entity(message: Message, payload_data: dict) -> No
         entity_id=entity_id,
         caption=caption,
     )
-    if not sent:
-        await send_rag_answer(
-            message, question="Увольнение по собственному желанию", back_payload=CMD_FIRE,
-        )
 
 
 # ── FR-12: dismissal grounds — RAG (Block 8) ──────────────────────

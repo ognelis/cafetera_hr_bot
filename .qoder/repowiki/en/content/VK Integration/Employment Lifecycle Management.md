@@ -17,16 +17,17 @@
 - [app/integrations/vk/handlers/fallback.py](file://app/integrations/vk/handlers/fallback.py)
 - [app/integrations/vk/rules.py](file://app/integrations/vk/rules.py)
 - [app/config.py](file://app/config.py)
+- [app/storage/category_models.py](file://app/storage/category_models.py)
+- [tests/test_bot_factory.py](file://tests/test_bot_factory.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced vacation workflow with new two-step selection process (vacation type selection before entity selection)
-- Added vacation_type handler and vacation_type_kb keyboard builder
-- Updated vacation template handler to support vacation type parameter
-- Modified vacation content function to accept and process vacation type parameter
-- Updated handler registration order to maintain proper matching precedence
-- Enhanced entity selection keyboard to pass vacation type through extra_payload
+- Redesigned voluntary dismissal flow (FR-5) from RAG-based to entity-based document generation system
+- Added new fire_resignation and fire_resignation_entity handlers for entity-based template generation
+- Updated handler count from 25 to 27 handlers
+- Enhanced keyboard system with new fire resignation payload constants and entity selection functionality
+- Added new fire resignation category slot with entity-specific document templates
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -53,6 +54,7 @@ graph TB
 subgraph "Domain Layer"
 D1["entities.py<br/>LegalEntity definitions"]
 D2["content.py<br/>Static content, templates, errors"]
+D3["category_models.py<br/>Category file models"]
 end
 subgraph "Integration Layer"
 I1["bot.py<br/>Bot factory and handler registration"]
@@ -66,6 +68,7 @@ C1["config.py<br/>Settings"]
 end
 D1 --> I4
 D2 --> I4
+D3 --> I4
 I2 --> I4
 I3 --> I4
 I5 --> I4
@@ -76,8 +79,9 @@ C1 --> I1
 **Diagram sources**
 - [app/domain/entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [app/domain/content.py:1-146](file://app/domain/content.py#L1-L146)
+- [app/storage/category_models.py:1-64](file://app/storage/category_models.py#L1-L64)
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [app/integrations/vk/keyboards.py:1-265](file://app/integrations/vk/keyboards.py#L1-L265)
+- [app/integrations/vk/keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
 - [app/integrations/vk/states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
 - [app/integrations/vk/rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
 - [app/config.py:1-9](file://app/config.py#L1-L9)
@@ -85,8 +89,9 @@ C1 --> I1
 **Section sources**
 - [app/domain/entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [app/domain/content.py:1-146](file://app/domain/content.py#L1-L146)
+- [app/storage/category_models.py:1-64](file://app/storage/category_models.py#L1-L64)
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [app/integrations/vk/keyboards.py:1-265](file://app/integrations/vk/keyboards.py#L1-L265)
+- [app/integrations/vk/keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
 - [app/integrations/vk/states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
 - [app/integrations/vk/rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
 - [app/config.py:1-9](file://app/config.py#L1-L9)
@@ -94,6 +99,7 @@ C1 --> I1
 ## Core Components
 - LegalEntity and entity registry: central identifiers for Russian legal entities used across hiring and vacation flows.
 - Static content and templates: standardized messages, checklists, and placeholders for documents and RAG stubs.
+- Category file models: structured category and subcategory definitions for document templates including new fire resignation support.
 - VK bot factory: wires handlers and state dispensation to a vkbottle Bot instance.
 - Keyboard builders: reusable keyboards for main menu, entity selection, vacation type selection, and multi-step dialogs.
 - Handler modules: feature-specific flows for hire, fire, vacation, pay, sick leave, probation, ask-a-question, and fallback.
@@ -102,10 +108,11 @@ C1 --> I1
 **Section sources**
 - [app/domain/entities.py:8-24](file://app/domain/entities.py#L8-L24)
 - [app/domain/content.py:10-146](file://app/domain/content.py#L10-L146)
+- [app/storage/category_models.py:32-55](file://app/storage/category_models.py#L32-L55)
 - [app/integrations/vk/bot.py:42-56](file://app/integrations/vk/bot.py#L42-L56)
-- [app/integrations/vk/keyboards.py:75-265](file://app/integrations/vk/keyboards.py#L75-L265)
+- [app/integrations/vk/keyboards.py:75-263](file://app/integrations/vk/keyboards.py#L75-L263)
 - [app/integrations/vk/handlers/hire.py:32-98](file://app/integrations/vk/handlers/hire.py#L32-L98)
-- [app/integrations/vk/handlers/fire.py:28-74](file://app/integrations/vk/handlers/fire.py#L28-L74)
+- [app/integrations/vk/handlers/fire.py:29-76](file://app/integrations/vk/handlers/fire.py#L29-L76)
 - [app/integrations/vk/handlers/vacation.py:30-105](file://app/integrations/vk/handlers/vacation.py#L30-L105)
 - [app/integrations/vk/handlers/pay.py:24-46](file://app/integrations/vk/handlers/pay.py#L24-L46)
 - [app/integrations/vk/handlers/sections.py:24-35](file://app/integrations/vk/handlers/sections.py#L24-L35)
@@ -149,12 +156,12 @@ A --> O5
 - [app/integrations/vk/handlers/start.py:31-42](file://app/integrations/vk/handlers/start.py#L31-L42)
 - [app/integrations/vk/handlers/ask.py:38-90](file://app/integrations/vk/handlers/ask.py#L38-L90)
 - [app/integrations/vk/handlers/hire.py:32-98](file://app/integrations/vk/handlers/hire.py#L32-L98)
-- [app/integrations/vk/handlers/fire.py:28-74](file://app/integrations/vk/handlers/fire.py#L28-L74)
+- [app/integrations/vk/handlers/fire.py:29-76](file://app/integrations/vk/handlers/fire.py#L29-L76)
 - [app/integrations/vk/handlers/vacation.py:30-105](file://app/integrations/vk/handlers/vacation.py#L30-L105)
 - [app/integrations/vk/handlers/pay.py:24-46](file://app/integrations/vk/handlers/pay.py#L24-L46)
 - [app/integrations/vk/handlers/sections.py:24-35](file://app/integrations/vk/handlers/sections.py#L24-L35)
 - [app/integrations/vk/handlers/fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
-- [app/integrations/vk/keyboards.py:75-265](file://app/integrations/vk/keyboards.py#L75-L265)
+- [app/integrations/vk/keyboards.py:75-263](file://app/integrations/vk/keyboards.py#L75-L263)
 - [app/domain/content.py:10-146](file://app/domain/content.py#L10-L146)
 - [app/domain/entities.py:8-24](file://app/domain/entities.py#L8-L24)
 - [app/integrations/vk/states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
@@ -189,7 +196,7 @@ EntitiesModule --> LegalEntity : "defines"
 ### Static Content and Templates
 Centralized content for:
 - Hire: document checklists, onboarding checklist, contract template
-- Fire: last-day checklist, bypass sheet text
+- Fire: last-day checklist, bypass sheet text, voluntary dismissal template
 - Vacation: leave application template with vacation type support
 - RAG stub: placeholder responses during knowledge base integration
 - Error states: document unavailable, no answer, integration required
@@ -202,6 +209,7 @@ Type --> |Onboarding Checklist| OC["onboarding_checklist(entity)"]
 Type --> |Contract Template| CT["hire_contract_text(entity)"]
 Type --> |Fire Last Day| FL["FIRE_LAST_DAY_CHECKLIST"]
 Type --> |Fire Bypass Sheet| FB["FIRE_BYPASS_SHEET_TEXT"]
+Type --> |Voluntary Dismissal Template| VDT["fire_resignation_template(entity)"]
 Type --> |Vacation Template| VT["vacation_template_text(entity, vtype)"]
 Type --> |RAG Stub| RS["rag_stub(topic)"]
 Type --> |Errors| ER["ERR_* constants"]
@@ -210,6 +218,7 @@ OC --> End
 CT --> End
 FL --> End
 FB --> End
+VDT --> End
 VT --> End
 RS --> End
 ER --> End
@@ -220,6 +229,35 @@ ER --> End
 
 **Section sources**
 - [app/domain/content.py:10-146](file://app/domain/content.py#L10-L146)
+
+### Category File Models
+Structured category and subcategory definitions for document templates including new fire resignation support. Defines valid combinations and provides validation functions.
+
+```mermaid
+classDiagram
+class CategoryFileRecord {
++string file_id
++string category
++string subcategory
++int entity_id
++string filename
++string s3_key
++string mime_type
++int size_bytes
+}
+class CategorySlots {
++dict CATEGORY_SLOTS
++dict LEGAL_ENTITIES
++is_valid_slot(category, subcategory) bool
+}
+CategorySlots --> CategoryFileRecord : "validates"
+```
+
+**Diagram sources**
+- [app/storage/category_models.py:9-64](file://app/storage/category_models.py#L9-L64)
+
+**Section sources**
+- [app/storage/category_models.py:32-55](file://app/storage/category_models.py#L32-L55)
 
 ### VK Bot Factory and Handler Registration
 Creates a vkbottle Bot instance, shares state dispenser with ask handlers, and loads labelers in a strict order to ensure correct matching precedence.
@@ -249,8 +287,7 @@ BotFactory-->>App : Bot instance
 ### Keyboard Builders
 Provides reusable keyboards for:
 - Main menu with seven sections
-- Entity selection for hire and vacation
-- Vacation type selection for leave application templates
+- Entity selection for hire, vacation, and fire resignation flows
 - Action menus for hire, fire, vacation, pay
 - Service row with Back/Home buttons
 
@@ -269,10 +306,10 @@ class KeyboardBuilders {
 ```
 
 **Diagram sources**
-- [app/integrations/vk/keyboards.py:75-265](file://app/integrations/vk/keyboards.py#L75-L265)
+- [app/integrations/vk/keyboards.py:75-263](file://app/integrations/vk/keyboards.py#L75-L263)
 
 **Section sources**
-- [app/integrations/vk/keyboards.py:13-265](file://app/integrations/vk/keyboards.py#L13-L265)
+- [app/integrations/vk/keyboards.py:13-263](file://app/integrations/vk/keyboards.py#L13-L263)
 
 ### Hiring Flow (S-10, S-11)
 End-to-end flow for new hires:
@@ -310,10 +347,13 @@ Hire-->>User : Content + service buttons
 - [app/integrations/vk/keyboards.py:126-171](file://app/integrations/vk/keyboards.py#L126-L171)
 - [app/domain/content.py:24-73](file://app/domain/content.py#L24-L73)
 
-### Termination Flow (S-20, S-21b)
-Flow for employment termination:
-- Open fire menu
-- Choose last-day checklist, bypass sheet, voluntary dismissal (RAG stub), or dismissal grounds
+### Enhanced Termination Flow (S-20, S-21b)
+Redesigned flow for employment termination with entity-based document generation:
+- Open fire menu with two options: voluntary dismissal and dismissal grounds
+- Voluntary dismissal: entity selection → entity-specific template generation
+- Dismissal grounds: RAG-powered response
+
+**Updated** The voluntary dismissal flow has been completely redesigned from RAG-based to entity-based document generation system, providing more accurate and entity-specific templates.
 
 ```mermaid
 sequenceDiagram
@@ -321,30 +361,29 @@ participant User as "User"
 participant Bot as "VK Bot"
 participant Fire as "fire handlers"
 participant KB as "keyboards"
-participant Content as "domain.content"
+participant CF as "category_file_service"
 User->>Bot : "Fire" button
 Bot->>Fire : on_fire()
 Fire->>KB : fire_menu_kb()
 KB-->>User : Fire menu keyboard
-User->>Fire : Select option
-alt Checklist
-Fire-->>User : FIRE_LAST_DAY_CHECKLIST
-else Bypass sheet
-Fire-->>User : FIRE_BYPASS_SHEET_TEXT
-else Voluntary dismissal
-Fire-->>User : rag_stub("Увольнение по собственному желанию")
-end
+User->>Fire : "Voluntary dismissal" option
+Fire->>KB : entity_select_kb(fire_resignation_entity, back_payload)
+KB-->>User : Entity selection keyboard
+User->>Fire : Select entity
+Fire->>CF : send_category_document("fire", "fire_resignation", entity_id)
+CF-->>User : Entity-specific resignation template
 ```
 
 **Diagram sources**
-- [app/integrations/vk/handlers/fire.py:28-74](file://app/integrations/vk/handlers/fire.py#L28-L74)
-- [app/integrations/vk/keyboards.py:177-187](file://app/integrations/vk/keyboards.py#L177-L187)
-- [app/domain/content.py:75-95](file://app/domain/content.py#L75-L95)
+- [app/integrations/vk/handlers/fire.py:29-76](file://app/integrations/vk/handlers/fire.py#L29-L76)
+- [app/integrations/vk/keyboards.py:179-185](file://app/integrations/vk/keyboards.py#L179-L185)
+- [app/storage/category_models.py:42-47](file://app/storage/category_models.py#L42-L47)
 
 **Section sources**
-- [app/integrations/vk/handlers/fire.py:24-74](file://app/integrations/vk/handlers/fire.py#L24-L74)
-- [app/integrations/vk/keyboards.py:177-187](file://app/integrations/vk/keyboards.py#L177-L187)
+- [app/integrations/vk/handlers/fire.py:29-76](file://app/integrations/vk/handlers/fire.py#L29-L76)
+- [app/integrations/vk/keyboards.py:179-185](file://app/integrations/vk/keyboards.py#L179-L185)
 - [app/domain/content.py:75-95](file://app/domain/content.py#L75-L95)
+- [app/storage/category_models.py:42-47](file://app/storage/category_models.py#L42-L47)
 
 ### Enhanced Vacation Flow (S-30)
 Enhanced two-step flow for vacation requests:
@@ -523,6 +562,7 @@ S["states.py"]
 R["rules.py"]
 B["bot.py"]
 CFG["config.py"]
+CF["category_models.py"]
 H1 --> K
 H2 --> K
 H2 --> S
@@ -531,6 +571,7 @@ H3 --> E
 H3 --> C
 H4 --> K
 H4 --> C
+H4 --> CF
 H5 --> K
 H5 --> E
 H5 --> C
@@ -558,17 +599,18 @@ B --> CFG
 - [app/integrations/vk/handlers/start.py:31-42](file://app/integrations/vk/handlers/start.py#L31-L42)
 - [app/integrations/vk/handlers/ask.py:38-90](file://app/integrations/vk/handlers/ask.py#L38-L90)
 - [app/integrations/vk/handlers/hire.py:32-98](file://app/integrations/vk/handlers/hire.py#L32-L98)
-- [app/integrations/vk/handlers/fire.py:28-74](file://app/integrations/vk/handlers/fire.py#L28-L74)
+- [app/integrations/vk/handlers/fire.py:29-76](file://app/integrations/vk/handlers/fire.py#L29-L76)
 - [app/integrations/vk/handlers/vacation.py:30-105](file://app/integrations/vk/handlers/vacation.py#L30-L105)
 - [app/integrations/vk/handlers/pay.py:24-46](file://app/integrations/vk/handlers/pay.py#L24-L46)
 - [app/integrations/vk/handlers/sections.py:24-35](file://app/integrations/vk/handlers/sections.py#L24-L35)
 - [app/integrations/vk/handlers/fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
-- [app/integrations/vk/keyboards.py:75-265](file://app/integrations/vk/keyboards.py#L75-L265)
+- [app/integrations/vk/keyboards.py:75-263](file://app/integrations/vk/keyboards.py#L75-L263)
 - [app/domain/content.py:10-146](file://app/domain/content.py#L10-L146)
 - [app/domain/entities.py:8-24](file://app/domain/entities.py#L8-L24)
 - [app/integrations/vk/states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
 - [app/integrations/vk/rules.py:11-31](file://app/integrations/vk/rules.py#L11-L31)
 - [app/config.py:4-9](file://app/config.py#L4-L9)
+- [app/storage/category_models.py:32-55](file://app/storage/category_models.py#L32-L55)
 
 **Section sources**
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
@@ -579,6 +621,7 @@ B --> CFG
 - State dispenser is used sparingly and cleared promptly to avoid memory bloat.
 - Centralized content reduces duplication and improves cache locality for repeated messages.
 - Custom payload rules provide efficient matching without complex handler logic.
+- Entity-based document generation eliminates RAG processing overhead for template requests.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -586,6 +629,7 @@ Common issues and resolutions:
 - State persistence: If multi-step dialogs fail, confirm the shared state dispenser is attached to the bot and state transitions occur in the correct order.
 - Entity selection: If entity selection fails, verify the payload command and entity ID mapping.
 - Vacation type handling: If vacation type selection fails, verify the vacation_type payload structure and extra_payload forwarding.
+- Voluntary dismissal flow: If fire resignation template generation fails, verify the entity-specific template exists in category storage and the category_file_service is properly configured.
 - Content availability: For document templates, ensure the document storage integration is configured; in the meantime, the system returns a standardized placeholder message.
 - Free-text input: For ask-a-question, ensure the state is set before accepting free text to prevent fallback consumption.
 - Payload matching: For custom payload rules, ensure the JSON payload structure matches the expected format.
@@ -594,10 +638,15 @@ Common issues and resolutions:
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
 - [app/integrations/vk/handlers/ask.py:51-90](file://app/integrations/vk/handlers/ask.py#L51-L90)
 - [app/integrations/vk/handlers/vacation.py:53-68](file://app/integrations/vk/handlers/vacation.py#L53-L68)
+- [app/integrations/vk/handlers/fire.py:48-67](file://app/integrations/vk/handlers/fire.py#L48-L67)
 - [app/domain/content.py:124-146](file://app/domain/content.py#L124-L146)
 - [app/integrations/vk/rules.py:21-31](file://app/integrations/vk/rules.py#L21-L31)
 
 ## Conclusion
 The Employment Lifecycle Management system provides a robust, extensible foundation for automating core HR-related workflows in a VKontakte chatbot. Its modular design, centralized content, and state-managed dialogs enable clear user experiences while keeping business logic maintainable. The system focuses exclusively on essential HR operations (hiring, firing, vacation, payment, sick leave, probation) without external communication workflows, providing a streamlined and efficient solution for employee lifecycle management.
 
-The recent enhancement to the vacation workflow demonstrates the system's flexibility and ability to evolve with business requirements. The addition of the two-step selection process (vacation type selection before entity selection) improves user experience by providing clearer context and more precise template generation. The implementation maintains backward compatibility while extending functionality through well-defined interfaces and reusable components.
+The recent redesign of the voluntary dismissal flow demonstrates the system's evolution toward more efficient and accurate document generation. The transition from RAG-based to entity-based document generation system significantly improves user experience by providing entity-specific templates directly from the document storage system. This change reduces processing overhead, eliminates RAG latency, and ensures users receive the correct template format for their specific legal entity.
+
+The addition of the new fire_resignation and fire_resignation_entity handlers, along with the enhanced keyboard system supporting entity selection, represents a substantial improvement in the system's capabilities. The handler count has increased from 25 to 27, reflecting the expanded functionality while maintaining the system's modular architecture and clear separation of concerns.
+
+The enhanced keyboard system with entity selection functionality provides a more intuitive user experience, allowing users to quickly navigate to the correct template for their specific legal entity. This improvement, combined with the entity-based document generation approach, makes the system more reliable and user-friendly while maintaining the technical excellence that characterizes the Employment Lifecycle Management system.

@@ -6,8 +6,6 @@ from vkbottle import Keyboard
 
 from app.domain.entities import ENTITIES
 from app.integrations.vk.keyboards import (
-    CMD_FIRE_BYPASS,
-    CMD_FIRE_CHECKLIST,
     CMD_FIRE_GROUNDS,
     CMD_FIRE_RESIGNATION,
     CMD_HIRE,
@@ -116,21 +114,11 @@ class TestHireActionsKb:
 
 
 class TestFireMenuKb:
-    def test_has_four_action_buttons(self):
+    def test_has_two_action_buttons(self):
         data = _parse(fire_menu_kb())
         labels = _labels(data)
-        assert _has_label(labels, "Чек-лист последнего дня")
-        assert _has_label(labels, "Обходной лист")
         assert _has_label(labels, "Увольнение по собственному")
         assert _has_label(labels, "Основания увольнения")
-
-    def test_checklist_payload(self):
-        data = _parse(fire_menu_kb())
-        assert CMD_FIRE_CHECKLIST in _payloads(data)
-
-    def test_bypass_payload(self):
-        data = _parse(fire_menu_kb())
-        assert CMD_FIRE_BYPASS in _payloads(data)
 
     def test_resignation_payload(self):
         data = _parse(fire_menu_kb())

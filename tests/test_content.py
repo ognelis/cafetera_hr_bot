@@ -1,8 +1,6 @@
 """Tests for app.domain.content — static content and formatters."""
 
 from app.domain.content import (
-    FIRE_BYPASS_SHEET_TEXT,
-    FIRE_LAST_DAY_CHECKLIST,
     TEMPLATE_DISCLAIMER,
     hire_checklist,
     hire_contract_text,
@@ -35,17 +33,6 @@ class TestHireContent:
         entity = ENTITIES[2]
         text = onboarding_checklist(entity)
         assert entity.full_name in text
-
-
-class TestFireContent:
-    def test_last_day_checklist_not_empty(self):
-        assert len(FIRE_LAST_DAY_CHECKLIST) > 50
-
-    def test_last_day_checklist_has_steps(self):
-        assert "1." in FIRE_LAST_DAY_CHECKLIST
-
-    def test_bypass_sheet_has_disclaimer(self):
-        assert "Дисклеймер" in FIRE_BYPASS_SHEET_TEXT
 
 
 class TestVacationContent:

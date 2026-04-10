@@ -284,9 +284,9 @@ class TestIsValidSlot:
 
     def test_wrong_subcategory_for_category(self):
         """A valid subcategory from one category is invalid for another."""
-        # fire_checklist is valid for fire, not for hire
-        assert is_valid_slot("fire", "fire_checklist") is True
-        assert is_valid_slot("hire", "fire_checklist") is False
+        # fire_resignation is valid for fire, not for hire
+        assert is_valid_slot("fire", "fire_resignation") is True
+        assert is_valid_slot("hire", "fire_resignation") is False
 
 
 # ── API tests ─────────────────────────────────────────────────────

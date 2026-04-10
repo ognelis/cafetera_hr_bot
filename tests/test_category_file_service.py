@@ -184,18 +184,18 @@ class TestGetFile:
         # Create a record first
         rec = _make_record(
             category="fire",
-            subcategory="fire_checklist",
+            subcategory="fire_resignation",
             entity_id=2,
         )
         await repo.upsert(rec)
 
         # Get via service
-        result = await service.get_file("fire", "fire_checklist", 2)
+        result = await service.get_file("fire", "fire_resignation", 2)
 
         assert result is not None
         assert result.file_id == rec.file_id
         assert result.category == "fire"
-        assert result.subcategory == "fire_checklist"
+        assert result.subcategory == "fire_resignation"
         assert result.entity_id == 2
 
     async def test_get_file_not_found(self, service):
@@ -333,7 +333,7 @@ class TestServiceIntegration:
         # Upload for entity 1
         result1 = await service.upload_file(
             category="fire",
-            subcategory="fire_checklist",
+            subcategory="fire_resignation",
             entity_id=1,
             filename="fire_entity1.docx",
             data=b"content1",
@@ -343,7 +343,7 @@ class TestServiceIntegration:
         # Upload for entity 2
         result2 = await service.upload_file(
             category="fire",
-            subcategory="fire_checklist",
+            subcategory="fire_resignation",
             entity_id=2,
             filename="fire_entity2.docx",
             data=b"content2",
@@ -351,8 +351,8 @@ class TestServiceIntegration:
         )
 
         # Both should exist
-        get1 = await service.get_file("fire", "fire_checklist", 1)
-        get2 = await service.get_file("fire", "fire_checklist", 2)
+        get1 = await service.get_file("fire", "fire_resignation", 1)
+        get2 = await service.get_file("fire", "fire_resignation", 2)
 
         assert get1 is not None
         assert get2 is not None

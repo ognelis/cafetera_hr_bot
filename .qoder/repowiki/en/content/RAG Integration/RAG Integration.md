@@ -52,14 +52,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced RAG capabilities with metadata-aware document formatting and LRU cache system
+- Enhanced RAG estimation logic with improved formatting for better readability while maintaining existing intelligent question classification capabilities
+- Updated test_rag_block6.py with formatting improvements for word count estimation
+- Refined metadata-aware document formatting with enhanced readability and structured presentation
 - Improved QA service with question complexity analysis using k-estimation
-- Refined prompt system with stricter content policies and enhanced system prompts
-- Dual-service architecture with centralized resource management and cache invalidation
-- Comprehensive testing infrastructure for all enhanced features
-- Enhanced document management with cache invalidation and dual-service coordination
-- Revolutionary global experts prompt system for cross-document knowledge synthesis
-- Advanced streaming response implementation with SSE support for real-time interaction
+- Enhanced document processing workflows with better formatting and user experience
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -81,7 +78,7 @@
 ## Introduction
 This document describes the comprehensive Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. The implementation includes a complete LangChain-based processing pipeline, Qdrant vector database integration, document ingestion capabilities, and specialized HR prompts. The system enhances the bot's HR assistance capabilities by providing contextual, reliable answers drawn from HR documents while maintaining seamless integration with the existing VK bot architecture.
 
-**Updated** The RAG implementation now features enhanced capabilities with metadata-aware document formatting, improved QA service with LRU cache system, question complexity analysis using k-estimation, refined prompt system with stricter content policies, dual-service architecture with centralized resource management, enhanced document management with cache invalidation, revolutionary global experts prompt system for cross-document knowledge synthesis, advanced streaming response implementation with SSE support, and comprehensive testing infrastructure validating all enhancements.
+**Updated** The RAG implementation now features enhanced capabilities with metadata-aware document formatting and LRU cache system, improved QA service with question complexity analysis using k-estimation, refined prompt system with stricter content policies and enhanced system prompts, dual-service architecture with centralized resource management and cache invalidation, comprehensive testing infrastructure for all enhanced features, enhanced document management with cache invalidation and dual-service coordination, revolutionary global experts prompt system for cross-document knowledge synthesis, advanced streaming response implementation with SSE support for real-time interaction, and improved formatting for better readability in all RAG components.
 
 ## Project Structure
 The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup, document ingestion capabilities, comprehensive QA service layer with enhanced ask handler implementation, SQLite-based document storage system, and dedicated deployment scripts for local LLM serving with comprehensive orchestration capabilities and intelligent GPU detection.
@@ -90,7 +87,7 @@ The repository is organized with a dedicated RAG module that provides the core i
 graph TB
 subgraph "Enhanced RAG Infrastructure"
 Config["Settings Configuration<br/>app/config.py"]
-Chain["RAG Chain with Metadata Formatting<br/>app/rag/chain.py"]
+Chain["RAG Chain with Enhanced Metadata Formatting<br/>app/rag/chain.py"]
 Prompts["Enhanced System Prompts<br/>app/rag/prompts.py"]
 Retriever["Vector Store & Retriever with K-Estimation<br/>app/rag/retriever.py"]
 Indexer["Chunk Indexer with Cache Invalidation<br/>app/rag/indexer.py"]
@@ -651,18 +648,19 @@ The QA service now implements an LRU (Least Recently Used) cache system for docu
 - [app/domain/qa_service.py:68-119](file://app/domain/qa_service.py#L68-L119)
 - [app/domain/qa_service.py:274-284](file://app/domain/qa_service.py#L274-L284)
 
-### Question Complexity Analysis with K-Estimation
-The retriever module provides sophisticated question complexity analysis:
+#### Enhanced Question Complexity Analysis with K-Estimation
+The retriever module provides sophisticated question complexity analysis with improved formatting:
 
 - **Word Count Analysis**: Counts words in user questions to determine complexity
 - **Adaptive K-Values**: 
   - Short questions (≤5 words): k=2 chunks
   - Medium questions (6-15 words): k=4 chunks (default)
   - Long/complex questions (>15 words): k=6 chunks
+- **Enhanced Formatting**: Improved readability and structured presentation of k-estimation results
 - **Performance Optimization**: Reduces retrieval overhead for simple questions
 - **Quality Assurance**: Ensures sufficient context for complex questions
 
-**Updated** Sophisticated question complexity analysis with word count analysis, adaptive k-values, performance optimization, and quality assurance for optimal RAG performance across all question types.
+**Updated** Sophisticated question complexity analysis with word count analysis, adaptive k-values, enhanced formatting for better readability, performance optimization, and quality assurance for optimal RAG performance across all question types.
 
 **Section sources**
 - [app/rag/retriever.py:11-25](file://app/rag/retriever.py#L11-L25)

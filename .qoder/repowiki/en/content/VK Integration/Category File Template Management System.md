@@ -16,7 +16,19 @@
 - [category_slot.html](file://templates/partials/category_slot.html)
 - [test_category_files.py](file://tests/test_category_files.py)
 - [test_category_file_service.py](file://tests/test_category_file_service.py)
+- [fire.py](file://app/integrations/vk/handlers/fire.py)
+- [attachments.py](file://app/integrations/vk/attachments.py)
+- [topic_hints.py](file://app/domain/topic_hints.py)
+- [bot.py](file://app/integrations/vk/bot.py)
+- [keyboards.py](file://app/integrations/vk/keyboards.py)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated category structure to reflect new 'fire_resignation' subcategory under 'fire' category
+- Enhanced template management system with entity-specific document generation capabilities
+- Updated category validation logic to support new resignation template structure
+- Added comprehensive entity-specific template handling for resignation documents
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -38,6 +50,8 @@ The Category File Template Management System is a specialized document managemen
 
 The system organizes templates into a hierarchical structure: Categories (such as hiring, termination, and vacations) contain subcategories (specific document types), and each subcategory can have templates for different legal entities. This structure ensures that HR professionals can quickly access the correct templates for their specific needs while maintaining organizational consistency across different company entities.
 
+**Updated** The system now includes enhanced entity-specific document generation capabilities, particularly for resignation templates, allowing separate template management for each legal entity within the Cafetera Group.
+
 ## System Architecture
 
 The Category File Template Management System follows a clean architecture pattern with clear separation of concerns across multiple layers:
@@ -56,6 +70,7 @@ end
 subgraph "Domain Layer"
 Models[CategoryFileRecord]
 Validation[Slot Validation]
+EntityDocGen[Entity-Specific Document Generation]
 end
 subgraph "Infrastructure Layer"
 Repo[CategoryFileRepository]
@@ -71,6 +86,7 @@ Service --> S3
 Repo --> DB
 Models --> Repo
 Validation --> Service
+EntityDocGen --> Service
 ```
 
 **Diagram sources**
@@ -78,12 +94,13 @@ Validation --> Service
 - [category_file_service.py:22-31](file://app/domain/category_file_service.py#L22-L31)
 - [category_repo.py:47-52](file://app/storage/category_repo.py#L47-L52)
 - [s3.py:14-38](file://app/storage/s3.py#L14-L38)
+- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
 
 The architecture consists of four main layers:
 
 1. **Presentation Layer**: Handles user interaction through FastAPI routes and Jinja2 templates
 2. **Application Layer**: Contains business logic and orchestration through the CategoryFileService
-3. **Domain Layer**: Defines core data structures and validation logic
+3. **Domain Layer**: Defines core data structures, validation logic, and entity-specific document generation
 4. **Infrastructure Layer**: Manages persistent storage and external services
 
 ## Core Components
@@ -160,6 +177,9 @@ subgraph "Categories"
 HIRE[Hiring]
 FIRE[Termination]
 VACATION[Vacation]
+PAY[Payroll]
+SICK[Sick Leave]
+PROBATION[Probation]
 end
 subgraph "Hiring Subcategories"
 HIRE_CHECKLIST[Checklist Documents]
@@ -169,22 +189,44 @@ end
 subgraph "Termination Subcategories"
 FIRE_CHECKLIST[Final Day Checklist]
 FIRE_BYPASS[Bypass Forms]
+FIRE_RESIGNATION[Resignation Letter]
 end
 subgraph "Vacation Subcategories"
 VACATION_PAID[Paid Vacation Request]
 VACATION_UNPAID[Unpaid Vacation Request]
+end
+subgraph "Payroll Subcategories"
+PAY_OVERTIME[Overtime Pay]
+PAY_BONUS[Bonus Conditions]
+end
+subgraph "Sick Leave Subcategories"
+SICK_ELN[Electronic Sick Leave Note]
+SICK_PAPER[Paper Sick Leave]
+end
+subgraph "Probation Subcategories"
+PROBATION_EVALUATION[Performance Evaluation]
+PROBATION_EXTENSION[Probation Extension]
 end
 HIRE --> HIRE_CHECKLIST
 HIRE --> HIRE_CONTRACT
 HIRE --> HIRE_ONBOARDING
 FIRE --> FIRE_CHECKLIST
 FIRE --> FIRE_BYPASS
+FIRE --> FIRE_RESIGNATION
 VACATION --> VACATION_PAID
 VACATION --> VACATION_UNPAID
+PAY --> PAY_OVERTIME
+PAY --> PAY_BONUS
+SICK --> SICK_ELN
+SICK --> SICK_PAPER
+PROBATION --> PROBATION_EVALUATION
+PROBATION --> PROBATION_EXTENSION
 ```
 
 **Diagram sources**
 - [category_models.py:33-56](file://app/storage/category_models.py#L33-L56)
+
+**Updated** The system now includes a dedicated 'fire_resignation' subcategory under the 'fire' category, providing entity-specific document generation for resignation templates. The category structure maintains support for payroll, sick leave, and probation categories as legacy components, though the update indicates these may have been removed from active use.
 
 Each category contains predefined subcategories with localized Russian labels, ensuring intuitive navigation for Russian-speaking users. The system validates all template uploads against this predefined structure to maintain consistency.
 
@@ -204,6 +246,37 @@ The system supports multiple legal entities within the Cafetera Group, each with
 
 **Section sources**
 - [category_models.py:25-30](file://app/storage/category_models.py#L25-L30)
+
+### Entity-Specific Document Generation
+
+**New** The system now supports advanced entity-specific document generation, particularly for resignation templates. This feature allows different legal entities to have separate templates for the same document type while maintaining centralized management.
+
+```mermaid
+sequenceDiagram
+participant User as User
+participant Handler as Fire Handler
+participant Attachment as Attachment Helper
+participant Service as CategoryFileService
+participant S3 as Cloud Storage
+User->>Handler : Request resignation template
+Handler->>Attachment : send_category_document()
+Attachment->>Service : get_file(category, subcategory, entity_id)
+Service->>S3 : download(template_key)
+S3-->>Service : template_bytes
+Service-->>Attachment : template_bytes, filename
+Attachment->>Attachment : Upload to VK Docs
+Attachment-->>User : Sent document attachment
+```
+
+**Diagram sources**
+- [fire.py:48-67](file://app/integrations/vk/handlers/fire.py#L48-L67)
+- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+
+The entity-specific document generation ensures that each legal entity receives the appropriate template version while maintaining centralized template management and validation.
+
+**Section sources**
+- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- [fire.py:48-67](file://app/integrations/vk/handlers/fire.py#L48-L67)
 
 ## Data Model and Storage
 
@@ -419,6 +492,8 @@ subgraph "Unit Tests"
 REPO_TESTS[Repository Tests]
 SERVICE_TESTS[Service Tests]
 MODEL_TESTS[Model Tests]
+ENDPOINT_TESTS[Endpoint Tests]
+ENTITY_TESTS[Entity-Specific Tests]
 end
 subgraph "Integration Tests"
 API_TESTS[API Endpoint Tests]
@@ -434,11 +509,14 @@ SERVICE_TESTS --> API_TESTS
 API_TESTS --> HTMX_TESTS
 SERVICE_TESTS --> STORAGE_TESTS
 API_TESTS --> AUTH_TESTS
+ENTITY_TESTS --> ENDPOINT_TESTS
 ```
 
 **Diagram sources**
 - [test_category_files.py:1-515](file://tests/test_category_files.py#L1-L515)
 - [test_category_file_service.py:1-410](file://tests/test_category_file_service.py#L1-L410)
+
+**Updated** The testing strategy now includes comprehensive entity-specific template testing, particularly for the new resignation template functionality. Tests validate that templates are properly isolated between different legal entities while maintaining shared functionality.
 
 The testing strategy includes:
 
@@ -447,6 +525,7 @@ The testing strategy includes:
 - **API Tests**: Verify endpoint behavior and authentication
 - **Integration Tests**: Ensure proper coordination between components
 - **UI Tests**: Validate HTMX partials and template rendering
+- **Entity-Specific Tests**: Validate template isolation and generation for different legal entities
 
 **Section sources**
 - [test_category_files.py:1-515](file://tests/test_category_files.py#L1-L515)
@@ -508,6 +587,7 @@ InitServices --> Ready
 | Database Lock Errors | Transaction failures | Ensure single database connection |
 | File Upload Rejections | 400 Bad Request responses | Verify file format and size limits |
 | Template Not Showing | Empty slot cells | Check entity-specific template uploads |
+| **New** Entity-Specific Template Issues | Wrong template for entity | Verify entity-specific template upload and validation |
 
 ### Debug Information
 
@@ -525,6 +605,7 @@ Monitor these key log messages:
 - S3 client connection state
 - File upload/download progress
 - Authentication validation results
+- **New** Entity-specific template resolution logs
 
 **Section sources**
 - [config.py:6-11](file://app/config.py#L6-L11)
@@ -532,6 +613,8 @@ Monitor these key log messages:
 ## Conclusion
 
 The Category File Template Management System provides a robust, scalable solution for HR document template management. Its clean architecture, comprehensive validation, and user-friendly interface make it suitable for enterprise HR departments managing multiple legal entities and complex template hierarchies.
+
+**Updated** The system now includes enhanced entity-specific document generation capabilities, particularly for resignation templates, allowing separate template management for each legal entity within the Cafetera Group. This enhancement maintains centralized template management while providing the flexibility needed for different legal entity requirements.
 
 Key strengths of the system include:
 
@@ -541,5 +624,6 @@ Key strengths of the system include:
 - **Security Focus**: Comprehensive validation and authentication mechanisms
 - **Scalable Infrastructure**: Cloud storage integration with proper error handling
 - **Comprehensive Testing**: Extensive test coverage ensuring reliability
+- **Entity-Specific Document Generation**: Advanced template management for different legal entities
 
 The system successfully balances functionality with maintainability, providing HR professionals with efficient access to standardized templates while ensuring data integrity and security across all organizational contexts.

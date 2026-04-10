@@ -36,8 +36,6 @@ CMD_PAY_BONUS = {"cmd": "pay_bonus"}         # FR-10: bonus conditions
 
 # ── fire sub-action payloads ───────────────────────────────────────
 
-CMD_FIRE_CHECKLIST = {"cmd": "fire_checklist"}
-CMD_FIRE_BYPASS = {"cmd": "fire_bypass"}
 CMD_FIRE_RAG = {"cmd": "fire_rag"}  # stub → Block 3 (kept for compatibility)
 CMD_FIRE_GROUNDS = {"cmd": "fire_grounds"}  # FR-12: dismissal grounds (Block 5)
 
@@ -179,12 +177,8 @@ def hire_actions_kb(entity_id: int) -> Keyboard:
 
 
 def fire_menu_kb() -> Keyboard:
-    """S-20 fire section menu (FR-5, FR-6, FR-12)."""
+    """S-20 fire section menu (FR-5, FR-12)."""
     kb = Keyboard(one_time=False, inline=False)
-    kb.add(Text("✅ Чек-лист последнего дня", payload=CMD_FIRE_CHECKLIST))
-    kb.row()
-    kb.add(Text("📥 Обходной лист", payload=CMD_FIRE_BYPASS))
-    kb.row()
     kb.add(Text("🚪 Увольнение по собственному", payload=CMD_FIRE_RESIGNATION))
     kb.row()
     kb.add(Text("📖 Основания увольнения", payload=CMD_FIRE_GROUNDS))
