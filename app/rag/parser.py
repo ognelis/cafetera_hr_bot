@@ -1,6 +1,6 @@
 """Document parsing and chunking for the RAG pipeline.
 
-Extracts text from .docx and .doc files, splits into sections, and chunks
+Extracts text from .docx, .doc, and .xlsx files, splits into sections, and chunks
 for embedding.  Used by both ``scripts/ingest.py`` and the admin upload flow.
 """
 
@@ -270,6 +270,143 @@ def load_doc(
     raise ValueError(f"Unknown chunking strategy: {strategy}")
 
 
+def load_xlsx(
+    path: Path,
+    *,
+    chunk_size: int = CHUNK_SIZE,
+    chunk_overlap: int = CHUNK_OVERLAP,
+    strategy: str = "recursive",
+    embeddings: Embeddings | None = None,
+    breakpoint_threshold_type: Literal[
+        "percentile", "standard_deviation", "interquartile", "gradient"
+    ] = "percentile",
+    breakpoint_threshold_amount: float | int = 95,
+) -> list[LCDocument]:
+    """Parse an .xlsx spreadsheet into chunked LangChain ``Document`` objects.
+
+    Each worksheet becomes a section (sheet name as heading). Rows are formatted
+    with `` | `` separators to preserve column structure. Empty rows are skipped.
+
+    Each chunk carries metadata: ``source`` (filename) and ``section`` (sheet name).
+
+    Args:
+        path: Path to the .xlsx file.
+        chunk_size: Maximum chunk size for recursive strategy.
+        chunk_overlap: Overlap between chunks for recursive strategy.
+        strategy: Chunking strategy - "recursive" (default) or "semantic".
+        embeddings: Embeddings model required for semantic chunking.
+        breakpoint_threshold_type: Threshold type for semantic chunking.
+        breakpoint_threshold_amount: Threshold amount for semantic chunking.
+
+    Returns:
+        List of LangChain Document objects.
+
+    Raises:
+        ValueError: If strategy is "semantic" and embeddings is None.
+    """
+    import openpyxl
+
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    sections: list[tuple[str, str]] = []
+
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        rows_text: list[str] = []
+        for row in ws.iter_rows(values_only=True):
+            # Skip completely empty rows
+            cells = [str(cell) if cell is not None else "" for cell in row]
+            if any(c.strip() for c in cells):
+                rows_text.append(" | ".join(cells))
+        if rows_text:
+            sections.append((sheet_name, "\n".join(rows_text)))
+
+    wb.close()
+
+    if strategy == "recursive":
+        splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+            encoding_name="cl100k_base",
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            separators=["\n\n", "\n", ". ", " "],
+        )
+
+        documents: list[LCDocument] = []
+        for sheet_name, body in sections:
+            chunks = splitter.split_text(body)
+            for chunk in chunks:
+                documents.append(
+                    LCDocument(
+                        page_content=chunk,
+                        metadata={
+                            "source": path.name,
+                            "section": sheet_name,
+                        },
+                    )
+                )
+        return documents
+
+    if strategy == "semantic":
+        if embeddings is None:
+            raise ValueError("embeddings are required for semantic chunking strategy")
+
+        # Build full text with section offsets tracking
+        section_offsets: list[tuple[int, int, str]] = []
+        full_text_parts: list[str] = []
+        current_offset = 0
+
+        for sheet_name, body in sections:
+            section_text = body
+            start_offset = current_offset
+            end_offset = current_offset + len(section_text)
+            section_offsets.append((start_offset, end_offset, sheet_name))
+            full_text_parts.append(section_text)
+            current_offset = end_offset + 2  # +2 for "\n\n" separator
+
+        full_text = "\n\n".join(full_text_parts)
+
+        chunker = SemanticChunker(
+            embeddings,
+            breakpoint_threshold_type=breakpoint_threshold_type,
+            breakpoint_threshold_amount=breakpoint_threshold_amount,
+        )
+
+        semantic_chunks: list[LCDocument] = chunker.create_documents([full_text])
+
+        semantic_documents: list[LCDocument] = []
+        for sem_chunk in semantic_chunks:
+            chunk_text = sem_chunk.page_content
+            # Find chunk position in full text
+            chunk_start = full_text.find(chunk_text)
+            if chunk_start == -1:
+                chunk_start = 0
+            chunk_end = chunk_start + len(chunk_text)
+
+            # Find section with largest overlap
+            best_sheet_name = ""
+            best_overlap = 0
+            for start, end, sheet_name in section_offsets:
+                overlap_start = max(start, chunk_start)
+                overlap_end = min(end, chunk_end)
+                overlap = max(0, overlap_end - overlap_start)
+                if overlap > best_overlap:
+                    best_overlap = overlap
+                    best_sheet_name = sheet_name
+
+            semantic_documents.append(
+                LCDocument(
+                    page_content=chunk_text,
+                    metadata={
+                        "source": path.name,
+                        "section": best_sheet_name,
+                    },
+                )
+            )
+
+        return semantic_documents
+
+    raise ValueError(f"Unknown chunking strategy: {strategy}")
+
+
 
 def load_document(
     path: Path,
@@ -288,6 +425,7 @@ def load_document(
     Dispatches to the appropriate loader based on file extension:
     - .docx -> load_docx
     - .doc -> load_doc
+    - .xlsx -> load_xlsx
 
     Args:
         path: Path to the document file.
@@ -314,6 +452,16 @@ def load_document(
         )
     elif suffix == ".doc":
         return load_doc(
+            path,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            strategy=strategy,
+            embeddings=embeddings,
+            breakpoint_threshold_type=breakpoint_threshold_type,
+            breakpoint_threshold_amount=breakpoint_threshold_amount,
+        )
+    elif suffix == ".xlsx":
+        return load_xlsx(
             path,
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,

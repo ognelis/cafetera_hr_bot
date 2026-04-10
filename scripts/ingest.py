@@ -4,12 +4,12 @@ Usage:
     uv run python scripts/ingest.py <docs_directory>
     uv run python scripts/ingest.py data/documents/
 
-Reads all .docx and .doc files from the given directory, splits them into chunks,
+Reads all .docx, .doc, and .xlsx files from the given directory, splits them into chunks,
 generates embeddings, and stores them in the Qdrant ``hr_documents`` collection.
 Each file is tracked as a ``DocumentRecord`` in SQLite with chunk count and
 indexing timestamp.
 
-Supported formats: DOCX, DOC.
+Supported formats: DOCX, DOC, XLSX.
 """
 
 from __future__ import annotations
@@ -53,12 +53,12 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
     """
     # Collect files for all supported extensions
     all_files = []
-    for ext in ["*.docx", "*.doc"]:
+    for ext in ["*.docx", "*.doc", "*.xlsx"]:
         all_files.extend(docs_dir.glob(ext))
     all_files = sorted(all_files)
 
     if not all_files:
-        logger.warning("No .docx or .doc files found in %s", docs_dir)
+        logger.warning("No .docx, .doc, or .xlsx files found in %s", docs_dir)
         return 0
 
     logger.info("Found %d file(s) to ingest", len(all_files))

@@ -76,6 +76,7 @@
         <li><a @click.prevent="sourceTypeFilter = 'all'" :class="sourceTypeFilter === 'all' ? 'active' : ''">Все</a></li>
         <li><a @click.prevent="sourceTypeFilter = 'docx'" :class="sourceTypeFilter === 'docx' ? 'active' : ''">DOCX</a></li>
         <li><a @click.prevent="sourceTypeFilter = 'doc'" :class="sourceTypeFilter === 'doc' ? 'active' : ''">DOC</a></li>
+        <li><a @click.prevent="sourceTypeFilter = 'xlsx'" :class="sourceTypeFilter === 'xlsx' ? 'active' : ''">XLSX</a></li>
       </ul>
     </div>
 
@@ -223,7 +224,7 @@
           type="file"
           x-ref="fileInput"
           class="hidden"
-          accept=".docx,.doc"
+          accept=".docx,.doc,.xlsx"
           multiple
           @change="handleFiles($event.target.files)"
         />
@@ -234,7 +235,7 @@
           <p class="text-sm text-base-content/50">
             Перетащите файлы сюда или <span class="text-primary font-medium">выберите</span>
           </p>
-          <p class="text-xs text-base-content/35">DOCX, DOC до 10 МБ</p>
+          <p class="text-xs text-base-content/35">DOCX, DOC, XLSX до 10 МБ</p>
         </div>
       </div>
 
@@ -473,6 +474,7 @@
           all: 'Все',
           docx: 'DOCX',
           doc: 'DOC',
+          xlsx: 'XLSX',
           other: 'Другие'
         };
         return labels[this.sourceTypeFilter] || 'Все';

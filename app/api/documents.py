@@ -72,16 +72,18 @@ router = APIRouter()
 
 _COOKIE_NAME = "admin_session"
 _MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-_ALLOWED_EXTENSIONS = {".docx", ".doc"}
+_ALLOWED_EXTENSIONS = {".docx", ".doc", ".xlsx"}
 _ALLOWED_MIMES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
     "application/msword",  # .doc
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # .xlsx
     "application/octet-stream",  # browsers sometimes send this
 }
 
 _EXT_TO_MIME = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ".doc": "application/msword",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 
 
@@ -565,7 +567,7 @@ async def upload_documents(
             })
             continue
 
-        # Validate DOCX content for .docx files
+        # Validate DOCX content for .docx files only (not for .xlsx)
         if ext == ".docx" and not _validate_docx_bytes(content):
             errors.append({
                 "filename": safe_name,
