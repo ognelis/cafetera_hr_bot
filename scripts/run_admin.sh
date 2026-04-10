@@ -8,9 +8,6 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
 # Configuration
-QDRANT_URL="${QDRANT_URL:-http://localhost:6333}"
-MINIO_URL="${MINIO_URL:-http://localhost:9000}"
-OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 ADMIN_HOST="${ADMIN_HOST:-127.0.0.1}"
 ADMIN_PORT="${ADMIN_PORT:-8000}"
 
@@ -96,6 +93,40 @@ fi
 
 log "Prerequisites OK"
 
+# Load configuration from .env (lower priority than environment variables)
+load_env_var() {
+  local var_name="$1"
+  if [[ -z "${!var_name:-}" ]] && grep -qE "^${var_name}=" .env 2>/dev/null; then
+    local val
+    val=$(grep -E "^${var_name}=" .env | head -1 | cut -d= -f2- | sed 's/^["'\''"]*//;s/["'\''"]*$//')
+    if [[ -n "$val" ]]; then
+      export "$var_name=$val"
+    fi
+  fi
+}
+
+load_env_var LLM_PROVIDER
+load_env_var LLM_MODEL
+load_env_var LLM_BASE_URL
+load_env_var LLM_API_KEY
+load_env_var EMBEDDING_PROVIDER
+load_env_var EMBEDDING_MODEL
+load_env_var EMBEDDING_BASE_URL
+load_env_var EMBEDDING_API_KEY
+load_env_var QDRANT_URL
+load_env_var S3_ENDPOINT_URL
+load_env_var OLLAMA_URL
+load_env_var LLM_N_GPU_LAYERS
+load_env_var EMBED_N_GPU_LAYERS
+load_env_var OLLAMA_NUM_GPU
+
+log "Loaded .env overrides (if any)"
+
+# Set URL defaults after loading from .env
+QDRANT_URL="${QDRANT_URL:-http://localhost:6333}"
+MINIO_URL="${S3_ENDPOINT_URL:-${MINIO_URL:-http://localhost:9000}}"
+OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
+
 # Interactive provider selection
 select_llm_provider() {
   echo
@@ -108,26 +139,26 @@ select_llm_provider() {
   case "${llm_choice:-1}" in
     1|ollama)
       LLM_PROVIDER="ollama"
-      LLM_MODEL="qwen3.5:4b-q4_K_M"
+      LLM_MODEL="${LLM_MODEL:-qwen3.5:4b-q4_K_M}"
       LLM_BASE_URL="http://localhost:11434"
       LLM_API_KEY=""
       ;;
     2|openai)
       LLM_PROVIDER="openai"
-      LLM_MODEL="gpt-4o-mini"
+      LLM_MODEL="${LLM_MODEL:-gpt-4o-mini}"
       LLM_BASE_URL="https://api.openai.com/v1"
       read -r -p "[admin] Enter OpenAI API key: " LLM_API_KEY
       ;;
     3|llamacpp)
       LLM_PROVIDER="llamacpp"
-      LLM_MODEL="local-model"
+      LLM_MODEL="${LLM_MODEL:-local-model}"
       LLM_BASE_URL="http://localhost:8080"
       LLM_API_KEY=""
       ;;
     *)
       log "Invalid choice, using ollama"
       LLM_PROVIDER="ollama"
-      LLM_MODEL="qwen3.5:4b-q4_K_M"
+      LLM_MODEL="${LLM_MODEL:-qwen3.5:4b-q4_K_M}"
       LLM_BASE_URL="http://localhost:11434"
       LLM_API_KEY=""
       ;;
@@ -148,26 +179,26 @@ select_embedding_provider() {
   case "${embed_choice:-1}" in
     1|ollama)
       EMBEDDING_PROVIDER="ollama"
-      EMBEDDING_MODEL="qwen3-embedding:4b-q4_K_M"
+      EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding:4b-q4_K_M}"
       EMBEDDING_BASE_URL="http://localhost:11434"
       EMBEDDING_API_KEY=""
       ;;
     2|openai)
       EMBEDDING_PROVIDER="openai"
-      EMBEDDING_MODEL="text-embedding-3-small"
+      EMBEDDING_MODEL="${EMBEDDING_MODEL:-text-embedding-3-small}"
       EMBEDDING_BASE_URL="https://api.openai.com/v1"
       read -r -p "[admin] Enter OpenAI API key: " EMBEDDING_API_KEY
       ;;
     3|llamacpp)
       EMBEDDING_PROVIDER="llamacpp"
-      EMBEDDING_MODEL="qwen3-embedding"
+      EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding}"
       EMBEDDING_BASE_URL="http://localhost:8090/v1"
       EMBEDDING_API_KEY=""
       ;;
     *)
       log "Invalid choice, using ollama"
       EMBEDDING_PROVIDER="ollama"
-      EMBEDDING_MODEL="qwen3-embedding:4b-q4_K_M"
+      EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding:4b-q4_K_M}"
       EMBEDDING_BASE_URL="http://localhost:11434"
       EMBEDDING_API_KEY=""
       ;;

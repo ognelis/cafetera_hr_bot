@@ -25,14 +25,13 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive Excel (.xlsx) spreadsheet support with new load_xlsx() function in parser.py
-- Enabled structured text extraction from worksheets with column preservation and metadata tracking
-- Enhanced file format support to include .xlsx alongside .docx and .doc
-- Integrated openpyxl library for spreadsheet processing with read-only, data-only mode
-- Added semantic chunking support for Excel files with worksheet-based sectioning
-- Updated batch ingestion script to process .xlsx files alongside other document types
-- Enhanced admin upload API to accept Excel spreadsheets with semantic-aware processing
-- Added comprehensive test coverage for Excel spreadsheet parsing functionality
+- Enhanced DOCX parsing with hierarchical heading level tracking and breadcrumb path generation
+- Implemented table extraction as atomic chunks with Markdown formatting
+- Added comprehensive semantic chunking with section metadata integration
+- Enhanced XLSX processing with column header detection and preservation
+- Expanded semantic chunking capabilities with intelligent section boundary mapping
+- Improved section metadata tracking with level and path information
+- Enhanced table processing with atomic chunking to preserve structural integrity
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -62,7 +61,7 @@ The RAG system is organized into cohesive modules with enhanced semantic chunkin
 ```mermaid
 graph TB
 subgraph "Enhanced Semantic Chunking RAG Core"
-P["parser.py<br/>Semantic chunking & dual strategies<br/>Excel support<br/>LangChain SemanticChunker<br/>4 breakpoint threshold types"]
+P["parser.py<br/>Semantic chunking & dual strategies<br/>Excel support<br/>Hierarchical headings<br/>Table atomic chunks<br/>4 breakpoint threshold types"]
 I["indexer.py<br/>Chunk prep & Qdrant ops<br/>Sparse embeddings support"]
 R["retriever.py<br/>Dense & hybrid retriever<br/>BM25 sparse embeddings"]
 C["chain.py<br/>RAG chain builder"]
@@ -138,25 +137,35 @@ CFG --> C
 ## Core Components
 This section outlines the primary components of the RAG Parser Enhancement with semantic chunking capabilities, hybrid search support, Excel processing functionality, and comprehensive testing infrastructure.
 
-- **Semantic Chunking Parser and Dual Strategy Engine**
+- **Enhanced Semantic Chunking Parser and Dual Strategy Engine**
   - Implements dual chunking strategies: 'recursive' (token-based) and 'semantic' (embedding-based)
   - Integrates LangChain's SemanticChunker for intelligent semantic boundary detection
   - Supports four breakpoint threshold types: 'percentile', 'standard_deviation', 'interquartile', 'gradient'
   - Configurable breakpoint threshold amounts with default 95th percentile setting
   - Extracts text from .docx, .doc, and .xlsx files with semantic-aware processing
-  - .docx files: Structured section extraction with semantic chunking preserving heading relationships
-  - .doc files: Legacy format processing with semantic chunking treating entire text as single section
-  - **Enhanced**: .xlsx files: Worksheet-based structured text extraction with column preservation using ' | ' separators
+  - **Enhanced**: .docx files: Structured section extraction with semantic chunking preserving heading relationships, hierarchical heading levels, and breadcrumb path generation
+  - **Enhanced**: .doc files: Legacy format processing with semantic chunking treating entire text as single section
+  - **Enhanced**: .xlsx files: Worksheet-based structured text extraction with column preservation using ' | ' separators and column header detection
   - **Enhanced**: Excel processing preserves tabular structure while enabling semantic chunking across worksheets
   - Returns LangChain Document objects with semantic-aware metadata and chunk positioning
 
-- **Excel Spreadsheet Processing Engine**
+- **Hierarchical DOCX Parsing with Breadcrumb Path Generation**
+  - **New Feature**: Comprehensive hierarchical heading level tracking with level-based navigation
+  - **Breadcrumb Path Generation**: Creates hierarchical paths like "Heading1 > Heading2 > Heading3" for precise section identification
+  - **Atomic Table Processing**: Tables are extracted as individual chunks with Markdown formatting to preserve structural integrity
+  - **Section Metadata Integration**: Each chunk carries source filename, section heading, section level, and complete breadcrumb path
+  - **Intelligent Section Mapping**: Semantic chunks are mapped back to their originating sections using overlap calculation
+  - **Enhanced Table Formatting**: Tables converted to Markdown format with proper headers, separators, and data rows
+
+- **Enhanced Excel Spreadsheet Processing Engine**
   - **New Feature**: Comprehensive .xlsx file support with structured text extraction
+  - **Column Header Detection**: Automatically detects and preserves the first non-empty row as column headers
+  - **Column Header Preservation**: Each chunk's content is prepended with the detected column headers for context
   - **Worksheet Processing**: Each worksheet becomes a separate section using sheet names as headings
   - **Column Preservation**: Row data formatted with ' | ' separators to maintain column structure
   - **Empty Row Handling**: Automatically skips completely empty rows during processing
   - **Multiple Sheet Support**: Processes all worksheets in a workbook independently
-  - **Metadata Tracking**: Each chunk carries source filename and section (sheet name) metadata
+  - **Metadata Tracking**: Each chunk carries source filename, section (sheet name), and column headers metadata
   - **Chunking Integration**: Supports both recursive and semantic chunking strategies for Excel data
   - **Performance Optimization**: Uses read-only, data-only mode for efficient spreadsheet processing
 
@@ -205,7 +214,7 @@ participant Admin as "Admin UI/API"
 participant API as "Documents API"
 participant Service as "DocumentService"
 participant S3 as "S3 Storage"
-participant Parser as "Semantic Parser<br/>Dual strategies<br/>Excel support<br/>4 breakpoint types"
+participant Parser as "Semantic Parser<br/>Dual strategies<br/>Excel support<br/>Hierarchical headings<br/>Table atomic chunks<br/>4 breakpoint types"
 participant Indexer as "Indexer<br/>Sparse embedding support"
 participant Qdrant as "Qdrant<br/>Dense + Sparse"
 Admin->>API : Upload .docx, .doc, or .xlsx<br/>with semantic chunking
@@ -214,8 +223,8 @@ API->>Service : Create metadata record
 API->>Service : Schedule background indexing<br/>with semantic-aware chunking
 Service->>S3 : Download file
 Service->>Parser : load_document(path)<br/>semantic or recursive strategy
-Parser->>Parser : Excel processing with worksheet extraction<br/>or SemanticChunker for other formats
-Parser-->>Service : List of Documents<br/>semantic chunks with metadata
+Parser->>Parser : Hierarchical heading processing<br/>Table atomic chunking<br/>Excel column header detection
+Parser-->>Service : List of Documents<br/>semantic chunks with metadata<br/>section_level & section_path
 Service->>Indexer : Enrich metadata + prepare chunks
 Indexer->>Qdrant : Add vectors + sparse embeddings
 Service-->>API : Update status to completed
@@ -237,29 +246,29 @@ API-->>Admin : Show indexed document
 
 ## Detailed Component Analysis
 
-### Semantic Chunking System with Multiple Strategies
-The parser now features a sophisticated dual-strategy chunking system supporting both traditional token-based chunking and intelligent semantic chunking. The semantic chunking leverages LangChain's SemanticChunker with configurable breakpoint thresholds for optimal chunk boundaries based on semantic similarity.
+### Enhanced Semantic Chunking System with Hierarchical Metadata
+The parser now features a sophisticated dual-strategy chunking system supporting both traditional token-based chunking and intelligent semantic chunking with comprehensive hierarchical metadata tracking. The semantic chunking leverages LangChain's SemanticChunker with configurable breakpoint thresholds for optimal chunk boundaries based on semantic similarity.
 
 ```mermaid
 flowchart TD
 Start(["load_document(path)"]) --> CheckExt{"Check file extension"}
-CheckExt --> |".docx"| LoadDocx["load_docx(path)<br/>Dual strategies<br/>SemanticChunker"]
+CheckExt --> |".docx"| LoadDocx["load_docx(path)<br/>Hierarchical headings<br/>Table atomic chunks<br/>SemanticChunker"]
 CheckExt --> |".doc"| LoadDoc["load_doc(path)<br/>Dual strategies<br/>SemanticChunker"]
-CheckExt --> |".xlsx"| LoadXlsx["load_xlsx(path)<br/>Worksheet extraction<br/>Column preservation"]
-LoadDocx --> Extract["_extract_sections(path)"]
+CheckExt --> |".xlsx"| LoadXlsx["load_xlsx(path)<br/>Column header detection<br/>Worksheet extraction"]
+LoadDocx --> Extract["_extract_sections(path)<br/>Hierarchical heading tracking<br/>Breadcrumb path generation"]
 LoadDoc --> ProcessLegacy["docx2txt.process(path)"]
-LoadXlsx --> ProcessExcel["openpyxl.load_workbook()<br/>Worksheet iteration<br/>Row processing"]
+LoadXlsx --> ProcessExcel["openpyxl.load_workbook()<br/>Column header detection<br/>Row processing"]
 Extract --> Strategy{"Strategy: recursive or semantic"}
 ProcessLegacy --> Strategy
 ProcessExcel --> Strategy
 Strategy --> |"recursive"| RecursiveSplit["RecursiveCharacterTextSplitter<br/>tiktoken encoding<br/>500-token chunks"]
-Strategy --> |"semantic"| SemanticSplit["SemanticChunker<br/>4 breakpoint types<br/>Breakpoint thresholds"]
-RecursiveSplit --> CreateDocs["Create LCDocument with metadata"]
-SemanticSplit --> PositionMapping["Position mapping & section assignment"]
+Strategy --> |"semantic"| SemanticSplit["SemanticChunker<br/>4 breakpoint types<br/>Breakpoint thresholds<br/>Section metadata mapping"]
+RecursiveSplit --> CreateDocs["Create LCDocument with metadata<br/>source, section, section_level, section_path"]
+SemanticSplit --> PositionMapping["Position mapping & section assignment<br/>Overlap calculation for best match"]
 PositionMapping --> CreateDocs
 CreateDocs --> Return["Return list of Documents"]
-subgraph "Semantic Configuration"
-Config["chunk_strategy: 'recursive' or 'semantic'<br/>breakpoint_threshold_type:<br/>percentile | std | iq | gradient<br/>breakpoint_threshold_amount: 95"]
+subgraph "Enhanced Semantic Configuration"
+Config["chunk_strategy: 'recursive' or 'semantic'<br/>breakpoint_threshold_type:<br/>percentile | std | iq | gradient<br/>breakpoint_threshold_amount: 95<br/>Hierarchical metadata:<br/>section_level, section_path"]
 end
 Config --> Strategy
 ```
@@ -278,7 +287,47 @@ Config --> Strategy
 - [parser.py:273-407](file://app/rag/parser.py#L273-L407)
 - [config.py:54-57](file://app/config.py#L54-L57)
 
-### Excel Spreadsheet Processing Engine
+### Hierarchical DOCX Parsing with Breadcrumb Path Generation
+The enhanced DOCX processing now includes comprehensive hierarchical heading level tracking and breadcrumb path generation for precise section identification and semantic understanding.
+
+```mermaid
+flowchart TD
+StartDocx["DOCX Processing Start"] --> LoadDocx["DocxDocument(path)<br/>Element iteration"]
+LoadDocx --> IterateElements["Iterate through body elements<br/>(paragraphs & tables interleaved)"]
+IterateElements --> CheckElement{"Element Type?"}
+CheckElement --> |"Paragraph"| ProcessParagraph["Process paragraph<br/>Heading detection<br/>Text extraction"]
+CheckElement --> |"Table"| ProcessTable["Process table<br/>Atomic chunk extraction<br/>Markdown formatting"]
+ProcessParagraph --> CheckHeading{"Is Heading Style?"}
+CheckHeading --> |"Yes"| SaveSection["Save current section<br/>Update heading stack<br/>Breadcrumb path generation"]
+CheckHeading --> |"No"| AppendText["Append to current paragraphs"]
+ProcessTable --> FormatTable["Format as Markdown<br/>Header row + data rows<br/>Column separators"]
+FormatTable --> CreateTableChunk["Create table chunk<br/>is_table: True<br/>Preserve section metadata"]
+SaveSection --> ContinueLoop["Continue element iteration"]
+AppendText --> ContinueLoop
+CreateTableChunk --> ContinueLoop
+ContinueLoop --> MoreElements{"More elements?"}
+MoreElements --> |"Yes"| IterateElements
+MoreElements --> |"No"| Finalize["Finalize last section<br/>Build section list"]
+Finalize --> Strategy{"Strategy: recursive or semantic"}
+Strategy --> |"recursive"| RecursiveSplit["RecursiveCharacterTextSplitter<br/>tiktoken encoding<br/>500-token chunks"]
+Strategy --> |"semantic"| SemanticSplit["SemanticChunker<br/>4 breakpoint types<br/>Breakpoint thresholds"]
+RecursiveSplit --> CreateDocs["Create LCDocument with:<br/>source, section, section_level,<br/>section_path, is_table"]
+SemanticSplit --> PositionMapping["Position mapping & section assignment<br/>Overlap calculation for best match"]
+PositionMapping --> CreateDocs
+CreateDocs --> ReturnDocs["Return processed documents"]
+```
+
+**Diagram sources**
+- [parser.py:102-323](file://app/rag/parser.py#L102-L323)
+- [parser.py:46-98](file://app/rag/parser.py#L46-L98)
+- [parser.py:157-181](file://app/rag/parser.py#L157-L181)
+
+**Section sources**
+- [parser.py:102-323](file://app/rag/parser.py#L102-L323)
+- [parser.py:46-98](file://app/rag/parser.py#L46-L98)
+- [parser.py:157-181](file://app/rag/parser.py#L157-L181)
+
+### Enhanced Excel Spreadsheet Processing Engine
 The new Excel processing functionality enables comprehensive structured text extraction from spreadsheet files while preserving column relationships and metadata. This feature is essential for HR systems that frequently deal with tabular data such as employee records, payroll information, and organizational charts.
 
 ```mermaid
@@ -289,49 +338,54 @@ IterateSheets --> ProcessSheet["Process each worksheet"]
 ProcessSheet --> ExtractRows["Iterate through rows with values_only=True"]
 ExtractRows --> CheckEmpty{"Check if row has content"}
 CheckEmpty --> |"Empty"| SkipRow["Skip row"]
-CheckEmpty --> |"Not Empty"| FormatRow["Format cells with ' | ' separators"]
+CheckEmpty --> |"Not Empty"| CheckHeader{"First non-empty row?"}
+CheckHeader --> |"Yes"| DetectHeader["Detect column headers<br/>Store as column_headers"]
+CheckHeader --> |"No"| FormatRow["Format cells with ' | ' separators"]
 FormatRow --> AddToText["Add formatted row to worksheet text"]
 SkipRow --> NextRow["Next row"]
+DetectHeader --> AddToText
 AddToText --> NextRow
 NextRow --> MoreRows{"More rows?"}
 MoreRows --> |"Yes"| ExtractRows
-MoreRows --> |"No"| AddSection["Add worksheet section (sheet_name, formatted_text)"]
+MoreRows --> |"No"| AddSection["Add worksheet section<br/>(sheet_name, body, column_headers)"]
 AddSection --> NextSheet{"More sheets?"}
 NextSheet --> |"Yes"| ProcessSheet
 NextSheet --> |"No"| BuildSections["Build sections list"]
 BuildSections --> Strategy{"Strategy: recursive or semantic"}
 Strategy --> |"recursive"| RecursiveSplit["RecursiveCharacterTextSplitter<br/>tiktoken encoding<br/>500-token chunks"]
 Strategy --> |"semantic"| SemanticSplit["SemanticChunker<br/>4 breakpoint types<br/>Breakpoint thresholds"]
-RecursiveSplit --> CreateDocs["Create LCDocument with source & section metadata"]
-SemanticSplit --> PositionMapping["Position mapping & section assignment"]
+RecursiveSplit --> CreateDocs["Create LCDocument with:<br/>source, section, column_headers<br/>Prepend headers to content"]
+SemanticSplit --> PositionMapping["Position mapping & section assignment<br/>Overlap calculation for best match"]
 PositionMapping --> CreateDocs
 CreateDocs --> ReturnDocs["Return processed documents"]
 ```
 
 **Diagram sources**
-- [parser.py:307-323](file://app/rag/parser.py#L307-L323)
-- [parser.py:312-321](file://app/rag/parser.py#L312-L321)
-- [parser.py:348-407](file://app/rag/parser.py#L348-L407)
+- [parser.py:422-581](file://app/rag/parser.py#L422-L581)
+- [parser.py:462-489](file://app/rag/parser.py#L462-L489)
+- [parser.py:491-515](file://app/rag/parser.py#L491-L515)
+- [parser.py:517-579](file://app/rag/parser.py#L517-L579)
 
 **Section sources**
-- [parser.py:307-323](file://app/rag/parser.py#L307-L323)
-- [parser.py:312-321](file://app/rag/parser.py#L312-L321)
-- [parser.py:348-407](file://app/rag/parser.py#L348-L407)
+- [parser.py:422-581](file://app/rag/parser.py#L422-L581)
+- [parser.py:462-489](file://app/rag/parser.py#L462-L489)
+- [parser.py:491-515](file://app/rag/parser.py#L491-L515)
+- [parser.py:517-579](file://app/rag/parser.py#L517-L579)
 
-### Semantic Chunking with LangChain SemanticChunker
-The semantic chunking functionality integrates LangChain's SemanticChunker for intelligent boundary detection based on embedding similarity. This approach identifies natural semantic boundaries rather than relying solely on structural markers or fixed token counts.
+### Comprehensive Semantic Chunking with Section Metadata Integration
+The semantic chunking functionality integrates LangChain's SemanticChunker for intelligent boundary detection based on embedding similarity. This approach identifies natural semantic boundaries rather than relying solely on structural markers or fixed token counts, with enhanced section metadata tracking.
 
 ```mermaid
 flowchart TD
-StartSemantic["Semantic Chunking Process"] --> BuildText["Build full text with section offsets<br/>Track positions for mapping"]
+StartSemantic["Semantic Chunking Process"] --> BuildText["Build full text with section offsets<br/>Track positions for mapping<br/>Hierarchical metadata"]
 BuildText --> CreateChunker["Create SemanticChunker<br/>with embeddings model"]
 CreateChunker --> GenerateChunks["Generate semantic chunks<br/>4 breakpoint threshold types"]
 GenerateChunks --> MapPositions["Map chunk positions<br/>to original text offsets"]
-MapPositions --> FindSection["Find best matching section<br/>by overlap calculation"]
-FindSection --> CreateDocs["Create LCDocument<br/>with semantic metadata"]
+MapPositions --> FindSection["Find best matching section<br/>by overlap calculation<br/>section_level & section_path"]
+FindSection --> CreateDocs["Create LCDocument<br/>with semantic metadata<br/>source, section, section_level,<br/>section_path, column_headers"]
 CreateDocs --> ReturnDocs["Return semantic chunks"]
-subgraph "Breakpoint Threshold Types"
-Types["percentile: 95th percentile<br/>standard_deviation: std dev threshold<br/>interquartile: IQR method<br/>gradient: gradient-based detection"]
+subgraph "Enhanced Breakpoint Threshold Types"
+Types["percentile: 95th percentile<br/>standard_deviation: std dev threshold<br/>interquartile: IQR method<br/>gradient: gradient-based detection<br/>Hierarchical section tracking"]
 end
 Types --> CreateChunker
 ```
@@ -440,53 +494,38 @@ Settings --> HybridSearchConfig : provides hybrid params
 **Section sources**
 - [config.py:54-62](file://app/config.py#L54-L62)
 
-### Excel Processing Test Coverage and Validation
-The testing infrastructure includes comprehensive validation for Excel processing functionality, ensuring reliable operation across different spreadsheet formats and chunking strategies.
+### Comprehensive Semantic Chunking Test Coverage and Validation
+The testing infrastructure includes comprehensive validation for semantic chunking functionality, ensuring reliable operation across different document types and chunking strategies with enhanced hierarchical metadata tracking.
 
 ```mermaid
 flowchart TD
-ExcelTests["Excel Processing Tests"] --> BasicReturn["Basic Document Return"]
-ExcelTests --> MetadataValidation["Metadata Validation<br/>source & section tracking"]
-ExcelTests --> MultiRowContent["Multi-row Content Processing"]
-ExcelTests --> EmptyRowHandling["Empty Row Skipping"]
-ExcelTests --> MultiSheetSupport["Multiple Sheet Support"]
-BasicReturn --> Test1["load_xlsx(path)<br/>returns list of Documents"]
-MetadataValidation --> Test2["metadata['source'] = filename<br/>metadata['section'] = sheet_name"]
-MultiRowContent --> Test3["Row data preserved with ' | ' separators"]
-EmptyRowHandling --> Test4["Completely empty rows skipped"]
-MultiSheetSupport --> Test5["Multiple worksheets processed<br/>separate sections created"]
-```
-
-**Diagram sources**
-- [test_parser.py:124-226](file://tests/test_parser.py#L124-L226)
-
-**Section sources**
-- [test_parser.py:124-226](file://tests/test_parser.py#L124-L226)
-
-### Semantic Chunking Test Coverage and Validation
-The testing infrastructure includes comprehensive validation for semantic chunking functionality, ensuring reliable operation across different document types and chunking strategies.
-
-```mermaid
-flowchart TD
-TestSuite["Semantic Chunking Tests"] --> RecursiveCompat["Recursive Strategy Backward Compatibility"]
-TestSuite --> SemanticDocx["Semantic Chunking .docx Files"]
+TestSuite["Enhanced Semantic Chunking Tests"] --> RecursiveCompat["Recursive Strategy Backward Compatibility"]
+TestSuite --> SemanticDocx["Semantic Chunking .docx Files<br/>Hierarchical metadata"]
 TestSuite --> SemanticDoc["Semantic Chunking .doc Files"]
-TestSuite --> SemanticXlsx["Semantic Chunking .xlsx Files"]
+TestSuite --> SemanticXlsx["Semantic Chunking .xlsx Files<br/>Column headers preserved"]
 TestSuite --> EmbeddingsValidation["Embeddings Parameter Validation"]
 TestSuite --> ConfigDefaults["Configuration Defaults Testing"]
+TestSuite --> HeadingLevels["Hierarchical Heading Levels<br/>Breadcrumb Paths"]
+TestSuite --> TableChunks["Table Atomic Chunking<br/>Markdown Formatting"]
 RecursiveCompat --> Test1["load_document(strategy='recursive')<br/>preserves metadata"]
-SemanticDocx --> Test2["load_document(strategy='semantic', embeddings)<br/>creates semantic chunks"]
+SemanticDocx --> Test2["load_docx(strategy='semantic', embeddings)<br/>creates semantic chunks<br/>section_level & section_path"]
 SemanticDoc --> Test3["load_doc(strategy='semantic', embeddings)<br/>empty section metadata"]
-SemanticXlsx --> Test4["load_xlsx(strategy='semantic', embeddings)<br/>worksheet-based semantic chunks"]
+SemanticXlsx --> Test4["load_xlsx(strategy='semantic', embeddings)<br/>worksheet-based semantic chunks<br/>column_headers prepended"]
 EmbeddingsValidation --> Test5["semantic strategy requires embeddings<br/>raises ValueError"]
 ConfigDefaults --> Test6["Settings defaults<br/>chunk_strategy='recursive'<br/>semantic defaults configured"]
+HeadingLevels --> Test7["Hierarchical heading levels<br/>Breadcrumb path generation"]
+TableChunks --> Test8["Table atomic chunks<br/>Markdown formatting preserved"]
 ```
 
 **Diagram sources**
 - [test_semantic_chunker.py:94-237](file://tests/test_semantic_chunker.py#L94-L237)
+- [test_parser.py:254-361](file://tests/test_parser.py#L254-L361)
+- [test_parser.py:366-462](file://tests/test_parser.py#L366-L462)
 
 **Section sources**
 - [test_semantic_chunker.py:94-237](file://tests/test_semantic_chunker.py#L94-L237)
+- [test_parser.py:254-361](file://tests/test_parser.py#L254-L361)
+- [test_parser.py:366-462](file://tests/test_parser.py#L366-L462)
 
 ### Hybrid Search Testing and Validation
 The hybrid search functionality includes comprehensive testing for sparse embeddings initialization, vector store integration, and retrieval mode switching.
@@ -511,13 +550,13 @@ QAIntegration --> Test5["QAService stores and uses sparse embeddings<br/>for hyb
 **Section sources**
 - [test_hybrid_search.py:17-169](file://tests/test_hybrid_search.py#L17-L169)
 
-### Document Lifecycle Service with Semantic Chunking Support
-The DocumentService now supports semantic chunking through enhanced indexing operations that handle both dense and sparse embedding indexing workflows, including Excel file processing.
+### Document Lifecycle Service with Enhanced Semantic Chunking Support
+The DocumentService now supports semantic chunking through enhanced indexing operations that handle both dense and sparse embedding indexing workflows, including Excel file processing with enhanced metadata tracking.
 
 ```mermaid
 flowchart TD
 DocumentService["DocumentService"] --> IndexDocument["index_document(document_id, chunks)"]
-IndexDocument --> PrepareChunks["prepare_chunks(enriched metadata)"]
+IndexDocument --> PrepareChunks["prepare_chunks(enriched metadata)<br/>Enhanced with section_level & section_path"]
 PrepareChunks --> AsyncThread["asyncio.to_thread()"]
 AsyncThread --> IndexChunks["index_chunks(client, embeddings, collection, chunks,<br/>sparse_embedding=self._sparse_embedding)"]
 IndexChunks --> UpdateRepo["update repository status<br/>completed with chunk_count"]
@@ -530,8 +569,8 @@ UpdateRepo --> Complete["Document indexing complete"]
 **Section sources**
 - [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
 
-### Admin Upload Flow with Excel Support
-The admin upload flow now supports Excel spreadsheets alongside other document types, providing users with flexible document processing options including structured spreadsheet data.
+### Admin Upload Flow with Enhanced Excel Support
+The admin upload flow now supports Excel spreadsheets alongside other document types, providing users with flexible document processing options including structured spreadsheet data with enhanced column header preservation.
 
 ```mermaid
 sequenceDiagram
@@ -540,13 +579,13 @@ participant API as "documents.py"
 participant S3 as "S3Storage"
 participant Service as "DocumentService"
 participant BG as "Background Task"
-Client->>API : POST /api/documents/upload<br/>Excel support included
+Client->>API : POST /api/documents/upload<br/>Excel support included<br/>Enhanced column header detection
 API->>API : Validate file type/size (.doc/.docx/.xlsx)
 API->>S3 : Upload file
 API->>Service : create_document(...)
-API->>BG : Schedule _index_in_background<br/>with semantic-aware chunking
+API->>BG : Schedule _index_in_background<br/>with semantic-aware chunking<br/>Enhanced metadata tracking
 BG->>S3 : Download file
-BG->>Service : index_document(document_id, chunks)<br/>semantic or recursive strategy
+BG->>Service : index_document(document_id, chunks)<br/>semantic or recursive strategy<br/>Hierarchical metadata preserved
 Service-->>BG : Status updated
 BG-->>API : Background indexing complete
 API-->>Client : JSON or HTMX response
@@ -565,20 +604,20 @@ The RAG Parser Enhancement exhibits enhanced dependency management with new sema
 
 ```mermaid
 graph TB
-CFG["config.py<br/>Semantic & hybrid settings<br/>chunk_strategy, sparse model"] --> RES["resources.py<br/>Hybrid search init<br/>FastEmbedSparse"]
+CFG["config.py<br/>Semantic & hybrid settings<br/>chunk_strategy, sparse model<br/>Enhanced semantic defaults"] --> RES["resources.py<br/>Hybrid search init<br/>FastEmbedSparse"]
 CFG --> RET["retriever.py<br/>Hybrid retriever<br/>sparse embeddings"]
-CFG --> PARSE["parser.py<br/>Semantic chunking<br/>Excel support<br/>SemanticChunker"]
+CFG --> PARSE["parser.py<br/>Semantic chunking<br/>Excel support<br/>Hierarchical headings<br/>Table atomic chunks<br/>SemanticChunker"]
 RES --> RET
 RES --> QDRANT["Qdrant"]
 PARSE --> LC["LangChain Experimental<br/>SemanticChunker"]
 PARSE --> TIKTOKEN["tiktoken"]
-PARSE --> OPENPYXL["openpyxl<br/>Excel processing"]
+PARSE --> OPENPYXL["openpyxl<br/>Excel processing<br/>Column header detection"]
 RET --> FE["FastEmbedSparse"]
 RET --> QDRANT
 INDEXER["indexer.py<br/>Sparse embedding support"] --> QDRANT
-SERVICE["document_service.py<br/>Semantic chunking & Excel support"] --> INDEXER
-API["documents.py<br/>Excel upload support"] --> SERVICE
-QA["qa_service.py<br/>Hybrid retrieval"] --> RET
+SERVICE["document_service.py<br/>Semantic chunking & Excel support<br/>Enhanced metadata"] --> INDEXER
+API["documents.py<br/>Enhanced Excel upload support"] --> SERVICE
+QA["qa_service.py<br/>Hybrid retrieval<br/>Hierarchical metadata"] --> RET
 MAIN["main.py<br/>Resource initialization"] --> RES
 ```
 
@@ -613,11 +652,20 @@ MAIN["main.py<br/>Resource initialization"] --> RES
   - Semantic chunking requires embedding model initialization, adding computational overhead but improving semantic coherence
   - Breakpoint threshold configuration allows tuning chunk granularity based on document complexity and retrieval requirements
   - Legacy .doc files benefit from semantic chunking despite lacking structured headings, with empty section metadata for uniform processing
-  - **Enhanced**: Excel processing adds minimal overhead with efficient read-only workbook access and column preservation
+  - **Enhanced**: Excel processing adds minimal overhead with efficient read-only workbook access and column header detection
+  - **Enhanced**: Hierarchical DOCX processing with breadcrumb path generation adds moderate overhead for precise section tracking
+  - **Enhanced**: Table atomic chunking preserves structural integrity with minimal performance impact
+- **Enhanced DOCX Processing Performance Optimization**
+  - Uses hierarchical heading tracking with efficient stack-based path generation
+  - Table processing creates atomic chunks to avoid semantic splitting of structured content
+  - Breadcrumb path generation optimized with lazy evaluation and minimal memory usage
+  - Section metadata integration adds minimal overhead with efficient overlap calculation
+  - Memory usage scales with document complexity and hierarchical depth
 - **Excel Processing Performance Optimization**
   - Uses read-only, data-only mode for efficient workbook loading without formula calculations
   - Column data formatted with ' | ' separators for structured text extraction while maintaining performance
   - Empty row detection optimized to skip completely blank rows during iteration
+  - Column header detection optimized to find first non-empty row efficiently
   - Multiple worksheet processing handled efficiently with independent section creation
   - Memory usage scales linearly with spreadsheet size and complexity
 - **Hybrid Search Performance Optimization**
@@ -630,11 +678,13 @@ MAIN["main.py<br/>Resource initialization"] --> RES
   - Choose providers aligned with deployment constraints and enable caching where supported for semantic chunking operations
   - Monitor resource usage during semantic chunking as it requires additional computational resources for embedding calculations
   - Excel processing benefits from efficient openpyxl integration with minimal memory footprint
+  - Hierarchical DOCX processing benefits from optimized heading stack operations
 - **Batch Processing and Memory Management**
   - Batch ingestion (scripts/ingest.py) supports both semantic and recursive strategies with configurable parameters including Excel files
   - Admin uploads leverage background tasks with semantic-aware chunking parameters and breakpoint thresholds
   - Memory considerations for semantic chunking include embedding model loading and breakpoint calculations
   - Excel files processed efficiently with read-only access preventing memory leaks
+  - Hierarchical metadata tracking requires additional memory proportional to document sections
   - Consider chunk size adjustments when using semantic chunking to balance semantic coherence with computational efficiency
 - **Vector Store and Hybrid Indexing**
   - Qdrant filtering excludes non-searchable chunks efficiently in both dense and hybrid modes
@@ -661,15 +711,20 @@ Common issues and resolutions for the enhanced RAG system:
   - Missing embeddings parameter for semantic strategy raises ValueError with clear error message.
   - Breakpoint threshold type validation ensures only supported types are used: 'percentile', 'standard_deviation', 'interquartile', 'gradient'.
   - Breakpoint threshold amount validation prevents invalid numeric values outside expected ranges.
-- **Hybrid Search Mode Configuration**
-  - retrieval_mode must be 'dense' or 'hybrid'. Invalid values fall back to dense mode.
-  - sparse_embedding_model configuration affects FastEmbedSparse initialization and model availability.
-  - Sparse embedding initialization failures log warnings and disable hybrid mode gracefully.
+- **Hierarchical DOCX Processing Issues**
+  - Missing heading styles may result in flattened section hierarchy. Ensure DOCX files use proper heading styles.
+  - Breadcrumb path generation relies on hierarchical heading structure. Non-standard heading styles may not generate expected paths.
+  - Table atomic chunking preserves structural integrity but may increase total chunk count.
 - **Excel Processing Issues**
   - Unsupported Excel formats may cause openpyxl loading failures. Ensure files are in .xlsx format.
   - Empty workbook or worksheet issues can cause processing to return no content.
   - Memory issues with very large Excel files can be mitigated by adjusting chunk sizes.
   - Column formatting may vary depending on Excel version and formatting applied.
+  - Column header detection may fail if first row contains only whitespace characters.
+- **Enhanced Metadata Tracking Issues**
+  - Missing section_level or section_path metadata indicates processing failure. Check hierarchical heading structure.
+  - Table chunks may lack proper section metadata if table appears before any heading.
+  - Column headers may be empty if first non-empty row detection fails.
 - **Resource Initialization Failures**
   - Qdrant client initialization failures prevent semantic chunking and hybrid search functionality.
   - Embeddings model initialization errors affect both chunking strategies and retrieval operations.
@@ -678,12 +733,14 @@ Common issues and resolutions for the enhanced RAG system:
   - Semantic chunking requires additional memory for embedding model loading and breakpoint calculations.
   - Large documents with semantic chunking may require increased memory allocation for embedding computations.
   - Excel files with many worksheets or large datasets may require increased memory allocation.
+  - Hierarchical DOCX processing with deep nesting may require increased memory for heading stacks.
   - Monitor chunk count growth when switching from recursive to semantic chunking as semantic boundaries may create more chunks.
 - **Backward Compatibility**
   - Default chunk_strategy remains 'recursive' to maintain backward compatibility with existing deployments.
   - Legacy .doc files automatically use semantic chunking when strategy is 'semantic' with empty section metadata.
   - Excel files are fully backward compatible with existing API endpoints and processing workflows.
-  - Existing API endpoints continue to work with semantic chunking parameters passed through configuration.
+  - Enhanced metadata tracking maintains compatibility with existing retrieval systems.
+  - Hierarchical heading processing adds new metadata fields without breaking existing functionality.
 
 **Section sources**
 - [retriever.py:88-103](file://app/rag/retriever.py#L88-L103)
@@ -694,4 +751,4 @@ Common issues and resolutions for the enhanced RAG system:
 - [resources.py:120-132](file://app/resources.py#L120-L132)
 
 ## Conclusion
-The RAG Parser Enhancement delivers a comprehensive, production-ready pipeline for processing HR documents with advanced semantic understanding, hybrid search capabilities, and Excel spreadsheet support. By implementing dual chunking strategies (recursive and semantic) with configurable breakpoint thresholds, integrating LangChain's SemanticChunker for intelligent boundary detection, supporting hybrid dense-sparse retrieval with BM25 keyword matching, providing comprehensive Excel processing with structured text extraction, and offering robust configuration management, the system significantly enhances document processing accuracy and retrieval performance. The modular architecture with graceful fallback mechanisms ensures backward compatibility while enabling cutting-edge retrieval capabilities. The enhanced testing infrastructure validates both semantic chunking functionality, hybrid search operations, and Excel processing capabilities, while the centralized configuration system provides fine-grained control over chunking strategies, retrieval modes, and Excel processing parameters. The system's ability to automatically initialize sparse embeddings for hybrid search, integrate efficient Excel processing with openpyxl, and combine comprehensive error handling and resource management makes it suitable for enterprise-scale document processing with superior semantic understanding, flexible retrieval options, and comprehensive support for HR-related structured data formats.
+The RAG Parser Enhancement delivers a comprehensive, production-ready pipeline for processing HR documents with advanced semantic understanding, hybrid search capabilities, and Excel spreadsheet support. By implementing dual chunking strategies (recursive and semantic) with configurable breakpoint thresholds, integrating LangChain's SemanticChunker for intelligent boundary detection, supporting hybrid dense-sparse retrieval with BM25 keyword matching, providing comprehensive Excel processing with structured text extraction, implementing hierarchical heading level tracking with breadcrumb path generation, extracting tables as atomic chunks with Markdown formatting, detecting and preserving column headers in XLSX files, and offering robust configuration management, the system significantly enhances document processing accuracy and retrieval performance. The modular architecture with graceful fallback mechanisms ensures backward compatibility while enabling cutting-edge retrieval capabilities. The enhanced testing infrastructure validates both semantic chunking functionality, hybrid search operations, hierarchical metadata tracking, and Excel processing capabilities, while the centralized configuration system provides fine-grained control over chunking strategies, retrieval modes, and Excel processing parameters. The system's ability to automatically initialize sparse embeddings for hybrid search, integrate efficient Excel processing with openpyxl, maintain comprehensive hierarchical metadata tracking, and combine intelligent table processing with semantic understanding makes it suitable for enterprise-scale document processing with superior semantic understanding, flexible retrieval options, and comprehensive support for HR-related structured data formats.
