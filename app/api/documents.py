@@ -1048,11 +1048,44 @@ async def reindex_document(
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
         updated = await repo.get(document_id)
-        return templates.TemplateResponse(
+
+        # Render the updated row
+        row_response = templates.TemplateResponse(
             request,
             "partials/document_row.html",
             {"doc": updated, "human_size": _human_size},
         )
+        row_html = row_response.body.decode("utf-8")
+
+        # Add hx-swap-oob to the row for proper OOB swap
+        row_html = row_html.replace(
+            f'id="row-{document_id}"',
+            f'id="row-{document_id}" hx-swap-oob="true"'
+        )
+
+        # Also include the status poller to ensure polling starts for processing docs
+        # Check if there are any active docs (including the one we just started)
+        pending_docs, _ = await repo.list_page(
+            page=1, per_page=1000, status="pending"
+        )
+        processing_docs, _ = await repo.list_page(
+            page=1, per_page=1000, status="processing"
+        )
+        has_active = len(pending_docs) > 0 or len(processing_docs) > 0
+
+        poller_response = templates.TemplateResponse(
+            request,
+            "partials/status_poller.html",
+            {"has_active": has_active},
+        )
+        poller_html = poller_response.body.decode("utf-8")
+        # Add hx-swap-oob to the poller div
+        poller_html = poller_html.replace(
+            'id="status-poller"',
+            'id="status-poller" hx-swap-oob="true"'
+        )
+
+        return HTMLResponse(content=row_html + "\n" + poller_html)
     return {"status": "reindexing", "document_id": document_id}
 
 
