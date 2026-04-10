@@ -9,7 +9,11 @@ from vkbottle.bot import BotLabeler, Message
 
 from app.domain.content import TEMPLATE_DISCLAIMER
 from app.integrations.vk.attachments import send_category_document
-from app.integrations.vk.handlers import get_category_file_service, get_entity_or_error, send_rag_answer
+from app.integrations.vk.handlers import (
+    get_category_file_service,
+    get_entity_or_error,
+    send_rag_answer,
+)
 from app.integrations.vk.keyboards import (
     CMD_FIRE,
     CMD_FIRE_GROUNDS,
@@ -17,7 +21,6 @@ from app.integrations.vk.keyboards import (
     FIRE_RESIGNATION_ENTITY_CMD,
     entity_select_kb,
     fire_menu_kb,
-    stub_kb,
 )
 from app.integrations.vk.rules import PayloadCmdRule
 
