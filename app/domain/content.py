@@ -19,6 +19,8 @@ TEMPLATE_FILE_STUB = (
     "📄 Файл шаблона будет доступен после подключения хранилища документов.\n"
     "Обратитесь в HR для получения шаблона."
 )
+# NOTE: These static text functions serve as fallback when no category file is uploaded.
+# When a document exists in the category file system, it is sent as a VK attachment instead.
 
 
 # ── 👤 Hire: document checklists (FR-2, FR-3) ────────────────────
@@ -65,6 +67,7 @@ def onboarding_checklist(entity: LegalEntity) -> str:
 
 
 def hire_contract_text(entity: LegalEntity) -> str:
+    """Return contract template text. Fallback when no category file is uploaded."""
     return (
         f"📄 Шаблон трудового договора — {entity.full_name}\n\n"
         f"{TEMPLATE_DISCLAIMER}\n\n"
@@ -97,6 +100,7 @@ FIRE_BYPASS_SHEET_TEXT = (
 
 
 def vacation_template_text(entity: LegalEntity, vtype: str = "paid") -> str:
+    """Return vacation application template text. Fallback when no category file is uploaded."""
     vtype_label = (
         "За свой счет"
         if vtype == "unpaid"

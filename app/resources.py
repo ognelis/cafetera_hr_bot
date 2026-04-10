@@ -13,16 +13,19 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from app.config import Settings
+from app.domain.category_file_service import CategoryFileService
 from app.domain.document_service import DocumentService
 from app.domain.qa_service import QAService
 from app.rag.chain import build_llm, build_rag_chain
 from app.rag.prompts import GLOBAL_EXPERTS_PROMPT, SYSTEM_PROMPT
 from app.rag.retriever import (
+    CollectionNotFoundError,
     build_embeddings,
     build_qdrant_client,
     build_retriever,
     build_sparse_embeddings,
 )
+from app.storage.category_repo import CategoryFileRepository
 from app.storage.document_repo import DocumentRepository
 from app.storage.s3 import S3Storage
 
@@ -53,6 +56,8 @@ class AppResources:
     qa_service: QAService | None = None
     vk_qa_service: QAService | None = None
     sparse_embeddings: object | None = None
+    category_file_repo: CategoryFileRepository | None = None
+    category_file_service: CategoryFileService | None = None
 
 
 async def build_resources(
@@ -83,9 +88,11 @@ async def build_resources(
                 secret_key=settings.s3_secret_key,
                 bucket=settings.s3_bucket,
             )
-            await s3.open()
             res.s3 = s3
-            logger.info("S3 storage connected (bucket=%s)", settings.s3_bucket)
+            logger.info(
+                "S3 storage configured (bucket=%s) — will connect lazily",
+                settings.s3_bucket,
+            )
         except Exception:
             logger.warning(
                 "S3 storage not available — upload/download will fail",
@@ -147,6 +154,19 @@ async def build_resources(
                 )
                 res.doc_service = doc_service
                 logger.info("DocumentService initialized")
+
+            # Initialize category file repository and service
+            category_file_repo = CategoryFileRepository(settings.db_path)
+            res.category_file_repo = category_file_repo
+            logger.info("CategoryFileRepository initialized")
+
+            if res.s3 is not None:
+                category_file_service = CategoryFileService(
+                    repo=category_file_repo,
+                    s3=res.s3,
+                )
+                res.category_file_service = category_file_service
+                logger.info("CategoryFileService initialized")
         except Exception:
             logger.warning(
                 "Document repository/service not available",
@@ -190,6 +210,13 @@ async def build_resources(
             )
             res.vk_qa_service = vk_qa_service
             logger.info("QA service initialized successfully")
+        except CollectionNotFoundError:
+            logger.info(
+                "QA service not available — Qdrant collection not found. "
+                "Upload and index a document to enable Q&A."
+            )
+            res.qa_service = None
+            res.vk_qa_service = None
         except Exception:
             logger.warning(
                 "QA service not available — handlers will use fallback",
@@ -240,3 +267,5 @@ async def close_resources(res: AppResources) -> None:
     res.doc_service = None
     res.qa_service = None
     res.vk_qa_service = None
+    res.category_file_repo = None
+    res.category_file_service = None

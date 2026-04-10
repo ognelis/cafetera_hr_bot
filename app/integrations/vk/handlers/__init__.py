@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from vkbottle import BuiltinStateDispenser
 from vkbottle.bot import Message
 
+from app.domain.category_file_service import CategoryFileService
 from app.domain.qa_service import QAService
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 class Holder:
     qa: QAService | None = None
     state_dispenser: BuiltinStateDispenser | None = None
+    category_file_service: CategoryFileService | None = None
 
 
 holder = Holder()
@@ -31,6 +33,14 @@ def get_qa_service() -> QAService:
     if holder.qa is None:
         raise RuntimeError("QA service not initialized")
     return holder.qa
+
+
+def set_category_file_service(service: CategoryFileService) -> None:
+    holder.category_file_service = service
+
+
+def get_category_file_service() -> CategoryFileService | None:
+    return holder.category_file_service
 
 
 def set_state_dispenser(sd: BuiltinStateDispenser) -> None:

@@ -299,11 +299,18 @@ class TestEstimateK:
     def test_long_questions_return_k6(self):
         """Questions with >15 words should return k=6."""
         # 16 words
-        assert estimate_k("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen") == 6
+        assert (
+            estimate_k(
+                "one two three four five six seven eight nine ten "
+                "eleven twelve thirteen fourteen fifteen sixteen"
+            )
+            == 6
+        )
         # 17 words
         assert (
             estimate_k(
-                "Что мне делать если я хочу оформить отпуск но у меня уже есть планированный отпуск на следующий месяц"
+                "Что мне делать если я хочу оформить отпуск "
+                "но у меня уже есть планированный отпуск на следующий месяц"
             )
             == 6
         )

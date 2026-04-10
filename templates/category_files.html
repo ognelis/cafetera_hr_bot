@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Шаблоны{% endblock %}
+
+{% block body %}
+<div class="px-4 md:px-8 py-6 max-w-7xl">
+
+  {# ── Header ───────────────────────────────────────────────── #}
+  <div class="mb-6">
+    <p class="text-sm text-base-content/50 mb-0.5">HR-помощник</p>
+    <h1 class="text-2xl font-bold text-base-content">Шаблоны по разделам</h1>
+  </div>
+
+  {# ── Category collapses ───────────────────────────────────── #}
+  <div class="space-y-4" x-data="{ openCategory: null }">
+    {% for category_key, category_data in category_slots.items() %}
+      <div class="collapse collapse-arrow bg-base-100 border border-base-300 rounded-xl overflow-hidden"
+           :class="openCategory === '{{ category_key }}' ? 'collapse-open' : 'collapse-closed'">
+        <input type="checkbox"
+               class="peer"
+               @click="openCategory = openCategory === '{{ category_key }}' ? null : '{{ category_key }}'"
+               :checked="openCategory === '{{ category_key }}'" />
+        <div class="collapse-title text-base font-semibold bg-base-100 peer-checked:bg-base-200/50 transition-colors">
+          {{ category_data.label }}
+        </div>
+        <div class="collapse-content bg-base-100 p-0">
+          <div class="overflow-x-auto">
+            <table class="table table-sm w-full">
+              <thead>
+                <tr class="border-b border-base-300 bg-base-200/30">
+                  <th class="px-4 py-2 text-left text-xs font-semibold text-base-content/70 w-64">Шаблон</th>
+                  {% for entity_id, entity_name in legal_entities.items() %}
+                    <th class="px-2 py-2 text-center text-xs font-semibold text-base-content/70 min-w-[140px]">
+                      <span class="hidden sm:inline">{{ entity_short_name(entity_id) }}</span>
+                      <span class="sm:hidden">ЮЛ{{ entity_id }}</span>
+                    </th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for subcategory_key, subcategory_label in category_data.subcategories.items() %}
+                  <tr class="border-b border-base-200/60 hover:bg-base-200/20 transition-colors">
+                    <td class="px-4 py-3">
+                      <span class="text-sm text-base-content">{{ subcategory_label }}</span>
+                    </td>
+                    {% for entity_id in legal_entities.keys() %}
+                      <td class="px-1 py-1 border-l border-base-200/40">
+                        {% set category = category_key %}
+                        {% set subcategory = subcategory_key %}
+                        {% set file = file_lookup.get((category_key, subcategory_key, entity_id)) %}
+                        {% include "partials/category_slot.html" %}
+                      </td>
+                    {% endfor %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  {# ── Legend ───────────────────────────────────────────────── #}
+  <div class="mt-6 p-4 bg-base-200/40 rounded-xl border border-base-300/50">
+    <h3 class="text-sm font-semibold text-base-content mb-2">Юридические лица</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-base-content/70">
+      {% for entity_id, entity_name in legal_entities.items() %}
+        <div class="flex items-center gap-2">
+          <span class="badge badge-sm badge-ghost">{{ entity_id }}</span>
+          <span>{{ entity_name }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

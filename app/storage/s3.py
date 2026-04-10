@@ -34,9 +34,11 @@ class S3Storage:
         self._session: AioSession = get_session()
         self._client_ctx: Any = None
         self._client: Any = None
+        self._opened: bool = False
 
     async def open(self) -> None:
         """Create the S3 client and ensure the bucket exists."""
+        self._session = get_session()
         self._client_ctx = self._session.create_client(
             "s3",
             endpoint_url=self._endpoint_url,
@@ -46,13 +48,22 @@ class S3Storage:
         )
         self._client = await self._client_ctx.__aenter__()
         await self._ensure_bucket()
+        self._opened = True
+
+    async def _ensure_open(self) -> None:
+        """Lazily open the S3 client on first use if not already opened."""
+        if not self._opened:
+            await self.open()
 
     async def close(self) -> None:
         """Close the underlying S3 client."""
+        if not self._opened:
+            return
         if self._client_ctx is not None:
             await self._client_ctx.__aexit__(None, None, None)
             self._client_ctx = None
             self._client = None
+        self._opened = False
 
     async def __aenter__(self) -> S3Storage:
         await self.open()
@@ -82,6 +93,7 @@ class S3Storage:
         self, key: str, data: bytes, content_type: str = "application/octet-stream",
     ) -> None:
         """Upload bytes to the given S3 key."""
+        await self._ensure_open()
         await self._client.put_object(
             Bucket=self._bucket,
             Key=key,
@@ -91,16 +103,19 @@ class S3Storage:
 
     async def download(self, key: str) -> bytes:
         """Download a file and return its contents as bytes."""
+        await self._ensure_open()
         resp = await self._client.get_object(Bucket=self._bucket, Key=key)
         async with resp["Body"] as stream:
             return await stream.read()
 
     async def delete(self, key: str) -> None:
         """Delete a file by key (no error if missing)."""
+        await self._ensure_open()
         await self._client.delete_object(Bucket=self._bucket, Key=key)
 
     async def exists(self, key: str) -> bool:
         """Check whether a key exists in the bucket."""
+        await self._ensure_open()
         try:
             await self._client.head_object(Bucket=self._bucket, Key=key)
             return True

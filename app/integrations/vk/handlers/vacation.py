@@ -7,8 +7,13 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain.content import vacation_template_text
-from app.integrations.vk.handlers import get_entity_or_error, send_rag_answer
+from app.domain.content import TEMPLATE_DISCLAIMER, vacation_template_text
+from app.integrations.vk.attachments import send_category_document
+from app.integrations.vk.handlers import (
+    get_category_file_service,
+    get_entity_or_error,
+    send_rag_answer,
+)
 from app.integrations.vk.keyboards import (
     CMD_VACATION,
     CMD_VACATION_RAG,
@@ -80,10 +85,34 @@ async def on_vacation_template(message: Message, payload_data: dict) -> None:
     if entity is None:
         return
     vtype = payload_data.get("vtype", "paid")
-    await message.answer(
-        vacation_template_text(entity, vtype),
-        keyboard=stub_kb(back_payload=CMD_VACATION_SELECT).get_json(),
+    vtype_label = (
+        "За свой счет"
+        if vtype == "unpaid"
+        else "Оплачиваемый"
     )
+
+    # Map vtype to subcategory
+    subcategory = "vacation_unpaid" if vtype == "unpaid" else "vacation_paid"
+
+    # Try to send document attachment first, fall back to text
+    caption = (
+        f"📄 Шаблон заявления на отпуск — {entity.full_name}\n"
+        f"Тип: {vtype_label}\n\n"
+        f"{TEMPLATE_DISCLAIMER}"
+    )
+    sent = await send_category_document(
+        message,
+        get_category_file_service(),
+        category="vacation",
+        subcategory=subcategory,
+        entity_id=entity_id,
+        caption=caption,
+    )
+    if not sent:
+        await message.answer(
+            vacation_template_text(entity, vtype),
+            keyboard=stub_kb(back_payload=CMD_VACATION_SELECT).get_json(),
+        )
 
 
 # ── FR-7: leave procedure — RAG (Block 7) ─────────────────────────

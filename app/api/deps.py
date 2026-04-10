@@ -11,6 +11,7 @@ from fastapi import Cookie, Depends, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 
 from app.config import Settings
+from app.domain.category_file_service import CategoryFileService
 from app.domain.document_service import DocumentService
 from app.domain.qa_service import QAService
 from app.storage.document_repo import DocumentRepository
@@ -98,6 +99,16 @@ def get_qa_service(request: Request) -> QAService:
     return svc
 
 
+def get_category_file_service(request: Request) -> CategoryFileService:
+    svc = getattr(request.app.state, "category_file_service", None)
+    if svc is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Category file service unavailable",
+        )
+    return svc
+
+
 AdminDep = Annotated[None, Depends(require_admin)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 TemplatesDep = Annotated[Jinja2Templates, Depends(get_templates)]
@@ -106,3 +117,4 @@ ServiceDep = Annotated[DocumentService, Depends(get_doc_service)]
 S3Dep = Annotated[S3Storage, Depends(get_s3)]
 IndexingSemaphoreDep = Annotated[asyncio.Semaphore, Depends(get_indexing_semaphore)]
 QAServiceDep = Annotated[QAService, Depends(get_qa_service)]
+CategoryFileServiceDep = Annotated[CategoryFileService, Depends(get_category_file_service)]

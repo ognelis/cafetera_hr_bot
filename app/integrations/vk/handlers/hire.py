@@ -7,8 +7,14 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain.content import hire_checklist, hire_contract_text, onboarding_checklist
-from app.integrations.vk.handlers import get_entity_or_error
+from app.domain.content import (
+    TEMPLATE_DISCLAIMER,
+    hire_checklist,
+    hire_contract_text,
+    onboarding_checklist,
+)
+from app.integrations.vk.attachments import send_category_document
+from app.integrations.vk.handlers import get_category_file_service, get_entity_or_error
 from app.integrations.vk.keyboards import (
     CMD_HIRE,
     CMD_HIRE_CHECKLIST,
@@ -61,10 +67,20 @@ async def on_hire_checklist(message: Message, payload_data: dict) -> None:
     entity = await get_entity_or_error(message, entity_id, back_payload=CMD_HIRE)
     if entity is None:
         return
-    await message.answer(
-        hire_checklist(entity),
-        keyboard=stub_kb(back_payload=CMD_HIRE).get_json(),
+
+    # Try to send document attachment first, fall back to text
+    sent = await send_category_document(
+        message,
+        get_category_file_service(),
+        category="hire",
+        subcategory="hire_checklist",
+        entity_id=entity_id,
     )
+    if not sent:
+        await message.answer(
+            hire_checklist(entity),
+            keyboard=stub_kb(back_payload=CMD_HIRE).get_json(),
+        )
 
 
 # ── contract template ─────────────────────────────────────────────
@@ -76,10 +92,22 @@ async def on_hire_contract(message: Message, payload_data: dict) -> None:
     entity = await get_entity_or_error(message, entity_id, back_payload=CMD_HIRE)
     if entity is None:
         return
-    await message.answer(
-        hire_contract_text(entity),
-        keyboard=stub_kb(back_payload=CMD_HIRE).get_json(),
+
+    # Try to send document attachment first, fall back to text
+    caption = f"📄 Шаблон трудового договора — {entity.full_name}\n\n{TEMPLATE_DISCLAIMER}"
+    sent = await send_category_document(
+        message,
+        get_category_file_service(),
+        category="hire",
+        subcategory="hire_contract",
+        entity_id=entity_id,
+        caption=caption,
     )
+    if not sent:
+        await message.answer(
+            hire_contract_text(entity),
+            keyboard=stub_kb(back_payload=CMD_HIRE).get_json(),
+        )
 
 
 # ── onboarding checklist ──────────────────────────────────────────
@@ -91,7 +119,17 @@ async def on_hire_onboarding(message: Message, payload_data: dict) -> None:
     entity = await get_entity_or_error(message, entity_id, back_payload=CMD_HIRE)
     if entity is None:
         return
-    await message.answer(
-        onboarding_checklist(entity),
-        keyboard=stub_kb(back_payload=CMD_HIRE).get_json(),
+
+    # Try to send document attachment first, fall back to text
+    sent = await send_category_document(
+        message,
+        get_category_file_service(),
+        category="hire",
+        subcategory="hire_onboarding",
+        entity_id=entity_id,
     )
+    if not sent:
+        await message.answer(
+            onboarding_checklist(entity),
+            keyboard=stub_kb(back_payload=CMD_HIRE).get_json(),
+        )

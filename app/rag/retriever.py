@@ -8,6 +8,10 @@ from typing import TYPE_CHECKING
 from langchain_qdrant import QdrantVectorStore
 
 
+class CollectionNotFoundError(Exception):
+    """Raised when the target Qdrant collection does not exist yet."""
+
+
 def estimate_k(question: str) -> int:
     """Estimate the number of chunks to retrieve based on question complexity.
 
@@ -110,6 +114,17 @@ def build_vectorstore(
     sparse_embedding=None,
 ) -> QdrantVectorStore:
     """Wrap an existing Qdrant collection into a LangChain vectorstore."""
+    from qdrant_client.http.exceptions import UnexpectedResponse
+
+    # Pre-check: does the collection exist?
+    try:
+        client.get_collection(collection_name)
+    except (UnexpectedResponse, Exception) as exc:
+        raise CollectionNotFoundError(
+            f"Qdrant collection '{collection_name}' does not exist yet. "
+            f"Upload and index a document first."
+        ) from exc
+
     kwargs = dict(
         client=client,
         collection_name=collection_name,

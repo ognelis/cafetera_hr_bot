@@ -10,10 +10,12 @@
 - [pay.py](file://app/integrations/vk/handlers/pay.py)
 - [vacation.py](file://app/integrations/vk/handlers/vacation.py)
 - [fallback.py](file://app/integrations/vk/handlers/fallback.py)
+- [hire.py](file://app/integrations/vk/handlers/hire.py)
 - [keyboards.py](file://app/integrations/vk/keyboards.py)
 - [states.py](file://app/integrations/vk/states.py)
 - [handlers/__init__.py](file://app/integrations/vk/handlers/__init__.py)
 - [rules.py](file://app/integrations/vk/rules.py)
+- [entities.py](file://app/domain/entities.py)
 - [qa_service.py](file://app/domain/qa_service.py)
 - [chain.py](file://app/rag/chain.py)
 - [polling_vk.py](file://scripts/polling_vk.py)
@@ -29,17 +31,12 @@
 
 ## Update Summary
 **Changes Made**
-- Updated to reflect significant user experience improvements in VK integration handlers
-- Added documentation for the new `query_rag_with_wait()` function with intelligent timeout handling
-- Enhanced documentation for the improved `send_rag_answer()` function with automatic question context prepending
-- Updated handler registration patterns to show centralized state dispenser initialization
-- Improved QA service integration documentation with centralized access patterns
-- Added documentation for the new centralized utilities module with Holder pattern
-- Updated architecture diagrams to show the centralized state dispenser sharing mechanism
-- Enhanced troubleshooting guide with centralized dispenser debugging
-- **New** Added comprehensive documentation for the new timeout handling system that improves user experience during slow RAG responses
-- **New** Documented the new `send_rag_answer()` helper function that standardizes RAG response handling across all handlers
-- **New** Updated sections handler to use the new `send_rag_answer()` helper function for consistent RAG-powered content delivery
+- Updated to reflect the enhanced vacation workflow with new two-step selection process (entity selection followed by template generation)
+- Updated legal entity definitions with new company names: "Кафетера" (Ooo "Кафетера Групп Рус"), "Вкусно" (Ooo "Вкусно"), "Аврора" (Ooo "Аврора РусКо"), and "СМАРТ" (Ooo "СМАРТ ПИТАНИЕ")
+- Updated handler registration count to 26 total handlers across all VK integration modules
+- Enhanced documentation for the improved vacation flow with dedicated template generation and entity validation
+- Updated keyboard navigation patterns to support the new two-step selection process
+- Improved legal entity management with centralized entity lookup and validation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -60,7 +57,7 @@
 ## Introduction
 This document explains the VKontakte integration system built with the vkbottle framework, featuring a comprehensive QA service integration for Retrieval-Augmented Generation (RAG) processing across all HR-related handlers. The system implements a bot factory pattern with centralized state dispenser sharing, advanced handler registration and ordering, payload-based navigation, and sophisticated VK API integration patterns. It covers bot initialization, message routing, RAG-powered content delivery, and practical guidance for extending the bot with new handlers, customizing behavior, and integrating with VK's webhook system. Common integration challenges, robust error handling, and best practices for VK bot development are addressed.
 
-**Updated** The system now features a centralized state dispenser sharing mechanism that ensures consistent state management across all handlers through a shared BuiltinStateDispenser instance, along with a centralized QA service access layer that provides consistent error handling and resource management across all VK handlers. A new intelligent timeout handling system improves user experience by providing "please wait" notifications for slow RAG responses and automatically prepending user question context to all answers.
+**Updated** The system now features a centralized state dispenser sharing mechanism that ensures consistent state management across all handlers through a shared BuiltinStateDispenser instance, along with a centralized QA service access layer that provides consistent error handling and resource management across all VK handlers. The vacation workflow has been enhanced with a two-step selection process for better user experience, and legal entity definitions have been updated with new company names for improved accuracy.
 
 ## Project Structure
 The VK integration resides under app/integrations/vk and includes:
@@ -72,6 +69,7 @@ The VK integration resides under app/integrations/vk and includes:
 - A new centralized utilities module that manages QA service access patterns and state dispenser sharing
 - A local development script to run the bot in Long Poll mode with proper resource management
 - Tests validating factory wiring, keyboard layouts, state definitions, and QA service integration
+- Enhanced legal entity management with updated company names and centralized entity validation
 
 ```mermaid
 graph TB
@@ -80,15 +78,16 @@ BOT["bot.py<br/>Bot factory with centralized state sharing"]
 START["handlers/start.py<br/>Start & main menu"]
 SECTIONS["handlers/sections.py<br/>Section entry points (RAG)"]
 ASK["handlers/ask.py<br/>Ask-a-question (RAG)"]
-HR_REQUEST["handlers/hr_request.py<br/>Multi-step HR requests"]
+HIRE["handlers/hire.py<br/>Hiring flows (multi-step)"]
 FIRE["handlers/fire.py<br/>Dismissal flows (RAG)"]
 PAY["handlers/pay.py<br/>Pay & bonus flows (RAG)"]
-VACATION["handlers/vacation.py<br/>Vacation flows (RAG)"]
+VACATION["handlers/vacation.py<br/>Enhanced vacation flows (two-step)"]
 FALLBACK["handlers/fallback.py<br/>Unmatched messages"]
 KEYBOARDS["keyboards.py<br/>Keyboard builders & payloads"]
 STATES["states.py<br/>Dialog states"]
 UTILS["handlers/__init__.py<br/>Centralized state & QA access<br/>Enhanced with timeout handling"]
 RULES["rules.py<br/>Custom payload rules"]
+ENTITIES["entities.py<br/>Updated legal entities"]
 end
 RESOURCES["resources.py<br/>Resource management"]
 QA_SERVICE["domain/qa_service.py<br/>RAG chain wrapper"]
@@ -99,7 +98,7 @@ TESTS["tests/<br/>Integration tests"]
 BOT --> START
 BOT --> SECTIONS
 BOT --> ASK
-BOT --> HR_REQUEST
+BOT --> HIRE
 BOT --> FIRE
 BOT --> PAY
 BOT --> VACATION
@@ -107,7 +106,7 @@ BOT --> FALLBACK
 START --> KEYBOARDS
 SECTIONS --> KEYBOARDS
 ASK --> KEYBOARDS
-HR_REQUEST --> KEYBOARDS
+HIRE --> KEYBOARDS
 FIRE --> KEYBOARDS
 PAY --> KEYBOARDS
 VACATION --> KEYBOARDS
@@ -116,9 +115,10 @@ FIRE --> UTILS
 PAY --> UTILS
 VACATION --> UTILS
 SECTIONS --> UTILS
-HR_REQUEST --> UTILS
+HIRE --> UTILS
 UTILS --> QA_SERVICE
 UTILS --> STATES
+UTILS --> ENTITIES
 RESOURCES --> SCRIPT
 RESOURCES --> QA_SERVICE
 QA_SERVICE --> CHAIN
@@ -126,17 +126,19 @@ BOT --> CONFIG
 TESTS --> BOT
 TESTS --> QA_SERVICE
 TESTS --> UTILS
+TESTS --> ENTITIES
 ```
 
 **Diagram sources**
 - [bot.py:45-58](file://app/integrations/vk/bot.py#L45-L58)
 - [ask.py:22-28](file://app/integrations/vk/handlers/ask.py#L22-L28)
-- [hr_request.py:19-34](file://app/integrations/vk/handlers/hr_request.py#L19-L34)
+- [hire.py:19-34](file://app/integrations/vk/handlers/hire.py#L19-L34)
 - [fire.py:11](file://app/integrations/vk/handlers/fire.py#L11)
 - [pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
-- [vacation.py:1-80](file://app/integrations/vk/handlers/vacation.py#L1-L80)
-- [sections.py:1-46](file://app/integrations/vk/handlers/sections.py#L1-L46)
+- [vacation.py:1-105](file://app/integrations/vk/handlers/vacation.py#L1-L105)
+- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
 - [handlers/__init__.py:13-39](file://app/integrations/vk/handlers/__init__.py#L13-L39)
+- [entities.py:16-21](file://app/domain/entities.py#L16-L21)
 - [resources.py:32-49](file://app/resources.py#L32-L49)
 - [qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
 - [chain.py:1-80](file://app/rag/chain.py#L1-L80)
@@ -156,6 +158,7 @@ TESTS --> UTILS
 - QA Service: Provides centralized RAG processing with proper resource management, error handling, and VK message length truncation
 - Keyboard builders: Provide consistent UI and payload constants for navigation
 - States: Define multi-step dialog states for complex HR workflows using centralized state dispenser
+- Legal entities: Manage company information with updated names and centralized entity lookup
 - Local runner: Initializes Settings and starts the bot in Long Poll mode with proper resource management
 - Resource management: Handles graceful initialization and cleanup of RAG resources
 
@@ -165,10 +168,12 @@ Key implementation references:
 - Centralized QA service access patterns: [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
 - QA service initialization and RAG processing: [qa_service.py:51-105](file://app/domain/qa_service.py#L51-L105)
 - Ask-a-question handler with RAG integration: [ask.py:40-45](file://app/integrations/vk/handlers/ask.py#L40-L45)
-- HR request multi-step dialog with centralized state: [hr_request.py:69-74](file://app/integrations/vk/handlers/hr_request.py#L69-L74)
-- RAG-enabled HR handlers with centralized access: [fire.py:63-65](file://app/integrations/vk/handlers/fire.py#L63-L65), [pay.py:36-46](file://app/integrations/vk/handlers/pay.py#L36-L46), [vacation.py:67-80](file://app/integrations/vk/handlers/vacation.py#L67-L80)
+- HR request multi-step dialog with centralized state: [hire.py:69-74](file://app/integrations/vk/handlers/hire.py#L69-L74)
+- Enhanced RAG-enabled HR handlers with centralized access: [fire.py:63-65](file://app/integrations/vk/handlers/fire.py#L63-L65), [pay.py:36-46](file://app/integrations/vk/handlers/pay.py#L36-L46), [vacation.py:67-80](file://app/integrations/vk/handlers/vacation.py#L67-L80)
 - Keyboard builders and payloads: [keyboards.py:13-108](file://app/integrations/vk/keyboards.py#L13-L108)
 - Dialog states: [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
+- Enhanced vacation workflow with two-step selection: [vacation.py:50-86](file://app/integrations/vk/handlers/vacation.py#L50-L86)
+- Updated legal entities with new company names: [entities.py:16-21](file://app/domain/entities.py#L16-L21)
 - Local runner with resource management: [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
 - Settings: [config.py:4-9](file://app/config.py#L4-L9)
 - Resource management: [resources.py:51-165](file://app/resources.py#L51-L165)
@@ -177,14 +182,15 @@ Key implementation references:
 - [bot.py:24-59](file://app/integrations/vk/bot.py#L24-L59)
 - [handlers/__init__.py:13-63](file://app/integrations/vk/handlers/__init__.py#L13-L63)
 - [qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
-- [ask.py:1-86](file://app/integrations/vk/handlers/ask.py#L1-L86)
-- [hr_request.py:1-302](file://app/integrations/vk/handlers/hr_request.py#L1-L302)
+- [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
+- [hire.py:1-98](file://app/integrations/vk/handlers/hire.py#L1-L98)
 - [fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
 - [pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
-- [vacation.py:1-80](file://app/integrations/vk/handlers/vacation.py#L1-L80)
-- [sections.py:1-46](file://app/integrations/vk/handlers/sections.py#L1-L46)
+- [vacation.py:1-105](file://app/integrations/vk/handlers/vacation.py#L1-L105)
+- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
 - [keyboards.py:13-108](file://app/integrations/vk/keyboards.py#L13-L108)
 - [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
+- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
 - [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
 - [config.py:4-9](file://app/config.py#L4-L9)
 - [resources.py:51-165](file://app/resources.py#L51-L165)
@@ -197,6 +203,7 @@ The VK bot follows a modular architecture with integrated RAG capabilities and c
 - Payload constants drive navigation across screens, ensuring consistent UX
 - Optional state groups enable multi-step dialogs with sophisticated HR workflows
 - Resource management handles graceful initialization and cleanup of RAG components
+- Enhanced legal entity management provides centralized company information with updated names
 
 ```mermaid
 sequenceDiagram
@@ -210,6 +217,7 @@ participant Labelers as "Handler Labelers"
 participant Utils as "handlers/__init__.py"
 participant QA as "QA Service"
 participant RAG as "RAG Chain"
+participant Entities as "Legal Entities"
 participant VK as "VK API"
 Dev->>Script : Run long poll
 Script->>Resources : build_resources(Settings)
@@ -219,9 +227,10 @@ Factory->>Bot : Initialize with token
 Factory->>SD : Create BuiltinStateDispenser
 Factory->>Bot : Set bot.state_dispenser = SD
 Factory->>Utils : set_state_dispenser(SD)
-Factory->>Labelers : Load handlers (start, hr_request, ask, fire, pay, vacation, sections, fallback)
+Factory->>Labelers : Load 26 handlers (start, hire, fire, vacation, pay, sections, ask, fallback)
 Script->>Utils : set_qa_service(resources.qa_service)
 Utils->>QA : Initialize RAG chain
+Utils->>Entities : Load legal entities
 Labelers->>Utils : get_state_dispenser()
 Utils-->>Labelers : Shared BuiltinStateDispenser
 Labelers->>Utils : get_qa_service().ask()
@@ -247,6 +256,7 @@ Bot-->>VK : Send response
 - [qa_service.py:51-105](file://app/domain/qa_service.py#L51-L105)
 - [chain.py:61-79](file://app/rag/chain.py#L61-L79)
 - [ask.py:75-85](file://app/integrations/vk/handlers/ask.py#L75-L85)
+- [entities.py:16-21](file://app/domain/entities.py#L16-L21)
 
 ## Centralized State Management
 
@@ -272,15 +282,18 @@ class Holder {
 class BotFactory {
 + create_bot(settings) Bot
 }
-class HRRequestHandlers {
-+ _clear_state(peer_id) None
-+ on_contact_hr(message) None
-+ on_hr_name(message) None
-+ on_hr_topic(message) None
-+ on_hr_details(message) None
-+ on_hr_entity(message) None
-+ on_hr_urgency(message) None
-+ on_hr_confirm(message) None
+class HireHandlers {
++ on_hire(message) None
++ on_hire_entity(message) None
++ on_hire_checklist(message) None
++ on_hire_contract(message) None
++ on_hire_onboarding(message) None
+}
+class VacationHandlers {
++ on_vacation(message) None
++ on_vacation_select(message) None
++ on_vacation_type(message) None
++ on_vacation_template(message) None
 }
 class AskHandlers {
 + on_ask(message) None
@@ -290,29 +303,31 @@ BotFactory --> BuiltinStateDispenser : creates and shares
 BotFactory --> VKHandlersUtils : set_state_dispenser()
 VKHandlersUtils --> Holder : manages
 Holder --> BuiltinStateDispenser : stores
-HRRequestHandlers --> VKHandlersUtils : get_state_dispenser()
+HireHandlers --> VKHandlersUtils : get_state_dispenser()
+VacationHandlers --> VKHandlersUtils : get_state_dispenser()
 AskHandlers --> VKHandlersUtils : get_state_dispenser()
 ```
 
 **Diagram sources**
 - [bot.py:50-52](file://app/integrations/vk/bot.py#L50-L52)
 - [handlers/__init__.py:13-39](file://app/integrations/vk/handlers/__init__.py#L13-L39)
-- [hr_request.py:56-60](file://app/integrations/vk/handlers/hr_request.py#L56-L60)
+- [hire.py:56-60](file://app/integrations/vk/handlers/hire.py#L56-L60)
+- [vacation.py:50-86](file://app/integrations/vk/handlers/vacation.py#L50-L86)
 - [ask.py:40](file://app/integrations/vk/handlers/ask.py#L40)
 
 ### Centralized State Access Patterns
 All handlers now use centralized state dispenser access patterns for consistent state management:
 
-**Updated** All handlers (hr_request, ask, fire, pay, vacation, sections) now use the centralized state dispenser through get_state_dispenser() calls, replacing direct imports with consistent shared state access patterns.
+**Updated** All handlers (hire, vacation, ask, fire, pay, sections) now use the centralized state dispenser through get_state_dispenser() calls, replacing direct imports with consistent shared state access patterns. The enhanced vacation workflow utilizes state management for the two-step selection process.
 
 **Section sources**
 - [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
 - [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
-- [hr_request.py:56-60](file://app/integrations/vk/handlers/hr_request.py#L56-L60)
+- [hire.py:56-60](file://app/integrations/vk/handlers/hire.py#L56-L60)
+- [vacation.py:50-86](file://app/integrations/vk/handlers/vacation.py#L50-L86)
 - [ask.py:40](file://app/integrations/vk/handlers/ask.py#L40)
 - [fire.py:63-65](file://app/integrations/vk/handlers/fire.py#L63-L65)
 - [pay.py:36-46](file://app/integrations/vk/handlers/pay.py#L36-L46)
-- [vacation.py:67-80](file://app/integrations/vk/handlers/vacation.py#L67-L80)
 - [sections.py:25-45](file://app/integrations/vk/handlers/sections.py#L25-L45)
 
 ## Centralized QA Service Access Layer
@@ -324,8 +339,6 @@ The new centralized utilities module provides a consistent interface for QA serv
 classDiagram
 class VKHandlersUtils {
 - holder : Holder
-- _qa : QAService | None
-- _state_dispenser : BuiltinStateDispenser | None
 + set_qa_service(service) None
 + get_qa_service() QAService
 + set_state_dispenser(sd) None
@@ -347,27 +360,35 @@ class ErrorHandler {
 +ERR_DOCUMENT_UNAVAILABLE : str
 +VK_MSG_LIMIT : int
 }
+class LegalEntities {
++ENTITIES : tuple[LegalEntity, ...]
++ENTITY_BY_ID : dict[int, LegalEntity]
+}
 VKHandlersUtils --> Holder : manages
 VKHandlersUtils --> QAService : uses
 VKHandlersUtils --> BuiltinStateDispenser : uses
+VKHandlersUtils --> LegalEntities : uses
 ```
 
 **Diagram sources**
 - [handlers/__init__.py:13-63](file://app/integrations/vk/handlers/__init__.py#L13-L63)
 - [qa_service.py:23-105](file://app/domain/qa_service.py#L23-L105)
+- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
 
 ### Centralized Access Patterns
 All HR-related handlers now use centralized QA service access patterns for consistent error handling and resource management:
 
-**Updated** All HR-related handlers (fire, pay, vacation, sections) now use the centralized utilities module for QA service access, replacing direct imports with consistent get_qa_service() calls and improved error handling patterns.
+**Updated** All HR-related handlers (hire, fire, pay, vacation, sections) now use the centralized utilities module for QA service access, replacing direct imports with consistent get_qa_service() calls and improved error handling patterns. The enhanced legal entity management provides centralized access to company information.
 
 **Section sources**
 - [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
 - [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
+- [hire.py:63-65](file://app/integrations/vk/handlers/hire.py#L63-L65)
 - [fire.py:63-65](file://app/integrations/vk/handlers/fire.py#L63-L65)
 - [pay.py:36-46](file://app/integrations/vk/handlers/pay.py#L36-L46)
 - [vacation.py:67-80](file://app/integrations/vk/handlers/vacation.py#L67-L80)
 - [sections.py:25-45](file://app/integrations/vk/handlers/sections.py#L25-L45)
+- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
 
 ## Enhanced RAG Response Handling
 
@@ -431,7 +452,7 @@ Send --> End(["Complete"])
 - **Consistent Formatting**: Maintains standardized answer presentation across all handlers
 - **Graceful Degradation**: Continues processing even when RAG responses are delayed
 
-**Updated** The new timeout handling system provides a seamless user experience by automatically managing slow RAG responses, while the automatic question context prepending ensures users always have clear reference to their original questions.
+**Updated** The new timeout handling system provides a seamless user experience by automatically managing slow RAG responses, while the automatic question context prepending ensures users always have clear reference to their original questions. All RAG-enabled handlers now use the enhanced `send_rag_answer()` function for consistent user experience.
 
 **Section sources**
 - [handlers/__init__.py:46-86](file://app/integrations/vk/handlers/__init__.py#L46-L86)
@@ -499,12 +520,13 @@ DocUnavailable --> End
 ### Handler Integration Patterns
 All HR-related handlers now leverage the centralized QA service for intelligent content delivery:
 
-**Updated** All HR-related handlers (fire, pay, vacation, sections) now use the centralized utilities module for consistent QA service access, providing improved error handling and resource management across all handlers.
+**Updated** All HR-related handlers (hire, fire, pay, vacation, sections) now use the centralized utilities module for consistent QA service access, providing improved error handling and resource management across all handlers. The enhanced legal entity management provides centralized access to company information for all entity-dependent handlers.
 
 **Section sources**
 - [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
 - [qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
 - [chain.py:1-80](file://app/rag/chain.py#L1-L80)
+- [hire.py:63-65](file://app/integrations/vk/handlers/hire.py#L63-L65)
 - [fire.py:63-65](file://app/integrations/vk/handlers/fire.py#L63-L65)
 - [pay.py:36-46](file://app/integrations/vk/handlers/pay.py#L36-L46)
 - [vacation.py:67-80](file://app/integrations/vk/handlers/vacation.py#L67-L80)
@@ -515,9 +537,11 @@ All HR-related handlers now leverage the centralized QA service for intelligent 
 ### Bot Factory Pattern and Handler Registration
 - The factory initializes a Bot with the VK access token from Settings and establishes shared state management through BuiltinStateDispenser
 - It creates a BuiltinStateDispenser instance and assigns it to both the bot and the centralized utilities module
-- It loads nine labelers in a specific order: start, hr_request, ask, hire, fire, vacation, pay, sections, fallback
+- It loads 26 labelers in a specific order: start, ask, hire, fire, vacation, pay, sections, fallback
 - The order is crucial because vkbottle evaluates handlers top-to-bottom; fallback must be last to avoid intercepting intended matches
 - The QA service is initialized during bot creation and registered with the centralized utilities module for consistent access patterns
+
+**Updated** The factory now registers 26 total handlers across all VK integration modules, with the enhanced vacation workflow and hiring processes providing comprehensive HR coverage.
 
 ```mermaid
 flowchart TD
@@ -525,7 +549,7 @@ Start(["create_bot(settings)"]) --> Init["Initialize Bot with token"]
 Init --> ShareState["Create BuiltinStateDispenser"]
 ShareState --> AssignSD["Assign to bot.state_dispenser"]
 AssignSD --> RegisterSD["Register with centralized utils"]
-RegisterSD --> LoadHandlers["Load 9 labelers in order"]
+RegisterSD --> LoadHandlers["Load 26 labelers in order"]
 LoadHandlers --> RegisterUtils["Register centralized QA access"]
 RegisterUtils --> Log["Log handler count"]
 Log --> ReturnBot(["Return Bot"])
@@ -536,7 +560,7 @@ Log --> ReturnBot(["Return Bot"])
 
 **Section sources**
 - [bot.py:24-59](file://app/integrations/vk/bot.py#L24-L59)
-- [test_bot_factory.py:82-86](file://tests/test_bot_factory.py#L82-L86)
+- [test_bot_factory.py:54-67](file://tests/test_bot_factory.py#L54-L67)
 
 ### Message Routing and Navigation with Payloads
 - Start handler responds to initial commands and sends the main menu with service buttons
@@ -545,6 +569,7 @@ Log --> ReturnBot(["Return Bot"])
 - Ask handler provides dedicated question-answering with state management using centralized state dispenser
 - Fallback handler ensures users stay within the menu-driven interface
 - HR request handlers manage complex multi-step workflows with state persistence through centralized state dispenser
+- Enhanced vacation workflow provides two-step selection process for better user experience
 
 ```mermaid
 sequenceDiagram
@@ -552,8 +577,11 @@ participant User as "User"
 participant Bot as "vkbottle.Bot"
 participant Start as "start.on_start/on_home"
 participant Ask as "ask.on_ask/on_ask_text"
-participant HR as "hr_request.*"
-participant Sections as "sections.*"
+participant Hire as "hire.on_hire/on_hire_entity"
+participant Fire as "fire.on_fire/on_fire_rag"
+participant Vacation as "vacation.on_vacation/on_vacation_type"
+participant Pay as "pay.on_pay/on_pay_overtime"
+participant Sections as "sections.on_sick/on_probation"
 participant Utils as "handlers/__init__.py"
 participant SD as "BuiltinStateDispenser"
 participant Fallback as "fallback.on_fallback"
@@ -567,11 +595,31 @@ Bot->>Ask : Match payload route
 Ask->>SD : get_state_dispenser().set()
 SD-->>Ask : State set
 Ask-->>User : Answer + navigation options
-User->>Bot : Payload "contact_hr"
-Bot->>HR : Match payload route
-HR->>SD : get_state_dispenser().set()
-SD-->>HR : State set
-HR-->>User : Multi-step HR request flow
+User->>Bot : Payload "cmd_hire"
+Bot->>Hire : Match payload route
+Hire->>SD : get_state_dispenser().set()
+SD-->>Hire : State set
+Hire-->>User : Multi-step hiring flow
+User->>Bot : Payload "cmd_vacation"
+Bot->>Vacation : Match payload route
+Vacation->>SD : get_state_dispenser().set()
+SD-->>Vacation : State set
+Vacation-->>User : Two-step vacation selection
+User->>Bot : Payload "cmd_fire"
+Bot->>Fire : Match payload route
+Fire->>Utils : send_rag_answer()
+Utils-->>Fire : RAG answer
+Fire-->>User : Dismissal information
+User->>Bot : Payload "cmd_pay"
+Bot->>Pay : Match payload route
+Pay->>Utils : send_rag_answer()
+Utils-->>Pay : RAG answer
+Pay-->>User : Pay information
+User->>Bot : Payload "cmd_sick"
+Bot->>Sections : Match payload route
+Sections->>Utils : send_rag_answer()
+Utils-->>Sections : RAG answer
+Sections-->>User : Sick leave information
 User->>Bot : Arbitrary text
 Bot->>Fallback : Match default handler
 Fallback-->>User : Prompt to use menu
@@ -580,16 +628,22 @@ Fallback-->>User : Prompt to use menu
 **Diagram sources**
 - [start.py:34-49](file://app/integrations/vk/handlers/start.py#L34-L49)
 - [ask.py:40](file://app/integrations/vk/handlers/ask.py#L40)
-- [hr_request.py:69](file://app/integrations/vk/handlers/hr_request.py#L69)
+- [hire.py:69](file://app/integrations/vk/handlers/hire.py#L69)
+- [vacation.py:50-86](file://app/integrations/vk/handlers/vacation.py#L50-L86)
+- [fire.py:63-65](file://app/integrations/vk/handlers/fire.py#L63-L65)
+- [pay.py:36-46](file://app/integrations/vk/handlers/pay.py#L36-L46)
 - [sections.py:25-45](file://app/integrations/vk/handlers/sections.py#L25-L45)
 - [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
 - [fallback.py:15-17](file://app/integrations/vk/handlers/fallback.py#L15-L17)
 
 **Section sources**
 - [start.py:14-50](file://app/integrations/vk/handlers/start.py#L14-L50)
-- [ask.py:1-86](file://app/integrations/vk/handlers/ask.py#L1-L86)
-- [hr_request.py:1-302](file://app/integrations/vk/handlers/hr_request.py#L1-L302)
-- [sections.py:1-46](file://app/integrations/vk/handlers/sections.py#L1-L46)
+- [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
+- [hire.py:1-98](file://app/integrations/vk/handlers/hire.py#L1-L98)
+- [vacation.py:1-105](file://app/integrations/vk/handlers/vacation.py#L1-L105)
+- [fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
+- [pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
+- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
 - [handlers/__init__.py:13-63](file://app/integrations/vk/handlers/__init__.py#L13-L63)
 - [fallback.py:9-18](file://app/integrations/vk/handlers/fallback.py#L9-L18)
 - [keyboards.py:13-108](file://app/integrations/vk/keyboards.py#L13-L108)
@@ -597,8 +651,9 @@ Fallback-->>User : Prompt to use menu
 ### Keyboard Builders and Payload Constants
 - Payload constants define navigation semantics (home, back, contact HR, section commands)
 - Keyboard builders assemble rows and append a standard service row with Back/Home/Contact HR
-- The main menu keyboard organizes seven sections plus a dedicated "Contact HR" button
+- The main menu keyboard organizes eight sections plus a dedicated "Contact HR" button
 - Specialized keyboards support multi-step dialog flows and RAG-powered content presentation
+- Enhanced vacation workflow keyboards support two-step selection process
 
 ```mermaid
 classDiagram
@@ -614,12 +669,16 @@ class Payloads {
 +CMD_PROBATION
 +CMD_ASK
 +CMD_HR_* (multi-step states)
++CMD_VACATION_* (enhanced workflow)
++CMD_HIRE_* (multi-step states)
 }
 class KeyboardBuilders {
 +with_service_row(kb, back_payload, show_home, show_hr) Keyboard
 +main_menu_kb() Keyboard
 +ask_input_kb() Keyboard
 +ask_result_kb(scenario_id) Keyboard
++hiring_*_kb() Hiring keyboards
++vacation_*_kb() Enhanced vacation keyboards
 +hr_*_kb() Various HR keyboards
 +stub_kb(back_payload) Keyboard
 }
@@ -639,6 +698,7 @@ Payloads <.. KeyboardBuilders : "used by"
 ### Dialog States for Multi-Step Flows
 - States are defined as a typed group to support multi-step dialogs (e.g., HR request wizard)
 - The ask-a-question flow uses dedicated state management to handle free-text input
+- The enhanced vacation workflow uses state management for the two-step selection process
 - Tests confirm the state group inherits from the base type and contains expected state names/values
 - All state operations now use the centralized BuiltinStateDispenser for consistency
 
@@ -652,6 +712,11 @@ class BotStates {
 +HR_REQUEST_URGENCY
 +HR_REQUEST_CONFIRM
 +ASK_QUESTION
++VACATION_TYPE_SELECTION
++VACATION_ENTITY_SELECTION
++VACATION_TEMPLATE_GENERATION
++HIRE_ENTITY_SELECTION
++HIRE_ACTION_SELECTION
 }
 class BuiltinStateDispenser {
 +set(peer_id, state, **payload) None
@@ -683,6 +748,7 @@ participant Factory as "bot.create_bot()"
 participant Bot as "vkbottle.Bot"
 participant Utils as "handlers/__init__.py"
 participant QA as "QA Service"
+participant Entities as "Legal Entities"
 CLI->>Runner : Execute script
 Runner->>Resources : build_resources(Settings)
 Resources-->>Runner : AppResources
@@ -691,6 +757,7 @@ Factory-->>Runner : Bot instance
 Factory->>Utils : set_state_dispenser(bot.state_dispenser)
 Factory->>Utils : set_qa_service(resources.qa_service)
 Utils->>QA : Initialize RAG chain
+Utils->>Entities : Load legal entities
 Runner->>Bot : run_forever()
 Bot-->>Runner : Running
 ```
@@ -701,6 +768,7 @@ Bot-->>Runner : Running
 - [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
 - [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
 - [qa_service.py:51-81](file://app/domain/qa_service.py#L51-L81)
+- [entities.py:16-21](file://app/domain/entities.py#L16-L21)
 
 **Section sources**
 - [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
@@ -735,10 +803,47 @@ Answer --> End
 **Section sources**
 - [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
 
+### Enhanced Vacation Workflow with Two-Step Selection
+The vacation workflow has been significantly enhanced with a two-step selection process:
+
+```mermaid
+flowchart TD
+Start(["CMD_VACATION"]) --> Menu["Display vacation menu"]
+Menu --> SelectType["User selects vacation type"]
+SelectType --> TypeKB["Display vacation type keyboard"]
+TypeKB --> EntitySelect["User selects legal entity"]
+EntitySelect --> EntityKB["Display entity selection keyboard"]
+EntityKB --> Template["Generate vacation template"]
+Template --> Send["Send template with back keyboard"]
+Send --> End(["Complete"])
+```
+
+**Diagram sources**
+- [vacation.py:50-86](file://app/integrations/vk/handlers/vacation.py#L50-L86)
+
+**Updated** The vacation workflow now features a two-step selection process: first selecting the vacation type (paid/unpaid), then selecting the legal entity for template generation. This provides better user experience and ensures accurate template generation based on company-specific policies.
+
+**Section sources**
+- [vacation.py:1-105](file://app/integrations/vk/handlers/vacation.py#L1-L105)
+
+### Enhanced Legal Entity Definitions
+The legal entity definitions have been updated with new company names:
+
+**Updated** The legal entities now include four companies with their full legal names:
+- "Кафетера" (Ooo "Кафетера Групп Рус")
+- "Вкусно" (Ooo "Вкусно") 
+- "Аврора" (Ooo "Аврора РусКо")
+- "СМАРТ" (Ooo "СМАРТ ПИТАНИЕ")
+
+These entities are used across hiring, vacation, and HR request workflows for accurate policy generation.
+
+**Section sources**
+- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
+
 ### Sections Handler Using New Helper Function
 The sections handler now uses the new `send_rag_answer()` helper function for consistent RAG response handling:
 
-**Updated** The sections handler has been simplified to use the centralized `send_rag_answer()` function, which automatically handles typing indicators, timeout detection, question context prepending, and keyboard generation.
+**Updated** The sections handler has been simplified to use the centralized `send_rag_answer()` function, which automatically handles typing indicators, timeout detection, question context prepending, and keyboard generation. This ensures consistent user experience across all RAG-enabled handlers.
 
 **Section sources**
 - [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
@@ -758,6 +863,7 @@ VKBot --> Cfg["Settings (config.py)"]
 VKBot --> Utils["Centralized Utils (handlers/__init__.py)"]
 Utils --> SD["BuiltinStateDispenser"]
 Utils --> QA["QA Service (qa_service.py)"]
+Utils --> Entities["Legal Entities (entities.py)"]
 QA --> LangChain["LangChain"]
 QA --> Qdrant["Qdrant Client"]
 Resources["Resources (resources.py)"] --> VKBot
@@ -765,6 +871,7 @@ Resources --> QA
 Tests["Tests"] --> VKBot
 Tests --> Utils
 Tests --> QA
+Tests --> Entities
 Tests --> VKFw
 Tests --> Cfg
 ```
@@ -774,6 +881,7 @@ Tests --> Cfg
 - [config.py:4-9](file://app/config.py#L4-L9)
 - [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
 - [qa_service.py:60-81](file://app/domain/qa_service.py#L60-L81)
+- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
 - [resources.py:51-165](file://app/resources.py#L51-L165)
 - [pyproject.toml:17-21](file://pyproject.toml#L17-L21)
 
@@ -783,6 +891,7 @@ Tests --> Cfg
 - [config.py:4-9](file://app/config.py#L4-L9)
 - [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
 - [qa_service.py:60-81](file://app/domain/qa_service.py#L60-L81)
+- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
 - [resources.py:51-165](file://app/resources.py#L51-L165)
 
 ## Performance Considerations
@@ -799,6 +908,8 @@ Tests --> Cfg
 - **New** Intelligent timeout handling prevents blocking operations and improves perceived performance
 - **New** Automatic question context prepending reduces user confusion and improves conversation clarity
 - **New** The `send_rag_answer()` helper function standardizes RAG response handling across all handlers, reducing code duplication and improving consistency
+- **New** Enhanced vacation workflow with two-step selection process improves user experience and reduces errors
+- **New** Updated legal entity definitions with full company names improve accuracy and professionalism
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -840,6 +951,14 @@ Common issues and resolutions:
   - Verify send_rag_answer() is imported from the centralized utilities module
   - Check that all handlers using the helper function are properly updated
   - Ensure the helper function is available in the handlers/__init__.py module
+- **New** Vacation workflow issues:
+  - Verify two-step selection process is working correctly
+  - Check that entity selection keyboard is properly generated
+  - Ensure template generation uses correct entity information
+- **New** Legal entity issues:
+  - Verify entity IDs match between keyboards and entity lookup
+  - Check that full company names are displayed correctly
+  - Ensure entity validation returns proper error messages
 
 Validation references:
 - Handler order and counts: [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -850,6 +969,9 @@ Validation references:
 - State dispenser sharing: [test_bot_factory.py:82-86](file://tests/test_bot_factory.py#L82-L86)
 - **New** Timeout handling validation: [test_ask_block9.py:94-112](file://tests/test_ask_block9.py#L94-L112)
 - **New** Helper function integration: [test_qa_service.py:216-236](file://tests/test_qa_service.py#L216-L236)
+- **New** Handler count validation: [test_bot_factory.py:66](file://tests/test_bot_factory.py#L66)
+- **New** Vacation workflow validation: [vacation.py:50-86](file://app/integrations/vk/handlers/vacation.py#L50-L86)
+- **New** Legal entity validation: [entities.py:16-24](file://app/domain/entities.py#L16-L24)
 
 **Section sources**
 - [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -860,9 +982,9 @@ Validation references:
 - [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
 
 ## Conclusion
-The VK integration leverages a clean factory pattern with centralized state dispenser sharing, deterministic handler ordering, payload-driven navigation, and comprehensive RAG integration with centralized service management to deliver a sophisticated, extensible bot. The new centralized state management system ensures consistent state persistence across all handlers through a shared BuiltinStateDispenser instance, while the centralized QA service access layer provides consistent error handling and resource management across all HR-related handlers. 
+The VK integration leverages a clean factory pattern with centralized state dispenser sharing, deterministic handler ordering, payload-driven navigation, and comprehensive RAG integration with centralized service management to deliver a sophisticated, extensible bot. The system now includes significant user experience improvements through intelligent timeout handling for RAG responses, automatic question context prepending, enhanced vacation workflow with two-step selection process, and updated legal entity definitions with new company names.
 
-**Updated** The system now includes significant user experience improvements through intelligent timeout handling for RAG responses and automatic question context prepending, making the bot more responsive and user-friendly. These enhancements demonstrate the importance of continuous improvement in bot UX design, showing how thoughtful additions to the centralized utilities module can dramatically improve user satisfaction.
+**Updated** The system now features 26 total handlers across all VK integration modules, providing comprehensive HR coverage with enhanced user experience. The new centralized state management system ensures consistent state persistence across all handlers through a shared BuiltinStateDispenser instance, while the centralized QA service access layer provides consistent error handling and resource management across all HR-related handlers. The enhanced vacation workflow with two-step selection process and updated legal entity definitions demonstrate the system's commitment to continuous improvement and user-centric design.
 
 The new `query_rag_with_wait()` function provides intelligent timeout detection that automatically sends "please wait" notifications when RAG responses take longer than 3 seconds, while the `send_rag_answer()` helper function standardizes RAG response handling across all handlers by automatically setting typing indicators, querying RAG with timeout handling, prepending question context, truncating responses to VK limits, and adding appropriate navigation keyboards.
 
@@ -881,7 +1003,7 @@ Steps to add a new section:
 - Build a keyboard with the service row to ensure Back/Home/Contact HR are always available
 - Register the new labeler in the factory's loader list and ensure it precedes fallback
 
-**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `app.integrations.vk.handlers` and using the provided utility functions for consistent error handling and resource management. **New** Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers.
+**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `app.integrations.vk.handlers` and using the provided utility functions for consistent error handling and resource management. **New** Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. **New** For multi-step workflows, consider implementing state management using the centralized BuiltinStateDispenser for better user experience.
 
 References:
 - Payload constants: [keyboards.py:13-24](file://app/integrations/vk/keyboards.py#L13-L24)
@@ -890,6 +1012,7 @@ References:
 - Centralized QA access patterns: [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
 - Keyboard service row: [keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
 - **New** Timeout handling: [handlers/__init__.py:46-86](file://app/integrations/vk/handlers/__init__.py#L46-L86)
+- **New** State management patterns: [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
 
 **Section sources**
 - [keyboards.py:13-50](file://app/integrations/vk/keyboards.py#L13-L50)
@@ -934,7 +1057,10 @@ References:
 - **New** Use intelligent timeout handling for any handler that processes user questions to improve user experience
 - **New** Always use automatic question context prepending to maintain conversation clarity and traceability
 - **New** Standardize RAG response handling across all handlers using the `send_rag_answer()` helper function
-- **New** Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses
+- **New** Use `query_rag_with_wait()` for any handler that processes user questions to provide intelligent timeout handling
+- **New** Implement state management for multi-step workflows using the centralized BuiltinStateDispenser
+- **New** Utilize the enhanced vacation workflow patterns for two-step selection processes
+- **New** Leverage updated legal entity definitions for accurate company-specific content generation
 
 ### Centralized State and QA Service Integration Patterns
 - Initialize state dispenser during bot creation and register with centralized utilities for immediate state management capabilities
@@ -952,6 +1078,9 @@ References:
 - **New** Use `query_rag_with_wait()` for any handler that processes user questions to provide intelligent timeout handling
 - **New** Always use `send_rag_answer()` instead of direct QA service calls to ensure consistent user experience and question context preservation
 - **New** Leverage the centralized utilities module for consistent error handling and resource management patterns across all handlers
+- **New** Implement state management patterns for multi-step workflows using the centralized BuiltinStateDispenser
+- **New** Utilize the enhanced vacation workflow patterns for improved user experience
+- **New** Access updated legal entity definitions through the centralized utilities module for accurate content generation
 
 **Section sources**
 - [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
@@ -960,3 +1089,6 @@ References:
 - [test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
 - [test_bot_factory.py:82-86](file://tests/test_bot_factory.py#L82-L86)
 - [test_ask_block9.py:94-112](file://tests/test_ask_block9.py#L94-L112)
+- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
+- [vacation.py:50-86](file://app/integrations/vk/handlers/vacation.py#L50-L86)
+- [entities.py:16-24](file://app/domain/entities.py#L16-L24)

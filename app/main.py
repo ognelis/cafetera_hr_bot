@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from app.config import Settings
-from app.integrations.vk.handlers import set_qa_service
+from app.integrations.vk.handlers import set_category_file_service, set_qa_service
 from app.resources import build_resources, close_resources
 from app.storage.database import init_db
 
@@ -35,11 +35,14 @@ async def lifespan(app: FastAPI):
     app.state.doc_repo = res.doc_repo
     app.state.doc_service = res.doc_service
     app.state.qa_service = res.qa_service
+    app.state.category_file_service = res.category_file_service
     app.state.indexing_semaphore = asyncio.Semaphore(settings.max_concurrent_indexing)
 
     # VK handler globals
     if res.vk_qa_service:
         set_qa_service(res.vk_qa_service)
+    if res.category_file_service:
+        set_category_file_service(res.category_file_service)
 
     yield
 
@@ -67,8 +70,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.templates = Jinja2Templates(directory=str(templates_dir))
 
     # Routes
+    from app.api.category_files import router as category_files_router
     from app.api.documents import router as documents_router
 
     app.include_router(documents_router)
+    app.include_router(category_files_router)
 
     return app
