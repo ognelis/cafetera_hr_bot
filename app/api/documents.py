@@ -117,7 +117,7 @@ async def documents_page(
     return templates.TemplateResponse(
         request,
         "documents.html",
-        _document_table_context(
+        dict(_document_table_context(
             documents=documents,
             total=total,
             page=page,
@@ -129,7 +129,7 @@ async def documents_page(
             source_type=source_type,
             sort_field=sort_field,
             sort_dir=sort_dir,
-        ),
+        )),
     )
 
 
@@ -165,7 +165,7 @@ async def document_table_partial(
     return templates.TemplateResponse(
         request,
         "partials/document_table.html",
-        _document_table_context(
+        dict(_document_table_context(
             documents=documents,
             total=total,
             page=page,
@@ -177,7 +177,7 @@ async def document_table_partial(
             source_type=source_type,
             sort_field=sort_field,
             sort_dir=sort_dir,
-        ),
+        )),
     )
 
 
@@ -252,7 +252,9 @@ async def documents_status_partial(
             },
         )
         # Extract the HTML content from the response
-        row_html = row_response.body.decode("utf-8")
+        row_body = row_response.body
+        row_bytes = bytes(row_body) if isinstance(row_body, memoryview) else row_body
+        row_html = row_bytes.decode("utf-8")
         # Add hx-swap-oob="true" attribute to the tr element
         # The row already has id="row-{document_id}" from the template
         row_html = row_html.replace(
@@ -268,7 +270,9 @@ async def documents_status_partial(
         "partials/status_poller.html",
         {"has_active": has_active},
     )
-    poller_html = poller_response.body.decode("utf-8")
+    poller_body = poller_response.body
+    poller_bytes = bytes(poller_body) if isinstance(poller_body, memoryview) else poller_body
+    poller_html = poller_bytes.decode("utf-8")
     row_html_parts.append(poller_html)
 
     return HTMLResponse(content="\n".join(row_html_parts))
@@ -437,7 +441,9 @@ async def reindex_document(
             "partials/document_row.html",
             {"doc": updated, "human_size": _human_size},
         )
-        row_html = row_response.body.decode("utf-8")
+        row_body = row_response.body
+        row_bytes = bytes(row_body) if isinstance(row_body, memoryview) else row_body
+        row_html = row_bytes.decode("utf-8")
 
         # Add hx-swap-oob to the row for proper OOB swap
         row_html = row_html.replace(
@@ -453,7 +459,9 @@ async def reindex_document(
             "partials/status_poller.html",
             {"has_active": has_active},
         )
-        poller_html = poller_response.body.decode("utf-8")
+        poller_body = poller_response.body
+        poller_bytes = bytes(poller_body) if isinstance(poller_body, memoryview) else poller_body
+        poller_html = poller_bytes.decode("utf-8")
         # Add hx-swap-oob to the poller div
         poller_html = poller_html.replace(
             'id="status-poller"',

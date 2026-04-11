@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import Any
 
 from databases import Database
 
@@ -28,7 +28,7 @@ _COLUMNS = (
 )
 
 
-def _row_to_record(row: Mapping) -> CategoryFileRecord:
+def _row_to_record(row: Any) -> CategoryFileRecord:
     """Convert a database row to a ``CategoryFileRecord``."""
     return CategoryFileRecord(
         id=row["id"],

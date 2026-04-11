@@ -6,6 +6,7 @@ import asyncio
 import logging
 import tempfile
 from pathlib import Path
+from typing import Literal, cast
 
 from fastapi import (
     APIRouter,
@@ -99,7 +100,10 @@ async def _parse_document_chunks(
             chunk_overlap=chunk_overlap,
             strategy=strategy,
             embeddings=embeddings,
-            breakpoint_threshold_type=breakpoint_threshold_type,
+            breakpoint_threshold_type=cast(
+                Literal["percentile", "standard_deviation", "interquartile", "gradient"],
+                breakpoint_threshold_type,
+            ),
             breakpoint_threshold_amount=breakpoint_threshold_amount,
         )
     except ValueError as exc:

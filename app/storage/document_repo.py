@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from databases import Database
 
@@ -30,7 +30,7 @@ _COLUMNS = (
 )
 
 
-def _row_to_record(row: Mapping) -> DocumentRecord:
+def _row_to_record(row: Any) -> DocumentRecord:
     """Convert a database row to a ``DocumentRecord``."""
     return DocumentRecord(
         id=row["id"],
@@ -187,7 +187,7 @@ class DocumentRepository:
             "created_at": "created_at",
             "status": "status",
         }
-        order_expr = allowed_sort_fields.get(sort_field, "id")
+        order_expr = allowed_sort_fields.get(sort_field or "", "id")
         direction = "ASC" if sort_dir == "asc" else "DESC"
         order_clause = f"ORDER BY {order_expr} {direction}"
 

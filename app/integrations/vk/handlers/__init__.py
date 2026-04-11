@@ -86,7 +86,7 @@ async def query_rag_with_wait(
             await delay_task
 
 
-async def send_rag_answer(message: Message, question: str, back_payload: str) -> None:
+async def send_rag_answer(message: Message, question: str, back_payload: dict[str, str]) -> None:
     """Send typing indicator, query RAG with wait message, and reply with answer + back keyboard."""
     from app.integrations.vk.keyboards import stub_kb
 
@@ -116,7 +116,9 @@ def catch_entity_error(handler):
     return wrapper
 
 
-async def get_entity_or_error(message: Message, entity_id: int | None, back_payload: str):
+async def get_entity_or_error(
+    message: Message, entity_id: int | None, back_payload: dict[str, str]
+):
     """Look up entity by ID; if not found, send error and return None."""
     from app.domain.entities import ENTITY_BY_ID
     from app.integrations.vk.keyboards import stub_kb
@@ -130,7 +132,7 @@ async def get_entity_or_error(message: Message, entity_id: int | None, back_payl
     return entity
 
 
-async def require_entity(message: Message, entity_id: int | None, back_payload: str):
+async def require_entity(message: Message, entity_id: int | None, back_payload: dict[str, str]):
     """Look up entity by ID; raise *EntityNotFoundError* if not found.
 
     Sends the error message to the user before raising.
@@ -148,7 +150,7 @@ async def send_document_or_fallback(
     subcategory: str,
     entity_id: int,
     fallback_text: str,
-    back_payload: str,
+    back_payload: dict[str, str],
     caption: str | None = None,
 ) -> None:
     """Try to send a category document; fall back to *fallback_text* with a back button."""

@@ -92,7 +92,7 @@ async def bulk_delete_documents(
     return templates.TemplateResponse(
         request,
         "partials/document_table.html",
-        _document_table_context(documents=documents, total=total),
+        dict(_document_table_context(documents=documents, total=total)),
     )
 
 
@@ -135,6 +135,11 @@ async def bulk_reindex_documents(
             errors.append(f"Document {document_id}: not found")
             continue
 
+        if isinstance(record, BaseException):
+            logger.error("Bulk reindex failed for %s", document_id, exc_info=True)
+            errors.append(f"Document {document_id}: {record}")
+            continue
+
         try:
             # Verify file exists in S3
             if not await s3.exists(record.s3_key):
@@ -169,7 +174,7 @@ async def bulk_reindex_documents(
     return templates.TemplateResponse(
         request,
         "partials/document_table.html",
-        _document_table_context(documents=documents, total=total),
+        dict(_document_table_context(documents=documents, total=total)),
     )
 
 
@@ -219,5 +224,5 @@ async def bulk_toggle_search(
     return templates.TemplateResponse(
         request,
         "partials/document_table.html",
-        _document_table_context(documents=documents, total=total),
+        dict(_document_table_context(documents=documents, total=total)),
     )

@@ -7,6 +7,8 @@
 - [config.py](file://app/config.py)
 - [document_service.py](file://app/domain/document_service.py)
 - [document_repo.py](file://app/storage/document_repo.py)
+- [category_repo.py](file://app/storage/category_repo.py)
+- [category_models.py](file://app/storage/category_models.py)
 - [s3.py](file://app/storage/s3.py)
 - [models.py](file://app/storage/models.py)
 - [documents.py](file://app/api/documents.py)
@@ -24,11 +26,12 @@
 
 ## Update Summary
 **Changes Made**
-- Added documentation for the new `_ensure_collection()` function in resources.py
-- Updated Resource Container and Factory section to include the new collection creation logic
-- Enhanced Architecture Overview to show hybrid search capabilities
-- Updated Detailed Component Analysis to cover automatic Qdrant collection management
-- Added new section on Hybrid Search Configuration and Setup
+- Updated database architecture section to reflect PostgreSQL migration
+- Revised storage layer documentation to show PostgreSQL-specific schemas and data types
+- Updated configuration section to reflect PostgreSQL connection settings
+- Enhanced dependency analysis to show PostgreSQL driver usage
+- Updated troubleshooting guide with PostgreSQL-specific issues
+- Modified architecture diagrams to represent PostgreSQL database layer
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -43,9 +46,9 @@
 10. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the Resource Management System that orchestrates shared resources across the Cafetera HR Bot application. The system ensures proper initialization, sharing, and cleanup of critical components such as the database, S3 storage, Qdrant vector store, embeddings, LLM, and domain services. It provides a centralized factory pattern for building resources and a lifecycle manager that coordinates startup and shutdown sequences for both the FastAPI application and background workers.
+This document describes the Resource Management System that orchestrates shared resources across the Cafetera HR Bot application. The system ensures proper initialization, sharing, and cleanup of critical components such as the PostgreSQL database, S3 storage, Qdrant vector store, embeddings, LLM, and domain services. It provides a centralized factory pattern for building resources and a lifecycle manager that coordinates startup and shutdown sequences for both the FastAPI application and background workers.
 
-**Updated** The system now includes automatic Qdrant collection creation with vector configuration support for both dense and sparse vector parameters, enabling hybrid search capabilities from the first startup.
+**Updated** The system now operates on PostgreSQL with enhanced schema management, supporting advanced data types including TIMESTAMPTZ and BOOLEAN, and provides robust connection pooling through the asyncpg driver.
 
 ## Project Structure
 The Resource Management System spans several modules:
@@ -54,7 +57,7 @@ The Resource Management System spans several modules:
 - Domain services coordinating metadata, vector indexing, and file storage
 - API dependencies and routing
 - Background ingestion and indexing scripts
-- Infrastructure provisioning via Docker Compose
+- Infrastructure provisioning via Docker Compose with PostgreSQL, Qdrant, and MinIO
 
 ```mermaid
 graph TB
@@ -75,18 +78,20 @@ I[QAService<br/>qa_service.py]
 end
 subgraph "Storage Layer"
 J[DocumentRepository<br/>document_repo.py]
-K[S3Storage<br/>s3.py]
-L[SQLite DB<br/>database.py]
+K[CategoryFileRepository<br/>category_repo.py]
+L[PostgreSQL DB<br/>database.py]
+M[S3Storage<br/>s3.py]
 end
 subgraph "RAG Pipeline"
-M[Parser<br/>parser.py]
-N[Indexer<br/>indexer.py]
-O[Embeddings/Qdrant<br/>resources.py]
-P[Hybrid Search<br/>retriever.py]
+N[Parser<br/>parser.py]
+O[Indexer<br/>indexer.py]
+P[Embeddings/Qdrant<br/>resources.py]
+Q[Hybrid Search<br/>retriever.py]
 end
 subgraph "Infrastructure"
-Q[Docker Compose<br/>docker-compose.yml]
-R[Config<br/>config.py]
+R[Docker Compose<br/>docker-compose.yml]
+S[Config<br/>config.py]
+T[PostgreSQL Schema<br/>database.py]
 end
 A --> D
 A --> E
@@ -99,34 +104,36 @@ C --> J
 C --> K
 H --> J
 H --> N
-H --> K
-I --> O
+H --> O
 I --> P
-M --> H
-O --> G
-Q --> O
-R --> A
+I --> Q
+N --> H
+P --> G
+R --> T
+R --> P
+S --> A
 ```
 
 **Diagram sources**
-- [main.py:22-46](file://app/main.py#L22-L46)
+- [main.py:21-46](file://app/main.py#L21-L46)
 - [resources.py:38-99](file://app/resources.py#L38-L99)
 - [resources.py:127-303](file://app/resources.py#L127-L303)
 - [resources.py:306-344](file://app/resources.py#L306-L344)
 - [document_service.py:36-291](file://app/domain/document_service.py#L36-L291)
 - [document_repo.py:63-301](file://app/storage/document_repo.py#L63-L301)
+- [category_repo.py:48-140](file://app/storage/category_repo.py#L48-L140)
 - [s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [documents.py:49-109](file://app/api/documents.py#L49-L109)
 - [deps.py:39-109](file://app/api/deps.py#L39-L109)
 - [indexer.py:23-152](file://app/rag/indexer.py#L23-L152)
 - [parser.py:127-146](file://app/rag/parser.py#L127-L146)
 - [retriever.py:92-107](file://app/rag/retriever.py#L92-L107)
-- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
+- [docker-compose.yml:1-53](file://docker-compose.yml#L1-L53)
 - [config.py:14-62](file://app/config.py#L14-L62)
 
 **Section sources**
-- [main.py:1-80](file://app/main.py#L1-L80)
-- [resources.py:1-344](file://app/resources.py#L1-L344)
+- [main.py:1-76](file://app/main.py#L1-L76)
+- [resources.py:1-365](file://app/resources.py#L1-L365)
 - [config.py:14-62](file://app/config.py#L14-L62)
 
 ## Core Components
@@ -143,24 +150,24 @@ Key elements:
 - Semaphore-based concurrency control for indexing
 - _ensure_collection(): New function that creates Qdrant collections with appropriate vector configurations
 
-**Updated** The `_ensure_collection()` function automatically handles Qdrant collection creation with vector configuration, supporting both dense and sparse vector parameters for hybrid search capabilities.
+**Updated** The system now manages PostgreSQL connections through the databases library with asyncpg driver, providing robust connection pooling and transaction management for document metadata operations.
 
 **Section sources**
 - [resources.py:38-99](file://app/resources.py#L38-L99)
 - [resources.py:127-303](file://app/resources.py#L127-L303)
 - [resources.py:306-344](file://app/resources.py#L306-L344)
-- [main.py:22-46](file://app/main.py#L22-L46)
+- [main.py:21-46](file://app/main.py#L21-L46)
 - [documents.py:130-171](file://app/api/documents.py#L130-L171)
 
 ## Architecture Overview
 The system follows a layered architecture with clear separation of concerns:
 - Presentation layer: FastAPI routes and templates
 - Domain layer: DocumentService and QAService orchestrate business logic
-- Storage layer: SQLite repository and S3 storage
+- Storage layer: PostgreSQL repositories and S3 storage with enhanced schema management
 - Infrastructure layer: Qdrant vector store with automatic collection management and embeddings
 - Integration layer: VK bot and background ingestion
 
-**Updated** The architecture now includes automatic Qdrant collection creation and hybrid search capabilities, allowing the system to initialize properly even on first startup before any documents are indexed.
+**Updated** The architecture now includes PostgreSQL database management with proper schema initialization, supporting advanced data types and connection pooling for production deployments.
 
 ```mermaid
 sequenceDiagram
@@ -169,7 +176,7 @@ participant API as "FastAPI App"
 participant Deps as "Dependencies"
 participant Svc as "DocumentService"
 participant Repo as "DocumentRepository"
-participant S3 as "S3Storage"
+participant PG as "PostgreSQL DB"
 participant Qdr as "QdrantClient"
 participant Coll as "_ensure_collection()"
 Client->>API : "POST /api/documents/upload"
@@ -180,13 +187,17 @@ Coll->>Qdr : "Check collection_exists()"
 Qdr-->>Coll : "Collection not found"
 Coll->>Qdr : "create_collection(vectors_config, sparse_vectors_config)"
 Qdr-->>Coll : "Collection created"
+API->>PG : "connect() with asyncpg"
+PG-->>API : "Connection pool established"
 API->>S3 : "upload(s3_key, content)"
 S3-->>API : "OK"
 API->>Svc : "create_document(...)"
 Svc->>Repo : "create(DocumentRecord)"
+Repo->>PG : "INSERT INTO documents"
+PG-->>Repo : "Row ID returned"
 Repo-->>Svc : "Created record"
 API->>API : "Schedule background indexing"
-Note over API,S3 : "Indexing runs asynchronously"
+Note over API,PG : "Indexing runs asynchronously"
 ```
 
 **Diagram sources**
@@ -202,21 +213,23 @@ Note over API,S3 : "Indexing runs asynchronously"
 The AppResources container encapsulates all shared resources with optional fields, enabling graceful degradation when services are unavailable. The build_resources() factory method:
 - Initializes S3 storage when requested
 - Builds Qdrant client and embeddings
-- Creates DocumentRepository and DocumentService when DB is available
+- Creates PostgreSQL Database connection with asyncpg driver
+- Initializes DocumentRepository and DocumentService with proper schema management
 - Constructs QAService with LLM, retriever, and chain when vector store is ready
 - Automatically creates Qdrant collections with appropriate vector configurations
 - Returns a fully populated container for application use
 
-**Updated** The factory method now includes automatic collection creation through the `_ensure_collection()` function, which handles both dense and sparse vector configurations for hybrid search capabilities.
+**Updated** The factory method now includes PostgreSQL database initialization through the databases library, establishing connection pools and creating tables with proper SERIAL primary keys and PostgreSQL-specific data types.
 
 ```mermaid
 classDiagram
 class AppResources {
 +Settings settings
-+QdrantClient qdrant_client
++AsyncQdrantClient qdrant_client
 +Embeddings embeddings
 +BaseChatModel llm
 +S3Storage s3
++Database db
 +DocumentRepository doc_repo
 +DocumentService doc_service
 +QAService qa_service
@@ -245,18 +258,18 @@ AppResources <.. ResourcesFactory : "constructed by"
 
 ### Application Lifecycle Management
 The FastAPI lifespan manager coordinates resource initialization and cleanup:
-- Initializes SQLite database
+- Establishes PostgreSQL database connection with asyncpg driver
 - Builds resources with configurable S3 and DB availability
 - Automatically creates Qdrant collections with vector configurations
 - Stores resources in app.state for dependency injection
 - Sets global QA service for VK handlers
 - Executes cleanup on shutdown
 
-**Updated** The lifecycle manager now includes automatic Qdrant collection creation during resource initialization, ensuring the system is ready for Q&A from the first startup.
+**Updated** The lifecycle manager now includes PostgreSQL database connection establishment and schema initialization during resource building, ensuring the system is ready for document operations from startup.
 
 ```mermaid
 flowchart TD
-Start([App Startup]) --> InitDB["Init SQLite DB"]
+Start([App Startup]) --> InitDB["Connect to PostgreSQL<br/>asyncpg driver"]
 InitDB --> BuildRes["build_resources()"]
 BuildRes --> EnsureColl["_ensure_collection()"]
 EnsureColl --> StoreState["Store in app.state"]
@@ -268,16 +281,16 @@ CloseRes --> End([App Closed])
 ```
 
 **Diagram sources**
-- [main.py:22-46](file://app/main.py#L22-L46)
+- [main.py:21-46](file://app/main.py#L21-L46)
 - [resources.py:127-303](file://app/resources.py#L127-L303)
 - [resources.py:38-99](file://app/resources.py#L38-L99)
 
 **Section sources**
-- [main.py:22-46](file://app/main.py#L22-L46)
+- [main.py:21-46](file://app/main.py#L21-L46)
 
 ### Document Management Orchestration
 DocumentService coordinates the complete document lifecycle:
-- Metadata creation in SQLite
+- Metadata creation in PostgreSQL with proper data types (TIMESTAMPTZ, BOOLEAN)
 - Vector chunk preparation and indexing in Qdrant
 - File storage operations via S3
 - Status transitions and error handling
@@ -289,16 +302,21 @@ participant API as "API Handler"
 participant DS as "DocumentService"
 participant DR as "DocumentRepository"
 participant IDX as "Indexer"
+participant PG as "PostgreSQL"
 participant QD as "Qdrant"
 participant ST as "S3Storage"
 API->>DS : "index_document(document_id, chunks)"
 DS->>DR : "update(status=processing)"
+DR->>PG : "UPDATE documents SET status='processing'"
+PG-->>DR : "OK"
 DS->>IDX : "prepare_chunks()"
 IDX-->>DS : "enriched chunks"
 DS->>IDX : "index_chunks()"
 IDX->>QD : "add_documents()"
 QD-->>IDX : "OK"
 DS->>DR : "update(status=completed, chunk_count)"
+DR->>PG : "UPDATE documents SET status='completed', chunk_count=..."
+PG-->>DR : "OK"
 DS-->>API : "Updated record"
 ```
 
@@ -312,9 +330,12 @@ DS-->>API : "Updated record"
 
 ### Storage Abstractions
 The storage layer provides:
-- DocumentRepository: Async CRUD operations with rich filtering and pagination
+- DocumentRepository: Async CRUD operations with rich filtering and pagination using PostgreSQL
+- CategoryFileRepository: Async CRUD operations for category file management with unique constraints
 - S3Storage: Async client wrapper for MinIO/AWS S3 with bucket management
-- SQLite initialization and schema management
+- PostgreSQL initialization and schema management with proper data types
+
+**Updated** The storage layer now operates exclusively on PostgreSQL with enhanced schema definitions supporting SERIAL primary keys, TIMESTAMPTZ for precise timestamp tracking, and BOOLEAN for search enablement flags.
 
 ```mermaid
 classDiagram
@@ -325,6 +346,13 @@ class DocumentRepository {
 +update(document_id, fields) DocumentRecord
 +delete(document_id) bool
 +toggle_search(document_id, enabled) DocumentRecord
+}
+class CategoryFileRepository {
++upsert(record) CategoryFileRecord
++get(file_id) CategoryFileRecord
++get_by_slot(category, subcategory, entity_id) CategoryFileRecord
++list_all() list
++delete(file_id) bool
 }
 class S3Storage {
 +open() void
@@ -349,20 +377,38 @@ class DocumentRecord {
 +datetime indexed_at
 +int chunk_count
 }
+class CategoryFileRecord {
++int id
++string file_id
++string category
++string subcategory
++int entity_id
++string filename
++string s3_key
++string mime_type
++int size_bytes
++datetime created_at
++datetime updated_at
+}
 DocumentRepository --> DocumentRecord : "manages"
+CategoryFileRepository --> CategoryFileRecord : "manages"
 DocumentService --> DocumentRepository : "uses"
 DocumentService --> S3Storage : "uses"
 ```
 
 **Diagram sources**
 - [document_repo.py:63-301](file://app/storage/document_repo.py#L63-L301)
+- [category_repo.py:48-140](file://app/storage/category_repo.py#L48-L140)
 - [s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [models.py:20-37](file://app/storage/models.py#L20-L37)
+- [category_models.py:9-21](file://app/storage/category_models.py#L9-L21)
 
 **Section sources**
 - [document_repo.py:63-301](file://app/storage/document_repo.py#L63-L301)
+- [category_repo.py:48-140](file://app/storage/category_repo.py#L48-L140)
 - [s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [models.py:11-37](file://app/storage/models.py#L11-L37)
+- [category_models.py:1-64](file://app/storage/category_models.py#L1-L64)
 
 ### API Dependencies and Routing
 The dependency system provides secure access to resources:
@@ -370,6 +416,8 @@ The dependency system provides secure access to resources:
 - Dependency injection resolves S3, repositories, services, and QA service
 - Semaphore controls concurrent indexing operations
 - HTMX integration for real-time UI updates
+
+**Updated** The dependency system now relies on PostgreSQL-backed repositories for document and category file operations, providing ACID transactions and referential integrity.
 
 **Section sources**
 - [deps.py:76-109](file://app/api/deps.py#L76-L109)
@@ -387,7 +435,7 @@ QAService provides:
 - Streaming and truncation for messaging platforms
 - Support for both dense and sparse vector configurations
 
-**Updated** QAService now supports hybrid search configurations through sparse embeddings, enabling both dense vector search and sparse BM25 retrieval modes.
+**Updated** QAService now operates with PostgreSQL-backed document metadata, enabling complex queries and filtering capabilities through the enhanced repository layer.
 
 **Section sources**
 - [ingest.py:45-158](file://scripts/ingest.py#L45-L158)
@@ -427,7 +475,7 @@ The system exhibits loose coupling through dependency injection and shared resou
 - Background scripts reuse the same resource construction logic
 - Automatic collection management reduces external dependencies for first-time setup
 
-**Updated** The dependency graph now includes automatic collection management as a core part of the resource factory, eliminating the need for manual Qdrant collection setup.
+**Updated** The dependency graph now includes PostgreSQL database management through the databases library with asyncpg driver, providing robust connection pooling and transaction management for production deployments.
 
 ```mermaid
 graph LR
@@ -438,9 +486,11 @@ AppRes --> API[FastAPI Routes]
 AppRes --> Scripts[Background Scripts]
 API --> Deps[Dependencies]
 Deps --> Services[Domain Services]
-Services --> Storage[Storage Layer]
+Services --> PG[PostgreSQL DB]
 Services --> Vector[Vector Store]
 CollMgr --> Qdrant[Qdrant Client]
+PG --> Documents[Documents Table]
+PG --> Categories[Category Files Table]
 ```
 
 **Diagram sources**
@@ -451,37 +501,42 @@ CollMgr --> Qdrant[Qdrant Client]
 
 **Section sources**
 - [pyproject.toml:7-28](file://pyproject.toml#L7-L28)
-- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
+- [docker-compose.yml:1-53](file://docker-compose.yml#L1-L53)
 
 ## Performance Considerations
 - Concurrency control: Indexing semaphore limits simultaneous background operations
 - Asynchronous operations: All storage and vector operations use async patterns
+- Connection pooling: PostgreSQL uses asyncpg driver with connection pooling
 - Caching: QAService maintains an LRU cache of document-specific chains
-- Efficient queries: Repository supports pagination and filtered queries
+- Efficient queries: Repository supports pagination and filtered queries with PostgreSQL optimization
 - Graceful degradation: Components can fail independently without affecting others
 - **Automatic Collection Creation**: Reduces startup overhead by handling collection setup programmatically
+- **PostgreSQL Optimization**: Enhanced schema with proper data types and indexes for production workloads
 
-**Updated** The automatic collection creation eliminates the need for manual Qdrant setup, reducing initial configuration complexity and potential startup failures.
+**Updated** The PostgreSQL implementation provides superior performance through connection pooling, prepared statements, and optimized queries with proper indexing strategies.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
 - Resource initialization failures: Check logs for specific exceptions during S3, Qdrant, or DB setup
 - Missing admin credentials: Ensure admin_api_key is configured in environment
-- Database connectivity: Verify SQLite path permissions and existence
+- Database connectivity: Verify PostgreSQL connection string, credentials, and network accessibility
+- PostgreSQL schema issues: Check table creation permissions and database initialization
 - Vector store unavailability: Confirm Qdrant service health and network connectivity
 - S3 bucket issues: Validate endpoint URL, credentials, and bucket permissions
 - **Collection creation failures**: Check Qdrant connection and embedding model availability
 - **Hybrid search configuration**: Verify sparse embedding model installation and retrieval mode settings
+- **PostgreSQL connection errors**: Verify asyncpg driver installation and connection parameters
+- **Schema migration issues**: Check database initialization logs for table creation failures
 
-**Updated** Added troubleshooting guidance for automatic collection creation and hybrid search configuration issues.
+**Updated** Added troubleshooting guidance for PostgreSQL-specific issues including connection problems, schema initialization failures, and asyncpg driver configuration.
 
 **Section sources**
 - [resources.py:70-111](file://app/resources.py#L70-L111)
 - [resources.py:38-99](file://app/resources.py#L38-L99)
 - [deps.py:76-88](file://app/api/deps.py#L76-L88)
-- [docker-compose.yml:11-16](file://docker-compose.yml#L11-L16)
+- [docker-compose.yml:30-47](file://docker-compose.yml#L30-L47)
 
 ## Conclusion
 The Resource Management System provides a robust foundation for the Cafetera HR Bot by centralizing resource initialization, enabling graceful degradation, and ensuring proper cleanup. Its modular design supports both web application and background processing scenarios while maintaining clear separation of concerns across storage, domain, and infrastructure layers.
 
-**Updated** The addition of automatic Qdrant collection creation through the `_ensure_collection()` function significantly enhances the system's usability by eliminating manual setup requirements and supporting hybrid search capabilities from the first startup. This makes the system more accessible to users while maintaining its robust architecture and performance characteristics.
+**Updated** The addition of PostgreSQL database management significantly enhances the system's reliability and scalability for production deployments. The migration provides better data integrity, connection pooling, and performance characteristics compared to the previous SQLite implementation. The automatic collection creation through the `_ensure_collection()` function continues to simplify deployment while the PostgreSQL schema ensures proper data types and constraints for enterprise-grade document management.

@@ -5,7 +5,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.callbacks import (
+    AsyncCallbackManagerForRetrieverRun,
+    CallbackManagerForRetrieverRun,
+)
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 from langchain_qdrant import QdrantVectorStore
@@ -33,7 +36,7 @@ class AsyncQdrantRetriever(BaseRetriever):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     async def _aget_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+        self, query: str, *, run_manager: AsyncCallbackManagerForRetrieverRun
     ) -> list[Document]:
         """Retrieve relevant documents asynchronously."""
         query_vector = await self.embeddings.aembed_query(query)
@@ -43,13 +46,18 @@ class AsyncQdrantRetriever(BaseRetriever):
             limit=self.k,
             query_filter=self.filter,
         )
-        return [
-            Document(
-                page_content=r.payload.get("page_content", ""),
-                metadata={k: v for k, v in r.payload.items() if k != "page_content"},
-            )
-            for r in results.points
-        ]
+        docs: list[Document] = []
+        for r in results.points:
+            if r.payload is not None:
+                docs.append(
+                    Document(
+                        page_content=r.payload.get("page_content", ""),
+                        metadata={
+                            k: v for k, v in r.payload.items() if k != "page_content"
+                        },
+                    )
+                )
+        return docs
 
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun
@@ -92,7 +100,7 @@ def build_embeddings(settings: Settings) -> Embeddings:
     """Create an embedding model based on ``settings.embedding_provider``."""
     if settings.embedding_provider == "openai":
         try:
-            from langchain_openai import OpenAIEmbeddings
+            from langchain_openai import OpenAIEmbeddings  # type: ignore[import-not-found]
         except ImportError as exc:
             raise ImportError(
                 "Install the 'openai_compatible' extra: "
@@ -120,7 +128,7 @@ def build_embeddings(settings: Settings) -> Embeddings:
 
     # Default: Ollama
     try:
-        from langchain_ollama import OllamaEmbeddings
+        from langchain_ollama import OllamaEmbeddings  # type: ignore[import-not-found]
     except ImportError as exc:
         raise ImportError(
             "Install the 'ollama' extra: uv sync --extra ollama"
@@ -165,21 +173,25 @@ def build_vectorstore(
     # Pre-check: does the collection exist?
     # Note: client is expected to have get_collection method (sync or mock)
     try:
-        client.get_collection(collection_name)
+        client.get_collection(collection_name)  # type: ignore[unused-coroutine]
     except (UnexpectedResponse, Exception) as exc:
         raise CollectionNotFoundError(
             f"Qdrant collection '{collection_name}' does not exist yet. "
             f"Upload and index a document first."
         ) from exc
 
-    kwargs = dict(
-        client=client,
+    if sparse_embedding is not None:
+        return QdrantVectorStore(
+            client=client,  # type: ignore[arg-type]
+            collection_name=collection_name,
+            embedding=embeddings,
+            sparse_embedding=sparse_embedding,
+        )
+    return QdrantVectorStore(
+        client=client,  # type: ignore[arg-type]
         collection_name=collection_name,
         embedding=embeddings,
     )
-    if sparse_embedding is not None:
-        kwargs["sparse_embedding"] = sparse_embedding
-    return QdrantVectorStore(**kwargs)
 
 
 def build_retriever(

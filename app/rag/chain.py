@@ -12,8 +12,8 @@ from langchain_core.runnables import RunnablePassthrough
 
 if TYPE_CHECKING:
     from langchain_core.language_models import BaseChatModel
+    from langchain_core.retrievers import BaseRetriever
     from langchain_core.runnables import Runnable
-    from langchain_core.vectorstores import VectorStoreRetriever
 
     from app.config import Settings
 
@@ -53,7 +53,7 @@ def build_llm(settings: Settings) -> BaseChatModel:
     """Create a chat LLM instance based on ``settings.llm_provider``."""
     if settings.llm_provider == "openai":
         try:
-            from langchain_openai import ChatOpenAI
+            from langchain_openai import ChatOpenAI  # type: ignore[import-not-found]
         except ImportError as exc:
             raise ImportError(
                 "Install the 'openai_compatible' extra: "
@@ -83,7 +83,7 @@ def build_llm(settings: Settings) -> BaseChatModel:
 
     # Default: Ollama
     try:
-        from langchain_ollama import ChatOllama
+        from langchain_ollama import ChatOllama  # type: ignore[import-not-found]
     except ImportError as exc:
         raise ImportError(
             "Install the 'ollama' extra: uv sync --extra ollama"
@@ -96,21 +96,21 @@ def build_llm(settings: Settings) -> BaseChatModel:
 
 
 def build_rag_chain(
-    retriever: VectorStoreRetriever,
+    retriever: BaseRetriever,
     llm: BaseChatModel,
     *,
-    system_prompt: str,
+    system_prompt: str | None,
     include_metadata: bool = False,
 ) -> Runnable:
     """Build a RAG chain: retrieve -> format context -> prompt -> LLM -> text."""
-    prompt_template = system_prompt
+    prompt_template = system_prompt or ""
     prompt = ChatPromptTemplate.from_messages([
         ("system", prompt_template),
         ("human", "{question}"),
     ])
 
     formatter = _format_docs_with_metadata if include_metadata else _format_docs
-    chain = (
+    chain: Runnable = (
         {"context": retriever | formatter, "question": RunnablePassthrough()}
         | prompt
         | llm
