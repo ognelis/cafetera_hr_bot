@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -118,34 +118,38 @@ def test_build_vectorstore_with_sparse():
 # ── index_chunks ──────────────────────────────────────────────────
 
 
-def test_index_chunks_passes_sparse_embedding():
-    """index_chunks() called with sparse_embedding passes it to QdrantVectorStore constructor."""
-    mock_client = MagicMock()
+async def test_index_chunks_uses_sparse_embedding():
+    """index_chunks() with sparse_embedding produces combined dense+sparse points in a single upsert."""
+    mock_client = AsyncMock()
     mock_embeddings = MagicMock()
+    mock_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]]
     mock_sparse = MagicMock()
+    mock_sparse.embed_documents.return_value = [
+        MagicMock(indices=[1, 2], values=[0.5, 0.5]),
+    ]
 
-    mock_chunk = MagicMock()
-    mock_chunk.model_copy.return_value = MagicMock(
+    from langchain_core.documents import Document as LCDocument
+
+    mock_chunk = LCDocument(
         page_content="test content",
-        metadata={},
+        metadata={"chunk_id": "test-chunk-id-123"},
     )
 
-    # Patch where the import happens (langchain_qdrant.QdrantVectorStore)
-    with patch("langchain_qdrant.QdrantVectorStore") as mock_vs_cls:
-        index_chunks(
-            client=mock_client,
-            embeddings=mock_embeddings,
-            collection_name="test_collection",
-            chunks=[mock_chunk],
-            sparse_embedding=mock_sparse,
-        )
-
-    mock_vs_cls.assert_called_once_with(
+    await index_chunks(
         client=mock_client,
+        embeddings=mock_embeddings,
         collection_name="test_collection",
-        embedding=mock_embeddings,
+        chunks=[mock_chunk],
         sparse_embedding=mock_sparse,
     )
+
+    # Single upsert with combined dense + sparse vectors
+    assert mock_client.upsert.call_count == 1
+    call_kwargs = mock_client.upsert.call_args.kwargs
+    assert call_kwargs["collection_name"] == "test_collection"
+    point = call_kwargs["points"][0]
+    assert "" in point.vector
+    assert "text-sparse" in point.vector
 
 
 # ── QAService ─────────────────────────────────────────────────────

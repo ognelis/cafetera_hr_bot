@@ -11,11 +11,11 @@ import uuid
 from typing import TYPE_CHECKING
 
 from qdrant_client import models
+from qdrant_client.async_qdrant_client import AsyncQdrantClient
 
 if TYPE_CHECKING:
     from langchain_core.documents import Document as LCDocument
     from langchain_core.embeddings import Embeddings
-    from qdrant_client import QdrantClient
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,8 @@ def prepare_chunks(
     return enriched
 
 
-def index_chunks(
-    client: QdrantClient,
+async def index_chunks(
+    client: AsyncQdrantClient,
     embeddings: Embeddings,
     collection_name: str,
     chunks: list[LCDocument],
@@ -57,27 +57,61 @@ def index_chunks(
 
     The collection must already exist.  Returns the number of indexed chunks.
     """
-    from langchain_qdrant import QdrantVectorStore
-
     if not chunks:
         return 0
 
-    kwargs = dict(client=client, collection_name=collection_name, embedding=embeddings)
+    # Compute embeddings for all chunks
+    texts = [chunk.page_content for chunk in chunks]
+    vectors = embeddings.embed_documents(texts)
+
+    # Compute sparse embeddings if provided
+    sparse_vectors = None
     if sparse_embedding is not None:
-        kwargs["sparse_embedding"] = sparse_embedding
-    vs = QdrantVectorStore(**kwargs)
-    vs.add_documents(chunks)
+        sparse_vectors = sparse_embedding.embed_documents(texts)
+
+    # Build points for upsert (dense + sparse in one point)
+    points = []
+    for i, chunk in enumerate(chunks):
+        point_id = chunk.metadata.get("chunk_id", uuid.uuid4().hex)
+        payload = {
+            "page_content": chunk.page_content,
+            "metadata": chunk.metadata,
+        }
+        vector: dict | list = vectors[i]
+        if sparse_vectors is not None:
+            sv = sparse_vectors[i]
+            vector = {
+                "": vectors[i],
+                "text-sparse": models.SparseVector(
+                    indices=sv.indices,
+                    values=sv.values,
+                ),
+            }
+        points.append(
+            models.PointStruct(
+                id=point_id,
+                vector=vector,
+                payload=payload,
+            )
+        )
+
+    # Upsert to Qdrant
+    await client.upsert(
+        collection_name=collection_name,
+        points=points,
+    )
+
     logger.info("Indexed %d chunk(s) in '%s'", len(chunks), collection_name)
     return len(chunks)
 
 
-def delete_document_chunks(
-    client: QdrantClient,
+async def delete_document_chunks(
+    client: AsyncQdrantClient,
     collection_name: str,
     document_id: str,
 ) -> None:
     """Delete all vector chunks belonging to the given document."""
-    client.delete(
+    await client.delete(
         collection_name=collection_name,
         points_selector=models.FilterSelector(
             filter=models.Filter(
@@ -97,8 +131,8 @@ def delete_document_chunks(
     )
 
 
-def set_search_enabled(
-    client: QdrantClient,
+async def set_search_enabled(
+    client: AsyncQdrantClient,
     collection_name: str,
     document_id: str,
     *,
@@ -109,7 +143,7 @@ def set_search_enabled(
     Uses Qdrant dot-notation payload update so other metadata fields
     are not affected.
     """
-    client.set_payload(
+    await client.set_payload(
         collection_name=collection_name,
         payload={"metadata.is_search_enabled": enabled},
         points=models.FilterSelector(
@@ -131,13 +165,13 @@ def set_search_enabled(
     )
 
 
-def count_document_chunks(
-    client: QdrantClient,
+async def count_document_chunks(
+    client: AsyncQdrantClient,
     collection_name: str,
     document_id: str,
 ) -> int:
     """Return the number of chunks belonging to a document in Qdrant."""
-    result = client.count(
+    result = await client.count(
         collection_name=collection_name,
         count_filter=models.Filter(
             must=[

@@ -22,13 +22,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from langchain_core.documents import Document as LCDocument
-from langchain_qdrant import QdrantVectorStore
+from qdrant_client import AsyncQdrantClient, models
 
 # Allow running from project root
 sys.path.insert(0, ".")
 
 from app.config import Settings, configure_logging
-from app.rag.indexer import prepare_chunks
+from app.rag.indexer import index_chunks, prepare_chunks
 from app.rag.parser import load_document
 from app.rag.retriever import build_embeddings, build_qdrant_client, build_sparse_embeddings
 from app.storage.database import init_db
@@ -119,25 +119,42 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
     logger.info("Total: %d chunk(s) from %d file(s)", len(all_docs), len(all_files))
 
     # Recreate collection for a clean ingest
-    from qdrant_client import QdrantClient
-
-    client: QdrantClient = build_qdrant_client(settings)
+    client: AsyncQdrantClient = build_qdrant_client(settings)
     try:
         collection = settings.qdrant_collection
-        if client.collection_exists(collection):
-            client.delete_collection(collection)
+        if await client.collection_exists(collection):
+            await client.delete_collection(collection)
             logger.info("Deleted existing collection '%s'", collection)
 
-        kwargs = dict(
-            documents=all_docs,
-            embedding=embeddings,
-            url=settings.qdrant_url,
-            api_key=settings.qdrant_api_key,
-            collection_name=collection,
+        # Create collection with proper vector configuration
+        test_embedding = embeddings.embed_documents(["test"])
+        vector_size = len(test_embedding[0])
+        vectors_config = models.VectorParams(
+            size=vector_size,
+            distance=models.Distance.COSINE,
         )
+        sparse_vectors_config = None
         if sparse is not None:
-            kwargs["sparse_embedding"] = sparse
-        QdrantVectorStore.from_documents(**kwargs)
+            sparse_vectors_config = {
+                "text-sparse": models.SparseVectorParams(
+                    index=models.SparseIndexParams(on_disk=False),
+                )
+            }
+        await client.create_collection(
+            collection_name=collection,
+            vectors_config=vectors_config,
+            sparse_vectors_config=sparse_vectors_config,
+        )
+        logger.info("Created collection '%s' with vector_size=%d", collection, vector_size)
+
+        # Index chunks using async indexer
+        await index_chunks(
+            client=client,
+            embeddings=embeddings,
+            collection_name=collection,
+            chunks=all_docs,
+            sparse_embedding=sparse,
+        )
         logger.info(
             "Ingestion complete: %d chunk(s) stored in '%s'",
             len(all_docs),
@@ -162,7 +179,7 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
             )
         raise
     finally:
-        client.close()
+        await client.close()
 
     return len(all_docs)
 

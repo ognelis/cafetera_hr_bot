@@ -68,11 +68,14 @@ def settings(db_path):
 
 @pytest.fixture()
 def mock_qdrant():
-    client = MagicMock()
-    client.delete = MagicMock()
-    client.set_payload = MagicMock()
-    client.count = MagicMock(return_value=MagicMock(count=0))
-    client.close = MagicMock()
+    client = AsyncMock()
+    client.delete = AsyncMock()
+    client.set_payload = AsyncMock()
+    client.count = AsyncMock(return_value=AsyncMock(count=0))
+    client.close = AsyncMock()
+    client.upsert = AsyncMock()
+    client.collection_exists = AsyncMock(return_value=True)
+    client.create_collection = AsyncMock()
     return client
 
 

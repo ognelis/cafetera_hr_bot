@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
     from langchain_core.language_models import BaseChatModel
     from langchain_core.runnables import Runnable
-    from qdrant_client import QdrantClient
+    from qdrant_client import AsyncQdrantClient
 
     from app.config import Settings
 
@@ -51,7 +51,7 @@ class QAService:
         self,
         *,
         chain: Runnable | None = None,
-        qdrant_client: QdrantClient | None = None,
+        qdrant_client: AsyncQdrantClient | None = None,
         embeddings: Embeddings | None = None,
         llm: BaseChatModel | None = None,
         settings: Settings | None = None,

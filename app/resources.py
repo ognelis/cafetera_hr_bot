@@ -32,11 +32,11 @@ from app.storage.s3 import S3Storage
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
     from langchain_core.language_models import BaseChatModel
-    from qdrant_client import QdrantClient
+    from qdrant_client import AsyncQdrantClient
 
 
-def _ensure_collection(
-    client: QdrantClient,
+async def _ensure_collection(
+    client: AsyncQdrantClient,
     embeddings: Embeddings,
     settings: Settings,
     sparse_embedding=None,
@@ -53,7 +53,7 @@ def _ensure_collection(
     collection_name = settings.qdrant_collection
 
     # Check if collection already exists
-    if client.collection_exists(collection_name):
+    if await client.collection_exists(collection_name):
         logger.info("Qdrant collection '%s' already exists", collection_name)
         return
 
@@ -87,7 +87,7 @@ def _ensure_collection(
         logger.info("Hybrid search enabled - adding sparse vector configuration")
 
     # Create the collection
-    client.create_collection(
+    await client.create_collection(
         collection_name=collection_name,
         vectors_config=vectors_config,
         sparse_vectors_config=sparse_vectors_config,
@@ -111,7 +111,7 @@ class AppResources:
     """
 
     settings: Settings
-    qdrant_client: QdrantClient | None = None
+    qdrant_client: AsyncQdrantClient | None = None
     embeddings: Embeddings | None = None
     llm: BaseChatModel | None = None
     s3: S3Storage | None = None
@@ -165,7 +165,7 @@ async def build_resources(
             res.s3 = None
 
     # 2. Qdrant client and embeddings
-    qdrant_client: QdrantClient | None = None
+    qdrant_client: AsyncQdrantClient | None = None
     embeddings: Embeddings | None = None
     try:
         qdrant_client = build_qdrant_client(settings)
@@ -176,7 +176,7 @@ async def build_resources(
     except Exception:
         if qdrant_client is not None:
             try:
-                qdrant_client.close()
+                await qdrant_client.close()
             except Exception:
                 logger.warning("Error closing Qdrant client during init failure", exc_info=True)
             qdrant_client = None
@@ -241,7 +241,7 @@ async def build_resources(
     if qdrant_client is not None and embeddings is not None:
         try:
             # Ensure collection exists before building retriever
-            _ensure_collection(
+            await _ensure_collection(
                 qdrant_client,
                 embeddings,
                 settings,
@@ -325,7 +325,7 @@ async def close_resources(res: AppResources) -> None:
     # 2. Close Qdrant client if present
     if res.qdrant_client is not None:
         try:
-            res.qdrant_client.close()
+            await res.qdrant_client.close()
         except Exception:
             logger.warning("Error closing Qdrant client", exc_info=True)
 

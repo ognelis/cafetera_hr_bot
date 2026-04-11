@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from langchain_core.documents import Document as LCDocument
@@ -58,10 +58,10 @@ async def repo(tmp_path):
 
 @pytest.fixture()
 def mock_qdrant():
-    client = MagicMock()
-    client.delete = MagicMock()
-    client.set_payload = MagicMock()
-    client.count = MagicMock(return_value=MagicMock(count=0))
+    client = AsyncMock()
+    client.delete = AsyncMock()
+    client.set_payload = AsyncMock()
+    client.count = AsyncMock(return_value=AsyncMock(count=0))
     return client
 
 
@@ -124,7 +124,7 @@ class TestCreateDocument:
 
 
 class TestIndexDocument:
-    @patch("app.domain.document_service.index_chunks", return_value=3)
+    @patch("app.domain.document_service.index_chunks", new_callable=AsyncMock, return_value=3)
     async def test_indexes_and_updates_metadata(self, mock_index, service, repo):
         rec = _make_record()
         await repo.create(rec)
@@ -138,7 +138,7 @@ class TestIndexDocument:
         assert result.error is None
         mock_index.assert_called_once()
 
-    @patch("app.domain.document_service.index_chunks", side_effect=RuntimeError("Qdrant down"))
+    @patch("app.domain.document_service.index_chunks", new_callable=AsyncMock, side_effect=RuntimeError("Qdrant down"))
     async def test_marks_failed_on_error(self, mock_index, service, repo):
         rec = _make_record()
         await repo.create(rec)
@@ -153,7 +153,7 @@ class TestIndexDocument:
         result = await service.index_document("nonexistent", _make_chunks())
         assert result is None
 
-    @patch("app.domain.document_service.index_chunks", return_value=2)
+    @patch("app.domain.document_service.index_chunks", new_callable=AsyncMock, return_value=2)
     async def test_passes_is_search_enabled_to_chunks(self, mock_index, service, repo):
         rec = _make_record(is_search_enabled=False)
         await repo.create(rec)
@@ -242,8 +242,8 @@ class TestToggleSearch:
 
 
 class TestReindexDocument:
-    @patch("app.domain.document_service.index_chunks", return_value=5)
-    @patch("app.domain.document_service.delete_document_chunks")
+    @patch("app.domain.document_service.index_chunks", new_callable=AsyncMock, return_value=5)
+    @patch("app.domain.document_service.delete_document_chunks", new_callable=AsyncMock)
     async def test_reindexes_successfully(
         self, mock_delete, mock_index, service, repo
     ):
@@ -263,8 +263,8 @@ class TestReindexDocument:
         mock_delete.assert_called_once()
         mock_index.assert_called_once()
 
-    @patch("app.domain.document_service.index_chunks", side_effect=RuntimeError("fail"))
-    @patch("app.domain.document_service.delete_document_chunks")
+    @patch("app.domain.document_service.index_chunks", new_callable=AsyncMock, side_effect=RuntimeError("fail"))
+    @patch("app.domain.document_service.delete_document_chunks", new_callable=AsyncMock)
     async def test_marks_failed_on_error(
         self, mock_delete, mock_index, service, repo
     ):

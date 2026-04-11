@@ -40,12 +40,14 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced fire handler with new entity-based resignation flow using `CMD_FIRE_RESIGNATION` payload
-- Updated keyboard system with new `FIRE_RESIGNATION_ENTITY_CMD` for entity selection
-- Improved document attachment system with `send_category_document` helper for template delivery
-- Updated handler count from 25 to 27 handlers across all VK integration modules
-- Enhanced test infrastructure with updated handler expectations and validation patterns
-- Integrated CategoryFileService into fire handler for company-specific resignation templates
+- Enhanced error handling consistency with new require_entity decorators and @catch_entity_error decorators
+- Replaced get_entity_or_error pattern with require_entity functions and @catch_entity_error decorators for improved error handling across fire.py and handlers/__init__.y modules
+- Added EntityNotFoundError class for consistent entity validation error handling
+- Updated handler registration and ordering with improved error handling patterns
+- Enhanced fire handler with require_entity decorator integration
+- Improved error handling patterns in hire handler with @catch_entity_error decorators
+- Updated vacation handler to maintain backward compatibility with get_entity_or_error pattern
+- Enhanced test infrastructure with updated error handling expectations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -58,17 +60,18 @@
 8. [Document Template Management System](#document-template-management-system)
 9. [QA Service and RAG Integration](#qa-service-and-rag-integration)
 10. [Enhanced Fire Handler with Entity-Based Resignation Flow](#enhanced-fire-handler-with-entity-based-resignation-flow)
-11. [Detailed Component Analysis](#detailed-component-analysis)
-12. [Dependency Analysis](#dependency-analysis)
-13. [Performance Considerations](#performance-considerations)
-14. [Troubleshooting Guide](#troubleshooting-guide)
-15. [Conclusion](#conclusion)
-16. [Appendices](#appendices)
+11. [Enhanced Error Handling with Decorators](#enhanced-error-handling-with-decorators)
+12. [Detailed Component Analysis](#detailed-component-analysis)
+13. [Dependency Analysis](#dependency-analysis)
+14. [Performance Considerations](#performance-considerations)
+15. [Troubleshooting Guide](#troubleshooting-guide)
+16. [Conclusion](#conclusion)
+17. [Appendices](#appendices)
 
 ## Introduction
 This document explains the VKontakte integration system built with the vkbottle framework, featuring a comprehensive QA service integration for Retrieval-Augmented Generation (RAG) processing across all HR-related handlers. The system implements a bot factory pattern with centralized state dispenser sharing, advanced handler registration and ordering, payload-based navigation, and sophisticated VK API integration patterns. It covers bot initialization, message routing, RAG-powered content delivery, and practical guidance for extending the bot with new handlers, customizing behavior, and integrating with VK's webhook system. Common integration challenges, robust error handling, and best practices for VK bot development are addressed.
 
-**Updated** The system now features an enhanced fire handler with entity-based resignation flow, improved document attachment capabilities, and expanded handler count from 25 to 27 handlers. The new resignation flow allows employees to select their legal entity and receive company-specific resignation templates, demonstrating the system's commitment to customization and user experience enhancement.
+**Updated** The system now features enhanced error handling consistency with new require_entity decorators and @catch_entity_error decorators, providing improved reliability and user experience across all HR-related handlers. The new error handling patterns replace the previous get_entity_or_error pattern with more consistent and maintainable approaches.
 
 ## Project Structure
 The VK integration resides under app/integrations/vk and includes:
@@ -77,7 +80,7 @@ The VK integration resides under app/integrations/vk and includes:
 - Keyboard builders for consistent UI and payload-driven navigation
 - State definitions for multi-step dialogs using centralized state dispenser
 - A domain-level QA service that provides RAG processing capabilities
-- Enhanced fire handler with entity-based resignation flow and document template attachment
+- Enhanced fire handler with entity-based resignation flow and improved error handling
 - A new document attachment system for delivering company-specific templates
 - Tests validating factory wiring, keyboard layouts, state definitions, QA service integration, and enhanced handler functionality
 
@@ -99,6 +102,11 @@ STATES["states.py<br/>Dialog states"]
 UTILS["handlers/__init__.py<br/>Centralized state & QA access"]
 RULES["rules.py<br/>Custom payload rules"]
 ENTITIES["entities.py<br/>Updated legal entities"]
+end
+subgraph "Enhanced Error Handling"
+REQUIRE_ENTITY["require_entity<br/>Entity validation function"]
+CATCH_ERROR["@catch_entity_error<br/>Error handling decorator"]
+ENTITY_NOT_FOUND["EntityNotFoundError<br/>Exception class"]
 end
 subgraph "Enhanced Fire Flow"
 FIRE_MENU["Fire menu keyboard<br/>Resignation & grounds"]
@@ -137,6 +145,9 @@ HIRE --> UTILS
 UTILS --> QA_SERVICE
 UTILS --> STATES
 UTILS --> ENTITIES
+UTILS --> REQUIRE_ENTITY
+UTILS --> CATCH_ERROR
+UTILS --> ENTITY_NOT_FOUND
 KEYBOARDS --> FIRE_MENU
 KEYBOARDS --> ENTITY_SELECT
 FIRE_MENU --> DOC_ATTACHMENT
@@ -182,13 +193,14 @@ TESTS --> ATTACHMENTS
 - Handlers: Define message routes for start, main menu navigation, section entry points, dedicated ask-a-question functionality, and multi-step HR request workflows
 - Centralized QA utilities: Provide unified access patterns for QA service initialization, retrieval, and error handling across all handlers
 - QA Service: Provides centralized RAG processing with proper resource management, error handling, and VK message length truncation
-- Enhanced fire handler: Implements entity-based resignation flow with document template attachment and fallback to RAG responses
+- Enhanced fire handler: Implements entity-based resignation flow with document template attachment and improved error handling using decorators
 - Document attachment system: Provides helper functions for sending S3-stored documents as VK message attachments
 - Keyboard builders: Provide consistent UI and payload constants for navigation, including new entity selection flows
 - States: Define multi-step dialog states for complex HR workflows using centralized state dispenser
 - Legal entities: Manage company information with updated names and centralized entity lookup
 - Local runner: Initializes Settings and starts the bot in Long Poll mode with proper resource management
 - Resource management: Handles graceful initialization and cleanup of RAG resources and enhanced service components
+- **New** Enhanced error handling system: Provides consistent entity validation and error handling across all handlers using require_entity functions and @catch_entity_error decorators
 
 Key implementation references:
 - Factory and handler loading order with centralized state sharing: [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
@@ -207,14 +219,15 @@ Key implementation references:
 - Local runner with resource management: [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
 - Settings: [config.py:4-9](file://app/config.py#L4-L9)
 - Resource management: [resources.py:51-165](file://app/resources.py#L51-L165)
+- **New** Enhanced error handling system: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
 
 **Section sources**
 - [bot.py:24-59](file://app/integrations/vk/bot.py#L24-L59)
-- [handlers/__init__.py:13-63](file://app/integrations/vk/handlers/__init__.py#L13-L63)
+- [handlers/__init__.py:13-171](file://app/integrations/vk/handlers/__init__.py#L13-L171)
 - [qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
 - [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
-- [hire.py:1-98](file://app/integrations/vk/handlers/hire.py#L1-L98)
-- [fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
+- [hire.py:1-119](file://app/integrations/vk/handlers/hire.py#L1-L119)
+- [fire.py:1-76](file://app/integrations/vk/handlers/fire.py#L1-L76)
 - [pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
 - [vacation.py:1-134](file://app/integrations/vk/handlers/vacation.py#L1-L134)
 - [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
@@ -233,8 +246,9 @@ The VK bot follows a modular architecture with integrated RAG capabilities and c
 - The centralized utilities module provides consistent error handling and resource management across all handlers
 - Payload constants drive navigation across screens, ensuring consistent UX
 - Optional state groups enable multi-step dialogs with sophisticated HR workflows
-- Enhanced fire handler implements entity-based resignation flow with document template attachment
+- Enhanced fire handler implements entity-based resignation flow with document template attachment and improved error handling
 - Resource management handles graceful initialization and cleanup of RAG components and enhanced service components
+- **New** Enhanced error handling system provides consistent entity validation and error handling across all handlers using require_entity functions and @catch_entity_error decorators
 
 ```mermaid
 sequenceDiagram
@@ -383,6 +397,9 @@ class VKHandlersUtils {
 + get_state_dispenser() BuiltinStateDispenser
 + send_rag_answer(message, question, back_payload) None
 + get_entity_or_error(message, entity_id, back_payload) Entity | None
++ require_entity(message, entity_id, back_payload) Entity
++ catch_entity_error(handler) decorator
++ EntityNotFoundError exception
 }
 class Holder {
 + qa : QAService | None
@@ -569,7 +586,7 @@ Fallback --> End
 **Updated** The enhanced fire handler now provides company-specific resignation templates through the document attachment system, with automatic fallback to RAG responses when templates are unavailable. This demonstrates the system's commitment to providing accurate, company-specific HR documentation.
 
 **Section sources**
-- [fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
+- [fire.py:1-76](file://app/integrations/vk/handlers/fire.py#L1-L76)
 - [attachments.py:1-121](file://app/integrations/vk/attachments.py#L1-L121)
 - [entities.py:1-24](file://app/domain/entities.py#L1-L24)
 
@@ -714,10 +731,66 @@ EntitySelectionKeyboard --> PayloadConstants : uses
 **Updated** The fire handler now provides a comprehensive entity-based resignation flow with document template delivery, representing a significant enhancement to the HR workflow capabilities. The system maintains backward compatibility while adding sophisticated company-specific template support.
 
 **Section sources**
-- [fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
+- [fire.py:1-76](file://app/integrations/vk/handlers/fire.py#L1-L76)
 - [keyboards.py:179-185](file://app/integrations/vk/keyboards.py#L179-L185)
 - [keyboards.py:129-152](file://app/integrations/vk/keyboards.py#L129-L152)
 - [keyboards.py:42-44](file://app/integrations/vk/keyboards.py#L42-L44)
+
+## Enhanced Error Handling with Decorators
+
+### New Error Handling System
+The system now features enhanced error handling consistency using require_entity functions and @catch_entity_error decorators:
+
+```mermaid
+classDiagram
+class EntityNotFoundError {
++message : str
++raised by require_entity when entity lookup fails
++sends error message to user before raising
+}
+class CatchEntityErrorDecorator {
++catch_entity_error(handler) decorator
++silently returns if handler raises EntityNotFoundError
++prevents error propagation to user
+}
+class RequireEntityFunction {
++require_entity(message, entity_id, back_payload) Entity
++look up entity by ID
++raise EntityNotFoundError if not found
++send error message to user before raising
+}
+class GetEntityOrErrorFunction {
++get_entity_or_error(message, entity_id, back_payload) Entity | None
++look up entity by ID
++return None if not found
++send error message to user and return None
+}
+class ErrorHandlerPattern {
++Old Pattern : get_entity_or_error + manual None checks
++New Pattern : require_entity + @catch_entity_error decorator
++Consistent error handling across all handlers
+}
+EntityNotFoundError <|-- ErrorHandlerPattern
+CatchEntityErrorDecorator --> ErrorHandlerPattern : implements
+RequireEntityFunction --> ErrorHandlerPattern : implements
+GetEntityOrErrorFunction --> ErrorHandlerPattern : legacy pattern
+```
+
+**Diagram sources**
+- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
+
+### Error Handling Patterns in Handlers
+The new error handling system provides consistent patterns across all HR-related handlers:
+
+**Updated** The fire handler now uses `@catch_entity_error` decorator combined with `require_entity` function for improved error handling. The hire handler also uses the same pattern for entity validation. The vacation handler maintains backward compatibility with the `get_entity_or_error` pattern for continued support.
+
+**Section sources**
+- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
+- [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
 
 ## Detailed Component Analysis
 
@@ -727,9 +800,9 @@ EntitySelectionKeyboard --> PayloadConstants : uses
 - It loads 27 labelers in a specific order: start, ask, hire, fire, vacation, pay, sections, fallback
 - The order is crucial because vkbottle evaluates handlers top-to-bottom; fallback must be last to avoid intercepting intended matches
 - The QA service is initialized during bot creation and registered with the centralized utilities module for consistent access patterns
-- Enhanced fire handler is now included in the handler registration process
+- Enhanced fire handler is now included in the handler registration process with improved error handling patterns
 
-**Updated** The factory now registers 27 total handlers across all VK integration modules, with the enhanced fire handler providing comprehensive entity-based resignation flow. The handler registration order ensures proper routing precedence with fallback as the last handler.
+**Updated** The factory now registers 27 total handlers across all VK integration modules, with the enhanced fire handler providing comprehensive entity-based resignation flow and improved error handling using decorators. The handler registration order ensures proper routing precedence with fallback as the last handler.
 
 ```mermaid
 flowchart TD
@@ -760,6 +833,7 @@ Log --> ReturnBot(["Return Bot"])
 - Enhanced fire workflow provides two-step entity selection process for resignation flow
 - Document attachment system delivers company-specific templates based on entity selection
 - QA service integration provides fallback content when templates are unavailable
+- **New** Enhanced error handling system provides consistent entity validation across all handlers using require_entity functions and @catch_entity_error decorators
 
 ```mermaid
 sequenceDiagram
@@ -785,7 +859,7 @@ User->>Bot : Payload "cmd_fire"
 Bot->>Fire : Match payload route
 Fire->>SD : get_state_dispenser().set()
 SD-->>Fire : State set
-Fire->>Utils : get_entity_or_error()
+Fire->>Utils : require_entity()
 Utils-->>Fire : Entity validation
 Fire->>Attachments : send_category_document()
 Attachments-->>Fire : Template delivery or fallback
@@ -810,12 +884,12 @@ Fallback-->>User : Prompt to use menu
 **Section sources**
 - [start.py:14-50](file://app/integrations/vk/handlers/start.py#L14-L50)
 - [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
-- [hire.py:1-98](file://app/integrations/vk/handlers/hire.py#L1-L98)
-- [fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
+- [hire.py:1-119](file://app/integrations/vk/handlers/hire.py#L1-L119)
+- [fire.py:1-76](file://app/integrations/vk/handlers/fire.py#L1-L76)
 - [vacation.py:1-134](file://app/integrations/vk/handlers/vacation.py#L1-L134)
 - [pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
 - [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
-- [handlers/__init__.py:13-63](file://app/integrations/vk/handlers/__init__.py#L13-L63)
+- [handlers/__init__.py:13-171](file://app/integrations/vk/handlers/__init__.py#L13-L171)
 - [fallback.py:9-18](file://app/integrations/vk/handlers/fallback.py#L9-L18)
 - [keyboards.py:13-108](file://app/integrations/vk/keyboards.py#L13-L108)
 
@@ -1034,6 +1108,17 @@ The sections handler now uses the new `send_rag_answer()` helper function for co
 **Section sources**
 - [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
 
+### Enhanced Error Handling Implementation
+The new error handling system provides consistent patterns across all handlers:
+
+**Updated** The enhanced error handling system replaces the previous get_entity_or_error pattern with require_entity functions and @catch_entity_error decorators. The fire handler now uses `@catch_entity_error` decorator combined with `require_entity` function for improved error handling. The hire handler also uses the same pattern. The vacation handler maintains backward compatibility with the `get_entity_or_error` pattern for continued support.
+
+**Section sources**
+- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
+- [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
+
 ## Dependency Analysis
 External dependencies relevant to VK integration:
 - vkbottle is the primary framework for VK bot development
@@ -1114,6 +1199,8 @@ Tests --> Cfg
 - **New** Document attachment system provides scalable template delivery with lazy initialization and proper error handling
 - **New** Enhanced keyboard system with entity selection provides better user experience for multi-step workflows
 - **New** Improved test infrastructure validates enhanced handler functionality and handler count expectations
+- **New** Enhanced error handling system provides consistent patterns across all handlers using require_entity functions and @catch_entity_error decorators
+- **New** EntityNotFoundError class provides clear error semantics for entity validation failures
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -1178,6 +1265,15 @@ Common issues and resolutions:
   - Verify factory registers all 27 handlers correctly
   - Check test expectations for updated handler counts
   - Ensure proper handler ordering with fallback as last
+- **New** Error handling issues:
+  - Verify @catch_entity_error decorator is properly imported and applied
+  - Check that require_entity function is used instead of get_entity_or_error
+  - Ensure EntityNotFoundError is properly handled by decorators
+  - Verify error handling consistency across all handlers
+- **New** Entity validation issues:
+  - Check that entity IDs are properly extracted from payload data
+  - Verify ENTITY_BY_ID dictionary contains all required entities
+  - Ensure error messages are sent to users before raising exceptions
 
 Validation references:
 - Handler order and counts: [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -1188,6 +1284,10 @@ Validation references:
 - Enhanced fire handler functionality: [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
 - Document attachment system: [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
 - State dispenser sharing: [test_bot_factory.py:82-86](file://tests/test_bot_factory.py#L82-L86)
+- **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
+- **New** Fire handler with decorators: [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
+- **New** Hire handler with decorators: [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
+- **New** Vacation handler with backward compatibility: [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
 
 **Section sources**
 - [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -1198,17 +1298,23 @@ Validation references:
 - [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
 - [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
 - [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
+- [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
 
 ## Conclusion
 The VK integration leverages a clean factory pattern with centralized state dispenser sharing, deterministic handler ordering, payload-driven navigation, and comprehensive RAG integration with centralized service management to deliver a sophisticated, extensible bot. The system now includes significant user experience improvements through intelligent timeout handling for RAG responses, automatic question context prepending, enhanced fire workflow with entity-based resignation flow, document template attachment capabilities, and updated legal entity definitions with new company names.
 
-**Updated** The system now features 27 total handlers across all VK integration modules, providing comprehensive HR coverage with enhanced user experience. The new enhanced fire handler provides company-specific resignation templates through the document attachment system, while the improved keyboard system supports sophisticated multi-step workflows. The centralized state management system ensures consistent state persistence across all handlers through a shared BuiltinStateDispenser instance, while the centralized QA service access layer provides consistent error handling and resource management across all HR-related handlers.
+**Updated** The system now features enhanced error handling consistency with new require_entity decorators and @catch_entity_error decorators, providing improved reliability and user experience across all HR-related handlers. The new error handling patterns replace the previous get_entity_or_error pattern with more consistent and maintainable approaches. The system now includes 27 total handlers across all VK integration modules, providing comprehensive HR coverage with enhanced user experience.
 
 The new `query_rag_with_wait()` function provides intelligent timeout detection that automatically sends "please wait" notifications when RAG responses take longer than 3 seconds, while the `send_rag_answer()` helper function standardizes RAG response handling across all handlers by automatically setting typing indicators, querying RAG with timeout handling, prepending question context, truncating responses to VK limits, and adding appropriate navigation keyboards.
 
 The enhanced fire handler with entity-based resignation flow represents a significant advancement in HR workflow automation, providing company-specific templates and seamless document delivery. The document attachment system ensures accurate, company-specific HR documentation while maintaining backward compatibility with RAG-based fallback responses.
 
-By following the established patterns—registering labelers in order, using shared keyboard builders, implementing centralized state management, integrating the centralized QA service access layer, and following the centralized initialization process—the system supports easy extension and maintenance. For production, consider migrating to VK webhooks, adding structured error handling and logging, and implementing proper QA service lifecycle management.
+The new enhanced error handling system provides consistent patterns across all handlers using require_entity functions and @catch_entity_error decorators, with EntityNotFoundError class providing clear error semantics for entity validation failures. The system maintains backward compatibility with the vacation handler's use of get_entity_or_error pattern while adopting the new patterns in fire and hire handlers.
+
+By following the established patterns—registering labelers in order, using shared keyboard builders, implementing centralized state management, integrating the centralized QA service access layer, following the centralized initialization process, and implementing consistent error handling patterns—the system supports easy extension and maintenance. For production, consider migrating to VK webhooks, adding structured error handling and logging, and implementing proper QA service lifecycle management.
 
 ## Appendices
 
@@ -1220,11 +1326,14 @@ Steps to add a new section:
   - Use `from app.integrations.vk.handlers import get_state_dispenser` for state management
   - Use `from app.integrations.vk.handlers import get_qa_service` for direct access
   - Use `from app.integrations.vk.handlers import send_rag_answer` for standardized RAG responses
+  - Use `from app.integrations.vk.handlers import require_entity` for entity validation
+  - Use `from app.integrations.vk.handlers import catch_entity_error` for error handling
 - Build a keyboard with the service row to ensure Back/Home/Contact HR are always available
 - Register the new labeler in the factory's loader list and ensure it precedes fallback
 - Update handler count expectations in tests
+- **New** Implement proper error handling using require_entity and @catch_entity_error patterns
 
-**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `app.integrations.vk.handlers` and using the provided utility functions for consistent error handling and resource management. Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. For multi-step workflows with template attachment, consider implementing document attachment system integration using the provided helper functions.
+**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `app.integrations.vk.handlers` and using the provided utility functions for consistent error handling and resource management. Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. For multi-step workflows with template attachment, consider implementing document attachment system integration using the provided helper functions. Implement proper error handling using require_entity and @catch_entity_error patterns for consistent error handling across all handlers.
 
 References:
 - Payload constants: [keyboards.py:13-24](file://app/integrations/vk/keyboards.py#L13-L24)
@@ -1236,6 +1345,10 @@ References:
 - Document attachment system: [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
 - **New** Timeout handling: [handlers/__init__.py:46-86](file://app/integrations/vk/handlers/__init__.py#L46-L86)
 - **New** State management patterns: [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
+- **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
+- **New** Fire handler with decorators: [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
+- **New** Hire handler with decorators: [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
+- **New** Vacation handler with backward compatibility: [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
 
 **Section sources**
 - [keyboards.py:13-50](file://app/integrations/vk/keyboards.py#L13-L50)
@@ -1243,6 +1356,10 @@ References:
 - [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
 - [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
 - [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
+- [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
 
 ### Integrating with VK Webhook System
 Guidance:
@@ -1253,17 +1370,20 @@ Guidance:
 - Implement proper error handling for webhook processing failures
 - Maintain the centralized QA service initialization patterns for consistent access across all handlers
 - Ensure state dispenser is properly shared between bot and handlers in webhook mode
+- **New** Implement consistent error handling patterns using require_entity and @catch_entity_error decorators in webhook mode
 
 References:
 - Bot initialization and token forwarding: [bot.py:45-58](file://app/integrations/vk/bot.py#L45-L58), [test_bot_factory.py:75-81](file://tests/test_bot_factory.py#L75-L81)
 - Handler registration: [bot.py:54-55](file://app/integrations/vk/bot.py#L54-L55)
 - Centralized state dispenser sharing: [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
 - Centralized QA service initialization: [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
+- **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
 
 **Section sources**
 - [bot.py:45-58](file://app/integrations/vk/bot.py#L45-L58)
 - [test_bot_factory.py:75-81](file://tests/test_bot_factory.py#L75-L81)
 - [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
+- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
 
 ### Best Practices for VK Bot Development
 - Keep handler order explicit and documented
@@ -1289,6 +1409,9 @@ References:
 - **New** Use document attachment system for all template-related operations with proper validation and error handling
 - **New** Implement comprehensive error handling for document upload failures and template availability
 - **New** Provide administrative UI for template management with proper validation and security measures
+- **New** Use require_entity functions and @catch_entity_error decorators for consistent error handling across all handlers
+- **New** Implement EntityNotFoundError class for clear error semantics in entity validation failures
+- **New** Maintain backward compatibility with existing handlers while adopting new error handling patterns
 
 ### Centralized State and Service Integration Patterns
 - Initialize state dispenser during bot creation and register with centralized utilities for immediate state management capabilities
@@ -1296,7 +1419,9 @@ References:
 - Use `from app.integrations.vk.handlers import get_state_dispenser` for all state management operations
 - Use `from app.integrations.vk.handlers import get_qa_service` for all HR-related content generation
 - Use `from app.integrations.vk.handlers import send_rag_answer` for standardized RAG response handling
-- Use `from app.integrations.vk.handlers import get_entity_or_error` for consistent entity validation
+- Use `from app.integrations.vk.handlers import get_entity_or_error` for entity validation (legacy pattern)
+- Use `from app.integrations.vk.handlers import require_entity` for entity validation (new pattern)
+- Use `from app.integrations.vk.handlers import catch_entity_error` for error handling (new pattern)
 - Implement proper error handling with fallback responses using centralized patterns
 - Truncate long responses to VK message limits automatically through centralized access
 - Close QA service during application shutdown using centralized management
@@ -1312,6 +1437,9 @@ References:
 - **New** Use document attachment system for all template operations with proper validation and error handling
 - **New** Implement comprehensive error handling for document upload failures and template availability
 - **New** Provide administrative UI for template management with proper validation and security measures
+- **New** Use require_entity functions and @catch_entity_error decorators for consistent error handling across all handlers
+- **New** Implement EntityNotFoundError class for clear error semantics in entity validation failures
+- **New** Maintain backward compatibility with existing handlers while adopting new error handling patterns
 
 **Section sources**
 - [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
@@ -1324,3 +1452,7 @@ References:
 - [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
 - [entities.py:16-24](file://app/domain/entities.py#L16-L24)
 - [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
+- [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)

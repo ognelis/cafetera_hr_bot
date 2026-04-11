@@ -5,6 +5,11 @@
 - [app/main.py](file://app/main.py)
 - [app/config.py](file://app/config.py)
 - [app/api/documents.py](file://app/api/documents.py)
+- [app/api/documents_auth.py](file://app/api/documents_auth.py)
+- [app/api/documents_upload.py](file://app/api/documents_upload.py)
+- [app/api/documents_bulk.py](file://app/api/documents_bulk.py)
+- [app/api/documents_qa.py](file://app/api/documents_qa.py)
+- [app/api/documents_helpers.py](file://app/api/documents_helpers.py)
 - [app/api/deps.py](file://app/api/deps.py)
 - [app/domain/document_service.py](file://app/domain/document_service.py)
 - [app/domain/entities.py](file://app/domain/entities.py)
@@ -39,6 +44,9 @@
 - [static/js/htmx.js](file://static/js/htmx.js)
 - [scripts/ingest.py](file://scripts/ingest.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
+- [tests/test_api_documents_auth.py](file://tests/test_api_documents_auth.py)
+- [tests/test_api_documents_upload.py](file://tests/test_api_documents_upload.py)
+- [tests/test_api_documents_bulk.py](file://tests/test_api_documents_bulk.py)
 - [tests/test_storage.py](file://tests/test_storage.py)
 - [tests/test_qa_service.py](file://tests/test_qa_service.py)
 - [pyproject.toml](file://pyproject.toml)
@@ -46,13 +54,14 @@
 
 ## Update Summary
 **Changes Made**
-- **Enhanced Document Indexing with HTMX Partial Responses**: Implemented centralized batch status polling system replacing individual row polling to reduce server load
-- **Improved Out-of-Band (OOB) Swapping Capabilities**: Added proper OOB swapping for dynamic document row updates with hx-swap-oob attributes
-- **Automatic Status Polling Activation**: Implemented automatic polling control that starts/stops based on active document count
-- **New Status Poller Partial Template**: Added dedicated status poller template for real-time monitoring of indexing operations
-- **Centralized Batch Status Updates**: Created unified endpoint '/partials/documents-status' for efficient status monitoring
-- **Recently Finished Documents Tracking**: Added 10-second tracking window for final status updates
-- **Enhanced HTMX Integration**: Improved HTMX partial responses with proper OOB swapping and polling management
+- **Major Architectural Refactoring**: System restructured from monolithic to modular document management with specialized routers
+- **Authentication Extraction**: Authentication, logout, and root redirect moved to dedicated `documents_auth.py` router
+- **Upload Functionality Extraction**: File upload and background indexing moved to dedicated `documents_upload.py` router
+- **Bulk Operations Extraction**: Delete, reindex, and search toggle operations moved to dedicated `documents_bulk.py` router
+- **QA Functionality Extraction**: Document-specific and global question-answering moved to dedicated `documents_qa.py` router
+- **Router Composition**: Main `documents.py` router maintains backward compatibility through router composition
+- **Enhanced Modular Organization**: Clear separation of concerns with specialized routers for different functional areas
+- **Maintained Backward Compatibility**: All existing API endpoints and functionality preserved through router composition
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -89,14 +98,22 @@
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-**Updated** The system now features enhanced document indexing functionality with improved HTMX partial responses that include proper OOB (out-of-band) swapping capabilities for dynamic document row updates and automatic status polling activation for processing documents. The new centralized batch status polling system dramatically reduces server load by eliminating N concurrent requests for individual row polling. A dedicated status poller partial template provides real-time monitoring of indexing operations with centralized batch status updates. The system maintains all existing functionality while adding revolutionary status tracking capabilities that automatically manage polling based on document activity.
+**Updated** The system has undergone a major architectural refactoring from a monolithic structure to a modular document management system. Authentication, upload, bulk operations, and QA functionality have been extracted to specialized routers (`documents_auth.py`, `documents_upload.py`, `documents_bulk.py`, `documents_qa.py`) while maintaining backward compatibility through router composition in the main `documents.py` file. This refactoring provides enhanced modularity, maintainability, and separation of concerns while preserving all existing functionality and API endpoints.
 
 ## System Architecture
 
-The Document Management System follows a layered architecture pattern with clear separation of concerns and enhanced concurrency control:
+The Document Management System follows a layered architecture pattern with clear separation of concerns and enhanced modular organization:
 
 ```mermaid
 graph TB
+subgraph "Modular Router Architecture"
+MainRouter[Main Documents Router]
+AuthRouter[Authentication Router]
+UploadRouter[Upload Router]
+BulkRouter[Bulk Operations Router]
+QARouter[QA Router]
+RouterComposition[Router Composition]
+end
 subgraph "Presentation Layer"
 WebUI[Web Interface]
 MobileSidebar[Overlay Mobile Sidebar]
@@ -122,10 +139,8 @@ HTMXOOBSwapping[HTMX OOB Swapping]
 EndUserExperience[Enhanced User Experience]
 end
 subgraph "Application Layer"
-API[FastAPI Router]
 Service[Document Service]
 QAService[QA Service]
-BulkOps[Bulk Operations Controller]
 FormatHandler[Format Detection Handler]
 Semaphore[Asyncio Semaphore]
 FilterSortAPI[Filter & Sort API]
@@ -169,11 +184,13 @@ LLM[LLM Provider]
 Parser[Enhanced Parser]
 EndUserIntegration[Enhanced Integration]
 end
-WebUI --> API
-MobileSidebar --> API
-ToastNotifications --> API
-BatchStatusPoller --> API
-API --> Service
+MainRouter --> AuthRouter
+MainRouter --> UploadRouter
+MainRouter --> BulkRouter
+MainRouter --> QARouter
+MainRouter --> RouterComposition
+RouterComposition --> WebUI
+RouterComposition --> Service
 Service --> Repo
 Service --> Qdrant
 Service --> S3
@@ -216,33 +233,32 @@ EndUserTracking --> RecentlyFinished
 ```
 
 **Diagram sources**
-- [app/main.py:87-90](file://app/main.py#L87-L90)
-- [app/api/documents.py:125-145](file://app/api/documents.py#L125-L145)
-- [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
-- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
-- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
-- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
-- [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
-- [app/api/deps.py:69-70](file://app/api/deps.py#L69-L70)
-- [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
-- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
-- [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
-- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
-- [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
+- [app/api/documents.py:50-85](file://app/api/documents.py#L50-L85)
+- [app/api/documents_auth.py:20-77](file://app/api/documents_auth.py#L20-L77)
+- [app/api/documents_upload.py:41-288](file://app/api/documents_upload.py#L41-L288)
+- [app/api/documents_bulk.py:30-224](file://app/api/documents_bulk.py#L30-L224)
+- [app/api/documents_qa.py:23-91](file://app/api/documents_qa.py#L23-L91)
+- [app/main.py:72-77](file://app/main.py#L72-L77)
 
-The architecture consists of five main layers with enhanced concurrency control, comprehensive document type handling, modernized frontend capabilities, and revolutionary HTMX partial response system:
+The architecture consists of five main layers with enhanced modular organization, comprehensive document type handling, modernized frontend capabilities, and revolutionary HTMX partial response system:
 
-1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, comprehensive status polling system with automatic activation, HTMX OOB swapping for efficient row updates, enhanced user experience with real-time status monitoring, and centralized batch status management
-2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, template context management for consistent rendering, DOCX integrity validation for file content verification, HTMX partial response system with OOB swapping capabilities, and enhanced user management with automatic polling control
-3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms supporting DOCX, DOC, and XLSX formats, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, recently finished documents tracking for status updates, and enhanced monitoring capabilities for user activity
-4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking for all supported document types, enhanced filtering/sorting database operations, recently finished documents functionality for status tracking, and enhanced tracking for user interactions and document processing
-5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for DOC, DOCX, and XLSX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, streaming response generation for real-time feedback, and enhanced integration with HTMX for real-time UI updates
+1. **Modular Router Architecture**: The system now uses specialized routers for different functional areas with router composition maintaining backward compatibility. The main `documents.py` router includes authentication, upload, bulk operations, and QA routers while preserving all existing endpoints and functionality.
+
+2. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, comprehensive status polling system with automatic activation, HTMX OOB swapping for efficient row updates, enhanced user experience with real-time status monitoring, and centralized batch status management.
+
+3. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, template context management for consistent rendering, DOCX integrity validation for file content verification, HTMX partial response system with OOB swapping capabilities, and enhanced user management with automatic polling control.
+
+4. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms supporting DOCX, DOC, and XLSX formats, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, recently finished documents tracking for status updates, and enhanced monitoring capabilities for user activity.
+
+5. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking for all supported document types, enhanced filtering/sorting database operations, recently finished documents functionality for status tracking, and enhanced tracking for user interactions and document processing.
+
+6. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for DOC, DOCX, and XLSX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, streaming response generation for real-time feedback, and enhanced integration with HTMX for real-time UI updates.
 
 ## Core Components
 
 ### Application Bootstrap and Configuration
 
-The system initializes through a centralized FastAPI application factory that manages lifecycle resources and dependency injection with enhanced concurrency control:
+The system initializes through a centralized FastAPI application factory that manages lifecycle resources and dependency injection with enhanced modular organization:
 
 ```mermaid
 sequenceDiagram
@@ -252,7 +268,7 @@ participant DB as Database
 participant S3 as Storage
 participant Qdrant as VectorDB
 participant Service as DocumentService
-participant QAService as QAServicet
+participant QAService as QAService
 participant Semaphore as Asyncio Semaphore
 participant HTMX as HTMX Engine
 App->>Config : Load configuration
@@ -263,107 +279,78 @@ App->>Service : Create document service
 App->>QAService : Initialize QA service with global and document-scoped retrievers
 App->>Semaphore : Initialize with max_concurrent_indexing
 App->>HTMX : Initialize OOB swapping capabilities
-App->>App : Register routes and templates
+App->>App : Register modular routers and templates
 ```
 
 **Diagram sources**
-- [app/main.py:24-90](file://app/main.py#L24-L90)
+- [app/main.py:22-49](file://app/main.py#L22-L49)
 - [app/config.py:37-39](file://app/config.py#L37-L39)
 - [app/storage/database.py:32-39](file://app/storage/database.py#L32-L39)
 
-### Document Service Architecture
+### Modular Router Architecture
 
-The DocumentService acts as the central coordinator for all document operations with enhanced error handling and consistency guarantees:
+The system now uses a modular router architecture with specialized routers for different functional areas:
 
 ```mermaid
 classDiagram
-class DocumentService {
--DocumentRepository _repo
--QdrantClient _qdrant
--Embeddings _embeddings
--string _collection
-+create_document() DocumentRecord
-+index_document() DocumentRecord
-+update_metadata() DocumentRecord
-+toggle_search() DocumentRecord
-+reindex_document() DocumentRecord
-+delete_document() bool
+class MainDocumentsRouter {
++include_router(auth_router)
++include_router(upload_router)
++include_router(bulk_router)
++include_router(qa_router)
++documents_page() HTMLResponse
++document_table_partial() HTMLResponse
++document_row_partial() HTMLResponse
++documents_status_partial() HTMLResponse
++list_documents() JSON
++get_document() JSON
++update_title() JSON/HTML
++toggl_search() JSON/HTML
++reindex_document() JSON/HTML
++delete_document() JSON/HTML
++download_document() Response
 }
-class DocumentRepository {
--string _db_path
-+create() DocumentRecord
-+get() DocumentRecord
-+list_page() tuple
-+update() DocumentRecord
-+toggle_search() DocumentRecord
-+delete() bool
-+list_recently_finished() list
+class AuthRouter {
++login_page() HTMLResponse
++login_submit() RedirectResponse
++logout() RedirectResponse
++root_redirect() RedirectResponse
 }
-class S3Storage {
--string _endpoint_url
--string _bucket
-+upload() void
-+download() bytes
-+delete() void
-+exists() bool
+class UploadRouter {
++upload_documents() JSON/HTML
++_download_and_validate() bytes|None
++_parse_document_chunks() list
++_index_document_from_s3() None
 }
-class FormatHandler {
--string _allowed_extensions
--string _allowed_mimes
-+validate_format() bool
-+dispatch_parser() list
-+get_mime_type() string
+class BulkRouter {
++bulk_delete_documents() HTMLResponse
++bulk_reindex_documents() HTMLResponse
++bulk_toggle_search() HTMLResponse
 }
-class AsyncSemaphore {
--int _value
-+acquire() async
-+release() async
+class QARouter {
++ask_global_question() StreamingResponse
++ask_about_document() StreamingResponse
 }
-class QAService {
-+ask() str
-+ask_about_document() str
-+stream_ask() AsyncGenerator
-+stream_about_document() AsyncGenerator
-+init_qa() void
-+close_qa() void
-}
-class BatchStatusPoller {
-+poll_active_documents() HTMLResponse
-+manage_polling_activation() void
-+track_recently_finished() list
-}
-class HTMXOOBSwapper {
-+swap_document_rows() HTMLResponse
-+handle_oob_updates() void
-+manage_polling_state() void
-}
-DocumentService --> DocumentRepository : uses
-DocumentService --> S3Storage : uses
-DocumentService --> QdrantClient : uses
-DocumentService --> AsyncSemaphore : uses
-FormatHandler --> Parser : dispatches to
-QAService --> QdrantClient : uses
-QAService --> LLM : uses
-QAService --> StreamingResponse : uses
-BatchStatusPoller --> HTMXOOBSwapper : coordinates with
-HTMXOOBSwapper --> DocumentRepository : queries
+MainDocumentsRouter --> AuthRouter : includes
+MainDocumentsRouter --> UploadRouter : includes
+MainDocumentsRouter --> BulkRouter : includes
+MainDocumentsRouter --> QARouter : includes
 ```
 
 **Diagram sources**
-- [app/domain/document_service.py:35-283](file://app/domain/document_service.py#L35-L283)
-- [app/storage/document_repo.py:63-214](file://app/storage/document_repo.py#L63-L214)
-- [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
-- [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
-- [app/main.py:87-89](file://app/main.py#L87-L89)
-- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
-- [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
-- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
-- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
+- [app/api/documents.py:79-85](file://app/api/documents.py#L79-L85)
+- [app/api/documents_auth.py:20-77](file://app/api/documents_auth.py#L20-L77)
+- [app/api/documents_upload.py:41-288](file://app/api/documents_upload.py#L41-L288)
+- [app/api/documents_bulk.py:30-224](file://app/api/documents_bulk.py#L30-L224)
+- [app/api/documents_qa.py:23-91](file://app/api/documents_qa.py#L23-L91)
 
 **Section sources**
-- [app/main.py:1-131](file://app/main.py#L1-L131)
-- [app/domain/document_service.py:1-283](file://app/domain/document_service.py#L1-L283)
-- [app/domain/qa_service.py:1-236](file://app/domain/qa_service.py#L1-L236)
+- [app/main.py:1-80](file://app/main.py#L1-L80)
+- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
+- [app/api/documents_auth.py:1-77](file://app/api/documents_auth.py#L1-L77)
+- [app/api/documents_upload.py:1-288](file://app/api/documents_upload.py#L1-L288)
+- [app/api/documents_bulk.py:1-224](file://app/api/documents_bulk.py#L1-L224)
+- [app/api/documents_qa.py:1-91](file://app/api/documents_qa.py#L1-L91)
 
 ## Document Management Workflow
 
@@ -442,15 +429,13 @@ end
 ```
 
 **Diagram sources**
-- [app/api/documents.py:294-381](file://app/api/documents.py#L294-L381)
+- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
 - [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
-- [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
-- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
-- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
-- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
-- [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
-- [app/api/documents.py:1057-1077](file://app/api/documents.py#L1057-L1077)
+- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
+- [app/api/documents.py:386-464](file://app/api/documents.py#L386-L464)
+- [app/api/documents.py:499-531](file://app/api/documents.py#L499-L531)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
 - [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
@@ -475,20 +460,20 @@ The system implements comprehensive validation for uploaded documents with enhan
 | Template Context | Centralized rendering management | Ensure consistent UI rendering |
 | DOCX Integrity | Zip file validation | Check word/document.xml presence |
 | Spreadsheet Processing | XLSX workbook parsing | Handle multiple worksheets |
-| **Updated** | **HTMX Partial Responses** | **Implement OOB swapping for efficient row updates** |
+| **Updated** | **Modular Router Architecture** | **Authentication, upload, bulk, and QA functionality extracted to specialized routers** |
+| **Updated** | **Router Composition** | **Main router maintains backward compatibility while providing modular organization** |
+| **Updated** | **Enhanced HTMX Partial Responses** | **Implement OOB swapping for efficient row updates** |
 | **Updated** | **Batch Status Polling** | **Replace individual row polling with centralized system** |
 | **Updated** | **Automatic Polling Control** | **Start/stop polling based on active document count** |
 | **Updated** | **Recently Finished Tracking** | **Track documents completed within 10 seconds** |
 
-**Updated** The validation system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files, modern DOCX files, and spreadsheet XLSX files. The new DOCX integrity checking using _validate_docx_bytes() function verifies that DOCX files contain valid content by checking for the required word/document.xml structure within the ZIP archive. Background indexing operations are now handled by the unified _index_document_from_s3() function, which eliminates code duplication and provides centralized error handling. The new load_xlsx() function in the parser module handles spreadsheet processing with worksheet-based sectioning and row formatting. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the GLOBAL_EXPERTS_PROMPT system prompt and specialized retriever construction. The revolutionary HTMX partial response system now includes proper OOB swapping capabilities for dynamic document row updates, automatic status polling activation that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The system now tracks recently finished documents within a 10-second window to provide final status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling.
+**Updated** The validation system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files, modern DOCX files, and spreadsheet XLSX files. The new DOCX integrity checking using `_validate_docx_bytes()` function verifies that DOCX files contain valid content by checking for the required word/document.xml structure within the ZIP archive. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The new `load_xlsx()` function in the parser module handles spreadsheet processing with worksheet-based sectioning and row formatting. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the `GLOBAL_EXPERTS_PROMPT` system prompt and specialized retriever construction. The revolutionary HTMX partial response system now includes proper OOB swapping capabilities for dynamic document row updates, automatic status polling activation that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The system now tracks recently finished documents within a 10-second window to provide final status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling.
 
 **Section sources**
-- [app/api/documents.py:307-366](file://app/api/documents.py#L307-L366)
-- [app/api/documents.py:111-130](file://app/api/documents.py#L111-L130)
-- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
-- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
-- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
-- [app/api/documents.py:1057-1077](file://app/api/documents.py#L1057-L1077)
+- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
+- [app/api/documents_helpers.py:31-50](file://app/api/documents_helpers.py#L31-L50)
+- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 
 ## Enhanced Filtering and Sorting System
 
@@ -497,11 +482,18 @@ The system implements comprehensive server-side filtering and sorting capabiliti
 ```mermaid
 sequenceDiagram
 participant Client as Client Browser
-participant API as API Router
+participant API as Main Documents Router
+participant AuthRouter as Auth Router
+participant UploadRouter as Upload Router
+participant BulkRouter as Bulk Router
+participant QARouter as QA Router
 participant Repo as Document Repository
 participant DB as SQLite Database
 Client->>API : GET /api/documents?search=query&status=completed&source_type=xlsx&sort_field=title&sort_dir=asc&page=1&per_page=10
-API->>API : parse_date_range(date_from, date_to)
+API->>AuthRouter : Authentication check
+API->>UploadRouter : Upload operations
+API->>BulkRouter : Bulk operations
+API->>QARouter : QA operations
 API->>Repo : list_page(search=query, status=completed, source_type=xlsx, sort_field=title, sort_dir=asc, page=1, per_page=10)
 Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.doc' OR filename LIKE '%.xlsx') ORDER BY LOWER(title) ASC
 DB-->>Repo : Total count
@@ -513,7 +505,11 @@ Client->>Client : Render filtered table with search highlighting and sort indica
 ```
 
 **Diagram sources**
-- [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
+- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
+- [app/api/documents_auth.py:23-77](file://app/api/documents_auth.py#L23-L77)
+- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
+- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 
@@ -570,8 +566,8 @@ The frontend provides intuitive filtering and sorting capabilities:
 - **Centralized date handling**: Date filters use standardized parsing across all components
 
 **Section sources**
-- [app/api/documents.py:221-279](file://app/api/documents.py#L221-L279)
-- [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
+- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
+- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
 - [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
 - [templates/documents.html:59-136](file://templates/documents.html#L59-L136)
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
@@ -859,7 +855,7 @@ Unsupported --> Error[Format Error Response]
 
 **Diagram sources**
 - [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
-- [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
+- [app/api/documents_helpers.py:16-28](file://app/api/documents_helpers.py#L16-L28)
 - [app/rag/parser.py:411-475](file://app/rag/parser.py#L411-L475)
 
 ### Format Detection and Validation
@@ -870,7 +866,7 @@ The system implements comprehensive format detection and validation:
 - **MIME Type Validation**: Comprehensive MIME type checking for all three formats
 - **Automatic Routing**: Format detection determines appropriate parsing strategy
 - **Error Handling**: Graceful handling of unsupported formats with clear error messages
-- **DOCX Integrity Check**: Zip file validation using _validate_docx_bytes() function
+- **DOCX Integrity Check**: Zip file validation using `_validate_docx_bytes()` function
 - **Spreadsheet Processing**: Worksheet-based parsing with metadata preservation
 
 ### Enhanced Parser Architecture
@@ -910,7 +906,7 @@ All three formats benefit from enhanced processing capabilities:
 
 **Section sources**
 - [app/rag/parser.py:55-138](file://app/rag/parser.py#L55-L138)
-- [app/api/documents.py:66-76](file://app/api/documents.py#L66-L76)
+- [app/api/documents_helpers.py:16-28](file://app/api/documents_helpers.py#L16-L28)
 - [app/rag/parser.py:273-407](file://app/rag/parser.py#L273-L407)
 - [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
 
@@ -937,9 +933,10 @@ Semaphore-->>API : permit available
 ```
 
 **Diagram sources**
-- [app/main.py:87-89](file://app/main.py#L87-L89)
+- [app/main.py:39](file://app/main.py#L39)
 - [app/api/deps.py:69-70](file://app/api/deps.py#L69-L70)
-- [app/api/documents.py:125-145](file://app/api/documents.py#L125-L145)
+- [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
+- [app/api/documents_bulk.py:114-162](file://app/api/documents_bulk.py#L114-L162)
 
 ### Concurrency Control Implementation
 
@@ -955,15 +952,15 @@ The semaphore-based throttling system provides:
 
 Background tasks are coordinated through enhanced functions:
 
-- **_index_document_from_s3**: Unified function handling upload, reindex, and all format types with semaphore protection
-- **_reindex_in_background**: Handles bulk reindexing with proper error handling
+- **`_index_document_from_s3`**: Unified function handling upload, reindex, and all format types with semaphore protection
+- **`_reindex_in_background`**: Handles bulk reindexing with proper error handling
 - **Concurrent Processing**: Multiple background tasks can run simultaneously within limits
 - **Error Recovery**: Failed tasks don't block other operations
 
 **Section sources**
-- [app/main.py:87-89](file://app/main.py#L87-L89)
-- [app/api/documents.py:125-145](file://app/api/documents.py#L125-L145)
-- [app/api/documents.py:802-821](file://app/api/documents.py#L802-L821)
+- [app/main.py:39](file://app/main.py#L39)
+- [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
+- [app/api/documents_bulk.py:114-162](file://app/api/documents_bulk.py#L114-L162)
 
 ## Comprehensive Test Coverage
 
@@ -973,7 +970,10 @@ The system includes comprehensive testing across all layers with extensive searc
 
 | Test Module | Focus Area | Testing Approach |
 |-------------|------------|------------------|
-| `test_api_documents.py` | API endpoint functionality | Unit and integration tests |
+| `test_api_documents.py` | Main documents router functionality | Unit and integration tests |
+| `test_api_documents_auth.py` | Authentication router functionality | Unit and integration tests |
+| `test_api_documents_upload.py` | Upload router functionality | Unit and integration tests |
+| `test_api_documents_bulk.py` | Bulk operations router functionality | Unit and integration tests |
 | `test_document_service.py` | Domain service logic | Mock-based testing |
 | `test_storage.py` | Database operations | SQLite in-memory testing |
 | `test_rag_block6.py` | RAG pipeline components | End-to-end testing |
@@ -982,7 +982,16 @@ The system includes comprehensive testing across all layers with extensive searc
 
 ### Enhanced Test Coverage Areas
 
-**Updated** The testing strategy now includes extensive coverage for the newly enhanced HTMX partial response system, batch status polling, automatic polling control, and recently finished documents tracking:
+**Updated** The testing strategy now includes extensive coverage for the newly modular router architecture, batch status polling, automatic polling control, and recently finished documents tracking:
+
+#### Router Architecture Testing Coverage
+- **Router Composition**: Tests that main router properly includes and delegates to specialized routers
+- **Backward Compatibility**: Validates that all existing endpoints continue to work after modular refactoring
+- **Authentication Router**: Tests login, logout, and authentication guard functionality
+- **Upload Router**: Tests file upload, validation, and background indexing operations
+- **Bulk Router**: Tests bulk delete, reindex, and search toggle operations
+- **QA Router**: Tests document-specific and global question-answering functionality
+- **Helper Functions**: Tests shared utilities and validation functions
 
 #### Search and Status Testing Coverage
 - **Search functionality**: Tests case-insensitive pattern matching against titles and filenames
@@ -993,10 +1002,10 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Pagination with search**: Validates search results across multiple pages
 - **Batch status polling**: Tests centralized status updates and out-of-band swapping
 - **Recently finished documents**: Validates tracking of documents that completed within 10 seconds
-- ****Updated** | **HTMX Partial Response Testing** | **Tests OOB swapping and polling management** |
-- ****Updated** | **Batch Status Polling Testing** | **Validates centralized polling endpoint functionality** |
-- ****Updated** | **Automatic Polling Control Testing** | **Tests start/stop polling based on active document count** |
-- ****Updated** | **OOB Swapping Testing** | **Validates efficient row updates without full page reloads** |
+- **Router composition**: Tests that modular routers maintain backward compatibility
+- **OOB Swapping Testing**: Validates efficient row updates without full page reloads
+- **Automatic Polling Control Testing**: Tests intelligent start/stop polling based on active document count
+- **Batch Status Polling Testing**: Tests centralized polling endpoint functionality
 
 #### Pagination Testing Coverage
 - **Default Pagination**: Tests default page size (10 items)
@@ -1021,7 +1030,7 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Format Detection**: Validates automatic format detection and routing
 - **Parser Compatibility**: Ensures all formats produce identical chunk structures
 - **Metadata Consistency**: Verifies consistent metadata across formats
-- **DOCX Integrity Testing**: Validates _validate_docx_bytes() function with various DOCX samples
+- **DOCX Integrity Testing**: Validates `_validate_docx_bytes()` function with various DOCX samples
 
 #### Concurrency Control Testing Coverage
 - **Semaphore Limits**: Tests maximum concurrent indexing operations
@@ -1052,9 +1061,9 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Performance Impact**: Validates reduced server load compared to individual polling
 - **Error Handling**: Tests graceful handling of polling failures
 - **Recently Finished Tracking**: Validates tracking of documents that completed within 10 seconds
-- ****Updated** | **OOB Swapping Functionality Testing** | **Validates proper OOB swapping for dynamic row updates** |
-- ****Updated** | **Automatic Polling Activation Testing** | **Tests intelligent start/stop polling based on document activity** |
-- ****Updated** | **Deduplicated Updates Testing** | **Validates prevention of duplicate HTML updates** |
+- **OOB Swapping Functionality Testing**: Validates proper OOB swapping for dynamic row updates
+- **Automatic Polling Activation Testing**: Tests intelligent start/stop polling based on document activity
+- **Deduplicated Updates Testing**: Validates prevention of duplicate HTML updates
 
 #### Document-Specific Question Answering Testing Coverage
 - **Document Validation**: Tests document existence and status validation
@@ -1062,7 +1071,7 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Retriever Construction**: Tests document-scoped retriever creation
 - **Question Processing**: Validates question processing and answer generation
 - **Error Handling**: Tests error responses for invalid documents or disabled search
-- **Prompt Usage**: Validates DOCUMENT_EXPERTS_PROMPT application
+- **Prompt Usage**: Validates `DOCUMENT_EXPERTS_PROMPT` application
 - **State Management**: Tests Alpine.js state management for modal interactions
 - **Streaming Response**: Tests real-time token streaming and display
 
@@ -1070,7 +1079,7 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Global Retriever Construction**: Tests global retriever creation for knowledge base queries
 - **Question Processing**: Validates question processing and answer generation across entire knowledge base
 - **Error Handling**: Tests error responses for unavailable QA service
-- **Prompt Usage**: Validates GLOBAL_EXPERTS_PROMPT application
+- **Prompt Usage**: Validates `GLOBAL_EXPERTS_PROMPT` application
 - **State Management**: Tests Alpine.js state management for global question modal
 - **Streaming Response**: Tests real-time token streaming and display
 - **Knowledge Base Scope**: Validates that responses consider entire knowledge base context
@@ -1091,23 +1100,23 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Content-Type Handling**: Tests proper MIME type assignment
 
 #### Unified Indexing Function Testing Coverage
-- **Background Processing**: Tests _index_document_from_s3() function for all document formats
+- **Background Processing**: Tests `_index_document_from_s3()` function for all document formats
 - **Semaphore Protection**: Validates proper concurrency control during background tasks
 - **Error Handling**: Tests comprehensive error recovery and logging
 - **Resource Cleanup**: Validates temporary file cleanup after processing
 - **Chunk Processing**: Tests document chunk generation and indexing for all formats
 
 #### Date Range Utility Testing Coverage
-- **ISO Date Parsing**: Tests parse_date_range() function for consistent date parameter handling
+- **ISO Date Parsing**: Tests `parse_date_range()` function for consistent date parameter handling
 - **Error Recovery**: Validates graceful handling of invalid date formats
 - **Boundary Handling**: Tests inclusive date range boundaries
 - **Parameter Validation**: Validates date parameter processing across all endpoints
 
 #### Template Context Management Testing Coverage
-- **Context Building**: Tests _document_table_context() function for consistent template rendering
+- **Context Building**: Tests `_document_table_context()` function for consistent template rendering
 - **Parameter Validation**: Validates all filter and sort parameters in context
 - **Pagination Context**: Tests page, per_page, and total count handling
-- **Date Range Context**: Tests date_from and date_to parameter processing
+- **Date Range Context**: Tests `date_from` and `date_to` parameter processing
 - **UI State Context**: Validates filter and sort state persistence
 
 #### XLSX Format Testing Coverage
@@ -1117,6 +1126,15 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Metadata Preservation**: Validates worksheet name preservation as section information
 - **Chunk Generation**: Tests chunk generation with worksheet context
 - **Search Compatibility**: Validates XLSX content searchability
+
+#### **Updated** Router Architecture Testing Coverage
+- **Router Composition Validation**: Tests that main router properly includes and delegates to specialized routers
+- **Backward Compatibility Testing**: Validates that all existing endpoints continue to work after modular refactoring
+- **Authentication Router Testing**: Tests login, logout, and authentication guard functionality
+- **Upload Router Testing**: Tests file upload, validation, and background indexing operations
+- **Bulk Router Testing**: Tests bulk delete, reindex, and search toggle operations
+- **QA Router Testing**: Tests document-specific and global question-answering functionality
+- **Helper Function Testing**: Tests shared utilities and validation functions
 
 #### **Updated** HTMX Partial Response Testing Coverage
 - **OOB Swapping Validation**: Tests proper OOB swapping for dynamic document row updates
@@ -1147,6 +1165,9 @@ The system includes comprehensive testing across all layers with extensive searc
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
 - [tests/test_api_documents.py:506-605](file://tests/test_api_documents.py#L506-L605)
+- [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
+- [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
+- [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_storage.py:244-275](file://tests/test_storage.py#L244-L275)
 - [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
 
@@ -1204,20 +1225,32 @@ The system implements comprehensive server-side processing with enhanced filteri
 ```mermaid
 sequenceDiagram
 participant Client as Client Browser
-participant API as API Router
+participant MainRouter as Main Documents Router
+participant AuthRouter as Auth Router
+participant UploadRouter as Upload Router
+participant BulkRouter as Bulk Router
+participant QARouter as QA Router
 participant Repo as Document Repository
 participant DB as SQLite Database
-Client->>API : GET /api/documents with filters and pagination
-API->>API : parse_date_range(date_from, date_to)
-API->>Repo : list_page() with filter parameters
+Client->>MainRouter : GET /api/documents with filters and pagination
+MainRouter->>AuthRouter : Authentication check
+MainRouter->>UploadRouter : Upload operations
+MainRouter->>BulkRouter : Bulk operations
+MainRouter->>QARouter : QA operations
+MainRouter->>Repo : list_page() with filter parameters
 Repo->>DB : Execute parameterized SQL with WHERE clauses
 DB-->>Repo : Filtered results with total count
-Repo-->>API : (documents, total)
-API-->>Client : JSON response with pagination metadata
+Repo-->>MainRouter : (documents, total)
+MainRouter-->>Client : JSON response with pagination metadata
+Client->>Client : Render filtered table with search highlighting and sort indicators
 ```
 
 **Diagram sources**
-- [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
+- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
+- [app/api/documents_auth.py:23-77](file://app/api/documents_auth.py#L23-L77)
+- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
+- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 
@@ -1264,7 +1297,7 @@ The system now supports global knowledge base queries:
 
 ### Unified Background Processing
 
-The system now provides centralized background processing through the _index_document_from_s3() function:
+The system now provides centralized background processing through the `_index_document_from_s3()` function:
 
 - **Consolidated Operations**: Eliminates code duplication between upload and reindex operations
 - **Centralized Error Handling**: Single point of failure handling for background tasks
@@ -1275,7 +1308,7 @@ The system now provides centralized background processing through the _index_doc
 
 ### Centralized Date Range Processing
 
-The system now provides standardized date range handling through the parse_date_range() utility:
+The system now provides standardized date range handling through the `parse_date_range()` utility:
 
 - **Consistent Parsing**: Standardized ISO date format parsing across all endpoints
 - **Error Recovery**: Graceful handling of invalid date formats
@@ -1284,7 +1317,7 @@ The system now provides standardized date range handling through the parse_date_
 
 ### Centralized Template Context Management
 
-The system now provides consistent template rendering through the _document_table_context() function:
+The system now provides consistent template rendering through the `_document_table_context()` function:
 
 - **Unified Context Building**: Standardized template context creation for all partials
 - **Parameter Validation**: Consistent handling of all filter and sort parameters
@@ -1295,10 +1328,23 @@ The system now provides consistent template rendering through the _document_tabl
 
 The system now includes comprehensive DOCX validation:
 
-- **Zip File Validation**: Uses _validate_docx_bytes() to check for word/document.xml
+- **Zip File Validation**: Uses `_validate_docx_bytes()` to check for word/document.xml
 - **Content Verification**: Ensures DOCX files contain valid Office Open XML structure
 - **Error Handling**: Graceful handling of corrupted or invalid DOCX files
 - **Logging**: Detailed logging for DOCX validation failures
+
+### **Updated** Modular Router Architecture
+
+The system now implements a revolutionary modular router architecture:
+
+- **Router Composition**: Main `documents.py` router includes authentication, upload, bulk, and QA routers
+- **Backward Compatibility**: All existing endpoints continue to work after modular refactoring
+- **Specialized Routers**: Clear separation of concerns with dedicated routers for different functional areas
+- **Enhanced Organization**: Better code organization and maintainability
+- **Router Delegation**: Main router properly delegates to specialized routers
+- **Helper Function Re-export**: Shared utilities and validation functions remain accessible
+- **Unified Background Processing**: Centralized error handling and resource management
+- **Enhanced Testing**: Modular structure enables better test isolation and coverage
 
 ### **Updated** HTMX Partial Response System
 
@@ -1313,15 +1359,15 @@ The system now implements revolutionary HTMX partial response capabilities:
 - **Real-time Status Monitoring**: Provides immediate status updates for processing documents
 
 **Section sources**
-- [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
+- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
+- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
 - [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
 - [app/storage/document_repo.py:279-290](file://app/storage/document_repo.py#L279-L290)
-- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
-- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
+- [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
+- [app/api/documents_bulk.py:114-162](file://app/api/documents_bulk.py#L114-L162)
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
-- [app/api/documents.py:129-165](file://app/api/documents.py#L129-L165)
-- [app/api/documents.py:168-197](file://app/api/documents.py#L168-L197)
-- [app/api/documents.py:93-100](file://app/api/documents.py#L93-L100)
+- [app/api/documents_helpers.py:82-112](file://app/api/documents_helpers.py#L82-L112)
+- [app/api/documents_helpers.py:31-50](file://app/api/documents_helpers.py#L31-L50)
 
 ## Enhanced Status Display System
 
@@ -1364,9 +1410,10 @@ The status system includes interactive elements for document management:
 - **Real-time streaming**: Immediate display of AI responses for document-specific and global questions
 - **Global question availability**: "Ask Global Question" option appears for completed and search-enabled documents
 - **Centralized Status Updates**: Batch status polling provides efficient status updates
-- ****Updated** | **OOB Swapping Updates** | **Efficient HTML updates without full page reloads** |
-- ****Updated** | **Automatic Polling Control** | **Intelligent start/stop polling based on document activity** |
-- ****Updated** | **Recently Finished Tracking** | **Final status updates for documents completed within 10 seconds** |
+- **Router Composition**: Modular router architecture maintains backward compatibility
+- **OOB Swapping Updates**: Efficient HTML updates without full page reloads
+- **Automatic Polling Control**: Intelligent start/stop polling based on document activity
+- **Recently Finished Tracking**: Final status updates for documents completed within 10 seconds
 
 ### Status Filtering Capabilities
 
@@ -1388,8 +1435,9 @@ The enhanced status system now includes centralized batch polling with recently 
 - **Automatic Polling Control**: Starts/stops polling based on active document count
 - **Reduced Server Load**: Dramatically reduces server load compared to individual row polling
 - **Unified Status Management**: Centralized status updates through batch processing
-- ****Updated** | **Intelligent Polling Control** | **Polling starts automatically when active documents are detected** |
-- ****Updated** | **Server Load Optimization** | **Significant reduction in unnecessary server requests** |
+- **Router Architecture**: Modular router structure enables better organization and maintenance
+- **Intelligent Polling Control**: Polling starts automatically when active documents are detected
+- **Server Load Optimization**: Significant reduction in unnecessary server requests
 
 ### Document-Specific and Global Question Integration
 
@@ -1400,17 +1448,16 @@ The status system now supports both document-specific and global question functi
 - **Modal Trigger**: Clicking either opens the respective modal with Alpine.js integration
 - **Validation Integration**: Both question types inherit the same validation as general questions
 - **Streaming Response**: Real-time token streaming provides immediate feedback during response generation
-- **Prompt Application**: Document-specific questions use DOCUMENT_EXPERTS_PROMPT, global questions use GLOBAL_EXPERTS_PROMPT
+- **Prompt Application**: Document-specific questions use `DOCUMENT_EXPERTS_PROMPT`, global questions use `GLOBAL_EXPERTS_PROMPT`
 
 **Section sources**
 - [templates/partials/document_row.html:19-41](file://templates/partials/document_row.html#L19-L41)
 - [templates/documents.html:74-87](file://templates/documents.html#L74-L87)
 - [app/storage/models.py:11-18](file://app/storage/models.py#L11-L18)
-- [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
-- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
-- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
-- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
-- [app/api/documents.py:412-453](file://app/api/documents.py#L412-L453)
+- [app/api/documents.py:386-464](file://app/api/documents.py#L386-L464)
+- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
+- [app/api/documents_helpers.py:82-112](file://app/api/documents_helpers.py#L82-L112)
 
 ## Advanced Pagination System
 
@@ -1419,23 +1466,34 @@ The system implements a comprehensive pagination system that enhances scalabilit
 ```mermaid
 sequenceDiagram
 participant Client as Client Browser
-participant API as API Router
+participant MainRouter as Main Documents Router
+participant AuthRouter as Auth Router
+participant UploadRouter as Upload Router
+participant BulkRouter as Bulk Router
+participant QARouter as QA Router
 participant Repo as Document Repository
 participant DB as SQLite Database
-Client->>API : GET /api/documents?page=2&per_page=20&search=query
-API->>API : parse_date_range(date_from, date_to)
-API->>Repo : list_page(page=2, per_page=20, search=query)
+Client->>MainRouter : GET /api/documents?page=2&per_page=20&search=query
+MainRouter->>AuthRouter : Authentication check
+MainRouter->>UploadRouter : Upload operations
+MainRouter->>BulkRouter : Bulk operations
+MainRouter->>QARouter : QA operations
+MainRouter->>Repo : list_page(page=2, per_page=20, search=query)
 Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?) OR LOWER(filename) LIKE LOWER(?)
 DB-->>Repo : Filtered total count
 Repo->>DB : SELECT ... LIMIT 20 OFFSET 20
 DB-->>Repo : Documents + Filtered total
-Repo-->>API : (documents, total)
-API-->>Client : JSON with pagination metadata
+Repo-->>MainRouter : (documents, total)
+MainRouter-->>Client : JSON with pagination metadata
 Client->>Client : Render pagination controls with search context
 ```
 
 **Diagram sources**
-- [app/api/documents.py:390-406](file://app/api/documents.py#L390-L406)
+- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
+- [app/api/documents_auth.py:23-77](file://app/api/documents_auth.py#L23-L77)
+- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
+- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 
@@ -1490,8 +1548,8 @@ The system provides sophisticated pagination controls with intelligent page numb
 - **Centralized Date Handling**: Date filters use standardized parsing across all components
 
 **Section sources**
-- [app/api/documents.py:194-218](file://app/api/documents.py#L194-L218)
-- [app/api/documents.py:390-406](file://app/api/documents.py#L390-L406)
+- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
+- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
 - [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
 - [templates/partials/pagination.html:1-103](file://templates/partials/pagination.html#L1-L103)
 
@@ -1502,27 +1560,27 @@ The system provides comprehensive bulk operations for efficient document managem
 ```mermaid
 sequenceDiagram
 participant Client as Client Browser
-participant API as Bulk Operations API
+participant BulkRouter as Bulk Router
 participant Service as Document Service
 participant Repo as Document Repository
 participant S3 as Storage
 participant Semaphore as Asyncio Semaphore
 Client->>Client : Select multiple documents
-Client->>API : POST /api/documents/bulk/delete
-API->>Service : bulk_delete_documents()
+Client->>BulkRouter : POST /api/documents/bulk/delete
+BulkRouter->>Service : bulk_delete_documents()
 Service->>Repo : get() for each ID (concurrent)
 Service->>S3 : delete() for each file
 Service->>Repo : delete() record
 Repo-->>Service : Deletion results
-Service-->>API : Bulk operation results
-API-->>Client : Refreshed table partial
+Service-->>BulkRouter : Bulk operation results
+BulkRouter-->>Client : Refreshed table partial
 Client->>Client : Update UI with success/error feedback
 ```
 
 **Diagram sources**
-- [app/api/documents.py:518-576](file://app/api/documents.py#L518-L576)
-- [app/api/documents.py:578-643](file://app/api/documents.py#L578-L643)
-- [app/api/documents.py:646-700](file://app/api/documents.py#L646-L700)
+- [app/api/documents_bulk.py:46-97](file://app/api/documents_bulk.py#L46-L97)
+- [app/api/documents_bulk.py:99-174](file://app/api/documents_bulk.py#L99-L174)
+- [app/api/documents_bulk.py:176-224](file://app/api/documents_bulk.py#L176-L224)
 - [templates/documents.html:537-561](file://templates/documents.html#L537-L561)
 
 ### Bulk Operations Architecture
@@ -1548,7 +1606,7 @@ The bulk operations system provides three core capabilities with enhanced concur
 - **Response**: Immediate acknowledgment with background processing
 - **Error Handling**: Logs errors and continues with remaining documents
 - **Concurrency Control**: Each reindex operation acquires semaphore before processing
-- **Unified Processing**: Uses _index_document_from_s3() function for consistent background processing
+- **Unified Processing**: Uses `_index_document_from_s3()` function for consistent background processing
 - **Format Support**: Handles DOCX, DOC, and XLSX formats uniformly
 
 #### Search Toggle Operation
@@ -1592,40 +1650,52 @@ The bulk operations provide comprehensive functionality:
 - **Real-time Feedback**: Toast notifications for operation results
 - **Selection Persistence**: Maintains selections across pagination and filters
 - **HTMX Integration**: Seamless partial updates without full page reloads
-- **Centralized Processing**: Unified background processing through _index_document_from_s3()
-- ****Updated** | **OOB Swapping Integration** | **Efficient UI updates without full page reloads** |
-- ****Updated** | **Automatic Polling Control** | **Intelligent start/stop polling for bulk operations** |
+- **Centralized Processing**: Unified background processing through `_index_document_from_s3()`
+- **Router Architecture**: Modular router structure enables better organization and maintenance
+- **OOB Swapping Integration**: Efficient UI updates without full page reloads
+- **Automatic Polling Control**: Intelligent start/stop polling for bulk operations
 
 **Section sources**
-- [app/api/documents.py:476-700](file://app/api/documents.py#L476-L700)
+- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
 - [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
 - [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
 
 ## Enhanced Date Range Filtering
 
-The system implements sophisticated date range filtering with inclusive boundaries and ISO format support through the centralized parse_date_range() utility:
+The system implements sophisticated date range filtering with inclusive boundaries and ISO format support through the centralized `parse_date_range()` utility:
 
 ```mermaid
 sequenceDiagram
 participant Client as Client Browser
-participant API as API Router
+participant MainRouter as Main Documents Router
+participant AuthRouter as Auth Router
+participant UploadRouter as Upload Router
+participant BulkRouter as Bulk Router
+participant QARouter as QA Router
 participant Repo as Document Repository
 participant DB as SQLite Database
 Client->>Client : Set date_from and date_to
-Client->>API : GET /api/documents?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
-API->>API : parse_date_range(date_from, date_to)
-API->>Repo : list_page(date_from, date_to)
+Client->>MainRouter : GET /api/documents?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
+MainRouter->>AuthRouter : Authentication check
+MainRouter->>UploadRouter : Upload operations
+MainRouter->>BulkRouter : Bulk operations
+MainRouter->>QARouter : QA operations
+MainRouter->>Repo : list_page(date_from, date_to)
 Repo->>DB : SELECT COUNT(*) WHERE created_at BETWEEN ? AND ?
 DB-->>Repo : Filtered total count
 Repo->>DB : SELECT ... WHERE created_at BETWEEN ? AND ?
 DB-->>Repo : Documents with date range filtering
-Repo-->>API : (documents, total)
-API-->>Client : JSON with filtered results
+Repo-->>MainRouter : (documents, total)
+MainRouter-->>Client : JSON with filtered results
 Client->>Client : Update table with date-filtered results
 ```
 
 **Diagram sources**
-- [app/api/documents.py:435-473](file://app/api/documents.py#L435-L473)
+- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
+- [app/api/documents_auth.py:23-77](file://app/api/documents_auth.py#L23-L77)
+- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
+- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/storage/document_repo.py:120-174](file://app/storage/document_repo.py#L120-L174)
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 
@@ -1633,7 +1703,7 @@ Client->>Client : Update table with date-filtered results
 
 The date filtering system provides precise temporal control with centralized parsing:
 
-- **ISO Format Parsing**: Uses parse_date_range() utility for consistent ISO date format handling
+- **ISO Format Parsing**: Uses `parse_date_range()` utility for consistent ISO date format handling
 - **Inclusive Boundaries**: 
   - `date_from`: Documents created on or after this date
   - `date_to`: Documents created on or before this date (end of day)
@@ -1667,14 +1737,15 @@ The date filtering system supports:
 
 The system now provides standardized date range handling:
 
-- **Consistent Parsing**: All endpoints use parse_date_range() for date parameter processing
+- **Consistent Parsing**: All endpoints use `parse_date_range()` for date parameter processing
 - **Error Recovery**: Invalid date formats are gracefully handled
 - **Boundary Validation**: Proper date range boundary enforcement
 - **Type Safety**: Returns proper datetime objects or None for missing values
 - **Performance Optimization**: Centralized utility reduces code duplication
 
 **Section sources**
-- [app/api/documents.py:435-473](file://app/api/documents.py#L435-L473)
+- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
+- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
 - [app/storage/document_repo.py:120-174](file://app/storage/document_repo.py#L120-L174)
 - [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
 - [templates/documents.html:489-494](file://templates/documents.html#L489-L494)
@@ -1742,7 +1813,7 @@ The enhanced RAG pipeline now supports both document-specific and global retriev
 - **Document-Scoped Retrieval**: Filters results to a specific document's chunks only
 - **Global Retrieval**: Searches across entire knowledge base for broad questions
 - **Search Participation**: Respects individual document search enablement settings
-- **Prompt Customization**: Uses DOCUMENT_EXPERTS_PROMPT for document-focused responses and GLOBAL_EXPERTS_PROMPT for global responses
+- **Prompt Customization**: Uses `DOCUMENT_EXPERTS_PROMPT` for document-focused responses and `GLOBAL_EXPERTS_PROMPT` for global responses
 - **Streaming Responses**: Provides real-time token streaming for immediate feedback
 - **Error Handling**: Graceful error recovery during streaming operations
 
@@ -1750,17 +1821,19 @@ The enhanced RAG pipeline now supports both document-specific and global retriev
 
 The RAG pipeline now benefits from centralized background processing:
 
-- **Consolidated Indexing**: Unified _index_document_from_s3() function handles all indexing operations
+- **Consolidated Indexing**: Unified `_index_document_from_s3()` function handles all indexing operations
 - **Centralized Error Handling**: Standardized error recovery for all background tasks
 - **Semaphore Protection**: Consistent concurrency control for all background operations
 - **Resource Management**: Unified temporary file cleanup across all operations
 - **Logging Consistency**: Standardized logging for all background processing activities
 - **Format Support**: Handles DOCX, DOC, and XLSX formats uniformly
 
-### **Updated** HTMX Partial Response Integration
+### **Updated** Modular Router Architecture Integration
 
-The RAG pipeline now integrates with the revolutionary HTMX partial response system:
+The RAG pipeline now integrates with the revolutionary modular router architecture:
 
+- **Router Composition**: Main router includes specialized routers for different functional areas
+- **Backward Compatibility**: All existing endpoints continue to work after modular refactoring
 - **OOB Swapping**: Efficient HTML updates for status monitoring without full page reloads
 - **Automatic Polling Control**: Intelligent start/stop polling for processing documents
 - **Deduplicated Updates**: Prevents duplicate updates for overlapping documents
@@ -1776,8 +1849,8 @@ The RAG pipeline now integrates with the revolutionary HTMX partial response sys
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
 - [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 - [app/rag/prompts.py:21-56](file://app/rag/prompts.py#L21-L56)
-- [app/api/documents.py:129-165](file://app/api/documents.py#L129-L165)
-- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
+- [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
+- [app/api/documents_bulk.py:114-162](file://app/api/documents_bulk.py#L114-L162)
 
 ## Document-Specific Question Answering
 
@@ -1790,29 +1863,29 @@ The new `/api/documents/{document_id}/ask` endpoint enables focused document que
 ```mermaid
 sequenceDiagram
 participant Client as Client Browser
-participant API as Document API
+participant QARouter as QA Router
 participant Repo as Document Repository
 participant QAService as QA Service
 participant DocScopedRetriever as Document Scoped Retriever
 participant LLM as Language Model
 participant SSEClient as SSE Client
-Client->>API : POST /api/documents/{document_id}/ask
-API->>Repo : get(document_id)
-Repo-->>API : Document record
-API->>API : Validate document status and search enablement
-API->>QAService : stream_about_document(question, document_id)
+Client->>QARouter : POST /api/documents/{document_id}/ask
+QARouter->>Repo : get(document_id)
+Repo-->>QARouter : Document record
+QARouter->>QARouter : Validate document status and search enablement
+QARouter->>QAService : stream_about_document(question, document_id)
 QAService->>DocScopedRetriever : build_retriever_for_document()
 DocScopedRetriever->>LLM : retrieve relevant chunks
 QAService->>LLM : generate answer with DOCUMENT_EXPERTS_PROMPT
 LLM-->>QAService : stream tokens
-QAService-->>API : StreamingResponse
-API-->>SSEClient : Stream tokens to client
+QAService-->>QARouter : StreamingResponse
+QARouter-->>SSEClient : Stream tokens to client
 SSEClient-->>Client : Real-time response display
 ```
 
 **Diagram sources**
-- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
-- [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
+- [app/api/documents_qa.py:55-91](file://app/api/documents_qa.py#L55-L91)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
 - [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
@@ -1833,7 +1906,7 @@ The document-specific retrieval system uses a specialized retriever with streami
 
 - **Document Filtering**: Restricts search to chunks belonging to specific document
 - **Search Participation**: Respects individual document search enablement settings
-- **Prompt Customization**: Uses DOCUMENT_EXPERTS_PROMPT for focused responses
+- **Prompt Customization**: Uses `DOCUMENT_EXPERTS_PROMPT` for focused responses
 - **Context Limiting**: Limits context to the specific document's content
 - **Streaming Response**: Returns token-by-token responses for immediate feedback
 - **Answer Formatting**: Returns formatted, truncated responses for display
@@ -1864,8 +1937,8 @@ The system uses a specialized prompt for document-focused responses:
 - **Language Support**: Provides responses in Russian language
 
 **Section sources**
-- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
-- [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
+- [app/api/documents_qa.py:55-91](file://app/api/documents_qa.py#L55-L91)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
 - [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
@@ -1886,25 +1959,25 @@ The new `/api/qa/ask-global` endpoint enables knowledge base-wide queries with s
 ```mermaid
 sequenceDiagram
 participant Client as Client Browser
-participant API as Global QA API
+participant QARouter as QA Router
 participant QAService as QA Service
 participant GlobalRetriever as Global Retriever
 participant LLM as Language Model
 participant SSEClient as SSE Client
-Client->>API : POST /api/qa/ask-global
-API->>API : Validate QA service availability
-API->>QAService : stream_ask(question)
+Client->>QARouter : POST /api/qa/ask-global
+QARouter->>QARouter : Validate QA service availability
+QARouter->>QAService : stream_ask(question)
 QAService->>GlobalRetriever : build_retriever()
 GlobalRetriever->>LLM : retrieve relevant chunks from entire knowledge base
 QAService->>LLM : generate answer with GLOBAL_EXPERTS_PROMPT
 LLM-->>QAService : stream tokens
-QAService-->>API : StreamingResponse
-API-->>SSEClient : Stream tokens to client
+QAService-->>QARouter : StreamingResponse
+QARouter-->>SSEClient : Stream tokens to client
 SSEClient-->>Client : Real-time response display
 ```
 
 **Diagram sources**
-- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 - [app/rag/retriever.py:78-103](file://app/rag/retriever.py#L78-L103)
 - [app/rag/prompts.py:40-56](file://app/rag/prompts.py#L40-L56)
@@ -1915,7 +1988,7 @@ The global question-answering system uses a specialized retriever with streaming
 
 - **Knowledge Base Scope**: Searches across all documents with search participation enabled
 - **Search Participation**: Respects individual document search enablement settings
-- **Prompt Customization**: Uses GLOBAL_EXPERTS_PROMPT for knowledge base-wide responses
+- **Prompt Customization**: Uses `GLOBAL_EXPERTS_PROMPT` for knowledge base-wide responses
 - **Context Synthesis**: Combines information from multiple documents for comprehensive answers
 - **Streaming Response**: Returns token-by-token responses for immediate feedback
 - **Answer Formatting**: Returns formatted, truncated responses for display
@@ -1956,7 +2029,7 @@ The global question modal provides a dedicated interface for knowledge base-wide
 - **Error Handling**: Comprehensive error display and user guidance
 
 **Section sources**
-- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 - [app/rag/retriever.py:78-103](file://app/rag/retriever.py#L78-L103)
 - [app/rag/prompts.py:40-56](file://app/rag/prompts.py#L40-L56)
@@ -1975,26 +2048,26 @@ The streaming system provides immediate feedback as AI responses are generated:
 sequenceDiagram
 participant Client as Client Browser
 participant SSEClient as SSE Client
-participant API as Streaming API
+participant QARouter as QA Router
 participant QAService as QA Service
 participant LLM as Language Model
 Client->>SSEClient : Open SSE connection
-SSEClient->>API : Establish streaming connection
-API->>QAService : stream_ask() or stream_about_document()
+SSEClient->>QARouter : Establish streaming connection
+QARouter->>QAService : stream_ask() or stream_about_document()
 QAService->>LLM : astream(question)
 loop Token Generation
 LLM-->>QAService : Yield token
-QAService-->>API : Stream token
-API-->>SSEClient : Send token via SSE
+QAService-->>QARouter : Stream token
+QARouter-->>SSEClient : Send token via SSE
 SSEClient-->>Client : Update response display
 end
-API-->>SSEClient : Stream complete
+QARouter-->>SSEClient : Stream complete
 SSEClient-->>Client : Finalize response
 ```
 
 **Diagram sources**
-- [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
-- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
+- [app/api/documents_qa.py:55-91](file://app/api/documents_qa.py#L55-L91)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
 - [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 - [templates/documents.html:806-845](file://templates/documents.html#L806-L845)
@@ -2036,8 +2109,8 @@ The streaming system provides comprehensive real-time capabilities:
 - **Browser Compatibility**: Works across modern browsers with proper fallbacks
 
 **Section sources**
-- [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
-- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
+- [app/api/documents_qa.py:55-91](file://app/api/documents_qa.py#L55-L91)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
 - [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 - [templates/documents.html:806-845](file://templates/documents.html#L806-L845)
@@ -2054,22 +2127,34 @@ The download system implements proper international character support:
 ```mermaid
 sequenceDiagram
 participant Client as Client Browser
-participant API as Download API
+participant MainRouter as Main Documents Router
+participant AuthRouter as Auth Router
+participant UploadRouter as Upload Router
+participant BulkRouter as Bulk Router
+participant QARouter as QA Router
 participant S3 as Storage
 participant Repo as Repository
-Client->>API : GET /api/documents/{id}/download
-API->>Repo : get(document_id)
-Repo-->>API : Document record
-API->>S3 : exists(s3_key)
-S3-->>API : Exists check
-API->>S3 : download(s3_key)
-S3-->>API : File content
-API->>API : RFC 5987 filename encoding
-API-->>Client : File with proper encoding
+Client->>MainRouter : GET /api/documents/{id}/download
+MainRouter->>AuthRouter : Authentication check
+MainRouter->>UploadRouter : Upload operations
+MainRouter->>BulkRouter : Bulk operations
+MainRouter->>QARouter : QA operations
+MainRouter->>Repo : get(document_id)
+Repo-->>MainRouter : Document record
+MainRouter->>S3 : exists(s3_key)
+S3-->>MainRouter : Exists check
+MainRouter->>S3 : download(s3_key)
+S3-->>MainRouter : File content
+MainRouter->>MainRouter : RFC 5987 filename encoding
+MainRouter-->>Client : File with proper encoding
 ```
 
 **Diagram sources**
-- [app/api/documents.py:1057-1077](file://app/api/documents.py#L1057-L1077)
+- [app/api/documents.py:499-531](file://app/api/documents.py#L499-L531)
+- [app/api/documents_auth.py:23-77](file://app/api/documents_auth.py#L23-L77)
+- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
+- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 
 ### Filename Encoding Implementation
 
@@ -2094,7 +2179,7 @@ The enhanced download system provides:
 - **Security Validation**: Ensures only authorized users can download files
 
 **Section sources**
-- [app/api/documents.py:1057-1077](file://app/api/documents.py#L1057-L1077)
+- [app/api/documents.py:499-531](file://app/api/documents.py#L499-L531)
 
 ## Improved Document Status Tracking
 
@@ -2121,7 +2206,7 @@ UI-->>User : Real-time status updates
 
 **Diagram sources**
 - [app/storage/document_repo.py:279-290](file://app/storage/document_repo.py#L279-L290)
-- [app/api/documents.py:412-453](file://app/api/documents.py#L412-L453)
+- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
 
 ### Status Tracking Implementation
 
@@ -2145,9 +2230,10 @@ The enhanced status tracking system now includes revolutionary batch polling cap
 - **Poller Management**: Automatically starts/stops polling based on document activity
 - **Performance Optimization**: Reduces server load by eliminating N concurrent requests
 - **Unified Status Management**: Centralized status updates through batch processing
-- ****Updated** | **OOB Swapping Integration** | **Efficient HTML updates without full page reloads** |
-- ****Updated** | **Intelligent Polling Control** | **Automatic start/stop based on document activity** |
-- ****Updated** | **Server Load Reduction** | **Dramatic improvement in system performance** |
+- **Router Architecture**: Modular router structure enables better organization and maintenance
+- **OOB Swapping Integration**: Efficient HTML updates without full page reloads
+- **Intelligent Polling Control**: Automatic start/stop based on document activity
+- **Server Load Reduction**: Dramatic improvement in system performance
 
 ### Status Poller Template Integration
 
@@ -2161,7 +2247,7 @@ The system now includes a dedicated status poller template for efficient status 
 
 **Section sources**
 - [app/storage/document_repo.py:279-290](file://app/storage/document_repo.py#L279-L290)
-- [app/api/documents.py:412-453](file://app/api/documents.py#L412-L453)
+- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
 - [templates/partials/status_poller.html:1-13](file://templates/partials/status_poller.html#L1-L13)
 
 ## VK Bot Integration
@@ -2255,9 +2341,10 @@ The SQLite schema supports comprehensive document tracking with:
 - **Format Support**: MIME type tracking for DOC, DOCX, and XLSX formats
 - **Recently Finished Tracking**: Timestamp-based tracking for status updates
 - **Global Question Support**: Knowledge base-wide search participation
-- ****Updated** | **OOB Swapping Support** | **Enhanced tracking for HTMX partial response system** |
-- ****Updated** | **Automatic Polling Control** | **Status tracking for intelligent polling management** |
-- ****Updated** | **Deduplication Logic** | **Prevention of duplicate updates for overlapping documents** |
+- **Router Architecture**: Modular router structure enables better organization and maintenance
+- **OOB Swapping Support**: Enhanced tracking for HTMX partial response system
+- **Automatic Polling Control**: Status tracking for intelligent polling management
+- **Deduplication Logic**: Prevention of duplicate updates for overlapping documents
 
 **Updated** The database now tracks MIME types for DOC, DOCX, and XLSX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new document-specific question-answering feature relies on the existing database structure for document validation and status checking. The `list_recently_finished` method provides efficient tracking of documents that completed or failed within the last 10 seconds for status updates. The global question-answering capability leverages the same search enablement mechanism for knowledge base-wide queries. The revolutionary HTMX partial response system now includes enhanced tracking capabilities for OOB swapping, automatic polling control, and deduplication logic to prevent duplicate updates.
 
@@ -2305,7 +2392,18 @@ The system provides a comprehensive REST API for document management with full s
 | `/api/documents/bulk/reindex` | POST | Re-index multiple documents with semaphore protection | Admin cookie |
 | `/api/documents/bulk/search` | PATCH | Toggle search participation for multiple documents | Admin cookie |
 
-### **Updated** HTMX Partial Endpoints
+### **Updated** Modular Router Architecture Endpoints
+
+**Updated** All endpoints now operate within the modular router architecture with router composition maintaining backward compatibility:
+
+- **Router Composition**: Main `documents.py` router includes authentication, upload, bulk, and QA routers
+- **Backward Compatibility**: All existing endpoints continue to work after modular refactoring
+- **Specialized Routers**: Clear separation of concerns with dedicated routers for different functional areas
+- **Enhanced Organization**: Better code organization and maintainability
+- **Router Delegation**: Main router properly delegates to specialized routers
+- **Helper Function Re-export**: Shared utilities and validation functions remain accessible
+
+### **Updated** Enhanced HTMX Partial Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -2337,13 +2435,14 @@ All list endpoints support the following parameters:
 
 ### **Updated** Enhanced HTMX Partial Response Endpoints
 
-**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified _index_document_from_s3() function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates with revolutionary OOB swapping capabilities, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized parse_date_range() utility ensures consistent date parameter handling across all endpoints, while the _document_table_context() function provides standardized template context management for all partials. The new DOCX integrity validation using _validate_docx_bytes() function ensures file content validity before processing. The revolutionary HTMX partial response system now includes proper OOB swapping for dynamic document row updates, automatic polling control that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint.
+**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates with revolutionary OOB swapping capabilities, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized `parse_date_range()` utility ensures consistent date parameter handling across all endpoints, while the `_document_table_context()` function provides standardized template context management for all partials. The new DOCX integrity validation using `_validate_docx_bytes()` function ensures file content validity before processing. The revolutionary HTMX partial response system now includes proper OOB swapping for dynamic document row updates, automatic polling control that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint.
 
 **Section sources**
-- [app/api/documents.py:1-806](file://app/api/documents.py#L1-L806)
-- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
-- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
-- [app/api/documents.py:1057-1077](file://app/api/documents.py#L1057-L1077)
+- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
+- [app/api/documents_auth.py:1-77](file://app/api/documents_auth.py#L1-L77)
+- [app/api/documents_upload.py:1-288](file://app/api/documents_upload.py#L1-L288)
+- [app/api/documents_bulk.py:1-224](file://app/api/documents_bulk.py#L1-L224)
+- [app/api/documents_qa.py:1-91](file://app/api/documents_qa.py#L1-L91)
 - [app/api/deps.py:54-74](file://app/api/deps.py#L54-L74)
 
 ## Configuration Management
@@ -2394,9 +2493,10 @@ Settings --> Environment : inherits
 | **Concurrency Control** | `max_concurrent_indexing` | `2` | Semaphore limit for indexing |
 | **Chunking** | `chunk_size` | `500` | Token-based chunk size |
 | **Chunking** | `chunk_overlap` | `50` | Token-based chunk overlap |
-| ****Updated** | **HTMX Configuration** | **`max_concurrent_indexing`** | **Semaphore limit for HTMX partial responses** |
-| ****Updated** | **OOB Swapping** | **`max_concurrent_indexing`** | **Semaphore limit for OOB swapping operations** |
-| ****Updated** | **Polling Control** | **`max_concurrent_indexing`** | **Semaphore limit for automatic polling control** |
+| **Router Architecture** | `max_concurrent_indexing` | `2` | Semaphore limit for modular router operations |
+| **HTMX Configuration** | `max_concurrent_indexing` | `2` | Semaphore limit for HTMX partial responses |
+| **OOB Swapping** | `max_concurrent_indexing` | `2` | Semaphore limit for OOB swapping operations |
+| **Polling Control** | `max_concurrent_indexing` | `2` | Semaphore limit for automatic polling control |
 
 **Section sources**
 - [app/config.py:1-39](file://app/config.py#L1-L39)
@@ -2436,7 +2536,7 @@ The system implements multiple error handling strategies:
 
 ### Background Task Error Recovery
 
-Background tasks implement robust error recovery through the unified _index_document_from_s3() function:
+Background tasks implement robust error recovery through the unified `_index_document_from_s3()` function:
 
 - **Exception Handling**: All exceptions are caught and logged centrally
 - **State Cleanup**: Temporary files are cleaned up even on failure
@@ -2469,7 +2569,7 @@ The streaming response system implements comprehensive error handling:
 
 ### Unified Background Processing Error Handling
 
-The unified _index_document_from_s3() function provides centralized error handling:
+The unified `_index_document_from_s3()` function provides centralized error handling:
 
 - **Consolidated Error Logging**: Standardized error logging across all operations
 - **Resource Cleanup**: Ensures temporary files are cleaned up on failure
@@ -2477,6 +2577,18 @@ The unified _index_document_from_s3() function provides centralized error handli
 - **State Management**: Maintains consistent document state during failures
 - **Logging Consistency**: Standardized logging format for all background operations
 - **Format Validation**: Validates DOCX integrity and handles XLSX processing errors
+
+### **Updated** Modular Router Architecture Error Handling
+
+The revolutionary modular router architecture implements comprehensive error handling:
+
+- **Router Composition Errors**: Handles cases where router delegation fails
+- **Backward Compatibility Errors**: Manages errors in maintaining backward compatibility
+- **Specialized Router Errors**: Handles errors in authentication, upload, bulk, and QA routers
+- **Helper Function Errors**: Manages errors in shared utilities and validation functions
+- **Router Delegation Errors**: Handles cases where main router fails to delegate properly
+- **Error Propagation**: Ensures errors propagate correctly through router hierarchy
+- **Logging Consistency**: Standardized error logging across all router modules
 
 ### **Updated** HTMX Partial Response Error Handling
 
@@ -2486,15 +2598,16 @@ The revolutionary HTMX partial response system implements comprehensive error ha
 - **Polling Control Errors**: Manages automatic polling activation/deactivation failures
 - **Template Rendering Errors**: Handles template context errors and missing parameters
 - **Server Load Management**: Monitors and manages server load during high-traffic scenarios
-- **Deduplication Logic Errors**: Handles edge cases in document deduplication logic
-- **Template Integration Errors**: Manages integration errors between templates and partial responses
-- ****Updated** | **OOB Swapping Error Recovery** | **Graceful handling of OOB swapping failures** |
-- ****Updated** | **Polling Control Error Recovery** | **Automatic recovery from polling control failures** |
-- ****Updated** | **Server Load Error Recovery** | **Graceful degradation under high server load** |
+- **Deduplication Logic Errors**: Manages edge cases in document deduplication
+- **Template Integration Errors**: Handles integration errors between templates and partial responses
+- **Router Architecture Errors**: Handles errors in modular router structure
+- **OOB Swapping Error Recovery**: Graceful handling of OOB swapping failures
+- **Polling Control Error Recovery**: Automatic recovery from polling control failures
+- **Server Load Error Recovery**: Graceful degradation under high server load
 
 ### Centralized Date Range Error Handling
 
-The parse_date_range() utility provides consistent error handling:
+The `parse_date_range()` utility provides consistent error handling:
 
 - **Graceful Error Recovery**: Invalid dates are safely ignored
 - **Type Safety**: Returns proper datetime objects or None
@@ -2503,7 +2616,7 @@ The parse_date_range() utility provides consistent error handling:
 
 ### Centralized Template Context Error Handling
 
-The _document_table_context() function provides consistent context management:
+The `_document_table_context()` function provides consistent context management:
 
 - **Parameter Validation**: Validates all filter and sort parameters
 - **Type Safety**: Ensures proper parameter types in context
@@ -2512,7 +2625,7 @@ The _document_table_context() function provides consistent context management:
 
 ### DOCX Integrity Validation Error Handling
 
-The _validate_docx_bytes() function provides comprehensive DOCX validation:
+The `_validate_docx_bytes()` function provides comprehensive DOCX validation:
 
 - **Zip File Validation**: Checks for valid DOCX structure using word/document.xml
 - **BadZipFile Handling**: Graceful handling of corrupted ZIP archives
@@ -2527,24 +2640,25 @@ The recently finished documents tracking system implements comprehensive error h
 - **Timestamp Validation**: Validates timestamp calculations and boundary handling
 - **Deduplication Logic Errors**: Manages edge cases in document deduplication
 - **Template Integration Errors**: Handles template rendering errors for status updates
-- ****Updated** | **Database Query Error Recovery** | **Graceful handling of database connection failures** |
-- ****Updated** | **Timestamp Error Recovery** | **Validation and correction of timestamp calculations** |
-- ****Updated** | **Deduplication Logic Error Recovery** | **Edge case handling for document deduplication** |
+- **Router Architecture Errors**: Handles errors in modular router structure
+- **Database Query Error Recovery**: Graceful handling of database connection failures
+- **Timestamp Error Recovery**: Validation and correction of timestamp calculations
+- **Deduplication Logic Error Recovery**: Edge case handling for document deduplication
 
 **Section sources**
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
 - [app/domain/document_service.py:147-181](file://app/domain/document_service.py#L147-L181)
 - [app/domain/document_service.py:184-234](file://app/domain/document_service.py#L184-L234)
-- [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
-- [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
-- [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
+- [app/api/documents_qa.py:55-91](file://app/api/documents_qa.py#L55-L91)
+- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
 - [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
-- [app/api/documents.py:129-165](file://app/api/documents.py#L129-L165)
+- [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
+- [app/api/documents_bulk.py:114-162](file://app/api/documents_bulk.py#L114-L162)
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
-- [app/api/documents.py:168-197](file://app/api/documents.py#L168-L197)
-- [app/api/documents.py:93-100](file://app/api/documents.py#L93-L100)
+- [app/api/documents_helpers.py:82-112](file://app/api/documents_helpers.py#L82-L112)
+- [app/api/documents_helpers.py:31-50](file://app/api/documents_helpers.py#L31-L50)
 
 ## Deployment and Operations
 
@@ -2561,6 +2675,8 @@ Poller[Message Poller]
 Streaming[Streaming Service]
 HTMXEngine[HTMX Engine]
 EndUserIntegration[Enhanced User Integration]
+RouterArchitecture[Modular Router Architecture]
+EndUserExperience[Enhanced Experience]
 end
 subgraph "Data Services"
 DB[(SQLite Database with Auto-Increment)]
@@ -2581,8 +2697,10 @@ Web --> Ollama
 Streaming --> Web
 HTMXEngine --> Web
 EndUserIntegration --> HTMXEngine
+RouterArchitecture --> Web
 EndUserMonitoring --> DB
 EndUserExperience --> HTMXEngine
+EndUserExperience --> RouterArchitecture
 ```
 
 ### Environment Setup
@@ -2596,11 +2714,12 @@ Required environment variables:
 - `MAX_CONCURRENT_INDEXING`: Semaphore limit for concurrency control
 - `CHUNK_SIZE`: Token-based chunk size for text processing
 - `CHUNK_OVERLAP`: Token-based chunk overlap for context preservation
-- ****Updated** | **HTMX Configuration** | **MAX_CONCURRENT_INDEXING** | **Semaphore limit for HTMX partial responses** |
-- ****Updated** | **OOB Swapping** | **MAX_CONCURRENT_INDEXING** | **Semaphore limit for OOB swapping operations** |
-- ****Updated** | **Polling Control** | **MAX_CONCURRENT_INDEXING** | **Semaphore limit for automatic polling control** |
+- **Router Architecture**: `MAX_CONCURRENT_INDEXING` for modular router operations
+- **HTMX Configuration**: `MAX_CONCURRENT_INDEXING` for HTMX partial responses
+- **OOB Swapping**: `MAX_CONCURRENT_INDEXING` for OOB swapping operations
+- **Polling Control**: `MAX_CONCURRENT_INDEXING` for automatic polling control
 
-**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The revolutionary HTMX partial response system with OOB swapping reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified _index_document_from_s3() function requires proper semaphore configuration for optimal background processing performance. The centralized parse_date_range() utility requires proper date format validation for consistent date parameter handling. The _document_table_context() function requires proper template context validation for consistent UI rendering. The new DOCX integrity validation function requires proper ZIP file handling and validation for DOCX file processing. The revolutionary batch status polling system requires proper HTMX engine configuration and OOB swapping support for optimal performance. The automatic polling control system requires proper server load monitoring and resource management for efficient operation. The recently finished documents tracking system requires proper database configuration and query optimization for reliable status updates.
+**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The revolutionary HTMX partial response system with OOB swapping reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified `_index_document_from_s3()` function requires proper semaphore configuration for optimal background processing performance. The centralized `parse_date_range()` utility requires proper date format validation for consistent date parameter handling. The `_document_table_context()` function requires proper template context validation for consistent UI rendering. The new DOCX integrity validation function requires proper ZIP file handling and validation for DOCX file processing. The revolutionary batch status polling system requires proper HTMX engine configuration and OOB swapping support for optimal performance. The automatic polling control system requires proper server load monitoring and resource management for efficient operation. The recently finished documents tracking system requires proper database configuration and query optimization for reliable status updates. The modular router architecture requires proper router composition and dependency injection for optimal performance.
 
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
@@ -2632,10 +2751,16 @@ Required environment variables:
 | **Sorting Issues** | Wrong sort order or direction | Verify sort field validation, check database ordering |
 | **Mobile Sidebar Not Working** | Overlay sidebar not appearing | Check Alpine.js configuration, verify mobile breakpoint |
 | **Toast Notifications Not Showing** | No toast messages | Verify toast manager initialization, check custom event handling |
-| ****Updated** | **Batch Status Polling Failing** | **Status not updating** | **Check '/partials/documents-status' endpoint, verify out-of-band swapping** |
-| ****Updated** | **OOB Swapping Issues** | **Dynamic row updates not working** | **Verify OOB swapping configuration, check HTMX engine setup** |
-| ****Updated** | **Automatic Polling Control Problems** | **Polling not starting/stopping** | **Check automatic polling activation logic, verify document activity detection** |
-| ****Updated** | **Recently Finished Documents Not Updating** | **Final status not showing** | **Check database query for recently finished documents, verify polling interval** |
+| **Router Architecture Issues** | Endpoints not working after refactoring | Check router composition, verify backward compatibility |
+| **Authentication Router Issues** | Login/logout not working | Verify authentication router configuration, check cookie handling |
+| **Upload Router Issues** | File uploads failing | Verify upload router configuration, check file validation |
+| **Bulk Router Issues** | Bulk operations not working | Verify bulk router configuration, check concurrent processing |
+| **QA Router Issues** | Question-answering not working | Verify QA router configuration, check LLM provider setup |
+| **Helper Function Issues** | Shared utilities not working | Verify helper function re-export, check shared validation |
+| **Batch Status Polling Failing** | Status not updating | Check '/partials/documents-status' endpoint, verify out-of-band swapping |
+| **OOB Swapping Issues** | Dynamic row updates not working | Verify OOB swapping configuration, check HTMX engine setup |
+| **Automatic Polling Control Problems** | Polling not starting/stopping | Check automatic polling activation logic, verify document activity detection |
+| **Recently Finished Documents Not Updating** | Final status not showing | Check database query for recently finished documents, verify polling interval |
 | **Document-Specific Questions Not Working** | 400/404 errors on /ask | Verify document exists, check processing status, confirm search enablement |
 | **Global Questions Not Working** | 500 errors on /api/qa/ask-global | Verify QA service initialization, check LLM provider availability |
 | **Document Question Modal Issues** | Modal not opening or not responding | Check Alpine.js state management, verify modal trigger events |
@@ -2643,18 +2768,18 @@ Required environment variables:
 | **Streaming Response Issues** | No real-time feedback | Check SSE client implementation, verify streaming endpoint |
 | **SSE Connection Problems** | Streaming fails or disconnects | Verify server-side streaming implementation, check network connectivity |
 | **Download Filename Issues** | Incorrect or garbled filenames | Check RFC 5987 encoding implementation, verify browser compatibility |
-| **Global Question Prompt Issues** | Wrong system prompt used | Verify GLOBAL_EXPERTS_PROMPT application, check retriever construction |
-| **Document Question Prompt Issues** | Wrong system prompt used | Verify DOCUMENT_EXPERTS_PROMPT application, check retriever construction |
-| **Unified Indexing Function Issues** | Background processing failures | Check _index_document_from_s3() function, verify semaphore protection, validate error handling |
-| **Date Range Utility Issues** | Inconsistent date parsing | Check parse_date_range() function, verify ISO date format handling, validate error recovery |
-| **Template Context Issues** | Inconsistent UI rendering | Check _document_table_context() function, verify parameter validation, ensure proper context building |
-| **DOCX Integrity Validation Issues** | DOCX validation failures | Check _validate_docx_bytes() function, verify ZIP file handling, validate word/document.xml presence |
+| **Global Question Prompt Issues** | Wrong system prompt used | Verify `GLOBAL_EXPERTS_PROMPT` application, check retriever construction |
+| **Document Question Prompt Issues** | Wrong system prompt used | Verify `DOCUMENT_EXPERTS_PROMPT` application, check retriever construction |
+| **Unified Indexing Function Issues** | Background processing failures | Check `_index_document_from_s3()` function, verify semaphore protection, validate error handling |
+| **Date Range Utility Issues** | Inconsistent date parsing | Check `parse_date_range()` function, verify ISO date format handling, validate error recovery |
+| **Template Context Issues** | Inconsistent UI rendering | Check `_document_table_context()` function, verify parameter validation, ensure proper context building |
+| **DOCX Integrity Validation Issues** | DOCX validation failures | Check `_validate_docx_bytes()` function, verify ZIP file handling, validate word/document.xml presence |
 | **XLSX Processing Issues** | Spreadsheet parsing failures | Verify openpyxl installation, check worksheet processing, validate row formatting |
 | **Spreadsheet Search Issues** | XLSX content not searchable | Check worksheet metadata preservation, verify chunk generation with section information |
-| ****Updated** | **HTMX Partial Response Issues** | **OOB swapping not working** | **Verify HTMX engine configuration, check OOB swapping syntax, validate template integration** |
-| ****Updated** | **Batch Status Polling Performance Issues** | **High server load** | **Check server load optimization, verify polling interval, validate deduplication logic** |
-| ****Updated** | **Automatic Polling Control Issues** | **Polling not responding to document activity** | **Check automatic polling activation logic, verify document status monitoring** |
-| ****Updated** | **Recently Finished Tracking Issues** | **Final status updates not appearing** | **Check database query optimization, verify timestamp calculations, validate deduplication logic** |
+| **HTMX Partial Response Issues** | OOB swapping not working | Verify HTMX engine configuration, check OOB swapping syntax, validate template integration |
+| **Batch Status Polling Performance Issues** | High server load | Check server load optimization, verify polling interval, validate deduplication logic |
+| **Automatic Polling Control Issues** | Polling not responding to document activity | Check automatic polling activation logic, verify document status monitoring |
+| **Recently Finished Tracking Issues** | Final status updates not appearing | Check database query optimization, verify timestamp calculations, validate deduplication logic |
 
 ### Logging and Monitoring
 
@@ -2677,10 +2802,11 @@ The system provides comprehensive logging at multiple levels:
 - **Sorting logs**: Sort field processing, database ordering
 - **Mobile Responsiveness logs**: Responsive behavior, breakpoint handling
 - **Toast Notification logs**: Toast management, event handling
-- ****Updated** | **Batch Status Polling Logs** | **Centralized polling management, OOB swapping operations** |
-- ****Updated** | **OOB Swapping Logs** | **Dynamic row updates, template integration, server load optimization** |
-- ****Updated** | **Automatic Polling Control Logs** | **Intelligent polling activation/deactivation, document activity monitoring** |
-- ****Updated** | **Recently Finished Tracking Logs** | **Final status updates, timestamp calculations, deduplication logic** |
+- **Router Architecture Logs**: Modular router organization, backward compatibility
+- **Batch Status Polling Logs**: Centralized polling management, OOB swapping operations
+- **OOB Swapping Logs**: Dynamic row updates, template integration, server load optimization
+- **Automatic Polling Control Logs**: Intelligent polling activation/deactivation, document activity monitoring
+- **Recently Finished Tracking Logs**: Final status updates, timestamp calculations, deduplication logic
 - **Document-Specific Question Logs**: Document validation, retriever construction, answer generation
 - **Global Question Logs**: Global retriever construction, answer generation, knowledge base queries
 - **Streaming Response Logs**: SSE implementation, token streaming, error recovery
@@ -2692,10 +2818,11 @@ The system provides comprehensive logging at multiple levels:
 - **Template Context Logs**: Centralized rendering management, parameter validation, UI state consistency
 - **DOCX Integrity Validation Logs**: Zip file validation, word/document.xml verification, error handling
 - **XLSX Processing Logs**: Worksheet parsing, row formatting, metadata preservation, chunk generation
-- ****Updated** | **HTMX Engine Logs** | **OOB swapping operations, polling management, partial response handling** |
-- ****Updated** | **Server Load Monitoring Logs** | **Performance optimization, resource management, error recovery** |
+- **HTMX Engine Logs**: OOB swapping operations, polling management, partial response handling
+- **Server Load Monitoring Logs**: Performance optimization, resource management, error recovery
+- **Router Composition Logs**: Modular router delegation, error propagation, logging consistency
 
-**Updated** The troubleshooting guide now includes comprehensive coverage for the newly enhanced HTMX partial response system, batch status polling, automatic polling control, and recently finished documents tracking. The logging system provides detailed coverage for all new functionality including centralized batch polling through '/partials/documents-status', proper OOB swapping for dynamic document row updates, automatic polling activation that starts/stops based on active document count, and recently finished documents tracking within a 10-second window. The system now includes specific troubleshooting steps for HTMX OOB swapping issues, batch status polling performance problems, automatic polling control failures, and recently finished tracking issues. The logging system provides comprehensive coverage for all new centralized batch status management, intelligent polling control, and server load optimization features. The troubleshooting guide addresses the revolutionary batch status polling system that dramatically reduces server load by eliminating N concurrent requests for individual row polling, the automatic polling control that intelligently manages polling based on document activity, and the recently finished documents tracking that provides final status updates for documents completed within 10 seconds.
+**Updated** The troubleshooting guide now includes comprehensive coverage for the newly modular router architecture, batch status polling, automatic polling control, and recently finished documents tracking. The logging system provides detailed coverage for all new functionality including centralized batch polling through '/partials/documents-status', proper OOB swapping for dynamic document row updates, automatic polling activation that starts/stops based on active document count, and recently finished documents tracking within a 10-second window. The system now includes specific troubleshooting steps for router architecture issues, authentication router problems, upload router failures, bulk router issues, QA router problems, and helper function errors. The logging system provides comprehensive coverage for all new modular router functionality including router composition errors, backward compatibility errors, specialized router errors, and helper function errors. The troubleshooting guide addresses the revolutionary batch status polling system that dramatically reduces server load by eliminating N concurrent requests for individual row polling, the automatic polling control that intelligently manages polling based on document activity, and the recently finished documents tracking that provides final status updates for documents completed within 10 seconds. The system now includes comprehensive coverage for router architecture issues, authentication router problems, upload router failures, bulk router issues, QA router problems, and helper function errors.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -2705,22 +2832,22 @@ The system provides comprehensive logging at multiple levels:
 
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
 
-**Updated** The system has been significantly enhanced with revolutionary HTMX partial response capabilities that include proper OOB (out-of-band) swapping for dynamic document row updates and automatic status polling activation for processing documents. The new centralized batch status polling system dramatically reduces server load by eliminating N concurrent requests for individual row polling, while the dedicated status poller template provides real-time monitoring of indexing operations. The system maintains all existing functionality while adding groundbreaking status tracking capabilities that automatically manage polling based on document activity. The enhanced user interface now features intelligent polling control that starts/stops based on active document count, recently finished documents tracking that provides final status updates within a 10-second window, and efficient OOB swapping that enables dynamic row updates without full page reloads. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials and components. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, batch status polling, automatic polling control, and recently finished documents tracking. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
+**Updated** The system has undergone a major architectural refactoring from a monolithic structure to a modular document management system. Authentication, upload, bulk operations, and QA functionality have been extracted to specialized routers (`documents_auth.py`, `documents_upload.py`, `documents_bulk.py`, `documents_qa.py`) while maintaining backward compatibility through router composition in the main `documents.py` file. This refactoring provides enhanced modularity, maintainability, and separation of concerns while preserving all existing functionality and API endpoints. The system now features a revolutionary modular router architecture with router composition maintaining backward compatibility, enhanced HTMX partial response capabilities that include proper OOB (out-of-band) swapping for dynamic document row updates and automatic status polling activation for processing documents, and comprehensive testing coverage for all new modular functionality. The enhanced user interface now features intelligent polling control that starts/stops based on active document count, recently finished documents tracking that provides final status updates within a 10-second window, and efficient OOB swapping that enables dynamic row updates without full page reloads. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials and components. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, batch status polling, automatic polling control, and recently finished documents tracking. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
 Key strengths include:
-- **Revolutionary Global Question-Answering**: Knowledge base-wide queries with real-time streaming responses using Server-Sent Events (SSE)
+- **Revolutionary Modular Router Architecture**: Specialized routers for authentication, upload, bulk operations, and QA while maintaining backward compatibility
 - **Enhanced Document Validation**: Comprehensive security checks for both document-specific and global operations
 - **Triple Format Support**: Support for DOCX, DOC, and XLSX document formats with unified processing pipeline
-- **DOCX Integrity Validation**: Zip file validation using _validate_docx_bytes() function for content verification
+- **DOCX Integrity Validation**: Zip file validation using `_validate_docx_bytes()` function for content verification
 - **Spreadsheet Processing**: Comprehensive XLSX parsing with worksheet-based sectioning and metadata preservation
 - **Dual Question-Answering Modes**: Support for both document-specific and global knowledge base queries
 - **Alpine.js Modal Integration**: Reactive state management for both document and global question interactions
 - **Comprehensive Error Handling**: Detailed validation and error responses for all question-answering operations
-- ****Updated** | **Revolutionary Batch Status Polling** | **Centralized batch processing eliminates N concurrent requests, dramatically reducing server load** |
-- ****Updated** | **Automatic Polling Control** | **Intelligent start/stop polling based on active document count** |
-- ****Updated** | **Recently Finished Documents Tracking** | **Provides final status updates for documents completed within 10 seconds** |
-- ****Updated** | **OOB Swapping Integration** | **Efficient HTML updates without full page reloads using out-of-band swapping** |
-- ****Updated** | **HTMX Partial Response System** | **Comprehensive HTMX integration with OOB swapping and polling management** |
+- **Revolutionary Batch Status Polling**: Centralized batch processing eliminates N concurrent requests, dramatically reducing server load
+- **Automatic Polling Control**: Intelligent start/stop polling based on active document count
+- **Recently Finished Documents Tracking**: Provides final status updates for documents completed within 10 seconds
+- **OOB Swapping Integration**: Efficient HTML updates without full page reloads using out-of-band swapping
+- **HTMX Partial Response System**: Comprehensive HTMX integration with OOB swapping and polling management
 - **Enhanced File Download Handling**: RFC 5987-compliant filename encoding for international character support
 - **Comprehensive Document Lifecycle Management**: From upload to searchable state with triple format support
 - **Flexible Storage Backend**: Support for multiple storage providers
@@ -2756,8 +2883,9 @@ Key strengths include:
 - **Consistent Template Rendering**: Standardized UI context management for all partials and components
 - **Spreadsheet Query Support**: XLSX documents can be queried with worksheet context for focused analysis
 - **Format-Aware Processing**: Different handling for DOCX headings, DOC text structure, and XLSX worksheets with unified output
-- ****Updated** | **Revolutionary HTMX Integration** | **Comprehensive HTMX partial response system with OOB swapping and polling management** |
-- ****Updated** | **Intelligent Server Load Management** | **Automatic polling control and server load optimization** |
-- ****Updated** | **Enhanced User Experience** | **Real-time status monitoring and efficient UI updates** |
+- **Revolutionary Router Architecture**: Modular router structure with router composition maintaining backward compatibility
+- **Intelligent Server Load Management**: Automatic polling control and server load optimization
+- **Enhanced User Experience**: Real-time status monitoring and efficient UI updates
+- **Comprehensive Router Testing**: Extensive testing for router composition, backward compatibility, and modular functionality
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.

@@ -8,7 +8,6 @@ of implementing business logic themselves.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
@@ -27,7 +26,7 @@ from app.storage.models import DocumentRecord, DocumentStatus
 if TYPE_CHECKING:
     from langchain_core.documents import Document as LCDocument
     from langchain_core.embeddings import Embeddings
-    from qdrant_client import QdrantClient
+    from qdrant_client import AsyncQdrantClient
 
     from app.storage.document_repo import DocumentRepository
     from app.storage.s3 import S3Storage
@@ -45,7 +44,7 @@ class DocumentService:
     def __init__(
         self,
         repo: DocumentRepository,
-        qdrant_client: QdrantClient,
+        qdrant_client: AsyncQdrantClient,
         embeddings: Embeddings,
         collection_name: str = "hr_documents",
         sparse_embedding: object | None = None,
@@ -130,8 +129,7 @@ class DocumentService:
                 s3_key=record.s3_key,
                 is_search_enabled=record.is_search_enabled,
             )
-            count = await asyncio.to_thread(
-                index_chunks,
+            count = await index_chunks(
                 self._qdrant,
                 self._embeddings,
                 self._collection,
@@ -186,8 +184,7 @@ class DocumentService:
 
         # Update Qdrant chunks first to ensure consistency
         try:
-            await asyncio.to_thread(
-                set_search_enabled,
+            await set_search_enabled(
                 self._qdrant,
                 self._collection,
                 document_id,
@@ -226,9 +223,7 @@ class DocumentService:
         )
 
         try:
-            await asyncio.to_thread(
-                delete_document_chunks, self._qdrant, self._collection, document_id
-            )
+            await delete_document_chunks(self._qdrant, self._collection, document_id)
 
             enriched = prepare_chunks(
                 chunks,
@@ -237,8 +232,7 @@ class DocumentService:
                 s3_key=record.s3_key,
                 is_search_enabled=record.is_search_enabled,
             )
-            count = await asyncio.to_thread(
-                index_chunks,
+            count = await index_chunks(
                 self._qdrant,
                 self._embeddings,
                 self._collection,
@@ -328,9 +322,7 @@ class DocumentService:
 
         # Delete Qdrant chunks
         try:
-            await asyncio.to_thread(
-                delete_document_chunks, self._qdrant, self._collection, document_id
-            )
+            await delete_document_chunks(self._qdrant, self._collection, document_id)
         except Exception:
             logger.warning(
                 "Failed to delete Qdrant chunks for document %s",

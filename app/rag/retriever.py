@@ -3,13 +3,59 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
 from langchain_qdrant import QdrantVectorStore
+from pydantic import ConfigDict
+from qdrant_client import AsyncQdrantClient, models
 
 
 class CollectionNotFoundError(Exception):
     """Raised when the target Qdrant collection does not exist yet."""
+
+
+class AsyncQdrantRetriever(BaseRetriever):
+    """Async retriever using Qdrant's AsyncQdrantClient directly.
+
+    Replaces LangChain's QdrantVectorStore for retrieval to enable
+    fully async operations without sync client overhead.
+    """
+
+    client: AsyncQdrantClient
+    collection_name: str
+    embeddings: Any
+    k: int = 5
+    filter: models.Filter | None = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    async def _aget_relevant_documents(
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+    ) -> list[Document]:
+        """Retrieve relevant documents asynchronously."""
+        query_vector = await self.embeddings.aembed_query(query)
+        results = await self.client.query_points(
+            collection_name=self.collection_name,
+            query=query_vector,
+            limit=self.k,
+            query_filter=self.filter,
+        )
+        return [
+            Document(
+                page_content=r.payload.get("page_content", ""),
+                metadata={k: v for k, v in r.payload.items() if k != "page_content"},
+            )
+            for r in results.points
+        ]
+
+    def _get_relevant_documents(
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+    ) -> list[Document]:
+        """Sync retrieval is not supported - use async API only."""
+        raise NotImplementedError("Use async API only")
 
 
 def estimate_k(question: str) -> int:
@@ -30,7 +76,6 @@ def estimate_k(question: str) -> int:
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
     from langchain_core.vectorstores import VectorStoreRetriever
-    from qdrant_client import QdrantClient
 
     from app.config import Settings
 
@@ -39,11 +84,9 @@ logger = logging.getLogger(__name__)
 COLLECTION_NAME = "hr_documents"
 
 
-def build_qdrant_client(settings: Settings) -> QdrantClient:
-    """Create a Qdrant client from settings."""
-    from qdrant_client import QdrantClient
-
-    return QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
+def build_qdrant_client(settings: Settings) -> AsyncQdrantClient:
+    """Create an async Qdrant client from settings."""
+    return AsyncQdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
 
 
 def build_embeddings(settings: Settings) -> Embeddings:
@@ -108,15 +151,20 @@ def build_sparse_embeddings(settings: Settings):
 
 
 def build_vectorstore(
-    client: QdrantClient,
+    client: AsyncQdrantClient,
     embeddings: Embeddings,
     collection_name: str = COLLECTION_NAME,
     sparse_embedding=None,
 ) -> QdrantVectorStore:
-    """Wrap an existing Qdrant collection into a LangChain vectorstore."""
+    """Wrap an existing Qdrant collection into a LangChain vectorstore.
+
+    Note: This function is primarily used for indexing/ingestion.
+    For retrieval, use AsyncQdrantRetriever instead.
+    """
     from qdrant_client.http.exceptions import UnexpectedResponse
 
     # Pre-check: does the collection exist?
+    # Note: client is expected to have get_collection method (sync or mock)
     try:
         client.get_collection(collection_name)
     except (UnexpectedResponse, Exception) as exc:
@@ -138,31 +186,26 @@ def build_vectorstore(
 def build_retriever(
     settings: Settings,
     *,
-    qdrant_client: QdrantClient | None = None,
+    qdrant_client: AsyncQdrantClient | None = None,
     embeddings: Embeddings | None = None,
     collection_name: str = COLLECTION_NAME,
     k: int = 4,
     sparse_embedding=None,
-) -> VectorStoreRetriever:
-    """Build a dense retriever over the given Qdrant collection.
+) -> AsyncQdrantRetriever:
+    """Build an async dense retriever over the given Qdrant collection.
 
     Only chunks where ``is_search_enabled`` is not explicitly ``False``
     are returned.  Chunks that predate the metadata enrichment (no field)
     are still included for backward compatibility.
-    """
-    from qdrant_client import models
 
+    Note: sparse_embedding is accepted for API compatibility but is not
+    used by AsyncQdrantRetriever (dense retrieval only).
+    """
     if qdrant_client is None:
         qdrant_client = build_qdrant_client(settings)
     if embeddings is None:
         embeddings = build_embeddings(settings)
 
-    vs = build_vectorstore(
-        qdrant_client,
-        embeddings,
-        collection_name,
-        sparse_embedding=sparse_embedding,
-    )
     search_filter = models.Filter(
         must=[
             models.FieldCondition(
@@ -171,38 +214,39 @@ def build_retriever(
             )
         ]
     )
-    return vs.as_retriever(search_kwargs={"k": k, "filter": search_filter})
+    return AsyncQdrantRetriever(
+        client=qdrant_client,
+        collection_name=collection_name,
+        embeddings=embeddings,
+        k=k,
+        filter=search_filter,
+    )
 
 
 def build_retriever_for_document(
     settings: Settings,
     document_id: str,
     *,
-    qdrant_client: QdrantClient | None = None,
+    qdrant_client: AsyncQdrantClient | None = None,
     embeddings: Embeddings | None = None,
     collection_name: str = COLLECTION_NAME,
     k: int = 4,
     sparse_embedding=None,
-) -> VectorStoreRetriever:
-    """Build a dense retriever scoped to a single document.
+) -> AsyncQdrantRetriever:
+    """Build an async dense retriever scoped to a single document.
 
     Returns only chunks that:
     - belong to ``document_id`` (``metadata.document_id`` must match), and
     - are not explicitly excluded from search (``is_search_enabled`` != ``False``).
-    """
-    from qdrant_client import models
 
+    Note: sparse_embedding is accepted for API compatibility but is not
+    used by AsyncQdrantRetriever (dense retrieval only).
+    """
     if qdrant_client is None:
         qdrant_client = build_qdrant_client(settings)
     if embeddings is None:
         embeddings = build_embeddings(settings)
 
-    vs = build_vectorstore(
-        qdrant_client,
-        embeddings,
-        collection_name,
-        sparse_embedding=sparse_embedding,
-    )
     search_filter = models.Filter(
         must=[
             models.FieldCondition(
@@ -215,4 +259,10 @@ def build_retriever_for_document(
             ),
         ]
     )
-    return vs.as_retriever(search_kwargs={"k": k, "filter": search_filter})
+    return AsyncQdrantRetriever(
+        client=qdrant_client,
+        collection_name=collection_name,
+        embeddings=embeddings,
+        k=k,
+        filter=search_filter,
+    )
