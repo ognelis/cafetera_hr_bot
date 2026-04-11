@@ -4,7 +4,7 @@
 This repository uses agentic coding for implementation assistance, but architecture, invariants, and acceptance are human-led.
 
 ## Stack
-- Python 3.11+. Package manager: `uv` only — never pip or poetry.
+- Python 3.13. Package manager: `uv` only — never pip or poetry.
 - FastAPI + pydantic v2 + pydantic-settings.
 - **Primary channel: VK** — vkbottle 4.x. Telegram (aiogram 3.x) is Post-MVP.
 - RAG: LangChain + Qdrant.

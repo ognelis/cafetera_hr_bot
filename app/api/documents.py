@@ -1,4 +1,4 @@
-"""Document admin routes — HTML pages and API endpoints.
+"""Document admin routes — router composition and core endpoints.
 
 HTML pages:
     GET  /login          — login form
@@ -23,31 +23,18 @@ HTMX partials (require admin cookie):
 
 from __future__ import annotations
 
-import asyncio
-import io
 import logging
 import math
-import re
-import secrets
-import tempfile
-import zipfile
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import (
     APIRouter,
     BackgroundTasks,
-    Cookie,
     Form,
     HTTPException,
     Request,
-    Response,
-    UploadFile,
 )
-from fastapi.responses import HTMLResponse, RedirectResponse
-from langchain_core.embeddings import Embeddings
-from pydantic import BaseModel
-from starlette.responses import StreamingResponse
+from fastapi.responses import HTMLResponse, Response
 
 from app.api.deps import (
     AdminDep,
@@ -56,259 +43,46 @@ from app.api.deps import (
     RepoDep,
     S3Dep,
     ServiceDep,
-    SettingsDep,
     TemplatesDep,
     parse_date_range,
 )
+
+# Sub-routers
+from app.api.documents_auth import router as _auth_router
+from app.api.documents_bulk import router as _bulk_router
+
+# Helpers re-exported so the module stays a drop-in for any direct imports
+from app.api.documents_helpers import (  # noqa: F401
+    _ALLOWED_EXTENSIONS,
+    _ALLOWED_MIMES,
+    _COOKIE_NAME,
+    _EXT_TO_MIME,
+    _MAX_FILE_SIZE,
+    _doc_to_dict,
+    _document_table_context,
+    _get_mime_from_ext,
+    _human_size,
+    _sanitize_filename,
+    _validate_docx_bytes,
+)
+from app.api.documents_qa import router as _qa_router
+from app.api.documents_upload import _index_document_from_s3  # noqa: F401
+from app.api.documents_upload import router as _upload_router
 from app.config import Settings
-from app.domain.qa_service import QAService
-from app.rag.parser import load_document
-from app.storage.models import DocumentRecord, DocumentStatus
-from app.storage.s3 import S3Storage
+
+# Re-export for test-patch compatibility  (tests patch these names on this module)
+from app.rag.parser import load_document  # noqa: F401
+from app.storage.models import DocumentStatus
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_COOKIE_NAME = "admin_session"
-_MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-_ALLOWED_EXTENSIONS = {".docx", ".doc", ".xlsx"}
-_ALLOWED_MIMES = {
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
-    "application/msword",  # .doc
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # .xlsx
-    "application/octet-stream",  # browsers sometimes send this
-}
-
-_EXT_TO_MIME = {
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".doc": "application/msword",
-    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-}
-
-
-# ── Helpers ───────────────────────────────────────────────────────
-
-
-def _validate_docx_bytes(data: bytes) -> bool:
-    """Validate that bytes represent a valid DOCX file by checking for word/document.xml."""
-    try:
-        with zipfile.ZipFile(io.BytesIO(data), 'r') as zf:
-            return 'word/document.xml' in zf.namelist()
-    except zipfile.BadZipFile:
-        return False
-
-
-def _sanitize_filename(name: str) -> str:
-    """Sanitize a user-provided filename to prevent path traversal."""
-    name = Path(name).name  # strip directories
-    name = re.sub(r"[^\w\s.\-]", "_", name)
-    return name or "document.docx"
-
-
-def _get_mime_from_ext(filename: str) -> str | None:
-    """Get MIME type from file extension."""
-    ext = Path(filename).suffix.lower()
-    return _EXT_TO_MIME.get(ext)
-
-
-def _human_size(size_bytes: int) -> str:
-    """Format bytes as human-readable string."""
-    for unit in ("B", "KB", "MB", "GB"):
-        if abs(size_bytes) < 1024:
-            return f"{size_bytes:.1f} {unit}" if unit != "B" else f"{size_bytes} {unit}"
-        size_bytes /= 1024  # type: ignore[assignment]
-    return f"{size_bytes:.1f} TB"
-
-
-def _doc_to_dict(doc: DocumentRecord) -> dict:
-    """Convert a DocumentRecord to a JSON-safe dict."""
-    return {
-        "document_id": doc.document_id,
-        "filename": doc.filename,
-        "title": doc.title,
-        "s3_key": doc.s3_key,
-        "mime_type": doc.mime_type,
-        "size_bytes": doc.size_bytes,
-        "size_human": _human_size(doc.size_bytes),
-        "status": doc.status.value,
-        "is_search_enabled": doc.is_search_enabled,
-        "error": doc.error,
-        "created_at": doc.created_at.isoformat(),
-        "updated_at": doc.updated_at.isoformat(),
-        "indexed_at": doc.indexed_at.isoformat() if doc.indexed_at else None,
-        "chunk_count": doc.chunk_count,
-    }
-
-
-async def _index_document_from_s3(
-    service,
-    s3: S3Storage,
-    document_id: str,
-    s3_key: str,
-    semaphore: asyncio.Semaphore,
-    chunk_size: int,
-    chunk_overlap: int,
-    is_reindex: bool = False,
-    qa_service: QAService | None = None,
-    strategy: str = "recursive",
-    embeddings: Embeddings | None = None,
-    breakpoint_threshold_type: str = "percentile",
-    breakpoint_threshold_amount: float | int = 95,
-) -> None:
-    """Download from S3, parse, and index/reindex a document. Runs as a background task."""
-    async with semaphore:
-        try:
-            data = await s3.download(s3_key)
-
-            # Determine file extension from s3_key
-            ext = Path(s3_key).suffix.lower()
-
-            # Validate DOCX content before processing (only for .docx files)
-            if ext == ".docx" and not _validate_docx_bytes(data):
-                logger.warning(
-                    "Document %s failed validation: not a valid DOCX file (data size: %d bytes)",
-                    document_id,
-                    len(data),
-                )
-                await service._repo.update(
-                    document_id,
-                    status=DocumentStatus.failed,
-                    error="Invalid or corrupted DOCX file",
-                )
-                return
-
-            with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-                tmp.write(data)
-                tmp.flush()
-                tmp_path = Path(tmp.name)
-            try:
-                chunks = await asyncio.to_thread(
-                    load_document,
-                    tmp_path,
-                    chunk_size=chunk_size,
-                    chunk_overlap=chunk_overlap,
-                    strategy=strategy,
-                    embeddings=embeddings,
-                    breakpoint_threshold_type=breakpoint_threshold_type,
-                    breakpoint_threshold_amount=breakpoint_threshold_amount,
-                )
-            except ValueError as exc:
-                if "not a Word file" in str(exc):
-                    logger.error(
-                        "Document %s failed to parse: %s (data size: %d bytes)",
-                        document_id,
-                        exc,
-                        len(data),
-                    )
-                raise
-            finally:
-                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-            if is_reindex:
-                await service.reindex_document(document_id, chunks)
-                logger.info("Background reindex completed for %s", document_id)
-            else:
-                await service.index_document(document_id, chunks)
-                logger.info("Background indexing completed for %s", document_id)
-        except Exception:
-            action = "reindexing" if is_reindex else "indexing"
-            logger.error(
-                "Background %s failed for %s", action, document_id, exc_info=True
-            )
-        finally:
-            if qa_service is not None:
-                qa_service.invalidate_document_chain_cache(document_id)
-
-
-def _document_table_context(
-    documents: list,
-    total: int,
-    page: int = 1,
-    per_page: int = 10,
-    search: str | None = None,
-    date_from: str | None = None,
-    date_to: str | None = None,
-    status: str | None = None,
-    source_type: str | None = None,
-    sort_field: str | None = None,
-    sort_dir: str | None = None,
-) -> dict:
-    """Build template context dict for document table partials."""
-    pages = math.ceil(total / per_page) if per_page > 0 else 0
-    return {
-        "documents": documents,
-        "human_size": _human_size,
-        "page": page,
-        "per_page": per_page,
-        "pages": pages,
-        "total": total,
-        "search": search,
-        "date_from": date_from,
-        "date_to": date_to,
-        "status_filter": status or "",
-        "source_type_filter": source_type or "",
-        "sort_field": sort_field or "",
-        "sort_dir": sort_dir or "",
-    }
-
-
-# ── Auth pages ────────────────────────────────────────────────────
-
-
-@router.get("/login", response_class=HTMLResponse)
-async def login_page(
-    request: Request,
-    templates: TemplatesDep,
-    error: str | None = None,
-):
-    return templates.TemplateResponse(
-        request,
-        "login.html",
-        {"error": error},
-    )
-
-
-@router.post("/login")
-async def login_submit(
-    request: Request,
-    settings: SettingsDep,
-    api_key: Annotated[str, Form()],
-):
-    if not settings.admin_api_key:
-        raise HTTPException(status_code=503, detail="Admin not configured")
-    if not secrets.compare_digest(api_key, settings.admin_api_key):
-        return RedirectResponse(
-            url="/login?error=invalid_key", status_code=303
-        )
-    response = RedirectResponse(url="/documents", status_code=303)
-    response.set_cookie(
-        key=_COOKIE_NAME,
-        value=settings.admin_api_key,
-        httponly=True,
-        samesite="strict",
-        max_age=60 * 60 * 24,  # 24 hours
-    )
-    return response
-
-
-@router.get("/logout")
-async def logout():
-    response = RedirectResponse(url="/login", status_code=303)
-    response.delete_cookie(key=_COOKIE_NAME)
-    return response
-
-
-@router.get("/")
-async def root_redirect(
-    request: Request,
-    settings: SettingsDep,
-    admin_session: Annotated[str | None, Cookie()] = None,
-):
-    """Redirect to /documents if authenticated, otherwise to /login."""
-    if settings.admin_api_key and admin_session is not None:
-        if secrets.compare_digest(admin_session, settings.admin_api_key):
-            return RedirectResponse(url="/documents", status_code=303)
-    return RedirectResponse(url="/login", status_code=303)
+# Include sub-routers — order matters for path matching
+router.include_router(_auth_router)
+router.include_router(_upload_router)
+router.include_router(_bulk_router)
+router.include_router(_qa_router)
 
 
 # ── Documents HTML page ───────────────────────────────────────────
@@ -456,30 +230,15 @@ async def documents_status_partial(
     request: Request,
     _auth: AdminDep,
     templates: TemplatesDep,
-    repo: RepoDep,
+    service: ServiceDep,
 ):
     """Return OOB-swapped rows for all pending/processing documents + poller div.
 
     This batch endpoint replaces per-row polling to avoid N concurrent requests.
     """
-    # Get all pending and processing documents
-    pending_docs, _ = await repo.list_page(
-        page=1, per_page=1000, status="pending"
+    active_docs, all_docs_to_render = (
+        await service.get_active_and_recent_documents()
     )
-    processing_docs, _ = await repo.list_page(
-        page=1, per_page=1000, status="processing"
-    )
-    active_docs = pending_docs + processing_docs
-
-    # Also get recently finished docs so their final status is pushed to the UI
-    recently_finished = await repo.list_recently_finished(seconds=10)
-
-    # Combine: active docs (still polling) + recently finished (final OOB update)
-    # Deduplicate by document_id in case of overlap
-    seen_ids = {doc.document_id for doc in active_docs}
-    all_docs_to_render = active_docs + [
-        doc for doc in recently_finished if doc.document_id not in seen_ids
-    ]
 
     # Render OOB rows for each document
     row_html_parts = []
@@ -513,128 +272,6 @@ async def documents_status_partial(
     row_html_parts.append(poller_html)
 
     return HTMLResponse(content="\n".join(row_html_parts))
-
-
-# ── Upload ────────────────────────────────────────────────────────
-
-
-@router.post("/api/documents/upload")
-async def upload_documents(
-    request: Request,
-    _auth: AdminDep,
-    s3: S3Dep,
-    service: ServiceDep,
-    background_tasks: BackgroundTasks,
-    qa: QAServiceDep,
-    files: list[UploadFile],
-):
-    """Upload one or more documents (.docx, .doc) to S3.
-
-    Returns list of created documents.
-    """
-    results = []
-    errors = []
-
-    for file in files:
-        # Validate extension
-        if file.filename is None:
-            errors.append({"filename": "unknown", "error": "No filename"})
-            continue
-
-        safe_name = _sanitize_filename(file.filename)
-        ext = Path(safe_name).suffix.lower()
-        if ext not in _ALLOWED_EXTENSIONS:
-            allowed_list = ", ".join(sorted(_ALLOWED_EXTENSIONS))
-            errors.append({
-                "filename": safe_name,
-                "error": f"Unsupported file type: {ext}. Allowed: {allowed_list}.",
-            })
-            continue
-
-        # Read content and validate size
-        content = await file.read()
-        if len(content) > _MAX_FILE_SIZE:
-            errors.append({
-                "filename": safe_name,
-                "error": f"File too large ({_human_size(len(content))}). Max 10 MB.",
-            })
-            continue
-
-        if len(content) == 0:
-            errors.append({
-                "filename": safe_name,
-                "error": "Empty file",
-            })
-            continue
-
-        # Validate DOCX content for .docx files only (not for .xlsx)
-        if ext == ".docx" and not _validate_docx_bytes(content):
-            errors.append({
-                "filename": safe_name,
-                "error": "Invalid or corrupted DOCX file",
-            })
-            continue
-
-        # Deduplicate S3 key name
-        s3_key = f"documents/{safe_name}"
-        counter = 1
-        while await s3.exists(s3_key):
-            stem = Path(safe_name).stem
-            s3_key = f"documents/{stem}_{counter}{ext}"
-            counter += 1
-
-        stored_name = Path(s3_key).name
-
-        # Determine MIME type from extension
-        mime_type = _get_mime_from_ext(safe_name) or "application/octet-stream"
-
-        # Upload to S3
-        await s3.upload(s3_key, content, content_type=mime_type)
-
-        # Create metadata record
-        record = await service.create_document(
-            filename=stored_name,
-            title=Path(safe_name).stem,
-            s3_key=s3_key,
-            mime_type=mime_type,
-            size_bytes=len(content),
-        )
-
-        # Schedule background indexing
-        settings: Settings = request.app.state.settings
-        background_tasks.add_task(
-            _index_document_from_s3,
-            service,
-            s3,
-            record.document_id,
-            s3_key,
-            request.app.state.indexing_semaphore,
-            settings.chunk_size,
-            settings.chunk_overlap,
-            is_reindex=False,
-            qa_service=qa,
-            strategy=settings.chunk_strategy,
-            embeddings=request.app.state.embeddings,
-            breakpoint_threshold_type=settings.semantic_breakpoint_threshold_type,
-            breakpoint_threshold_amount=settings.semantic_breakpoint_threshold_amount,
-        )
-
-        results.append(_doc_to_dict(record))
-
-    # Return JSON for API callers, or trigger HTMX table refresh
-    is_htmx = request.headers.get("HX-Request") == "true"
-    if is_htmx:
-        response = Response(status_code=200)
-        response.headers["HX-Trigger"] = "documentsChanged"
-        if errors:
-            error_msgs = "; ".join(e["error"] for e in errors)
-            response.headers["HX-Trigger"] = (
-                '{"documentsChanged": null, "showToast": '
-                f'{{"message": "Some files failed: {error_msgs}", "type": "error"}}}}'
-            )
-        return response
-
-    return {"uploaded": results, "errors": errors}
 
 
 # ── JSON API ──────────────────────────────────────────────────────
@@ -680,262 +317,7 @@ async def list_documents(
     }
 
 
-# ── Bulk operations (MUST be defined BEFORE any {document_id} routes) ─
-
-
-class BulkIdsRequest(BaseModel):
-    """Request body for bulk operations on document IDs."""
-
-    ids: list[str]
-
-
-class BulkSearchToggleRequest(BaseModel):
-    """Request body for bulk search toggle operation."""
-
-    ids: list[str]
-    enabled: bool
-
-
-@router.post("/api/documents/bulk/delete")
-async def bulk_delete_documents(
-    request: Request,
-    _auth: AdminDep,
-    s3: S3Dep,
-    service: ServiceDep,
-    repo: RepoDep,
-    templates: TemplatesDep,
-    qa: QAServiceDep,
-    body: BulkIdsRequest,
-):
-    """Delete multiple documents by ID. Returns refreshed document table partial."""
-    errors = []
-
-    # Fetch all documents concurrently
-    results = await asyncio.gather(
-        *[repo.get(document_id) for document_id in body.ids],
-        return_exceptions=True,
-    )
-
-    for document_id, result in zip(body.ids, results, strict=False):
-        if isinstance(result, Exception):
-            logger.error("Bulk delete failed for %s", document_id, exc_info=True)
-            errors.append(f"Document {document_id}: {result}")
-            continue
-
-        record = result
-        if record is None:
-            errors.append(f"Document {document_id}: not found")
-            continue
-
-        try:
-            deleted = await service.delete_document(
-                document_id, file_deleter=s3.delete
-            )
-            if not deleted:
-                errors.append(f"Document {document_id}: delete failed")
-            else:
-                if qa is not None:
-                    qa.invalidate_document_chain_cache(document_id)
-        except Exception as exc:
-            logger.error("Bulk delete failed for %s", document_id, exc_info=True)
-            errors.append(f"Document {document_id}: {exc}")
-
-    # Return refreshed table partial (HTMX pattern)
-    documents, total = await repo.list_page(page=1, per_page=10)
-    return templates.TemplateResponse(
-        request,
-        "partials/document_table.html",
-        _document_table_context(documents=documents, total=total),
-    )
-
-
-@router.post("/api/documents/bulk/reindex")
-async def bulk_reindex_documents(
-    request: Request,
-    _auth: AdminDep,
-    s3: S3Dep,
-    service: ServiceDep,
-    repo: RepoDep,
-    templates: TemplatesDep,
-    background_tasks: BackgroundTasks,
-    semaphore: IndexingSemaphoreDep,
-    qa: QAServiceDep,
-    body: BulkIdsRequest,
-):
-    """Reindex multiple documents by ID. Returns refreshed document table partial."""
-    errors = []
-    settings: Settings = request.app.state.settings
-
-    # Fetch all documents concurrently
-    results = await asyncio.gather(
-        *[repo.get(document_id) for document_id in body.ids],
-        return_exceptions=True,
-    )
-
-    for document_id, result in zip(body.ids, results, strict=False):
-        if isinstance(result, Exception):
-            logger.error("Bulk reindex failed for %s", document_id, exc_info=True)
-            errors.append(f"Document {document_id}: {result}")
-            continue
-
-        record = result
-        if record is None:
-            errors.append(f"Document {document_id}: not found")
-            continue
-
-        try:
-            # Verify file exists in S3
-            if not await s3.exists(record.s3_key):
-                errors.append(f"Document {document_id}: file not found in storage")
-                continue
-
-            # Mark as processing immediately
-            await repo.update(document_id, status=DocumentStatus.processing, error=None)
-
-            background_tasks.add_task(
-                _index_document_from_s3,
-                service,
-                s3,
-                document_id,
-                record.s3_key,
-                semaphore,
-                settings.chunk_size,
-                settings.chunk_overlap,
-                is_reindex=True,
-                qa_service=qa,
-                strategy=settings.chunk_strategy,
-                embeddings=request.app.state.embeddings,
-                breakpoint_threshold_type=settings.semantic_breakpoint_threshold_type,
-                breakpoint_threshold_amount=settings.semantic_breakpoint_threshold_amount,
-            )
-        except Exception as exc:
-            logger.error("Bulk reindex failed for %s", document_id, exc_info=True)
-            errors.append(f"Document {document_id}: {exc}")
-
-    # Return refreshed table partial (HTMX pattern)
-    documents, total = await repo.list_page(page=1, per_page=10)
-    return templates.TemplateResponse(
-        request,
-        "partials/document_table.html",
-        _document_table_context(documents=documents, total=total),
-    )
-
-
-@router.patch("/api/documents/bulk/search")
-async def bulk_toggle_search(
-    request: Request,
-    _auth: AdminDep,
-    service: ServiceDep,
-    repo: RepoDep,
-    templates: TemplatesDep,
-    qa: QAServiceDep,
-    body: BulkSearchToggleRequest,
-):
-    """Toggle search enabled for multiple documents. Returns refreshed document table partial."""
-    errors = []
-
-    # Fetch all documents concurrently
-    results = await asyncio.gather(
-        *[repo.get(document_id) for document_id in body.ids],
-        return_exceptions=True,
-    )
-
-    for document_id, result in zip(body.ids, results, strict=False):
-        if isinstance(result, Exception):
-            logger.error("Bulk toggle search failed for %s", document_id, exc_info=True)
-            errors.append(f"Document {document_id}: {result}")
-            continue
-
-        record = result
-        if record is None:
-            errors.append(f"Document {document_id}: not found")
-            continue
-
-        try:
-            updated = await service.toggle_search(document_id, enabled=body.enabled)
-            if updated is None:
-                errors.append(f"Document {document_id}: toggle failed")
-            else:
-                if qa is not None:
-                    qa.invalidate_document_chain_cache(document_id)
-        except Exception as exc:
-            logger.error("Bulk toggle search failed for %s", document_id, exc_info=True)
-            errors.append(f"Document {document_id}: {exc}")
-
-    # Return refreshed table partial (HTMX pattern)
-    documents, total = await repo.list_page(page=1, per_page=10)
-    return templates.TemplateResponse(
-        request,
-        "partials/document_table.html",
-        _document_table_context(documents=documents, total=total),
-    )
-
-
-@router.post("/api/qa/ask-global")
-async def ask_global_question(
-    _: AdminDep,
-    qa: QAServiceDep,
-    question: str = Form(...),
-):
-    """Ask a question across the entire knowledge base. Returns SSE stream."""
-
-    async def event_generator():
-        """Generate SSE events with tokens from the LLM."""
-        try:
-            async for token in qa.stream_ask(question):
-                escaped_token = token.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
-                yield f'data: {{"token": "{escaped_token}"}}\n\n'
-            yield 'data: {"done": true}\n\n'
-        except Exception as exc:
-            logger.error("Error in SSE stream for global question: %s", exc, exc_info=True)
-            yield 'data: {"error": "Ошибка при получении ответа"}\n\n'
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
-    )
-
-
-@router.post("/api/documents/{document_id}/ask")
-async def ask_about_document(
-    document_id: str,
-    _auth: AdminDep,
-    repo: RepoDep,
-    qa: QAServiceDep,
-    question: Annotated[str, Form()],
-):
-    """Ask a question about a specific document. Returns SSE stream."""
-    doc = await repo.get(document_id)
-    if doc is None:
-        raise HTTPException(status_code=404, detail="Документ не найден")
-
-    if doc.status.value != "completed" or not doc.is_search_enabled:
-        raise HTTPException(status_code=400, detail="Документ не готов для вопросов")
-
-    async def event_generator():
-        """Generate SSE events with tokens from the LLM."""
-        try:
-            async for token in qa.stream_about_document(question, document_id):
-                # Escape newlines and quotes for JSON serialization
-                escaped_token = token.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
-                yield f'data: {{"token": "{escaped_token}"}}\n\n'
-            yield 'data: {"done": true}\n\n'
-        except Exception as exc:
-            logger.error("Error in SSE stream for document %s: %s", document_id, exc, exc_info=True)
-            yield 'data: {"error": "Ошибка при получении ответа"}\n\n'
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
-    )
+# ── Single-document endpoints (AFTER bulk routes via sub-router) ──
 
 
 @router.get("/api/documents/{document_id}")
@@ -1064,14 +446,7 @@ async def reindex_document(
         )
 
         # Also include the status poller to ensure polling starts for processing docs
-        # Check if there are any active docs (including the one we just started)
-        pending_docs, _ = await repo.list_page(
-            page=1, per_page=1000, status="pending"
-        )
-        processing_docs, _ = await repo.list_page(
-            page=1, per_page=1000, status="processing"
-        )
-        has_active = len(pending_docs) > 0 or len(processing_docs) > 0
+        has_active = await service.has_active_documents()
 
         poller_response = templates.TemplateResponse(
             request,
@@ -1087,9 +462,6 @@ async def reindex_document(
 
         return HTMLResponse(content=row_html + "\n" + poller_html)
     return {"status": "reindexing", "document_id": document_id}
-
-
-
 
 
 @router.delete("/api/documents/{document_id}")

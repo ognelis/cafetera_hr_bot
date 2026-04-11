@@ -13,8 +13,11 @@ from app.domain.content import (
     hire_contract_text,
     onboarding_checklist,
 )
-from app.integrations.vk.attachments import send_category_document
-from app.integrations.vk.handlers import get_category_file_service, get_entity_or_error
+from app.integrations.vk.handlers import (
+    catch_entity_error,
+    require_entity,
+    send_document_or_fallback,
+)
 from app.integrations.vk.keyboards import (
     CMD_HIRE,
     CMD_HIRE_CHECKLIST,
@@ -23,7 +26,6 @@ from app.integrations.vk.keyboards import (
     CMD_HOME,
     entity_select_kb,
     hire_actions_kb,
-    stub_kb,
 )
 from app.integrations.vk.rules import PayloadCmdRule
 
@@ -47,11 +49,10 @@ async def on_hire(message: Message) -> None:
 
 
 @bl.message(PayloadCmdRule(HIRE_ENTITY_CMD))
+@catch_entity_error
 async def on_hire_entity(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
-    entity = await get_entity_or_error(message, entity_id, back_payload=CMD_HOME)
-    if entity is None:
-        return
+    entity = await require_entity(message, entity_id, back_payload=CMD_HOME)
     await message.answer(
         f"👤 Приём сотрудника — {entity.full_name}\n\nВыберите действие:",
         keyboard=hire_actions_kb(entity_id).get_json(),
@@ -62,74 +63,56 @@ async def on_hire_entity(message: Message, payload_data: dict) -> None:
 
 
 @bl.message(PayloadCmdRule(CMD_HIRE_CHECKLIST))
+@catch_entity_error
 async def on_hire_checklist(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
-    entity = await get_entity_or_error(message, entity_id, back_payload=CMD_HIRE)
-    if entity is None:
-        return
+    entity = await require_entity(message, entity_id, back_payload=CMD_HIRE)
 
-    # Try to send document attachment first, fall back to text
-    sent = await send_category_document(
+    await send_document_or_fallback(
         message,
-        get_category_file_service(),
         category="hire",
         subcategory="hire_checklist",
         entity_id=entity_id,
+        fallback_text=hire_checklist(entity),
+        back_payload=CMD_HIRE,
     )
-    if not sent:
-        await message.answer(
-            hire_checklist(entity),
-            keyboard=stub_kb(back_payload=CMD_HIRE).get_json(),
-        )
 
 
 # ── contract template ─────────────────────────────────────────────
 
 
 @bl.message(PayloadCmdRule(CMD_HIRE_CONTRACT))
+@catch_entity_error
 async def on_hire_contract(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
-    entity = await get_entity_or_error(message, entity_id, back_payload=CMD_HIRE)
-    if entity is None:
-        return
+    entity = await require_entity(message, entity_id, back_payload=CMD_HIRE)
 
-    # Try to send document attachment first, fall back to text
     caption = f"📄 Шаблон трудового договора — {entity.full_name}\n\n{TEMPLATE_DISCLAIMER}"
-    sent = await send_category_document(
+    await send_document_or_fallback(
         message,
-        get_category_file_service(),
         category="hire",
         subcategory="hire_contract",
         entity_id=entity_id,
+        fallback_text=hire_contract_text(entity),
+        back_payload=CMD_HIRE,
         caption=caption,
     )
-    if not sent:
-        await message.answer(
-            hire_contract_text(entity),
-            keyboard=stub_kb(back_payload=CMD_HIRE).get_json(),
-        )
 
 
 # ── onboarding checklist ──────────────────────────────────────────
 
 
 @bl.message(PayloadCmdRule(CMD_HIRE_ONBOARDING))
+@catch_entity_error
 async def on_hire_onboarding(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
-    entity = await get_entity_or_error(message, entity_id, back_payload=CMD_HIRE)
-    if entity is None:
-        return
+    entity = await require_entity(message, entity_id, back_payload=CMD_HIRE)
 
-    # Try to send document attachment first, fall back to text
-    sent = await send_category_document(
+    await send_document_or_fallback(
         message,
-        get_category_file_service(),
         category="hire",
         subcategory="hire_onboarding",
         entity_id=entity_id,
+        fallback_text=onboarding_checklist(entity),
+        back_payload=CMD_HIRE,
     )
-    if not sent:
-        await message.answer(
-            onboarding_checklist(entity),
-            keyboard=stub_kb(back_payload=CMD_HIRE).get_json(),
-        )

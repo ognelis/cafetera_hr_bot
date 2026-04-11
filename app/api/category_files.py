@@ -35,6 +35,7 @@ from app.api.deps import (
     CategoryFileServiceDep,
     TemplatesDep,
 )
+from app.api.schemas import CategoryFileResponse, CategoryListResponse, EntityInfo
 from app.storage.category_models import (
     CATEGORY_SLOTS,
     LEGAL_ENTITIES,
@@ -84,19 +85,19 @@ def _human_size(size_bytes: int) -> str:
 
 def _file_to_dict(file_record) -> dict:
     """Convert a CategoryFileRecord to a JSON-safe dict."""
-    return {
-        "file_id": file_record.file_id,
-        "category": file_record.category,
-        "subcategory": file_record.subcategory,
-        "entity_id": file_record.entity_id,
-        "filename": file_record.filename,
-        "s3_key": file_record.s3_key,
-        "mime_type": file_record.mime_type,
-        "size_bytes": file_record.size_bytes,
-        "size_human": _human_size(file_record.size_bytes),
-        "created_at": file_record.created_at.isoformat(),
-        "updated_at": file_record.updated_at.isoformat(),
-    }
+    return CategoryFileResponse(
+        file_id=file_record.file_id,
+        category=file_record.category,
+        subcategory=file_record.subcategory,
+        entity_id=file_record.entity_id,
+        filename=file_record.filename,
+        s3_key=file_record.s3_key,
+        mime_type=file_record.mime_type,
+        size_bytes=file_record.size_bytes,
+        size_human=_human_size(file_record.size_bytes),
+        created_at=file_record.created_at.isoformat(),
+        updated_at=file_record.updated_at.isoformat(),
+    ).model_dump()
 
 
 def _entity_short_name(entity_id: int) -> str:
@@ -150,13 +151,13 @@ async def list_slots(
     _auth: AdminDep,
 ):
     """Return CATEGORY_SLOTS mapping + entity list for UI rendering."""
-    return {
-        "categories": CATEGORY_SLOTS,
-        "entities": [
-            {"id": eid, "name": name, "short_name": _entity_short_name(eid)}
+    return CategoryListResponse(
+        categories=CATEGORY_SLOTS,
+        entities=[
+            EntityInfo(id=eid, name=name, short_name=_entity_short_name(eid))
             for eid, name in LEGAL_ENTITIES.items()
         ],
-    }
+    ).model_dump()
 
 
 @router.get("/api/category-files")

@@ -13,6 +13,7 @@ import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from app.rag.indexer import (
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from qdrant_client import QdrantClient
 
     from app.storage.document_repo import DocumentRepository
+    from app.storage.s3 import S3Storage
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,24 @@ class DocumentService:
         self._embeddings = embeddings
         self._collection = collection_name
         self._sparse_embedding = sparse_embedding
+
+    # ── S3 key helpers ─────────────────────────────────────────────
+
+    async def generate_unique_s3_key(
+        self,
+        base_key: str,
+        s3: S3Storage,
+    ) -> str:
+        """Return *base_key* if it doesn't exist in S3, otherwise append ``_1``, ``_2``, etc."""
+        s3_key = base_key
+        counter = 1
+        while await s3.exists(s3_key):
+            stem = Path(base_key).stem
+            ext = Path(base_key).suffix
+            parent = str(Path(base_key).parent)
+            s3_key = f"{parent}/{stem}_{counter}{ext}"
+            counter += 1
+        return s3_key
 
     # ── create ────────────────────────────────────────────────────
 
@@ -244,6 +264,46 @@ class DocumentService:
             return await self._repo.get(document_id)
 
     # ── delete ────────────────────────────────────────────────────
+
+    async def get_active_and_recent_documents(
+        self,
+        recent_seconds: int = 10,
+    ) -> tuple[list[DocumentRecord], list[DocumentRecord]]:
+        """Return (active_docs, all_docs_to_render) for status polling.
+
+        *active_docs* are documents with pending/processing status.
+        *all_docs_to_render* combines active docs with recently finished
+        ones (completed/failed within *recent_seconds*), deduplicated.
+        """
+        pending_docs, _ = await self._repo.list_page(
+            page=1, per_page=1000, status="pending"
+        )
+        processing_docs, _ = await self._repo.list_page(
+            page=1, per_page=1000, status="processing"
+        )
+        active_docs = pending_docs + processing_docs
+
+        recently_finished = await self._repo.list_recently_finished(
+            seconds=recent_seconds
+        )
+
+        seen_ids = {doc.document_id for doc in active_docs}
+        all_docs_to_render = active_docs + [
+            doc for doc in recently_finished if doc.document_id not in seen_ids
+        ]
+        return active_docs, all_docs_to_render
+
+    async def has_active_documents(self) -> bool:
+        """Return ``True`` if any document has pending or processing status."""
+        pending, _ = await self._repo.list_page(
+            page=1, per_page=1, status="pending"
+        )
+        if pending:
+            return True
+        processing, _ = await self._repo.list_page(
+            page=1, per_page=1, status="processing"
+        )
+        return len(processing) > 0
 
     async def delete_document(
         self,

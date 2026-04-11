@@ -70,10 +70,6 @@ class QAService:
         self._document_chains_cache: OrderedDict[str, Runnable] = OrderedDict()
         self._max_cache_size = 50
 
-    def _truncate(self, text: str, limit: int = VK_MSG_LIMIT) -> str:
-        """Truncate *text* to fit VK message length limit."""
-        return _truncate(text, limit)
-
     def _build_document_chain(self, document_id: str) -> Runnable | None:
         """Build a RAG chain scoped to a specific document.
 
@@ -181,7 +177,7 @@ class QAService:
         if not answer or not answer.strip():
             return ERR_NO_ANSWER
 
-        return self._truncate(answer.strip())
+        return _truncate(answer.strip())
 
     async def ask_about_document(self, question: str, document_id: str) -> str:
         """Query the RAG chain scoped to a specific document and return a displayable answer string.
@@ -208,7 +204,7 @@ class QAService:
         if not answer or not answer.strip():
             return ERR_NO_ANSWER
 
-        return self._truncate(answer.strip())
+        return _truncate(answer.strip())
 
     async def stream_ask(self, question: str):
         """Stream tokens from the global RAG chain.

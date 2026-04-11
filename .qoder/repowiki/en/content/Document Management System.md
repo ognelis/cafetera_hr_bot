@@ -36,6 +36,7 @@
 - [templates/partials/pagination.html](file://templates/partials/pagination.html)
 - [templates/partials/status_poller.html](file://templates/partials/status_poller.html)
 - [templates/base.html](file://templates/base.html)
+- [static/js/htmx.js](file://static/js/htmx.js)
 - [scripts/ingest.py](file://scripts/ingest.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
 - [tests/test_storage.py](file://tests/test_storage.py)
@@ -45,13 +46,13 @@
 
 ## Update Summary
 **Changes Made**
-- **Enhanced Document Upload Validation**: Added comprehensive .xlsx format support alongside existing .docx and .doc formats
-- **Extended MIME Type Validation**: Updated allowed extensions and MIME types to include .xlsx with proper validation
-- **DOCX Integrity Checking**: Implemented _validate_docx_bytes() function for DOCX content verification
-- **Spreadsheet Processing Pipeline**: Added load_xlsx() function for .xlsx file parsing and chunking
-- **Format-Specific Processing**: Unified processing pipeline supporting DOCX, DOC, and XLSX formats
-- **Enhanced Frontend Support**: Added XLSX format icons and filtering capabilities in the user interface
-- **Centralized Background Processing**: Unified _index_document_from_s3() function handles all document formats including .xlsx
+- **Enhanced Document Indexing with HTMX Partial Responses**: Implemented centralized batch status polling system replacing individual row polling to reduce server load
+- **Improved Out-of-Band (OOB) Swapping Capabilities**: Added proper OOB swapping for dynamic document row updates with hx-swap-oob attributes
+- **Automatic Status Polling Activation**: Implemented automatic polling control that starts/stops based on active document count
+- **New Status Poller Partial Template**: Added dedicated status poller template for real-time monitoring of indexing operations
+- **Centralized Batch Status Updates**: Created unified endpoint '/partials/documents-status' for efficient status monitoring
+- **Recently Finished Documents Tracking**: Added 10-second tracking window for final status updates
+- **Enhanced HTMX Integration**: Improved HTMX partial responses with proper OOB swapping and polling management
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -88,7 +89,7 @@
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-**Updated** The system now features enhanced document upload validation with comprehensive .xlsx format support alongside existing .docx and .doc formats. The validation system includes extended MIME type validation and DOCX integrity checking using the new _validate_docx_bytes() function. The system supports a unified processing pipeline for DOCX, DOC, and XLSX formats, with comprehensive spreadsheet parsing and chunking capabilities. These enhancements expand the system's document processing capabilities while maintaining all existing functionality and architectural improvements including consolidated document indexing operations, centralized date range utilities, and template context management.
+**Updated** The system now features enhanced document indexing functionality with improved HTMX partial responses that include proper OOB (out-of-band) swapping capabilities for dynamic document row updates and automatic status polling activation for processing documents. The new centralized batch status polling system dramatically reduces server load by eliminating N concurrent requests for individual row polling. A dedicated status poller partial template provides real-time monitoring of indexing operations with centralized batch status updates. The system maintains all existing functionality while adding revolutionary status tracking capabilities that automatically manage polling based on document activity.
 
 ## System Architecture
 
@@ -117,6 +118,8 @@ AlpineJS[Alpine.js State Management]
 EndUserInteraction[Enhanced User Interaction]
 SSEClient[SSE Client for Streaming]
 EndUserFeedback[Real-time Feedback]
+HTMXOOBSwapping[HTMX OOB Swapping]
+EndUserExperience[Enhanced User Experience]
 end
 subgraph "Application Layer"
 API[FastAPI Router]
@@ -135,6 +138,8 @@ UnifiedIndexing[Unified Indexing Function]
 DateRangeUtility[Date Range Utility]
 TemplateContext[Template Context Manager]
 DocXValidator[DOCX Integrity Validator]
+HTMXPartialResponses[HTMX Partial Responses]
+EndUserManagement[Enhanced User Management]
 end
 subgraph "Domain Layer"
 Entities[Domain Entities]
@@ -144,6 +149,7 @@ FormatDispatch[Format Dispatcher]
 DocScopedRetriever[Document Scoped Retriever]
 GlobalRetriever[Global Retriever]
 StreamingQA[Streaming Question Answering]
+EndUserMonitoring[Enhanced Monitoring]
 end
 subgraph "Data Access Layer"
 Repo[Document Repository]
@@ -154,12 +160,14 @@ DateRange[Date Range Filtering]
 FormatSupport[Format Support Tracking]
 FilterSortDB[Filter & Sort Database]
 RecentlyFinished[Recently Finished Documents]
+EndUserTracking[Enhanced Tracking]
 end
 subgraph "External Services"
 S3[MinIO/S3 Storage]
 Qdrant[Qdrant Vector DB]
 LLM[LLM Provider]
 Parser[Enhanced Parser]
+EndUserIntegration[Enhanced Integration]
 end
 WebUI --> API
 MobileSidebar --> API
@@ -201,12 +209,17 @@ FilterSortAPI --> FilterSortDB
 FilterSortAPI --> DateRangeUtility
 TemplateContext --> UnifiedIndexing
 DocXValidator --> UnifiedIndexing
+HTMXPartialResponses --> OOBSwapper
+EndUserManagement --> HTMXOOBSwapping
+EndUserMonitoring --> BatchPoller
+EndUserTracking --> RecentlyFinished
 ```
 
 **Diagram sources**
 - [app/main.py:87-90](file://app/main.py#L87-L90)
 - [app/api/documents.py:125-145](file://app/api/documents.py#L125-L145)
 - [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
+- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
 - [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
 - [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
@@ -217,13 +230,13 @@ DocXValidator --> UnifiedIndexing
 - [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 - [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
 
-The architecture consists of five main layers with enhanced concurrency control, comprehensive document type handling, and modernized frontend capabilities:
+The architecture consists of five main layers with enhanced concurrency control, comprehensive document type handling, modernized frontend capabilities, and revolutionary HTMX partial response system:
 
-1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, and comprehensive status polling system
-2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, template context management for consistent rendering, and DOCX integrity validation for file content verification
-3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms supporting DOCX, DOC, and XLSX formats, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, and recently finished documents tracking for status updates
-4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking for all supported document types, enhanced filtering/sorting database operations, and recently finished documents functionality for status tracking
-5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for DOC, DOCX, and XLSX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, and streaming response generation for real-time feedback
+1. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, comprehensive status polling system with automatic activation, HTMX OOB swapping for efficient row updates, enhanced user experience with real-time status monitoring, and centralized batch status management
+2. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, template context management for consistent rendering, DOCX integrity validation for file content verification, HTMX partial response system with OOB swapping capabilities, and enhanced user management with automatic polling control
+3. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms supporting DOCX, DOC, and XLSX formats, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, recently finished documents tracking for status updates, and enhanced monitoring capabilities for user activity
+4. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking for all supported document types, enhanced filtering/sorting database operations, recently finished documents functionality for status tracking, and enhanced tracking for user interactions and document processing
+5. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for DOC, DOCX, and XLSX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, streaming response generation for real-time feedback, and enhanced integration with HTMX for real-time UI updates
 
 ## Core Components
 
@@ -241,6 +254,7 @@ participant Qdrant as VectorDB
 participant Service as DocumentService
 participant QAService as QAServicet
 participant Semaphore as Asyncio Semaphore
+participant HTMX as HTMX Engine
 App->>Config : Load configuration
 App->>DB : Initialize SQLite with auto-incrementing primary key
 App->>S3 : Connect to storage
@@ -248,6 +262,7 @@ App->>Qdrant : Connect to vector database
 App->>Service : Create document service
 App->>QAService : Initialize QA service with global and document-scoped retrievers
 App->>Semaphore : Initialize with max_concurrent_indexing
+App->>HTMX : Initialize OOB swapping capabilities
 App->>App : Register routes and templates
 ```
 
@@ -312,6 +327,16 @@ class QAService {
 +init_qa() void
 +close_qa() void
 }
+class BatchStatusPoller {
++poll_active_documents() HTMLResponse
++manage_polling_activation() void
++track_recently_finished() list
+}
+class HTMXOOBSwapper {
++swap_document_rows() HTMLResponse
++handle_oob_updates() void
++manage_polling_state() void
+}
 DocumentService --> DocumentRepository : uses
 DocumentService --> S3Storage : uses
 DocumentService --> QdrantClient : uses
@@ -320,6 +345,8 @@ FormatHandler --> Parser : dispatches to
 QAService --> QdrantClient : uses
 QAService --> LLM : uses
 QAService --> StreamingResponse : uses
+BatchStatusPoller --> HTMXOOBSwapper : coordinates with
+HTMXOOBSwapper --> DocumentRepository : queries
 ```
 
 **Diagram sources**
@@ -331,6 +358,7 @@ QAService --> StreamingResponse : uses
 - [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
 - [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
+- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
 
 **Section sources**
 - [app/main.py:1-131](file://app/main.py#L1-L131)
@@ -339,7 +367,7 @@ QAService --> StreamingResponse : uses
 
 ## Document Management Workflow
 
-The document management process follows a structured workflow from upload to searchable state with enhanced format support, concurrency control, real-time streaming capabilities, and unified background processing:
+The document management process follows a structured workflow from upload to searchable state with enhanced format support, concurrency control, real-time streaming capabilities, unified background processing, and revolutionary HTMX partial response system:
 
 ```mermaid
 flowchart TD
@@ -354,6 +382,18 @@ Index --> Complete[Mark as Completed]
 Validate --> |Invalid| Error[Return Error Response]
 Error --> End([End])
 Complete --> End
+subgraph "Enhanced HTMX Partial Response System with OOB Swapping"
+Complete --> StatusPoller[Automatic Status Polling Activation]
+StatusPoller --> BatchPoller[Centralized Batch Poller]
+BatchPoller --> OOBSwap[Out-of-Band HTML Swap]
+OOBSwap --> StatusUpdate[Individual Row Updates]
+StatusUpdate --> End
+end
+subgraph "Centralized Status Management"
+Complete --> RecentlyFinished[Track Recently Finished Documents]
+RecentlyFinished --> FinalUpdate[Final Status Update]
+FinalUpdate --> End
+end
 subgraph "Unified Background Processing with Concurrency Control"
 Parse --> Download[Download from S3]
 Download --> TempFile[Create Temporary File]
@@ -375,12 +415,6 @@ subgraph "Centralized Template Context Management"
 Complete --> TemplateContext[_document_table_context Function]
 TemplateContext --> RenderContext[Consistent Template Context]
 RenderContext --> End
-end
-subgraph "Batch Status Polling System"
-Complete --> BatchPoller[Centralized Batch Poller]
-BatchPoller --> OOBSwap[Out-of-Band HTML Swap]
-OOBSwap --> StatusUpdate[Individual Row Updates]
-StatusUpdate --> End
 end
 subgraph "Document-Specific Question Answering with Streaming"
 Complete --> DocQuestion[User Opens Document Question Modal]
@@ -412,6 +446,7 @@ end
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
 - [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
 - [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
+- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
 - [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
 - [app/api/documents.py:842-876](file://app/api/documents.py#L842-L876)
@@ -422,7 +457,7 @@ end
 
 ### Upload Validation and Processing
 
-The system implements comprehensive validation for uploaded documents with enhanced format support, concurrency management, real-time status updates, and unified background processing:
+The system implements comprehensive validation for uploaded documents with enhanced format support, concurrency management, real-time status updates, unified background processing, and revolutionary HTMX partial response system:
 
 | Validation Step | Criteria | Action |
 |----------------|----------|---------|
@@ -440,12 +475,17 @@ The system implements comprehensive validation for uploaded documents with enhan
 | Template Context | Centralized rendering management | Ensure consistent UI rendering |
 | DOCX Integrity | Zip file validation | Check word/document.xml presence |
 | Spreadsheet Processing | XLSX workbook parsing | Handle multiple worksheets |
+| **Updated** | **HTMX Partial Responses** | **Implement OOB swapping for efficient row updates** |
+| **Updated** | **Batch Status Polling** | **Replace individual row polling with centralized system** |
+| **Updated** | **Automatic Polling Control** | **Start/stop polling based on active document count** |
+| **Updated** | **Recently Finished Tracking** | **Track documents completed within 10 seconds** |
 
-**Updated** The validation system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files, modern DOCX files, and spreadsheet XLSX files. The new DOCX integrity checking using _validate_docx_bytes() function verifies that DOCX files contain valid content by checking for the required word/document.xml structure within the ZIP archive. Background indexing operations are now handled by the unified _index_document_from_s3() function, which eliminates code duplication and provides centralized error handling. The new load_xlsx() function in the parser module handles spreadsheet processing with worksheet-based sectioning and row formatting. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the GLOBAL_EXPERTS_PROMPT system prompt and specialized retriever construction.
+**Updated** The validation system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files, modern DOCX files, and spreadsheet XLSX files. The new DOCX integrity checking using _validate_docx_bytes() function verifies that DOCX files contain valid content by checking for the required word/document.xml structure within the ZIP archive. Background indexing operations are now handled by the unified _index_document_from_s3() function, which eliminates code duplication and provides centralized error handling. The new load_xlsx() function in the parser module handles spreadsheet processing with worksheet-based sectioning and row formatting. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the GLOBAL_EXPERTS_PROMPT system prompt and specialized retriever construction. The revolutionary HTMX partial response system now includes proper OOB swapping capabilities for dynamic document row updates, automatic status polling activation that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The system now tracks recently finished documents within a 10-second window to provide final status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling.
 
 **Section sources**
 - [app/api/documents.py:307-366](file://app/api/documents.py#L307-L366)
 - [app/api/documents.py:111-130](file://app/api/documents.py#L111-L130)
+- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
 - [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
 - [app/api/documents.py:1057-1077](file://app/api/documents.py#L1057-L1077)
@@ -561,6 +601,9 @@ UI --> GlobalQuestionModal[Global Question Modal]
 UI --> AlpineJS[Alpine.js State Management]
 UI --> SSEClient[SSE Client for Streaming]
 UI --> RealtimeFeedback[Real-time Feedback]
+UI --> HTMXOOBSwapping[HTMX OOB Swapping]
+UI --> AutomaticPollingControl[Automatic Polling Control]
+UI --> RecentlyFinishedTracking[Recently Finished Tracking]
 MobileSidebar --> SidebarContent[Navigation Content]
 MobileSidebar --> CloseButton[Close Button]
 MobileSidebar --> OverlayBackdrop[Backdrop Overlay]
@@ -601,6 +644,7 @@ FilterSort --> FilterChips[Filter Chips]
 FilterSort --> RealtimeFiltering[Real-time Filtering]
 BatchStatusPoller --> CentralizedPolling[Centralized Polling]
 BatchStatusPoller --> OOBSwapping[Out-of-Band Swapping]
+BatchStatusPoller --> AutomaticActivation[Automatic Activation]
 DocumentModal --> ModalBox[Modal Box]
 DocumentModal --> QuestionTextarea[Question Textarea]
 DocumentModal --> SubmitButton[Submit Button]
@@ -618,6 +662,12 @@ SSEClient --> TokenStreaming[Token Streaming]
 SSEClient --> RealtimeDisplay[Real-time Display]
 RealtimeFeedback --> ImmediateResponse[Immediate Response]
 RealtimeFeedback --> LoadingIndicators[Loading Indicators]
+HTMXOOBSwapping --> EfficientUpdates[Efficient Row Updates]
+HTMXOOBSwapping --> DeduplicatedUpdates[Deduplicated Updates]
+AutomaticPollingControl --> StartStopControl[Start/Stop Control]
+AutomaticPollingControl --> ServerLoadReduction[Server Load Reduction]
+RecentlyFinishedTracking --> FinalStatusUpdates[Final Status Updates]
+RecentlyFinishedTracking --> TenSecondWindow[Ten-Second Window]
 ```
 
 **Diagram sources**
@@ -697,12 +747,14 @@ The modernized interface includes several key interactive elements:
 - **Parameter Persistence**: Filter and sort parameters maintained across navigation
 - **Centralized Date Handling**: Consistent date range processing across all components
 
-#### Batch Status Polling System
+#### Revolutionary Batch Status Polling System
 - **Centralized Polling**: Single endpoint '/partials/documents-status' for all active documents
-- **Out-of-Band Swapping**: Efficient HTML updates without full page reloads
+- **Out-of-Band Swapping**: Efficient HTML updates without full page reloads using OOB swapping
 - **Automatic Polling Control**: Starts/stops polling based on active document count
 - **Reduced Server Load**: Eliminates N concurrent requests for individual row polling
 - **Recently Finished Documents**: Tracks documents that completed or failed within the last 10 seconds
+- **Deduplicated Updates**: Prevents duplicate HTML updates for overlapping documents
+- **Efficient Status Updates**: Provides final status updates for recently finished documents
 
 #### Document-Specific Question Modal System
 - **Alpine.js Integration**: Reactive state management for modal interactions
@@ -732,6 +784,25 @@ The modernized interface includes several key interactive elements:
 - **Error Recovery**: Graceful handling of network interruptions
 - **Loading States**: Visual indicators during streaming response generation
 
+#### HTMX OOB Swapping Integration
+- **Efficient Row Updates**: Out-of-band swapping for dynamic document row updates
+- **Deduplicated Updates**: Prevents duplicate updates for overlapping documents
+- **Automatic Polling Control**: Starts/stops polling based on document activity
+- **Server Load Reduction**: Dramatically reduces server load compared to individual polling
+- **Real-time Status Monitoring**: Provides immediate status updates without full page reloads
+
+#### Automatic Polling Control
+- **Intelligent Activation**: Polling starts automatically when active documents are present
+- **Automatic Deactivation**: Polling stops when no active documents remain
+- **Server Load Optimization**: Reduces unnecessary server requests
+- **Resource Efficiency**: Optimizes system resources for better performance
+
+#### Recently Finished Documents Tracking
+- **Ten-Second Window**: Tracks documents that completed within the last 10 seconds
+- **Final Status Updates**: Provides final status updates for recently finished documents
+- **Deduplication Logic**: Prevents duplicate updates for documents in both active and recently finished lists
+- **Centralized Management**: Unified tracking through the repository layer
+
 ### Frontend State Management
 
 The interface uses Alpine.js for comprehensive state management:
@@ -746,6 +817,8 @@ The interface uses Alpine.js for comprehensive state management:
 - **Document Question State**: Track document-specific question modal state, including question text, loading state, answer display, error handling, and streaming response management
 - **Global Question State**: Track global question modal state, including question text, loading state, answer display, error handling, and streaming response management
 - **Streaming State**: Manage real-time response streaming with token accumulation and display
+- **Status Polling State**: Track automatic polling activation and deactivation based on document activity
+- **OOB Swapping State**: Manage HTMX OOB swapping for efficient row updates
 
 **Section sources**
 - [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
@@ -894,7 +967,7 @@ Background tasks are coordinated through enhanced functions:
 
 ## Comprehensive Test Coverage
 
-The system includes comprehensive testing across all layers with extensive search, pagination, bulk operation, concurrency control, streaming response, and global question-answering coverage:
+The system includes comprehensive testing across all layers with extensive search, pagination, bulk operation, concurrency control, streaming response, global question-answering, HTMX partial responses, batch status polling, and automatic polling control coverage:
 
 ### Test Coverage Areas
 
@@ -909,7 +982,7 @@ The system includes comprehensive testing across all layers with extensive searc
 
 ### Enhanced Test Coverage Areas
 
-**Updated** The testing strategy now includes extensive coverage for the newly enhanced global question-answering features and XLSX format support:
+**Updated** The testing strategy now includes extensive coverage for the newly enhanced HTMX partial response system, batch status polling, automatic polling control, and recently finished documents tracking:
 
 #### Search and Status Testing Coverage
 - **Search functionality**: Tests case-insensitive pattern matching against titles and filenames
@@ -920,6 +993,10 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Pagination with search**: Validates search results across multiple pages
 - **Batch status polling**: Tests centralized status updates and out-of-band swapping
 - **Recently finished documents**: Validates tracking of documents that completed within 10 seconds
+- ****Updated** | **HTMX Partial Response Testing** | **Tests OOB swapping and polling management** |
+- ****Updated** | **Batch Status Polling Testing** | **Validates centralized polling endpoint functionality** |
+- ****Updated** | **Automatic Polling Control Testing** | **Tests start/stop polling based on active document count** |
+- ****Updated** | **OOB Swapping Testing** | **Validates efficient row updates without full page reloads** |
 
 #### Pagination Testing Coverage
 - **Default Pagination**: Tests default page size (10 items)
@@ -975,6 +1052,9 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Performance Impact**: Validates reduced server load compared to individual polling
 - **Error Handling**: Tests graceful handling of polling failures
 - **Recently Finished Tracking**: Validates tracking of documents that completed within 10 seconds
+- ****Updated** | **OOB Swapping Functionality Testing** | **Validates proper OOB swapping for dynamic row updates** |
+- ****Updated** | **Automatic Polling Activation Testing** | **Tests intelligent start/stop polling based on document activity** |
+- ****Updated** | **Deduplicated Updates Testing** | **Validates prevention of duplicate HTML updates** |
 
 #### Document-Specific Question Answering Testing Coverage
 - **Document Validation**: Tests document existence and status validation
@@ -1038,6 +1118,32 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Chunk Generation**: Tests chunk generation with worksheet context
 - **Search Compatibility**: Validates XLSX content searchability
 
+#### **Updated** HTMX Partial Response Testing Coverage
+- **OOB Swapping Validation**: Tests proper OOB swapping for dynamic document row updates
+- **Polling Management**: Validates automatic polling activation and deactivation
+- **Server Load Reduction**: Tests dramatic reduction in server load compared to individual polling
+- **Deduplication Logic**: Validates prevention of duplicate updates for overlapping documents
+- **Template Integration**: Tests proper integration with document table and status poller templates
+
+#### **Updated** Batch Status Polling Testing Coverage
+- **Centralized Endpoint Testing**: Validates '/partials/documents-status' endpoint functionality
+- **Active Document Tracking**: Tests tracking of pending and processing documents
+- **Recently Finished Integration**: Validates integration with recently finished documents tracking
+- **Deduplicated Updates**: Tests prevention of duplicate HTML updates
+- **Polling Control Logic**: Validates intelligent start/stop polling based on document activity
+
+#### **Updated** Automatic Polling Control Testing Coverage
+- **Intelligent Activation**: Tests automatic polling start when active documents are detected
+- **Automatic Deactivation**: Tests polling stop when no active documents remain
+- **Server Load Optimization**: Validates significant reduction in server requests
+- **Resource Efficiency**: Tests improved system resource utilization
+
+#### **Updated** Recently Finished Documents Testing Coverage
+- **Ten-Second Window**: Tests tracking of documents completed within the last 10 seconds
+- **Final Status Updates**: Validates provision of final status updates for recently finished documents
+- **Deduplication Logic**: Tests prevention of duplicate updates for documents in both active and recently finished lists
+- **Centralized Management**: Validates unified tracking through repository layer
+
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
 - [tests/test_api_documents.py:506-605](file://tests/test_api_documents.py#L506-L605)
@@ -1091,7 +1197,7 @@ The enhanced pipeline handles all three document formats appropriately:
 
 ## Server-Side Processing Implementation
 
-The system implements comprehensive server-side processing with enhanced filtering, sorting, pagination, streaming capabilities, global question-answering support, and unified background processing:
+The system implements comprehensive server-side processing with enhanced filtering, sorting, pagination, streaming capabilities, global question-answering support, unified background processing, and revolutionary HTMX partial response system:
 
 ### Server-Side Architecture
 
@@ -1138,12 +1244,14 @@ The enhanced query system provides:
 
 ### Enhanced Status Tracking
 
-The system now includes comprehensive status tracking with recently finished documents:
+The system now includes comprehensive status tracking with recently finished documents and centralized batch polling:
 
 - **Recently Finished Tracking**: Tracks documents that completed or failed within the last 10 seconds
 - **Batch Status Updates**: Centralized status updates for all active and recently finished documents
-- **Out-of-Band Swapping**: Efficient HTML replacement without full page reloads
-- **Reduced Server Load**: Eliminates N concurrent requests for individual row polling
+- **Deduplication Logic**: Prevents duplicate updates for documents that appear in both categories
+- **Out-of-Band Swapping**: Efficient HTML replacement without full page reloads using OOB swapping
+- **Automatic Polling Control**: Starts/stops polling based on active document count
+- **Reduced Server Load**: Dramatically reduces server load compared to individual row polling
 
 ### Global Question-Answering Processing
 
@@ -1192,10 +1300,23 @@ The system now includes comprehensive DOCX validation:
 - **Error Handling**: Graceful handling of corrupted or invalid DOCX files
 - **Logging**: Detailed logging for DOCX validation failures
 
+### **Updated** HTMX Partial Response System
+
+The system now implements revolutionary HTMX partial response capabilities:
+
+- **OOB Swapping**: Out-of-band swapping for efficient HTML updates without full page reloads
+- **Centralized Batch Polling**: Single endpoint '/partials/documents-status' manages all status updates
+- **Automatic Polling Control**: Intelligent start/stop polling based on active document count
+- **Deduplicated Updates**: Prevents duplicate HTML updates for overlapping documents
+- **Server Load Reduction**: Dramatically reduces server load compared to individual row polling
+- **Template Integration**: Seamless integration with document table and status poller templates
+- **Real-time Status Monitoring**: Provides immediate status updates for processing documents
+
 **Section sources**
 - [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
 - [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
 - [app/storage/document_repo.py:279-290](file://app/storage/document_repo.py#L279-L290)
+- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
 - [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 - [app/api/documents.py:129-165](file://app/api/documents.py#L129-L165)
@@ -1204,7 +1325,7 @@ The system now includes comprehensive DOCX validation:
 
 ## Enhanced Status Display System
 
-The system provides comprehensive visual status indicators for document tracking with enhanced concurrency awareness, real-time streaming capabilities, global question-answering support, and centralized status management:
+The system provides comprehensive visual status indicators for document tracking with enhanced concurrency awareness, real-time streaming capabilities, global question-answering support, centralized status management, and revolutionary HTMX partial response system:
 
 ```mermaid
 stateDiagram-v2
@@ -1243,6 +1364,9 @@ The status system includes interactive elements for document management:
 - **Real-time streaming**: Immediate display of AI responses for document-specific and global questions
 - **Global question availability**: "Ask Global Question" option appears for completed and search-enabled documents
 - **Centralized Status Updates**: Batch status polling provides efficient status updates
+- ****Updated** | **OOB Swapping Updates** | **Efficient HTML updates without full page reloads** |
+- ****Updated** | **Automatic Polling Control** | **Intelligent start/stop polling based on document activity** |
+- ****Updated** | **Recently Finished Tracking** | **Final status updates for documents completed within 10 seconds** |
 
 ### Status Filtering Capabilities
 
@@ -1253,16 +1377,19 @@ The frontend provides status-based filtering:
 - **Client-side filtering**: Real-time filtering of visible documents
 - **Combined filters**: Status filters work with search and type filters
 
-### Batch Status Polling Integration
+### **Updated** Revolutionary Batch Status Polling Integration
 
-The enhanced status system now includes centralized batch polling with recently finished documents tracking:
+The enhanced status system now includes centralized batch polling with recently finished documents tracking and OOB swapping:
 
 - **Centralized Endpoint**: '/partials/documents-status' manages all active document updates
 - **Recently Finished Tracking**: Documents that completed or failed within the last 10 seconds receive final status updates
-- **Out-of-Band Swapping**: Efficient HTML replacement without full page reloads
+- **Deduplicated Updates**: Prevents duplicate HTML updates for documents in both active and recently finished lists
+- **Out-of-Band Swapping**: Efficient HTML replacement without full page reloads using OOB swapping
 - **Automatic Polling Control**: Starts/stops polling based on active document count
-- **Reduced Server Load**: Eliminates N concurrent requests for individual row polling
+- **Reduced Server Load**: Dramatically reduces server load compared to individual row polling
 - **Unified Status Management**: Centralized status updates through batch processing
+- ****Updated** | **Intelligent Polling Control** | **Polling starts automatically when active documents are detected** |
+- ****Updated** | **Server Load Optimization** | **Significant reduction in unnecessary server requests** |
 
 ### Document-Specific and Global Question Integration
 
@@ -1280,6 +1407,7 @@ The status system now supports both document-specific and global question functi
 - [templates/documents.html:74-87](file://templates/documents.html#L74-L87)
 - [app/storage/models.py:11-18](file://app/storage/models.py#L11-L18)
 - [app/api/documents.py:390-441](file://app/api/documents.py#L390-L441)
+- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
 - [app/api/documents.py:791-816](file://app/api/documents.py#L791-L816)
 - [app/api/documents.py:826-844](file://app/api/documents.py#L826-L844)
 - [app/api/documents.py:412-453](file://app/api/documents.py#L412-L453)
@@ -1369,7 +1497,7 @@ The system provides sophisticated pagination controls with intelligent page numb
 
 ## Bulk Operations System
 
-The system provides comprehensive bulk operations for efficient document management at scale with enhanced concurrency control and centralized background processing:
+The system provides comprehensive bulk operations for efficient document management at scale with enhanced concurrency control, centralized background processing, and revolutionary HTMX partial response system:
 
 ```mermaid
 sequenceDiagram
@@ -1399,7 +1527,7 @@ Client->>Client : Update UI with success/error feedback
 
 ### Bulk Operations Architecture
 
-The bulk operations system provides three core capabilities with enhanced concurrency control and centralized background processing:
+The bulk operations system provides three core capabilities with enhanced concurrency control, centralized background processing, and HTMX partial response integration:
 
 #### Concurrent Document Fetching
 - **Enhanced Performance**: Uses `asyncio.gather()` to fetch all documents concurrently
@@ -1465,6 +1593,8 @@ The bulk operations provide comprehensive functionality:
 - **Selection Persistence**: Maintains selections across pagination and filters
 - **HTMX Integration**: Seamless partial updates without full page reloads
 - **Centralized Processing**: Unified background processing through _index_document_from_s3()
+- ****Updated** | **OOB Swapping Integration** | **Efficient UI updates without full page reloads** |
+- ****Updated** | **Automatic Polling Control** | **Intelligent start/stop polling for bulk operations** |
 
 **Section sources**
 - [app/api/documents.py:476-700](file://app/api/documents.py#L476-L700)
@@ -1552,7 +1682,7 @@ The system now provides standardized date range handling:
 
 ## RAG Pipeline
 
-The Retrieval-Augmented Generation pipeline processes documents through multiple stages with enhanced format support, concurrency control, streaming capabilities, global question-answering support, and unified background processing:
+The Retrieval-Augmented Generation pipeline processes documents through multiple stages with enhanced format support, concurrency control, streaming capabilities, global question-answering support, unified background processing, and revolutionary HTMX partial response system:
 
 ```mermaid
 sequenceDiagram
@@ -1627,6 +1757,17 @@ The RAG pipeline now benefits from centralized background processing:
 - **Logging Consistency**: Standardized logging for all background processing activities
 - **Format Support**: Handles DOCX, DOC, and XLSX formats uniformly
 
+### **Updated** HTMX Partial Response Integration
+
+The RAG pipeline now integrates with the revolutionary HTMX partial response system:
+
+- **OOB Swapping**: Efficient HTML updates for status monitoring without full page reloads
+- **Automatic Polling Control**: Intelligent start/stop polling for processing documents
+- **Deduplicated Updates**: Prevents duplicate updates for overlapping documents
+- **Server Load Reduction**: Dramatically reduces server load for status monitoring
+- **Real-time Status Updates**: Immediate status updates for processing documents
+- **Template Integration**: Seamless integration with document table and status poller templates
+
 **Section sources**
 - [app/rag/parser.py:15-17](file://app/rag/parser.py#L15-L17)
 - [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
@@ -1636,6 +1777,7 @@ The RAG pipeline now benefits from centralized background processing:
 - [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
 - [app/rag/prompts.py:21-56](file://app/rag/prompts.py#L21-L56)
 - [app/api/documents.py:129-165](file://app/api/documents.py#L129-L165)
+- [app/api/documents.py:454-515](file://app/api/documents.py#L454-L515)
 
 ## Document-Specific Question Answering
 
@@ -1956,7 +2098,7 @@ The enhanced download system provides:
 
 ## Improved Document Status Tracking
 
-The system now provides enhanced status tracking with recently finished documents functionality and centralized status management:
+The system now provides enhanced status tracking with recently finished documents functionality, centralized status management, and revolutionary HTMX partial response system:
 
 ### Recently Finished Documents Tracking
 
@@ -1987,14 +2129,14 @@ The enhanced status tracking system provides:
 
 - **Recently Finished Tracking**: Tracks documents that completed or failed within the last 10 seconds
 - **Batch Updates**: Centralized status updates for all active and recently finished documents
-- **Deduplication**: Prevents duplicate updates for documents that appear in both categories
-- **Out-of-Band Swapping**: Efficient HTML replacement without full page reloads
+- **Deduplication Logic**: Prevents duplicate updates for documents that appear in both categories
+- **Out-of-Band Swapping**: Efficient HTML replacement without full page reloads using OOB swapping
 - **Automatic Polling Control**: Starts/stops polling based on active document count
 - **Reduced Server Load**: Dramatically reduces server load compared to individual row polling
 
-### Status Polling Features
+### **Updated** Revolutionary Batch Status Polling System
 
-The status polling system provides comprehensive real-time updates:
+The enhanced status tracking system now includes revolutionary batch polling capabilities:
 
 - **Centralized Endpoint**: '/partials/documents-status' manages all status updates
 - **Active Document Tracking**: Monitors pending and processing documents
@@ -2003,6 +2145,19 @@ The status polling system provides comprehensive real-time updates:
 - **Poller Management**: Automatically starts/stops polling based on document activity
 - **Performance Optimization**: Reduces server load by eliminating N concurrent requests
 - **Unified Status Management**: Centralized status updates through batch processing
+- ****Updated** | **OOB Swapping Integration** | **Efficient HTML updates without full page reloads** |
+- ****Updated** | **Intelligent Polling Control** | **Automatic start/stop based on document activity** |
+- ****Updated** | **Server Load Reduction** | **Dramatic improvement in system performance** |
+
+### Status Poller Template Integration
+
+The system now includes a dedicated status poller template for efficient status monitoring:
+
+- **Automatic Activation**: Polling starts automatically when active documents are detected
+- **Template-Based Management**: Uses Jinja2 template for consistent poller rendering
+- **HTMX Integration**: Seamlessly integrates with HTMX for real-time updates
+- **OOB Swapping Support**: Compatible with out-of-band swapping for efficient updates
+- **Deduplication Logic**: Prevents duplicate updates through intelligent document tracking
 
 **Section sources**
 - [app/storage/document_repo.py:279-290](file://app/storage/document_repo.py#L279-L290)
@@ -2056,7 +2211,7 @@ The VK bot uses a handler-based architecture for different interaction modes:
 
 ## Storage Layer
 
-The storage architecture provides a robust foundation for document management with enhanced search, pagination, date filtering, status tracking, and global question-answering support:
+The storage architecture provides a robust foundation for document management with enhanced search, pagination, date filtering, status tracking, global question-answering support, and revolutionary HTMX partial response system:
 
 ```mermaid
 erDiagram
@@ -2100,8 +2255,11 @@ The SQLite schema supports comprehensive document tracking with:
 - **Format Support**: MIME type tracking for DOC, DOCX, and XLSX formats
 - **Recently Finished Tracking**: Timestamp-based tracking for status updates
 - **Global Question Support**: Knowledge base-wide search participation
+- ****Updated** | **OOB Swapping Support** | **Enhanced tracking for HTMX partial response system** |
+- ****Updated** | **Automatic Polling Control** | **Status tracking for intelligent polling management** |
+- ****Updated** | **Deduplication Logic** | **Prevention of duplicate updates for overlapping documents** |
 
-**Updated** The database now tracks MIME types for DOC, DOCX, and XLSX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new document-specific question-answering feature relies on the existing database structure for document validation and status checking. The `list_recently_finished` method provides efficient tracking of documents that completed or failed within the last 10 seconds for status updates. The global question-answering capability leverages the same search enablement mechanism for knowledge base-wide queries.
+**Updated** The database now tracks MIME types for DOC, DOCX, and XLSX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new document-specific question-answering feature relies on the existing database structure for document validation and status checking. The `list_recently_finished` method provides efficient tracking of documents that completed or failed within the last 10 seconds for status updates. The global question-answering capability leverages the same search enablement mechanism for knowledge base-wide queries. The revolutionary HTMX partial response system now includes enhanced tracking capabilities for OOB swapping, automatic polling control, and deduplication logic to prevent duplicate updates.
 
 **Section sources**
 - [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
@@ -2110,7 +2268,7 @@ The SQLite schema supports comprehensive document tracking with:
 
 ## API Endpoints
 
-The system provides a comprehensive REST API for document management with full search, pagination, bulk operation, streaming response, enhanced status tracking, global question-answering support, and unified background processing:
+The system provides a comprehensive REST API for document management with full search, pagination, bulk operation, streaming response, enhanced status tracking, global question-answering support, unified background processing, and revolutionary HTMX partial response system:
 
 ### Authentication and Authorization
 
@@ -2147,14 +2305,14 @@ The system provides a comprehensive REST API for document management with full s
 | `/api/documents/bulk/reindex` | POST | Re-index multiple documents with semaphore protection | Admin cookie |
 | `/api/documents/bulk/search` | PATCH | Toggle search participation for multiple documents | Admin cookie |
 
-### HTMX Partial Endpoints
+### **Updated** HTMX Partial Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/partials/document-table` | GET | Dynamic table content with search, pagination, and date filtering |
 | `/partials/document-row/{id}` | GET | Individual row updates with status refresh |
 | `/partials/document-status/{id}` | GET | Status badge refresh for individual documents |
-| `/partials/documents-status` | GET | Centralized batch status updates for all active and recently finished documents |
+| `/partials/documents-status` | GET | **Updated** Centralized batch status updates for all active and recently finished documents with OOB swapping |
 
 ### Streaming Response Endpoints
 
@@ -2177,7 +2335,9 @@ All list endpoints support the following parameters:
 - **`sort_field`**: Field to sort by (title, created_at, status)
 - **`sort_dir`**: Sort direction (asc, desc)
 
-**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified _index_document_from_s3() function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized parse_date_range() utility ensures consistent date parameter handling across all endpoints, while the _document_table_context() function provides standardized template context management for all partials. The new DOCX integrity validation using _validate_docx_bytes() function ensures file content validity before processing.
+### **Updated** Enhanced HTMX Partial Response Endpoints
+
+**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified _index_document_from_s3() function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates with revolutionary OOB swapping capabilities, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized parse_date_range() utility ensures consistent date parameter handling across all endpoints, while the _document_table_context() function provides standardized template context management for all partials. The new DOCX integrity validation using _validate_docx_bytes() function ensures file content validity before processing. The revolutionary HTMX partial response system now includes proper OOB swapping for dynamic document row updates, automatic polling control that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint.
 
 **Section sources**
 - [app/api/documents.py:1-806](file://app/api/documents.py#L1-L806)
@@ -2234,13 +2394,16 @@ Settings --> Environment : inherits
 | **Concurrency Control** | `max_concurrent_indexing` | `2` | Semaphore limit for indexing |
 | **Chunking** | `chunk_size` | `500` | Token-based chunk size |
 | **Chunking** | `chunk_overlap` | `50` | Token-based chunk overlap |
+| ****Updated** | **HTMX Configuration** | **`max_concurrent_indexing`** | **Semaphore limit for HTMX partial responses** |
+| ****Updated** | **OOB Swapping** | **`max_concurrent_indexing`** | **Semaphore limit for OOB swapping operations** |
+| ****Updated** | **Polling Control** | **`max_concurrent_indexing`** | **Semaphore limit for automatic polling control** |
 
 **Section sources**
 - [app/config.py:1-39](file://app/config.py#L1-L39)
 
 ## Enhanced Error Handling and Consistency
 
-The system implements comprehensive error handling with atomic consistency guarantees and centralized background processing:
+The system implements comprehensive error handling with atomic consistency guarantees, centralized background processing, and revolutionary HTMX partial response system:
 
 ### Atomic State Updates
 
@@ -2315,6 +2478,20 @@ The unified _index_document_from_s3() function provides centralized error handli
 - **Logging Consistency**: Standardized logging format for all background operations
 - **Format Validation**: Validates DOCX integrity and handles XLSX processing errors
 
+### **Updated** HTMX Partial Response Error Handling
+
+The revolutionary HTMX partial response system implements comprehensive error handling:
+
+- **OOB Swapping Errors**: Handles cases where OOB swapping fails or targets are not found
+- **Polling Control Errors**: Manages automatic polling activation/deactivation failures
+- **Template Rendering Errors**: Handles template context errors and missing parameters
+- **Server Load Management**: Monitors and manages server load during high-traffic scenarios
+- **Deduplication Logic Errors**: Handles edge cases in document deduplication logic
+- **Template Integration Errors**: Manages integration errors between templates and partial responses
+- ****Updated** | **OOB Swapping Error Recovery** | **Graceful handling of OOB swapping failures** |
+- ****Updated** | **Polling Control Error Recovery** | **Automatic recovery from polling control failures** |
+- ****Updated** | **Server Load Error Recovery** | **Graceful degradation under high server load** |
+
 ### Centralized Date Range Error Handling
 
 The parse_date_range() utility provides consistent error handling:
@@ -2341,6 +2518,18 @@ The _validate_docx_bytes() function provides comprehensive DOCX validation:
 - **BadZipFile Handling**: Graceful handling of corrupted ZIP archives
 - **Logging**: Detailed logging for DOCX validation failures
 - **Error Propagation**: Invalid DOCX files are rejected with clear error messages
+
+### **Updated** Recently Finished Documents Error Handling
+
+The recently finished documents tracking system implements comprehensive error handling:
+
+- **Database Query Errors**: Handles database connection and query failures
+- **Timestamp Validation**: Validates timestamp calculations and boundary handling
+- **Deduplication Logic Errors**: Manages edge cases in document deduplication
+- **Template Integration Errors**: Handles template rendering errors for status updates
+- ****Updated** | **Database Query Error Recovery** | **Graceful handling of database connection failures** |
+- ****Updated** | **Timestamp Error Recovery** | **Validation and correction of timestamp calculations** |
+- ****Updated** | **Deduplication Logic Error Recovery** | **Edge case handling for document deduplication** |
 
 **Section sources**
 - [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
@@ -2370,14 +2559,18 @@ Web[FastAPI Web App]
 Bot[VK Bot Worker]
 Poller[Message Poller]
 Streaming[Streaming Service]
+HTMXEngine[HTMX Engine]
+EndUserIntegration[Enhanced User Integration]
 end
 subgraph "Data Services"
 DB[(SQLite Database with Auto-Increment)]
 MinIO[(MinIO Storage)]
 Qdrant[(Qdrant Vector DB)]
+EndUserMonitoring[Enhanced Monitoring]
 end
 subgraph "AI Services"
 Ollama[Ollama LLM]
+EndUserExperience[Enhanced Experience]
 end
 Web --> DB
 Web --> MinIO
@@ -2386,6 +2579,10 @@ Bot --> Web
 Poller --> Bot
 Web --> Ollama
 Streaming --> Web
+HTMXEngine --> Web
+EndUserIntegration --> HTMXEngine
+EndUserMonitoring --> DB
+EndUserExperience --> HTMXEngine
 ```
 
 ### Environment Setup
@@ -2399,8 +2596,11 @@ Required environment variables:
 - `MAX_CONCURRENT_INDEXING`: Semaphore limit for concurrency control
 - `CHUNK_SIZE`: Token-based chunk size for text processing
 - `CHUNK_OVERLAP`: Token-based chunk overlap for context preservation
+- ****Updated** | **HTMX Configuration** | **MAX_CONCURRENT_INDEXING** | **Semaphore limit for HTMX partial responses** |
+- ****Updated** | **OOB Swapping** | **MAX_CONCURRENT_INDEXING** | **Semaphore limit for OOB swapping operations** |
+- ****Updated** | **Polling Control** | **MAX_CONCURRENT_INDEXING** | **Semaphore limit for automatic polling control** |
 
-**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The new batch status polling system reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified _index_document_from_s3() function requires proper semaphore configuration for optimal background processing performance. The centralized parse_date_range() utility requires proper date format validation for consistent date parameter handling. The _document_table_context() function requires proper template context validation for consistent UI rendering. The new DOCX integrity validation function requires proper ZIP file handling and validation for DOCX file processing.
+**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The revolutionary HTMX partial response system with OOB swapping reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified _index_document_from_s3() function requires proper semaphore configuration for optimal background processing performance. The centralized parse_date_range() utility requires proper date format validation for consistent date parameter handling. The _document_table_context() function requires proper template context validation for consistent UI rendering. The new DOCX integrity validation function requires proper ZIP file handling and validation for DOCX file processing. The revolutionary batch status polling system requires proper HTMX engine configuration and OOB swapping support for optimal performance. The automatic polling control system requires proper server load monitoring and resource management for efficient operation. The recently finished documents tracking system requires proper database configuration and query optimization for reliable status updates.
 
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
@@ -2432,7 +2632,10 @@ Required environment variables:
 | **Sorting Issues** | Wrong sort order or direction | Verify sort field validation, check database ordering |
 | **Mobile Sidebar Not Working** | Overlay sidebar not appearing | Check Alpine.js configuration, verify mobile breakpoint |
 | **Toast Notifications Not Showing** | No toast messages | Verify toast manager initialization, check custom event handling |
-| **Batch Status Polling Failing** | Status not updating | Check '/partials/documents-status' endpoint, verify out-of-band swapping |
+| ****Updated** | **Batch Status Polling Failing** | **Status not updating** | **Check '/partials/documents-status' endpoint, verify out-of-band swapping** |
+| ****Updated** | **OOB Swapping Issues** | **Dynamic row updates not working** | **Verify OOB swapping configuration, check HTMX engine setup** |
+| ****Updated** | **Automatic Polling Control Problems** | **Polling not starting/stopping** | **Check automatic polling activation logic, verify document activity detection** |
+| ****Updated** | **Recently Finished Documents Not Updating** | **Final status not showing** | **Check database query for recently finished documents, verify polling interval** |
 | **Document-Specific Questions Not Working** | 400/404 errors on /ask | Verify document exists, check processing status, confirm search enablement |
 | **Global Questions Not Working** | 500 errors on /api/qa/ask-global | Verify QA service initialization, check LLM provider availability |
 | **Document Question Modal Issues** | Modal not opening or not responding | Check Alpine.js state management, verify modal trigger events |
@@ -2440,7 +2643,6 @@ Required environment variables:
 | **Streaming Response Issues** | No real-time feedback | Check SSE client implementation, verify streaming endpoint |
 | **SSE Connection Problems** | Streaming fails or disconnects | Verify server-side streaming implementation, check network connectivity |
 | **Download Filename Issues** | Incorrect or garbled filenames | Check RFC 5987 encoding implementation, verify browser compatibility |
-| **Recently Finished Documents Not Updating** | Status not showing final updates | Check database query for recently finished documents, verify polling interval |
 | **Global Question Prompt Issues** | Wrong system prompt used | Verify GLOBAL_EXPERTS_PROMPT application, check retriever construction |
 | **Document Question Prompt Issues** | Wrong system prompt used | Verify DOCUMENT_EXPERTS_PROMPT application, check retriever construction |
 | **Unified Indexing Function Issues** | Background processing failures | Check _index_document_from_s3() function, verify semaphore protection, validate error handling |
@@ -2449,6 +2651,10 @@ Required environment variables:
 | **DOCX Integrity Validation Issues** | DOCX validation failures | Check _validate_docx_bytes() function, verify ZIP file handling, validate word/document.xml presence |
 | **XLSX Processing Issues** | Spreadsheet parsing failures | Verify openpyxl installation, check worksheet processing, validate row formatting |
 | **Spreadsheet Search Issues** | XLSX content not searchable | Check worksheet metadata preservation, verify chunk generation with section information |
+| ****Updated** | **HTMX Partial Response Issues** | **OOB swapping not working** | **Verify HTMX engine configuration, check OOB swapping syntax, validate template integration** |
+| ****Updated** | **Batch Status Polling Performance Issues** | **High server load** | **Check server load optimization, verify polling interval, validate deduplication logic** |
+| ****Updated** | **Automatic Polling Control Issues** | **Polling not responding to document activity** | **Check automatic polling activation logic, verify document status monitoring** |
+| ****Updated** | **Recently Finished Tracking Issues** | **Final status updates not appearing** | **Check database query optimization, verify timestamp calculations, validate deduplication logic** |
 
 ### Logging and Monitoring
 
@@ -2471,7 +2677,10 @@ The system provides comprehensive logging at multiple levels:
 - **Sorting logs**: Sort field processing, database ordering
 - **Mobile Responsiveness logs**: Responsive behavior, breakpoint handling
 - **Toast Notification logs**: Toast management, event handling
-- **Batch Status Polling logs**: Centralized polling, out-of-band swapping
+- ****Updated** | **Batch Status Polling Logs** | **Centralized polling management, OOB swapping operations** |
+- ****Updated** | **OOB Swapping Logs** | **Dynamic row updates, template integration, server load optimization** |
+- ****Updated** | **Automatic Polling Control Logs** | **Intelligent polling activation/deactivation, document activity monitoring** |
+- ****Updated** | **Recently Finished Tracking Logs** | **Final status updates, timestamp calculations, deduplication logic** |
 - **Document-Specific Question Logs**: Document validation, retriever construction, answer generation
 - **Global Question Logs**: Global retriever construction, answer generation, knowledge base queries
 - **Streaming Response Logs**: SSE implementation, token streaming, error recovery
@@ -2483,8 +2692,10 @@ The system provides comprehensive logging at multiple levels:
 - **Template Context Logs**: Centralized rendering management, parameter validation, UI state consistency
 - **DOCX Integrity Validation Logs**: Zip file validation, word/document.xml verification, error handling
 - **XLSX Processing Logs**: Worksheet parsing, row formatting, metadata preservation, chunk generation
+- ****Updated** | **HTMX Engine Logs** | **OOB swapping operations, polling management, partial response handling** |
+- ****Updated** | **Server Load Monitoring Logs** | **Performance optimization, resource management, error recovery** |
 
-**Updated** The troubleshooting guide now includes comprehensive coverage for the newly enhanced unified indexing function, date range utility, template context management, and DOCX integrity validation. The logging system provides detailed coverage for all new functionality including centralized background processing through _index_document_from_s3(), standardized date range handling via parse_date_range(), and consistent template rendering through _document_table_context(). The system now includes specific troubleshooting steps for unified indexing issues, including semaphore protection validation, error handling verification, and resource cleanup testing. The date range utility troubleshooting covers ISO date format validation, error recovery scenarios, and boundary handling verification. The template context management troubleshooting includes parameter validation, pagination context testing, and UI state consistency validation. The DOCX integrity validation troubleshooting covers ZIP file handling, word/document.xml verification, and error recovery scenarios. The XLSX processing troubleshooting includes worksheet parsing validation, row formatting verification, and metadata preservation testing. The system now includes comprehensive error handling for all new centralized functions, ensuring proper logging and recovery mechanisms.
+**Updated** The troubleshooting guide now includes comprehensive coverage for the newly enhanced HTMX partial response system, batch status polling, automatic polling control, and recently finished documents tracking. The logging system provides detailed coverage for all new functionality including centralized batch polling through '/partials/documents-status', proper OOB swapping for dynamic document row updates, automatic polling activation that starts/stops based on active document count, and recently finished documents tracking within a 10-second window. The system now includes specific troubleshooting steps for HTMX OOB swapping issues, batch status polling performance problems, automatic polling control failures, and recently finished tracking issues. The logging system provides comprehensive coverage for all new centralized batch status management, intelligent polling control, and server load optimization features. The troubleshooting guide addresses the revolutionary batch status polling system that dramatically reduces server load by eliminating N concurrent requests for individual row polling, the automatic polling control that intelligently manages polling based on document activity, and the recently finished documents tracking that provides final status updates for documents completed within 10 seconds.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -2494,7 +2705,7 @@ The system provides comprehensive logging at multiple levels:
 
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
 
-**Updated** The system has been significantly enhanced with comprehensive .xlsx format support alongside existing .docx and .doc formats. The enhanced upload validation system now includes extended MIME type validation and DOCX integrity checking using the new _validate_docx_bytes() function. The system supports a unified processing pipeline for DOCX, DOC, and XLSX formats, with comprehensive spreadsheet parsing and chunking capabilities through the new load_xlsx() function. These enhancements expand the system's document processing capabilities while maintaining all existing functionality and architectural improvements including consolidated document indexing operations, centralized date range utilities, and template context management. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, and DOCX integrity validation. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
+**Updated** The system has been significantly enhanced with revolutionary HTMX partial response capabilities that include proper OOB (out-of-band) swapping for dynamic document row updates and automatic status polling activation for processing documents. The new centralized batch status polling system dramatically reduces server load by eliminating N concurrent requests for individual row polling, while the dedicated status poller template provides real-time monitoring of indexing operations. The system maintains all existing functionality while adding groundbreaking status tracking capabilities that automatically manage polling based on document activity. The enhanced user interface now features intelligent polling control that starts/stops based on active document count, recently finished documents tracking that provides final status updates within a 10-second window, and efficient OOB swapping that enables dynamic row updates without full page reloads. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials and components. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, batch status polling, automatic polling control, and recently finished documents tracking. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
 Key strengths include:
 - **Revolutionary Global Question-Answering**: Knowledge base-wide queries with real-time streaming responses using Server-Sent Events (SSE)
@@ -2505,8 +2716,11 @@ Key strengths include:
 - **Dual Question-Answering Modes**: Support for both document-specific and global knowledge base queries
 - **Alpine.js Modal Integration**: Reactive state management for both document and global question interactions
 - **Comprehensive Error Handling**: Detailed validation and error responses for all question-answering operations
-- **Revolutionary Batch Status Polling**: Centralized batch processing eliminates N concurrent requests, dramatically reducing server load
-- **Recently Finished Documents Tracking**: Efficient status updates for documents that completed within 10 seconds
+- ****Updated** | **Revolutionary Batch Status Polling** | **Centralized batch processing eliminates N concurrent requests, dramatically reducing server load** |
+- ****Updated** | **Automatic Polling Control** | **Intelligent start/stop polling based on active document count** |
+- ****Updated** | **Recently Finished Documents Tracking** | **Provides final status updates for documents completed within 10 seconds** |
+- ****Updated** | **OOB Swapping Integration** | **Efficient HTML updates without full page reloads using out-of-band swapping** |
+- ****Updated** | **HTMX Partial Response System** | **Comprehensive HTMX integration with OOB swapping and polling management** |
 - **Enhanced File Download Handling**: RFC 5987-compliant filename encoding for international character support
 - **Comprehensive Document Lifecycle Management**: From upload to searchable state with triple format support
 - **Flexible Storage Backend**: Support for multiple storage providers
@@ -2526,21 +2740,24 @@ Key strengths include:
 - **Comprehensive Logging**: Detailed monitoring and debugging capabilities
 - **Enhanced Visual Presentation**: Modern rounded corner styling, sophisticated background treatments, and improved visual hierarchy throughout the interface
 - **Advanced Filtering and Sorting**: Comprehensive server-side processing with real-time updates and centralized date handling
-- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, batch status polling, document-specific question answering, global question answering, streaming responses, unified background processing, date range utilities, template context management, DOCX integrity validation, and XLSX processing
+- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, batch status polling, document-specific question answering, global question answering, streaming responses, unified background processing, date range utilities, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, automatic polling control, and recently finished documents tracking
 - **Mobile-First Responsive Design**: Overlay sidebar, toast notifications, and adaptive layouts for all device sizes
 - **Document-Specific Prompt Engineering**: Specialized prompts for focused document responses
 - **Global Prompt Engineering**: Specialized prompts for comprehensive knowledge base responses
 - **Modal-Based User Interaction**: Intuitive question interfaces with Alpine.js integration
 - **Comprehensive Security Validation**: Document existence, status, and search enablement verification for both question types
-- **Performance Optimization**: Reduced server load through batch processing, centralized utilities, and unified background processing
+- **Performance Optimization**: Reduced server load through batch processing, centralized utilities, unified background processing, and intelligent polling control
 - **Real-time Streaming Response**: Immediate display of AI responses as they arrive for both question types
 - **International Character Support**: Proper filename encoding for global compatibility
-- **Enhanced Status Tracking**: Comprehensive tracking of document status changes and recently finished documents
+- **Enhanced Status Tracking**: Comprehensive tracking of document status changes, recently finished documents, and polling activity
 - **Global Knowledge Base Access**: Unified knowledge base queries across all searchable documents
 - **Unified Background Processing**: Centralized error handling, resource management, and logging for all background operations
 - **Centralized Date Range Handling**: Standardized ISO date format parsing across all endpoints
 - **Consistent Template Rendering**: Standardized UI context management for all partials and components
 - **Spreadsheet Query Support**: XLSX documents can be queried with worksheet context for focused analysis
 - **Format-Aware Processing**: Different handling for DOCX headings, DOC text structure, and XLSX worksheets with unified output
+- ****Updated** | **Revolutionary HTMX Integration** | **Comprehensive HTMX partial response system with OOB swapping and polling management** |
+- ****Updated** | **Intelligent Server Load Management** | **Automatic polling control and server load optimization** |
+- ****Updated** | **Enhanced User Experience** | **Real-time status monitoring and efficient UI updates** |
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
