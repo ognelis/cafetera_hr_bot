@@ -19,7 +19,7 @@
 - [scripts/run_llama_embeddings.sh](file://scripts/run_llama_embeddings.sh)
 - [scripts/run_llama_llm.sh](file://scripts/run_llama_llm.sh)
 - [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
-- [scripts/run_ollama_embeddings.sh](file://scripts/run_llvm_embeddings.sh)
+- [scripts/run_ollama_embeddings.sh](file://scripts/run_ollama_embeddings.sh)
 - [scripts/run_ollama_llm.sh](file://scripts/run_ollama_llm.sh)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
 - [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
@@ -36,10 +36,10 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive Docker containerization support documentation with multi-stage Docker builds for admin server and VK polling bot
-- Documented environment variable configuration and container networking setup for production deployments
-- Updated infrastructure orchestration to include Docker Compose services with health checks and persistent volumes
-- Enhanced deployment playbooks with containerized infrastructure management and production-ready configurations
+- Updated Docker containerization section to reflect pre-downloading FastEmbed sparse embedding models during build process
+- Enhanced cleanup optimizations documentation for reduced image size and improved security
+- Added comprehensive Docker networking documentation with service discovery guidance
+- Updated hybrid search capabilities documentation with FastEmbed sparse embeddings
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -60,7 +60,7 @@
 ## Introduction
 This document provides comprehensive guidance for deploying and operating cafetera_hr_bot in production. It covers containerized infrastructure using Docker Compose, operational controls for VK bot long-polling versus webhook-based production operation, planned Telegram integration, and future webhook deployment. The system now features a PostgreSQL database for storing document metadata alongside the existing Qdrant vector database and MinIO object storage. The production server utilizes Hypercorn with HTTP/2 support, replacing Uvicorn for improved performance and modern protocol support. It also documents monitoring and logging strategies, secrets management, scaling approaches, performance optimization, disaster recovery planning, and practical deployment playbooks.
 
-**Updated**: The system now includes comprehensive Docker containerization support with multi-stage Docker builds for admin server and VK polling bot, environment variable configuration, and container networking setup for production deployments.
+**Updated**: The system now includes comprehensive Docker containerization support with multi-stage Docker builds for admin server and VK polling bot, environment variable configuration, and container networking setup for production deployments. The containerization includes pre-downloading FastEmbed sparse embedding models during build process, comprehensive cleanup optimizations for reduced image size and improved security, and enhanced Docker networking documentation with service discovery guidance.
 
 ## Project Structure
 The repository organizes runtime concerns into layered modules with a new centralized orchestration approach and PostgreSQL database integration:
@@ -70,7 +70,7 @@ The repository organizes runtime concerns into layered modules with a new centra
 - Scripts: Centralized orchestration via run_admin.sh with specialized deployment scripts for individual components
 - Infrastructure: Docker Compose services for Qdrant, MinIO, and PostgreSQL with health checking
 - Storage: PostgreSQL database initialization and repository pattern implementation
-- Containerization: Multi-stage Docker builds for admin server and VK polling bot with uv package manager
+- Containerization: Multi-stage Docker builds for admin server and VK polling bot with uv package manager and FastEmbed sparse embeddings
 
 ```mermaid
 graph TB
@@ -97,6 +97,7 @@ AdminDocker["Admin Server Dockerfile<br/>Dockerfile.admin"]
 VKDocker["VK Polling Dockerfile<br/>Dockerfile.polling_vk"]
 DockerCompose["Docker Compose<br/>docker-compose.yml"]
 DockerIgnore[".dockerignore<br/>.dockerignore"]
+FastEmbedCache["FastEmbed Cache<br/>Pre-downloaded during build"]
 end
 subgraph "Operations"
 DevPoll["Dev Long Poll Script<br/>scripts/polling_vk.py"]
@@ -126,6 +127,7 @@ Orchestrator --> OllamaLLM
 Orchestrator --> OllamaEmbed
 DBInit --> PostgreSQL
 AdminDocker --> Hypercorn
+AdminDocker --> FastEmbedCache
 VKDocker --> DevPoll
 DockerCompose --> AdminDocker
 DockerCompose --> VKDocker
@@ -147,8 +149,8 @@ DockerIgnore --> VKDocker
 - [docker-compose.yml:1-53](file://docker-compose.yml#L1-L53)
 - [scripts/admin_server.py:1-74](file://scripts/admin_server.py#L1-L74)
 - [scripts/run_admin.sh:1-464](file://scripts/run_admin.sh#L1-L464)
-- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
-- [Dockerfile.polling_vk:1-58](file://Dockerfile.polling_vk#L1-L58)
+- [Dockerfile.admin:1-77](file://Dockerfile.admin#L1-L77)
+- [Dockerfile.polling_vk:1-71](file://Dockerfile.polling_vk#L1-L71)
 - [.dockerignore:1-17](file://.dockerignore#L1-L17)
 
 **Section sources**
@@ -169,8 +171,8 @@ DockerIgnore --> VKDocker
 - [scripts/run_admin.sh:1-464](file://scripts/run_admin.sh#L1-L464)
 - [AGENTS.md:1-88](file://AGENTS.md#L1-L88)
 - [PLAN.md:1-207](file://PLAN.md#L1-L207)
-- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
-- [Dockerfile.polling_vk:1-58](file://Dockerfile.polling_vk#L1-L58)
+- [Dockerfile.admin:1-77](file://Dockerfile.admin#L1-L77)
+- [Dockerfile.polling_vk:1-71](file://Dockerfile.polling_vk#L1-L71)
 - [.dockerignore:1-17](file://.dockerignore#L1-L17)
 
 ## Core Components
@@ -184,7 +186,7 @@ DockerIgnore --> VKDocker
 - Specialized Deployment Scripts: Separate scripts for LLM and embedding servers for llama.cpp and Ollama providers with automated model downloading and verification.
 - Modular Infrastructure: Docker Compose services with comprehensive health checking for Qdrant, MinIO, and PostgreSQL.
 - Database Layer: PostgreSQL database initialization with table creation for document metadata storage and category file management.
-- **Updated**: Containerization Layer: Multi-stage Docker builds using uv package manager with non-root user execution and optimized runtime images.
+- **Updated**: Containerization Layer: Multi-stage Docker builds using uv package manager with non-root user execution, pre-downloaded FastEmbed sparse embeddings cache, and optimized runtime images.
 
 **Updated**: The centralized orchestrator (run_admin.sh) provides interactive provider selection, automated dependency management, comprehensive service startup with health checks including PostgreSQL readiness, and robust error handling with detailed fix suggestions for seamless deployment across different LLM providers and database configurations.
 
@@ -207,7 +209,7 @@ DockerIgnore --> VKDocker
 ## Architecture Overview
 The system runs a VK bot with optional RAG capabilities backed by PostgreSQL for document metadata storage, Qdrant for vector search, and MinIO for document storage. The RAG system supports multiple embedding providers including llama.cpp with optimized server flags for document embedding tasks. In production, the VK bot operates via FastAPI webhook transport with Hypercorn server supporting HTTP/2; long polling is for local development only. The centralized orchestrator manages all deployment aspects and provider-specific configurations with enhanced error handling, verification, and PostgreSQL database initialization.
 
-**Updated**: The architecture now features modular deployment scripts that separate LLM and embedding server responsibilities, enabling more flexible and maintainable deployment configurations with automated model management, comprehensive verification, and PostgreSQL database integration for persistent document metadata storage. Containerization support enables production-ready deployments with multi-stage Docker builds and optimized runtime environments.
+**Updated**: The architecture now features modular deployment scripts that separate LLM and embedding server responsibilities, enabling more flexible and maintainable deployment configurations with automated model management, comprehensive verification, and PostgreSQL database integration for persistent document metadata storage. Containerization support enables production-ready deployments with multi-stage Docker builds, optimized runtime environments, pre-downloaded FastEmbed sparse embeddings cache, and enhanced security through non-root user execution.
 
 ```mermaid
 graph TB
@@ -230,6 +232,7 @@ Orchestrator["run_admin.sh<br/>Centralized Orchestration"]
 AdminDocker["Admin Server Container<br/>Dockerfile.admin"]
 VKDocker["VK Polling Container<br/>Dockerfile.polling_vk"]
 DockerCompose["Docker Compose<br/>docker-compose.yml"]
+FastEmbedCache["FastEmbed Cache<br/>Pre-downloaded Models"]
 Client --> Webhook
 Webhook --> Bot
 Bot --> Handlers
@@ -252,8 +255,10 @@ Orchestrator --> OllamaLLM
 Orchestrator --> OllamaEmbed
 Orchestrator --> PostgreSQL
 AdminDocker --> Hypercorn
+AdminDocker --> FastEmbedCache
 AdminDocker --> DockerCompose
 VKDocker --> DevPoll
+VKDocker --> FastEmbedCache
 VKDocker --> DockerCompose
 ```
 
@@ -268,8 +273,8 @@ VKDocker --> DockerCompose
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 - [scripts/admin_server.py:55-68](file://scripts/admin_server.py#L55-L68)
 - [scripts/run_admin.sh:223-356](file://scripts/run_admin.sh#L223-L356)
-- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
-- [Dockerfile.polling_vk:1-58](file://Dockerfile.polling_vk#L1-L58)
+- [Dockerfile.admin:1-77](file://Dockerfile.admin#L1-L77)
+- [Dockerfile.polling_vk:1-71](file://Dockerfile.polling_vk#L1-L71)
 
 **Section sources**
 - [AGENTS.md:16-18](file://AGENTS.md#L16-L18)
@@ -542,7 +547,7 @@ VerifyLLM --> Ready
 ### LLM Provider Configuration and Enhanced Embedding Selection
 The system supports multiple LLM providers with automatic embedding model selection based on configuration. The default embedding model is now 'qwen3-embedding:4b-q4_K_M' with enhanced verification capabilities.
 
-**Updated**: The embedding configuration now includes enhanced verification steps and comprehensive error handling for model validation and provider compatibility.
+**Updated**: The embedding configuration now includes enhanced verification steps and comprehensive error handling for model validation and provider compatibility. The system supports hybrid search mode with FastEmbed sparse embeddings for improved retrieval performance.
 
 ```mermaid
 classDiagram
@@ -555,10 +560,15 @@ class Settings {
 +llm_api_key : string
 +embedding_api_key : string
 +database_url : string
++retrieval_mode : string
++sparse_embedding_model : string
 }
 class EmbeddingFactory {
 +build_embeddings(settings) Embeddings
 +enhanced_verification(settings) Embeddings
+}
+class SparseEmbeddingFactory {
++build_sparse_embeddings(settings) FastEmbedSparse
 }
 class LlamaCppProvider {
 +OpenAIEmbeddings with llama.cpp
@@ -576,10 +586,16 @@ class OpenAIProvider {
 +Default model : text-embedding-3-small
 +Import Error Handling
 }
+class FastEmbedSparse {
++model_name : Qdrant/bm25
++pre_downloaded_cache
+}
 Settings --> EmbeddingFactory : "provides config"
+Settings --> SparseEmbeddingFactory : "provides config"
 EmbeddingFactory --> LlamaCppProvider : "when embedding_provider='llamacpp'"
 EmbeddingFactory --> OllamaProvider : "when embedding_provider='ollama'"
 EmbeddingFactory --> OpenAIProvider : "when embedding_provider='openai'"
+SparseEmbeddingFactory --> FastEmbedSparse : "when retrieval_mode='hybrid'"
 ```
 
 **Diagram sources**
@@ -620,7 +636,7 @@ Note over Script,Bot : "Long polling loop for VK updates"
 ### Enhanced Containerized Infrastructure Setup
 Docker Compose provisions Qdrant, MinIO, and PostgreSQL with comprehensive health checks and persistent volumes.
 
-**Updated**: The Docker Compose configuration now includes PostgreSQL service definition with proper environment variables, volume mounting, health checks, and credentials, along with comprehensive health checking for all infrastructure components.
+**Updated**: The Docker Compose configuration now includes PostgreSQL service definition with proper environment variables, volume mounting, health checks, and credentials, along with comprehensive health checking for all infrastructure components. The containerization includes pre-downloaded FastEmbed sparse embeddings cache for improved startup performance.
 
 ```mermaid
 flowchart TD
@@ -697,10 +713,80 @@ LogReady --> Return0["Return 0 (success)"]
 - [scripts/run_admin.sh:52-70](file://scripts/run_admin.sh#L52-L70)
 - [scripts/run_admin.sh:275-281](file://scripts/run_admin.sh#L275-L281)
 
-## Dependency Analysis
-External dependencies include FastAPI, Hypercorn, LangChain stack, Qdrant client, VK and Telegram adapters, PostgreSQL asyncpg driver, and testing tools. Optional extras enable Ollama or OpenAI-compatible LLMs. The system now supports llama.cpp with optimized embedding server flags and uses Hypercorn as the production ASGI server instead of Uvicorn. PostgreSQL integration adds asyncpg driver for database connectivity. **Updated**: Containerization dependencies include uv package manager for optimized dependency installation and multi-stage Docker builds.
+### Pre-downloaded FastEmbed Sparse Embeddings Cache
+The Docker containerization now includes pre-downloading FastEmbed sparse embedding models during the build process to improve startup performance and reduce runtime dependencies.
 
-**Updated**: The centralized orchestrator manages dependency installation through uv sync with provider-specific extras, eliminates manual dependency management complexity, and includes comprehensive error handling for dependency resolution failures. The PostgreSQL integration adds asyncpg driver for production database connectivity. Containerization support uses uv for efficient dependency management in Docker images.
+**Updated**: Both Dockerfiles (admin and polling_vk) now include a pre-download step for the Qdrant/bm25 sparse embedding model during the builder stage. The cache is then copied to the runtime stage and made accessible to the appuser, eliminating the need for runtime model downloads and improving container startup times.
+
+```mermaid
+flowchart TD
+BuilderStage["Builder Stage<br/>Dockerfile.admin/polling_vk"] --> PreDownload["Pre-download FastEmbed Model<br/>FastEmbedSparse(model_name='Qdrant/bm25')"]
+PreDownload --> CachePath["Set FASTEMBED_CACHE_PATH<br/>/app/.cache/fastembed"]
+CachePath --> CopyCache["Copy cache to runtime stage"]
+CopyCache --> RuntimeStage["Runtime Stage"]
+RuntimeStage --> FastEmbedCache["FastEmbed Cache<br/>Available at /app/.cache/fastembed"]
+FastEmbedCache --> AppUser["Accessible by appuser"]
+```
+
+**Diagram sources**
+- [Dockerfile.admin:26-36](file://Dockerfile.admin#L26-L36)
+- [Dockerfile.admin:60-67](file://Dockerfile.admin#L60-L67)
+- [Dockerfile.polling_vk:26-36](file://Dockerfile.polling_vk#L26-L36)
+- [Dockerfile.polling_vk:57-64](file://Dockerfile.polling_vk#L57-L64)
+
+**Section sources**
+- [Dockerfile.admin:26-36](file://Dockerfile.admin#L26-L36)
+- [Dockerfile.admin:60-67](file://Dockerfile.admin#L60-L67)
+- [Dockerfile.polling_vk:26-36](file://Dockerfile.polling_vk#L26-L36)
+- [Dockerfile.polling_vk:57-64](file://Dockerfile.polling_vk#L57-L64)
+
+### Enhanced Cleanup Optimizations for Reduced Image Size
+The Docker containerization includes comprehensive cleanup optimizations to reduce image size and improve security.
+
+**Updated**: Both Dockerfiles now include extensive cleanup procedures that remove test files, caches, and temporary files to minimize the final image size. The cleanup targets include Python test directories, cache files, pip/uv caches, and other unnecessary artifacts.
+
+```mermaid
+flowchart TD
+CleanupStep["Cleanup Step<br/>find /app/.venv/lib/python3.13/site-packages"] --> RemoveTests["Remove test directories<br/>tests, test*, *_tests, test_*.py"]
+RemoveTests --> RemoveCaches["Remove cache directories<br/>pip, uv, tmp"]
+RemoveCaches --> Finalize["Finalize cleanup<br/>true for error safety"]
+Finalize --> SmallerImage["Smaller, More Secure Image"]
+```
+
+**Diagram sources**
+- [Dockerfile.admin:30-36](file://Dockerfile.admin#L30-L36)
+- [Dockerfile.polling_vk:30-36](file://Dockerfile.polling_vk#L30-L36)
+
+**Section sources**
+- [Dockerfile.admin:30-36](file://Dockerfile.admin#L30-L36)
+- [Dockerfile.polling_vk:30-36](file://Dockerfile.polling_vk#L30-L36)
+
+### Enhanced Docker Networking Documentation with Service Discovery Guidance
+The documentation now includes comprehensive guidance for Docker service discovery and networking best practices.
+
+**Updated**: The README includes detailed service discovery guidance showing how to use container names as hostnames when connecting from within Docker networks. The documentation covers the specific service names for Qdrant, MinIO, and PostgreSQL containers and provides examples of connecting using these service names instead of localhost.
+
+```mermaid
+flowchart TD
+DockerNetwork["Docker Compose Network"] --> ServiceDiscovery["Service Discovery"]
+ServiceDiscovery --> QdrantService["rag-bot-qdrant<br/>Host: rag-bot-qdrant"]
+ServiceDiscovery --> MinioService["rag-bot-minio<br/>Host: rag-bot-minio"]
+ServiceDiscovery --> PostgresService["rag-bot-postgres<br/>Host: rag-bot-postgres"]
+QdrantService --> AppConnections["Application Connections"]
+MinioService --> AppConnections
+PostgresService --> AppConnections
+```
+
+**Diagram sources**
+- [README.md:253-286](file://README.md#L253-L286)
+
+**Section sources**
+- [README.md:253-286](file://README.md#L253-L286)
+
+## Dependency Analysis
+External dependencies include FastAPI, Hypercorn, LangChain stack, Qdrant client, VK and Telegram adapters, PostgreSQL asyncpg driver, and testing tools. Optional extras enable Ollama or OpenAI-compatible LLMs. The system now supports llama.cpp with optimized embedding server flags and uses Hypercorn as the production ASGI server instead of Uvicorn. PostgreSQL integration adds asyncpg driver for database connectivity. **Updated**: Containerization dependencies include uv package manager for optimized dependency installation and multi-stage Docker builds. The hybrid search capability requires fastembed>=0.8.0 for sparse embeddings support.
+
+**Updated**: The centralized orchestrator manages dependency installation through uv sync with provider-specific extras, eliminates manual dependency management complexity, and includes comprehensive error handling for dependency resolution failures. The PostgreSQL integration adds asyncpg driver for production database connectivity. Containerization support uses uv for efficient dependency management in Docker images. The hybrid search feature requires the 'hybrid' extra for FastEmbed sparse embeddings.
 
 ```mermaid
 graph LR
@@ -717,6 +803,7 @@ Ollama["ollama"]
 Uv["uv (orchestration)"]
 PostgreSQL["asyncpg (database)"]
 Docker["docker (containerization)"]
+FastEmbed["fastembed>=0.8.0 (hybrid)"]
 AdminDocker["Dockerfile.admin"]
 VKDocker["Dockerfile.polling_vk"]
 App --> FastAPI
@@ -731,10 +818,13 @@ App --> Ollama
 App --> Uv
 App --> PostgreSQL
 App --> Docker
+App --> FastEmbed
 AdminDocker --> Uv
 VKDocker --> Uv
 AdminDocker --> Docker
 VKDocker --> Docker
+AdminDocker --> FastEmbed
+VKDocker --> FastEmbed
 ```
 
 **Diagram sources**
@@ -760,6 +850,8 @@ VKDocker --> Docker
 - **Updated**: Database initialization with proper table creation and unique indexes ensures efficient metadata queries and prevents data integrity issues.
 - **Updated**: Multi-stage Docker builds with uv package manager reduce image size and improve build performance.
 - **Updated**: Non-root user execution in containers improves security posture and compliance requirements.
+- **Updated**: Pre-downloaded FastEmbed sparse embeddings cache eliminates runtime model downloads and improves container startup times.
+- **Updated**: Comprehensive cleanup optimizations reduce image size and improve security by removing unnecessary files and caches.
 
 ## Monitoring and Logging
 - Logging: Configure structured logging at INFO level for operational visibility. Use consistent log formatting and include correlation IDs where applicable.
@@ -774,6 +866,7 @@ VKDocker --> Docker
 - **Updated**: Enhanced provider verification includes health checks, model validation, and smoke tests for improved observability.
 - **Updated**: PostgreSQL database monitoring includes connection pool metrics, query performance, and table statistics for optimal database performance.
 - **Updated**: Container health monitoring includes Docker Compose health checks and container resource utilization tracking.
+- **Updated**: FastEmbed cache monitoring ensures proper model availability and cache hit rates for hybrid search operations.
 
 ## Security Considerations
 - Secrets management: Store all secrets in environment variables managed by pydantic-settings. Provide a template file with placeholders (.env.example) and never commit secrets.
@@ -788,6 +881,7 @@ VKDocker --> Docker
 - **Updated**: Enhanced provider verification includes health checks and model validation to prevent deployment of compromised or incompatible models.
 - **Updated**: PostgreSQL database security includes proper credential management, network isolation, and connection pooling with appropriate security settings.
 - **Updated**: Container security includes non-root user execution, minimal base images, and proper volume permissions for production deployments.
+- **Updated**: FastEmbed cache security ensures proper file permissions and access controls for cached model files.
 
 ## Scaling Approaches
 - Horizontal scaling: Run multiple replicas behind a load balancer; ensure stateless workers and shared storage/backends.
@@ -801,6 +895,7 @@ VKDocker --> Docker
 - **Updated**: Enhanced error handling and verification capabilities enable more reliable scaling operations with automated failover and recovery.
 - **Updated**: PostgreSQL database scaling includes connection pooling, read replicas, and proper indexing strategies for optimal performance under load.
 - **Updated**: Container orchestration enables horizontal scaling of admin server and VK polling services with proper resource limits and health checks.
+- **Updated**: FastEmbed cache scalability ensures efficient model serving across multiple container instances with shared cache management.
 
 ## Production Deployment Playbooks
 
@@ -821,6 +916,7 @@ VKDocker --> Docker
 - **Updated**: Configure PostgreSQL with proper credentials and volume mounting for persistent storage.
 - **Updated**: Monitor PostgreSQL health using pg_isready and configure appropriate connection limits.
 - **Updated**: The orchestrator includes comprehensive PostgreSQL health checking with retry mechanisms and detailed error reporting.
+- **Updated**: Ensure FastEmbed cache is properly mounted and accessible for hybrid search operations.
 
 **Section sources**
 - [docker-compose.yml:1-53](file://docker-compose.yml#L1-L53)
@@ -833,6 +929,7 @@ VKDocker --> Docker
 - **Updated**: Configure llamacpp provider settings including llm_provider='llamacpp', llm_base_url='http://localhost:8080', and embedding_model='qwen3-embedding'.
 - **Updated**: Set up Hypercorn configuration with appropriate worker class and HTTP/2 settings for production deployment.
 - **Updated**: Configure PostgreSQL database URL with asyncpg driver for production deployments.
+- **Updated**: Configure hybrid search settings with retrieval_mode='hybrid' and sparse_embedding_model='Qdrant/bm25'.
 - **Updated**: The centralized orchestrator manages provider-specific configurations, ensures proper model setup, and includes comprehensive error handling.
 - **Updated**: Enhanced error handling includes detailed fix suggestions and automated recovery procedures for common configuration issues.
 
@@ -851,6 +948,7 @@ VKDocker --> Docker
 - **Updated**: Monitor and manage PostgreSQL database lifecycle, including connection pool monitoring, backup procedures, and performance tuning.
 - **Updated**: The centralized orchestrator provides automated cleanup, graceful shutdown procedures, and comprehensive error handling for operational tasks.
 - **Updated**: Enhanced provider verification includes health checks, model validation, and automated recovery procedures for improved operational reliability.
+- **Updated**: Monitor FastEmbed cache health and ensure proper cache synchronization across container instances.
 
 ### Centralized Orchestrator Deployment
 - Install prerequisites: Docker, uv, and Python 3.11+.
@@ -876,6 +974,7 @@ VKDocker --> Docker
 - **Updated**: Provider verification includes health checks, model validation, and smoke tests for improved reliability.
 - **Updated**: Automated model downloading capabilities eliminate manual intervention and reduce deployment downtime.
 - **Updated**: PostgreSQL health checking includes detailed error reporting with fix suggestions and integration with Docker Compose services.
+- **Updated**: FastEmbed cache verification ensures proper model availability and cache integrity.
 
 **Section sources**
 - [scripts/run_admin.sh:243-321](file://scripts/run_admin.sh#L243-L321)
@@ -940,7 +1039,7 @@ VKDocker --> Docker
 
 ### Containerization and Docker Support
 
-#### Multi-Stage Docker Builds
+#### Multi-Stage Docker Builds with Pre-downloaded FastEmbed Cache
 The project implements comprehensive containerization support through multi-stage Docker builds that optimize image size and security:
 
 **Admin Server Container (Dockerfile.admin)**
@@ -948,11 +1047,13 @@ The project implements comprehensive containerization support through multi-stag
 - Runtime stage: Minimal Python slim image with non-root user execution
 - Optimized layers: Dependency caching, test file removal, and cache cleanup
 - Environment configuration: Automatic BIND_HOST=0.0.0.0 for container networking
+- **Updated**: Pre-downloaded FastEmbed sparse embeddings cache for hybrid search support
 
 **VK Polling Container (Dockerfile.polling_vk)**
 - Identical multi-stage build process optimized for development use
 - Single CMD instruction for long-polling bot execution
 - Non-root user execution for security compliance
+- **Updated**: Pre-downloaded FastEmbed sparse embeddings cache for hybrid search support
 
 ```mermaid
 flowchart TD
@@ -962,11 +1063,14 @@ EnvVars --> WorkDir["Set working directory<br/>/app"]
 WorkDir --> DepFiles["Copy dependency files<br/>pyproject.toml uv.lock"]
 DepFiles --> UvSync["uv sync --locked --no-dev<br/>Install production deps"]
 UvSync --> AppCopy["Copy application code<br/>app/, scripts/, templates/"]
-AppCopy --> Cleanup["Remove test files & caches<br/>Reduce image size"]
+AppCopy --> PreDownload["Pre-download FastEmbed Model<br/>FastEmbedSparse(model_name='Qdrant/bm25')"]
+PreDownload --> CachePath["Set FASTEMBED_CACHE_PATH<br/>/app/.cache/fastembed"]
+CachePath --> Cleanup["Remove test files & caches<br/>Reduce image size"]
 Cleanup --> Runtime["Runtime Stage<br/>python:3.13-slim"]
 Runtime --> UserSetup["Create non-root user<br/>appuser"]
 UserSetup --> CopyArtifacts["Copy virtual env & app<br/>from builder stage"]
-CopyArtifacts --> PathConfig["Set PATH to .venv/bin"]
+CopyArtifacts --> CopyCache["Copy FastEmbed cache<br/>to runtime"]
+CopyCache --> PathConfig["Set PATH to .venv/bin"]
 PathConfig --> HostConfig["Set BIND_HOST=0.0.0.0<br/>for container networking"]
 HostConfig --> UserExec["Switch to non-root user"]
 UserExec --> PortExpose["Expose port 8000"]
@@ -974,11 +1078,11 @@ PortExpose --> CmdExec["Execute CMD<br/>python scripts/admin_server.py"]
 ```
 
 **Diagram sources**
-- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
+- [Dockerfile.admin:1-77](file://Dockerfile.admin#L1-L77)
 
 **Section sources**
-- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
-- [Dockerfile.polling_vk:1-58](file://Dockerfile.polling_vk#L1-L58)
+- [Dockerfile.admin:1-77](file://Dockerfile.admin#L1-L77)
+- [Dockerfile.polling_vk:1-71](file://Dockerfile.polling_vk#L1-L71)
 
 #### Docker Compose Infrastructure
 The docker-compose.yml defines three core services with comprehensive health checking and persistent storage:
@@ -1016,11 +1120,13 @@ Containerized deployments use environment variables loaded from .env files:
 - S3_ENDPOINT_URL: Object storage endpoint
 - LLM_PROVIDER/EMBEDDING_PROVIDER: Model provider selection
 - BIND_HOST: Container bind address (automatically set to 0.0.0.0)
+- **Updated**: FASTEMBED_CACHE_PATH: FastEmbed cache directory path
 
 **Container Networking**
 - Docker Compose creates a default network for service communication
 - Services communicate using service names as hostnames
 - Port mapping enables external access to admin server (8000:8000)
+- **Updated**: Service discovery guidance for connecting to Qdrant, MinIO, and PostgreSQL using their container names
 
 **Section sources**
 - [app/config.py:37-46](file://app/config.py#L37-L46)
@@ -1062,6 +1168,8 @@ docker run --rm --env-file .env cafetera-polling-vk
 # Connect to services started by docker compose
 docker run --rm --env-file .env --network cafetera_default -p 8000:8000 cafetera-admin
 ```
+
+**Updated**: Service discovery examples showing how to connect to Qdrant, MinIO, and PostgreSQL using their container names instead of localhost.
 
 **Section sources**
 - [README.md:217-252](file://README.md#L217-L252)
@@ -1123,6 +1231,9 @@ docker run --rm --env-file .env --network cafetera_default -p 8000:8000 cafetera
   - Verify network connectivity between containers and external services.
   - Check container resource limits and available system resources.
   - Review Docker Compose logs for service startup failures.
+  - **Updated**: Verify FastEmbed cache is properly mounted and accessible.
+  - **Updated**: Check that pre-downloaded FastEmbed models are available in the cache directory.
+  - **Updated**: Ensure cleanup optimizations haven't removed necessary cache files.
 
 **Section sources**
 - [scripts/polling_vk.py:17-38](file://scripts/polling_vk.py#L17-L38)
@@ -1133,8 +1244,8 @@ docker run --rm --env-file .env --network cafetera_default -p 8000:8000 cafetera
 - [scripts/admin_server.py:55-68](file://scripts/admin_server.py#L55-L68)
 - [scripts/run_admin.sh:69-98](file://scripts/run_admin.sh#L69-L98)
 - [scripts/run_admin.sh:52-70](file://scripts/run_admin.sh#L52-L70)
-- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
-- [Dockerfile.polling_vk:1-58](file://Dockerfile.polling_vk#L1-L58)
+- [Dockerfile.admin:1-77](file://Dockerfile.admin#L1-L77)
+- [Dockerfile.polling_vk:1-71](file://Dockerfile.polling_vk#L1-L71)
 
 ## Conclusion
-cafetera_hr_bot is designed for production-grade operations with a clear separation between VK bot orchestration, RAG infrastructure, and storage. The system now features a centralized orchestration approach through run_admin.sh that manages provider selection, dependency installation, infrastructure provisioning, service coordination, PostgreSQL database initialization, and comprehensive error handling. The system supports multiple LLM providers including llama.cpp with optimized embedding capabilities for enhanced RAG functionality. The production server utilizes Hypercorn with HTTP/2 support, providing improved performance and modern protocol features compared to traditional ASGI servers. The modular deployment architecture enables flexible and maintainable configurations for different provider setups. The PostgreSQL database integration provides persistent storage for document metadata with proper table creation and indexing. **Updated**: Comprehensive Docker containerization support enables production-ready deployments with multi-stage builds, optimized runtime images, and secure non-root execution. The containerization layer includes uv package manager integration, environment variable management, and Docker Compose orchestration. By adopting webhook-based transport, securing secrets, monitoring health, implementing robust scaling and backup strategies, properly managing the llama.cpp embedding server with automated model downloading, optimizing Hypercorn HTTP/2 configuration, implementing comprehensive PostgreSQL database management, and leveraging containerized infrastructure with proper networking and security practices, teams can operate the bot reliably in production while preparing for future Telegram integration and advanced webhook deployments.
+cafetera_hr_bot is designed for production-grade operations with a clear separation between VK bot orchestration, RAG infrastructure, and storage. The system now features a centralized orchestration approach through run_admin.sh that manages provider selection, dependency installation, infrastructure provisioning, service coordination, PostgreSQL database initialization, and comprehensive error handling. The system supports multiple LLM providers including llama.cpp with optimized embedding capabilities for enhanced RAG functionality. The production server utilizes Hypercorn with HTTP/2 support, providing improved performance and modern protocol features compared to traditional ASGI servers. The modular deployment architecture enables flexible and maintainable configurations for different provider setups. The PostgreSQL database integration provides persistent storage for document metadata with proper table creation and indexing. **Updated**: Comprehensive Docker containerization support enables production-ready deployments with multi-stage builds, optimized runtime images, secure non-root execution, pre-downloaded FastEmbed sparse embeddings cache, and enhanced cleanup optimizations. The containerization layer includes uv package manager integration, environment variable management, Docker Compose orchestration, and comprehensive service discovery guidance. By adopting webhook-based transport, securing secrets, monitoring health, implementing robust scaling and backup strategies, properly managing the llama.cpp embedding server with automated model downloading, optimizing Hypercorn HTTP/2 configuration, implementing comprehensive PostgreSQL database management, leveraging containerized infrastructure with proper networking and security practices, and utilizing pre-downloaded FastEmbed cache for improved performance, teams can operate the bot reliably in production while preparing for future Telegram integration and advanced webhook deployments.
