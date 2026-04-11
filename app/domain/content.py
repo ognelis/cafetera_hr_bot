@@ -9,12 +9,6 @@ from app.domain.entities import LegalEntity
 
 # ── FR-17 disclaimer (shown before any document template) ─────────
 
-TEMPLATE_DISCLAIMER = (
-    "⚠️ Дисклеймер\n"
-    "Документ носит информационный характер и не является юридически обязывающим.\n"
-    "Перед использованием уточните актуальность формы у сотрудника HR-отдела."
-)
-
 TEMPLATE_FILE_STUB = (
     "📄 Файл шаблона будет доступен после подключения хранилища документов.\n"
     "Обратитесь в HR для получения шаблона."
@@ -70,7 +64,6 @@ def hire_contract_text(entity: LegalEntity) -> str:
     """Return contract template text. Fallback when no category file is uploaded."""
     return (
         f"📄 Шаблон трудового договора — {entity.full_name}\n\n"
-        f"{TEMPLATE_DISCLAIMER}\n\n"
         f"{TEMPLATE_FILE_STUB}"
     )
 
@@ -88,7 +81,6 @@ def vacation_template_text(entity: LegalEntity, vtype: str = "paid") -> str:
     return (
         f"📄 Шаблон заявления на отпуск — {entity.full_name}\n"
         f"Тип: {vtype_label}\n\n"
-        f"{TEMPLATE_DISCLAIMER}\n\n"
         f"{TEMPLATE_FILE_STUB}"
     )
 

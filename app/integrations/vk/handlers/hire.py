@@ -8,7 +8,6 @@ from __future__ import annotations
 from vkbottle.bot import BotLabeler, Message
 
 from app.domain.content import (
-    TEMPLATE_DISCLAIMER,
     hire_checklist,
     hire_contract_text,
     onboarding_checklist,
@@ -87,7 +86,7 @@ async def on_hire_contract(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
     entity = await require_entity(message, entity_id, back_payload=CMD_HIRE)
 
-    caption = f"📄 Шаблон трудового договора — {entity.full_name}\n\n{TEMPLATE_DISCLAIMER}"
+    caption = f"📄 Шаблон трудового договора — {entity.full_name}\n"
     await send_document_or_fallback(
         message,
         category="hire",

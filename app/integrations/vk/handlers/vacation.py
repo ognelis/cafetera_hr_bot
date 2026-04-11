@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain.content import TEMPLATE_DISCLAIMER, vacation_template_text
+from app.domain.content import vacation_template_text
 from app.integrations.vk.attachments import send_category_document
 from app.integrations.vk.handlers import (
     get_category_file_service,
@@ -98,7 +98,6 @@ async def on_vacation_template(message: Message, payload_data: dict) -> None:
     caption = (
         f"📄 Шаблон заявления на отпуск — {entity.full_name}\n"
         f"Тип: {vtype_label}\n\n"
-        f"{TEMPLATE_DISCLAIMER}"
     )
     sent = await send_category_document(
         message,

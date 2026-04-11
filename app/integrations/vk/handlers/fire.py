@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from app.domain.content import TEMPLATE_DISCLAIMER
 from app.integrations.vk.attachments import send_category_document
 from app.integrations.vk.handlers import (
     catch_entity_error,
@@ -56,7 +55,7 @@ async def on_fire_resignation_entity(message: Message, payload_data: dict) -> No
     entity_id: int = payload_data.get("entity", 0)
     entity = await require_entity(message, entity_id, back_payload=CMD_FIRE)
 
-    caption = f"📄 Заявление об увольнении — {entity.full_name}\n\n{TEMPLATE_DISCLAIMER}"
+    caption = f"📄 Заявление об увольнении — {entity.full_name}\n"
     await send_category_document(
         message,
         get_category_file_service(),
