@@ -14,7 +14,6 @@ from fastapi.templating import Jinja2Templates
 from app.config import Settings
 from app.integrations.vk.handlers import set_category_file_service, set_qa_service
 from app.resources import build_resources, close_resources
-from app.storage.database import init_db
 
 logger = logging.getLogger(__name__)
 
@@ -22,9 +21,6 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings: Settings = app.state.settings
-
-    # Initialise SQLite
-    await init_db(settings.db_path)
 
     res = await build_resources(settings, with_s3=True, with_db=True)
 

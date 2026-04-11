@@ -6,7 +6,7 @@ Usage:
 
 Reads all .docx, .doc, and .xlsx files from the given directory, splits them into chunks,
 generates embeddings, and stores them in the Qdrant ``hr_documents`` collection.
-Each file is tracked as a ``DocumentRecord`` in SQLite with chunk count and
+Each file is tracked as a ``DocumentRecord`` in PostgreSQL with chunk count and
 indexing timestamp.
 
 Supported formats: DOCX, DOC, XLSX.
@@ -21,6 +21,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+from databases import Database
 from langchain_core.documents import Document as LCDocument
 from qdrant_client import AsyncQdrantClient, models
 
@@ -45,7 +46,7 @@ logger = logging.getLogger(__name__)
 async def ingest(docs_dir: Path, settings: Settings) -> int:
     """Ingest all supported files from *docs_dir* into Qdrant.
 
-    Creates a ``DocumentRecord`` in SQLite for every file and enriches
+    Creates a ``DocumentRecord`` in PostgreSQL for every file and enriches
     each chunk with ``document_id``, ``chunk_id``, ``filename``, ``s3_key``,
     and ``is_search_enabled`` metadata.
 
@@ -63,123 +64,128 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
 
     logger.info("Found %d file(s) to ingest", len(all_files))
 
-    # Initialise SQLite
-    await init_db(settings.db_path)
-    repo = DocumentRepository(settings.db_path)
-
-    # Load, chunk, and register each document
-    all_docs: list[LCDocument] = []
-    file_chunks: dict[str, list[LCDocument]] = {}
-
-    # Build embeddings (needed for semantic chunking)
-    embeddings = build_embeddings(settings)
-    sparse = build_sparse_embeddings(settings)
-
-    for path in all_files:
-        logger.info("Processing %s ...", path.name)
-        raw_chunks = load_document(
-            path,
-            chunk_size=settings.chunk_size,
-            chunk_overlap=settings.chunk_overlap,
-            strategy=settings.chunk_strategy,
-            embeddings=embeddings,
-            breakpoint_threshold_type=settings.semantic_breakpoint_threshold_type,
-            breakpoint_threshold_amount=settings.semantic_breakpoint_threshold_amount,
-        )
-        logger.info("  -> %d chunk(s)", len(raw_chunks))
-
-        doc_id = uuid.uuid4().hex
-        now = datetime.now(UTC)
-        record = DocumentRecord(
-            document_id=doc_id,
-            filename=path.name,
-            title=path.stem,
-            s3_key=f"documents/{path.name}",
-            mime_type=None,  # Will be determined from file extension during upload
-            size_bytes=path.stat().st_size,
-            status=DocumentStatus.processing,
-            created_at=now,
-            updated_at=now,
-        )
-        await repo.create(record)
-
-        enriched = prepare_chunks(
-            raw_chunks,
-            document_id=doc_id,
-            filename=path.name,
-            s3_key=f"documents/{path.name}",
-        )
-        all_docs.extend(enriched)
-        file_chunks[doc_id] = enriched
-
-    if not all_docs:
-        logger.warning("No text extracted from any document")
-        return 0
-
-    logger.info("Total: %d chunk(s) from %d file(s)", len(all_docs), len(all_files))
-
-    # Recreate collection for a clean ingest
-    client: AsyncQdrantClient = build_qdrant_client(settings)
+    # Initialise PostgreSQL
+    db = Database(settings.database_url)
+    await db.connect()
     try:
-        collection = settings.qdrant_collection
-        if await client.collection_exists(collection):
-            await client.delete_collection(collection)
-            logger.info("Deleted existing collection '%s'", collection)
+        await init_db(db)
+        repo = DocumentRepository(db)
 
-        # Create collection with proper vector configuration
-        test_embedding = embeddings.embed_documents(["test"])
-        vector_size = len(test_embedding[0])
-        vectors_config = models.VectorParams(
-            size=vector_size,
-            distance=models.Distance.COSINE,
-        )
-        sparse_vectors_config = None
-        if sparse is not None:
-            sparse_vectors_config = {
-                "text-sparse": models.SparseVectorParams(
-                    index=models.SparseIndexParams(on_disk=False),
+        # Load, chunk, and register each document
+        all_docs: list[LCDocument] = []
+        file_chunks: dict[str, list[LCDocument]] = {}
+
+        # Build embeddings (needed for semantic chunking)
+        embeddings = build_embeddings(settings)
+        sparse = build_sparse_embeddings(settings)
+
+        for path in all_files:
+            logger.info("Processing %s ...", path.name)
+            raw_chunks = load_document(
+                path,
+                chunk_size=settings.chunk_size,
+                chunk_overlap=settings.chunk_overlap,
+                strategy=settings.chunk_strategy,
+                embeddings=embeddings,
+                breakpoint_threshold_type=settings.semantic_breakpoint_threshold_type,
+                breakpoint_threshold_amount=settings.semantic_breakpoint_threshold_amount,
+            )
+            logger.info("  -> %d chunk(s)", len(raw_chunks))
+
+            doc_id = uuid.uuid4().hex
+            now = datetime.now(UTC)
+            record = DocumentRecord(
+                document_id=doc_id,
+                filename=path.name,
+                title=path.stem,
+                s3_key=f"documents/{path.name}",
+                mime_type=None,  # Will be determined from file extension during upload
+                size_bytes=path.stat().st_size,
+                status=DocumentStatus.processing,
+                created_at=now,
+                updated_at=now,
+            )
+            await repo.create(record)
+
+            enriched = prepare_chunks(
+                raw_chunks,
+                document_id=doc_id,
+                filename=path.name,
+                s3_key=f"documents/{path.name}",
+            )
+            all_docs.extend(enriched)
+            file_chunks[doc_id] = enriched
+
+        if not all_docs:
+            logger.warning("No text extracted from any document")
+            return 0
+
+        logger.info("Total: %d chunk(s) from %d file(s)", len(all_docs), len(all_files))
+
+        # Recreate collection for a clean ingest
+        client: AsyncQdrantClient = build_qdrant_client(settings)
+        try:
+            collection = settings.qdrant_collection
+            if await client.collection_exists(collection):
+                await client.delete_collection(collection)
+                logger.info("Deleted existing collection '%s'", collection)
+
+            # Create collection with proper vector configuration
+            test_embedding = embeddings.embed_documents(["test"])
+            vector_size = len(test_embedding[0])
+            vectors_config = models.VectorParams(
+                size=vector_size,
+                distance=models.Distance.COSINE,
+            )
+            sparse_vectors_config = None
+            if sparse is not None:
+                sparse_vectors_config = {
+                    "text-sparse": models.SparseVectorParams(
+                        index=models.SparseIndexParams(on_disk=False),
+                    )
+                }
+            await client.create_collection(
+                collection_name=collection,
+                vectors_config=vectors_config,
+                sparse_vectors_config=sparse_vectors_config,
+            )
+            logger.info("Created collection '%s' with vector_size=%d", collection, vector_size)
+
+            # Index chunks using async indexer
+            await index_chunks(
+                client=client,
+                embeddings=embeddings,
+                collection_name=collection,
+                chunks=all_docs,
+                sparse_embedding=sparse,
+            )
+            logger.info(
+                "Ingestion complete: %d chunk(s) stored in '%s'",
+                len(all_docs),
+                collection,
+            )
+
+            # Update document records with results
+            now = datetime.now(UTC)
+            for doc_id, chunks in file_chunks.items():
+                await repo.update(
+                    doc_id,
+                    status=DocumentStatus.completed,
+                    chunk_count=len(chunks),
+                    indexed_at=now,
                 )
-            }
-        await client.create_collection(
-            collection_name=collection,
-            vectors_config=vectors_config,
-            sparse_vectors_config=sparse_vectors_config,
-        )
-        logger.info("Created collection '%s' with vector_size=%d", collection, vector_size)
-
-        # Index chunks using async indexer
-        await index_chunks(
-            client=client,
-            embeddings=embeddings,
-            collection_name=collection,
-            chunks=all_docs,
-            sparse_embedding=sparse,
-        )
-        logger.info(
-            "Ingestion complete: %d chunk(s) stored in '%s'",
-            len(all_docs),
-            collection,
-        )
-
-        # Update document records with results
-        now = datetime.now(UTC)
-        for doc_id, chunks in file_chunks.items():
-            await repo.update(
-                doc_id,
-                status=DocumentStatus.completed,
-                chunk_count=len(chunks),
-                indexed_at=now,
-            )
-    except Exception:
-        for doc_id in file_chunks:
-            await repo.update(
-                doc_id,
-                status=DocumentStatus.failed,
-                error="Bulk ingestion failed",
-            )
-        raise
+        except Exception:
+            for doc_id in file_chunks:
+                await repo.update(
+                    doc_id,
+                    status=DocumentStatus.failed,
+                    error="Bulk ingestion failed",
+                )
+            raise
+        finally:
+            await client.close()
     finally:
-        await client.close()
+        await db.disconnect()
 
     return len(all_docs)
 

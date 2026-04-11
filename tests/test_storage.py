@@ -6,6 +6,7 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
+from databases import Database
 
 from app.storage.database import init_db
 from app.storage.document_repo import DocumentRepository
@@ -38,11 +39,22 @@ def _make_record(**overrides) -> DocumentRecord:
 
 
 @pytest.fixture()
-async def repo(tmp_path):
-    """Create a fresh SQLite DB in a temp directory and return a repository."""
-    db_path = str(tmp_path / "test.db")
-    await init_db(db_path)
-    return DocumentRepository(db_path)
+async def repo():
+    """Create a fresh PostgreSQL DB and return a DocumentRepository."""
+    import os
+
+    url = os.environ.get(
+        "TEST_DATABASE_URL",
+        "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
+    )
+    db = Database(url)
+    await db.connect()
+    # Clean tables before each test for isolation
+    await db.execute(query="DROP TABLE IF EXISTS category_files CASCADE")
+    await db.execute(query="DROP TABLE IF EXISTS documents CASCADE")
+    await init_db(db)
+    yield DocumentRepository(db)
+    await db.disconnect()
 
 
 # ── Model tests ──────────────────────────────────────────────────
@@ -72,23 +84,42 @@ class TestDocumentRecord:
 
 
 class TestInitDb:
-    async def test_creates_database_file(self, tmp_path):
-        db_path = str(tmp_path / "subdir" / "test.db")
-        await init_db(db_path)
-        import aiosqlite
+    async def test_creates_database_tables(self, tmp_path):
+        import os
 
-        async with aiosqlite.connect(db_path) as db:
-            cursor = await db.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='documents'"
-            )
-            row = await cursor.fetchone()
-        assert row is not None
-        assert row[0] == "documents"
+        url = os.environ.get(
+            "TEST_DATABASE_URL",
+            "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
+        )
+        db = Database(url)
+        await db.connect()
+        # Clean tables first
+        await db.execute(query="DROP TABLE IF EXISTS category_files CASCADE")
+        await db.execute(query="DROP TABLE IF EXISTS documents CASCADE")
+        await init_db(db)
+        # Verify documents table exists by querying it
+        result = await db.fetch_one(
+            query="SELECT table_name FROM information_schema.tables WHERE table_name='documents'"
+        )
+        assert result is not None
+        assert result["table_name"] == "documents"
+        await db.disconnect()
 
     async def test_idempotent(self, tmp_path):
-        db_path = str(tmp_path / "test.db")
-        await init_db(db_path)
-        await init_db(db_path)  # should not raise
+        import os
+
+        url = os.environ.get(
+            "TEST_DATABASE_URL",
+            "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
+        )
+        db = Database(url)
+        await db.connect()
+        # Clean tables first
+        await db.execute(query="DROP TABLE IF EXISTS category_files CASCADE")
+        await db.execute(query="DROP TABLE IF EXISTS documents CASCADE")
+        await init_db(db)
+        await init_db(db)  # should not raise
+        await db.disconnect()
 
 
 # ── CRUD: create ─────────────────────────────────────────────────

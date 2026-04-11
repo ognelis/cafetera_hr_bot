@@ -8,6 +8,7 @@
 - [AGENTS.md](file://AGENTS.md)
 - [app/config.py](file://app/config.py)
 - [app/main.py](file://app/main.py)
+- [app/resources.py](file://app/resources.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
 - [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
 - [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
@@ -15,22 +16,29 @@
 - [app/integrations/vk/handlers/fallback.py](file://app/integrations/vk/handlers/fallback.py)
 - [app/api/documents.py](file://app/api/documents.py)
 - [scripts/admin_server.py](file://scripts/admin_server.py)
+- [scripts/run_admin.sh](file://scripts/run_admin.sh)
 - [scripts/polling_vk.py](file://scripts/polling_vk.py)
 - [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
 - [scripts/run_admin.sh](file://scripts/run_admin.sh)
 - [tests/test_config.py](file://tests/test_config.py)
 - [tests/test_keyboards.py](file://tests/test_keyboards.py)
 - [tests/test_states.py](file://tests/test_states.py)
+- [static/js/components.js](file://static/js/components.js)
+- [static/js/upload.js](file://static/js/upload.js)
+- [static/css/style.css](file://static/css/style.css)
+- [templates/base.html](file://templates/base.html)
+- [templates/documents.html](file://templates/documents.html)
+- [templates/partials/document_table.html](file://templates/partials/document_table.html)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced Admin Server Development Environment section with comprehensive .env file integration
-- Updated Configuration Management section to document intelligent environment variable precedence
-- Added new section on Environment Variable Loading Strategy
-- Updated Development Environment Setup to include run_admin.sh script with .env integration
-- Enhanced troubleshooting guide with .env file validation and error handling
-- Added comprehensive documentation for load_env_var() function and configuration precedence
+- Enhanced Main Application Entry Point section with modern async resource management using lifespan context managers
+- Updated Frontend Architecture section to document Vue.js-like Alpine.js components and comprehensive CSS styling system
+- Added new section on Streamlined Template Architecture with HTMX partials for client-side rendering
+- Updated Development Environment Setup to include the modernized run_admin.sh script with interactive provider selection
+- Enhanced Configuration Management section with intelligent .env integration and provider selection workflow
+- Added comprehensive documentation for the new frontend architecture with Alpine.js, HTMX, and custom CSS design system
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -47,15 +55,18 @@
 ## Introduction
 This document describes the development workflow and best practices for cafetera_hr_bot. It covers environment setup, code quality tools (Ruff, MyPy), testing procedures, validation commands, and code review guidelines. It also documents development standards, commit conventions, and contribution workflow, with practical examples for local development, running checks, executing tests, and preparing changes for review. Debugging techniques, performance profiling, and maintaining code quality throughout the lifecycle are addressed.
 
-**Updated** Enhanced with comprehensive documentation for .env file integration and intelligent configuration loading with environment variable precedence.
+**Updated** Enhanced with comprehensive documentation for the modernized application entry point with async resource management, Vue.js-like frontend architecture with Alpine.js, and streamlined template architecture for client-side rendering.
 
 ## Project Structure
-The repository follows a layered structure:
+The repository follows a layered structure with modernized frontend architecture:
 - app/: Application code organized by domain and integrations
 - app/config.py: Pydantic settings loader with .env file integration
-- app/main.py: FastAPI application factory with lifespan management
+- app/main.py: FastAPI application factory with lifespan resource management
+- app/resources.py: Shared resource container and factory for RAG application
 - app/integrations/vk/: VK bot implementation (handlers, keyboards, states, bot factory)
 - app/api/documents.py: Admin interface routes and document management
+- static/: Modern frontend assets with Alpine.js components and CSS styling
+- templates/: Jinja2 templates with HTMX partials for client-side rendering
 - scripts/: Local development and auxiliary scripts with enhanced .env integration
 - tests/: Unit tests for configuration, keyboards, states, and bot factory
 - pyproject.toml: Project metadata, dependencies, dev tool configuration
@@ -65,9 +76,10 @@ The repository follows a layered structure:
 
 ```mermaid
 graph TB
-subgraph "Application"
+subgraph "Application Layer"
 CFG["app/config.py<br/>.env integration"]
-MAIN["app/main.py<br/>FastAPI app factory"]
+MAIN["app/main.py<br/>Async lifespan resource management"]
+RES["app/resources.py<br/>Resource factory & container"]
 VKBOT["app/integrations/vk/bot.py"]
 VKKEY["app/integrations/vk/keyboards.py"]
 VKSTAT["app/integrations/vk/states.py"]
@@ -75,18 +87,24 @@ VKSTART["app/integrations/vk/handlers/start.py"]
 VKFB["app/integrations/vk/handlers/fallback.py"]
 DOCSAPI["app/api/documents.py<br/>Admin routes & endpoints"]
 end
-subgraph "Scripts"
+subgraph "Frontend Layer"
+BASE["templates/base.html<br/>Vue.js-like Alpine.js + HTMX"]
+DOCS["templates/documents.html<br/>Main admin interface"]
+PARTIAL["templates/partials/<br/>HTMX partials"]
+COMPONENTS["static/js/components.js<br/>Alpine data stores & behaviors"]
+UPLOAD["static/js/upload.js<br/>Window functions bridge"]
+STYLE["static/css/style.css<br/>Custom design system"]
+end
+subgraph "Scripts & Infrastructure"
 ADMINSRV["scripts/admin_server.py<br/>Hot reload admin server"]
 RUNADMIN["scripts/run_admin.sh<br/>.env integration & provider selection"]
 POLL["scripts/polling_vk.py"]
 LLM["scripts/run_llama_qwen.sh"]
 end
-subgraph "Testing"
+subgraph "Testing & Tooling"
 TCFG["tests/test_config.py"]
 TKEY["tests/test_keyboards.py"]
 TSTAT["tests/test_states.py"]
-end
-subgraph "Tooling"
 PYTOML["pyproject.toml"]
 DCMP["docker-compose.yml"]
 PLAN["PLAN.md"]
@@ -96,12 +114,13 @@ ADMINSRV --> MAIN
 RUNADMIN --> CFG
 RUNADMIN --> MAIN
 MAIN --> DOCSAPI
-POLL --> CFG
-POLL --> VKBOT
-VKBOT --> VKSTART
-VKBOT --> VKFB
-VKBOT --> VKKEY
-VKBOT --> VKSTAT
+MAIN --> RES
+RES --> DOCSAPI
+DOCSAPI --> PARTIAL
+COMPONENTS --> PARTIAL
+UPLOAD --> PARTIAL
+STYLE --> BASE
+BASE --> DOCS
 TCFG --> CFG
 TKEY --> VKKEY
 TSTAT --> VKSTAT
@@ -114,32 +133,41 @@ PYTOML -. config .-> LLM
 
 **Diagram sources**
 - [app/config.py:14-15](file://app/config.py#L14-L15)
-- [app/main.py:1-124](file://app/main.py#L1-L124)
+- [app/main.py:22-49](file://app/main.py#L22-L49)
+- [app/resources.py:104-303](file://app/resources.py#L104-L303)
 - [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
 - [app/integrations/vk/keyboards.py:1-108](file://app/integrations/vk/keyboards.py#L1-L108)
 - [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
 - [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
 - [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
 - [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
+- [templates/base.html:1-213](file://templates/base.html#L1-L213)
+- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
+- [templates/partials/document_table.html:1-64](file://templates/partials/document_table.html#L1-L64)
+- [static/js/components.js:1-623](file://static/js/components.js#L1-L623)
+- [static/js/upload.js:1-83](file://static/js/upload.js#L1-L83)
+- [static/css/style.css:1-171](file://static/css/style.css#L1-L171)
 - [scripts/admin_server.py:1-66](file://scripts/admin_server.py#L1-L66)
-- [scripts/run_admin.sh:1-427](file://scripts/run_admin.sh#L1-L427)
+- [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
 - [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
 - [scripts/run_llama_qwen.sh:1-59](file://scripts/run_llama_qwen.sh#L1-L59)
 - [tests/test_config.py:1-27](file://tests/test_config.py#L1-L27)
 - [tests/test_keyboards.py:1-192](file://tests/test_keyboards.py#L1-L192)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
-- [pyproject.toml:1-61](file://pyproject.toml#L1-L61)
+- [pyproject.toml:1-66](file://pyproject.toml#L1-L66)
 - [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
 
 **Section sources**
-- [pyproject.toml:1-61](file://pyproject.toml#L1-L61)
+- [pyproject.toml:1-66](file://pyproject.toml#L1-L66)
 - [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
 - [PLAN.md:1-295](file://PLAN.md#L1-L295)
 - [AGENTS.md:1-95](file://AGENTS.md#L1-L95)
 
 ## Core Components
 - Settings loader: Loads environment variables into a typed Settings model with .env file integration and UTF-8 encoding support.
-- FastAPI application factory: Creates a configurable FastAPI app with lifespan resource management for admin interface.
+- Async FastAPI application factory: Creates a configurable FastAPI app with lifespan resource management for admin interface.
+- Resource factory: Consolidates initialization of RAG resources (Qdrant client, embeddings, LLM, retriever, chain, QAService, S3, DocumentRepository, DocumentService) with graceful degradation.
+- Vue.js-like frontend architecture: Alpine.js components with reactive data stores, HTMX partials for client-side rendering, and comprehensive CSS styling system.
 - VK bot factory: Creates a vkbottle Bot, registers labelers in order, and prepares it for long polling or callbacks.
 - Admin server: Provides hot-reloading development server with comprehensive logging and authentication for document management.
 - Enhanced .env integration: Intelligent configuration loading with environment variable precedence over .env file values.
@@ -149,11 +177,12 @@ PYTOML -. config .-> LLM
 - Scripts: Local VK long polling entrypoint, admin server with .env integration, and optional local LLM server runner.
 - Tests: Configuration defaults/env, keyboard layout and payload correctness, and state enumeration.
 
-**Updated** Added comprehensive .env file integration with environment variable precedence and enhanced configuration management.
+**Updated** Added comprehensive documentation for async resource management, Vue.js-like frontend architecture, and resource factory consolidation.
 
 **Section sources**
 - [app/config.py:14-15](file://app/config.py#L14-L15)
-- [app/main.py:1-124](file://app/main.py#L1-L124)
+- [app/main.py:22-49](file://app/main.py#L22-L49)
+- [app/resources.py:104-303](file://app/resources.py#L104-L303)
 - [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
 - [app/integrations/vk/keyboards.py:1-108](file://app/integrations/vk/keyboards.py#L1-L108)
 - [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
@@ -169,38 +198,123 @@ PYTOML -. config .-> LLM
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
 
 ## Architecture Overview
-The VK integration is structured around a bot factory that loads labelers in a specific order. Handlers are registered top-down, with the fallback labeler last to catch unmatched messages. Keyboard builders centralize UX patterns and service actions. States manage multi-step dialogs. The admin interface provides a FastAPI-based document management system with authentication and hot reloading. Enhanced .env integration provides intelligent configuration loading with environment variable precedence.
+The VK integration is structured around a bot factory that loads labelers in a specific order. Handlers are registered top-down, with the fallback labeler last to catch unmatched messages. Keyboard builders centralize UX patterns and service actions. States manage multi-step dialogs. The admin interface provides a FastAPI-based document management system with authentication and hot reloading. The modernized frontend architecture uses Vue.js-like Alpine.js components with reactive data stores, HTMX partials for client-side rendering, and a comprehensive CSS styling system with custom design tokens. Enhanced .env integration provides intelligent configuration loading with environment variable precedence.
 
 ```mermaid
 graph LR
-A["scripts/admin_server.py<br/>Hot reload admin server"] --> B["app/main.py<br/>create_app() factory"]
-B --> C["app/api/documents.py<br/>Admin routes & endpoints"]
-B --> D["app/config.py<br/>.env integration & Settings"]
-E["scripts/polling_vk.py<br/>Long Poll entrypoint"] --> F["app/integrations/vk/bot.py<br/>create_bot()"]
-F --> G["app/integrations/vk/handlers/start.py<br/>on_start/on_home/on_contact_hr"]
-F --> H["app/integrations/vk/handlers/fallback.py<br/>on_fallback"]
-F --> I["app/integrations/vk/keyboards.py<br/>main_menu_kb, with_service_row, stub_kb"]
-F --> J["app/integrations/vk/states.py<br/>BotStates"]
-K["scripts/run_admin.sh<br/>.env integration & provider selection"] --> D
-K --> B
+A["scripts/admin_server.py<br/>Hot reload admin server"] --> B["app/main.py<br/>Async lifespan()"]
+B --> C["app/resources.py<br/>build_resources()"]
+C --> D["AppResources container<br/>Qdrant, S3, QAService"]
+B --> E["app/api/documents.py<br/>Admin routes & endpoints"]
+B --> F["templates/base.html<br/>Alpine.js + HTMX"]
+F --> G["static/js/components.js<br/>Alpine.data() & Alpine.store()"]
+F --> H["static/css/style.css<br/>Custom design system"]
+G --> I["templates/partials/<br/>HTMX partials"]
+J["scripts/run_admin.sh<br/>.env integration & provider selection"] --> K["app/config.py<br/>.env loading"]
+J --> B
 ```
 
-**Updated** Added run_admin.sh script with .env integration and enhanced configuration management.
+**Updated** Added modernized frontend architecture with Alpine.js components, HTMX partials, and resource factory consolidation.
 
 **Diagram sources**
 - [scripts/admin_server.py:37-60](file://scripts/admin_server.py#L37-L60)
-- [app/main.py:24-83](file://app/main.py#L24-L83)
+- [app/main.py:22-49](file://app/main.py#L22-L49)
+- [app/resources.py:127-303](file://app/resources.py#L127-L303)
 - [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
-- [app/config.py:14-15](file://app/config.py#L14-L15)
-- [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
-- [app/integrations/vk/bot.py:14-31](file://app/integrations/vk/bot.py#L14-L31)
-- [app/integrations/vk/handlers/start.py:23-54](file://app/integrations/vk/handlers/start.py#L23-L54)
-- [app/integrations/vk/handlers/fallback.py:9-17](file://app/integrations/vk/handlers/fallback.py#L9-L17)
-- [app/integrations/vk/keyboards.py:11-108](file://app/integrations/vk/keyboards.py#L11-L108)
-- [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
+- [templates/base.html:1-213](file://templates/base.html#L1-L213)
+- [static/js/components.js:23-623](file://static/js/components.js#L23-L623)
+- [static/css/style.css:104-171](file://static/css/style.css#L104-L171)
 - [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
+- [app/config.py:14-15](file://app/config.py#L14-L15)
 
 ## Detailed Component Analysis
+
+### Async Resource Management and Application Entry Point
+- The main application entry point uses lifespan context managers for async resource initialization and cleanup.
+- Resources are consolidated in AppResources container with graceful degradation when services are unavailable.
+- build_resources() factory replicates initialization logic from lifespan with proper error handling.
+- close_resources() ensures all resources are properly closed in the correct order.
+
+```mermaid
+sequenceDiagram
+participant CLI as "scripts/admin_server.py"
+participant APP as "app/main.py"
+participant LIFESPAN as "lifespan()"
+participant RES as "AppResources"
+CLI->>APP : create_app(Settings)
+APP->>LIFESPAN : Initialize lifespan
+LIFESPAN->>RES : build_resources(with_s3=True, with_db=True)
+RES->>RES : init_db, S3, Qdrant, Embeddings
+CLI->>APP : Hypercorn serve
+APP->>CLI : HTTP/2 server ready
+APP->>LIFESPAN : Cleanup on shutdown
+LIFESPAN->>RES : close_resources()
+```
+
+**Updated** Added comprehensive documentation for async resource management with lifespan context managers and resource factory consolidation.
+
+**Diagram sources**
+- [scripts/admin_server.py:57-60](file://scripts/admin_server.py#L57-L60)
+- [app/main.py:22-49](file://app/main.py#L22-L49)
+- [app/resources.py:127-303](file://app/resources.py#L127-L303)
+
+**Section sources**
+- [app/main.py:22-49](file://app/main.py#L22-L49)
+- [app/resources.py:104-303](file://app/resources.py#L104-L303)
+- [scripts/admin_server.py:37-60](file://scripts/admin_server.py#L37-L60)
+
+### Modernized Frontend Architecture with Alpine.js and HTMX
+- Vue.js-like Alpine.js components provide reactive data stores and behaviors.
+- Components.js defines Alpine.data() and Alpine.store() for state management.
+- HTMX partials enable client-side rendering with server-side data fetching.
+- Comprehensive CSS styling system with custom design tokens and semantic theming.
+- Window functions bridge template interactions with Alpine.js components.
+
+```mermaid
+graph TB
+ALPINE["Alpine.js Components<br/>components.js"]
+HTMX["HTMX Partials<br/>partials/*.html"]
+CSS["Custom CSS System<br/>style.css"]
+TEMPLATE["Jinja2 Templates<br/>base.html + documents.html"]
+BRIDGE["Window Functions<br/>upload.js"]
+ALPINE --> HTMX
+HTMX --> TEMPLATE
+CSS --> TEMPLATE
+TEMPLATE --> BRIDGE
+BRIDGE --> ALPINE
+```
+
+**New Section**
+
+**Diagram sources**
+- [static/js/components.js:23-623](file://static/js/components.js#L23-L623)
+- [templates/base.html:1-213](file://templates/base.html#L1-L213)
+- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
+- [templates/partials/document_table.html:1-64](file://templates/partials/document_table.html#L1-L64)
+- [static/css/style.css:104-171](file://static/css/style.css#L104-L171)
+- [static/js/upload.js:1-83](file://static/js/upload.js#L1-L83)
+
+**Section sources**
+- [static/js/components.js:1-623](file://static/js/components.js#L1-L623)
+- [static/js/upload.js:1-83](file://static/js/upload.js#L1-L83)
+- [static/css/style.css:1-171](file://static/css/style.css#L1-L171)
+- [templates/base.html:1-213](file://templates/base.html#L1-L213)
+- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
+- [templates/partials/document_table.html:1-64](file://templates/partials/document_table.html#L1-L64)
+
+### Streamlined Template Architecture for Client-Side Rendering
+- Base template provides layout with Alpine.js integration and HTMX support.
+- Main documents page uses Alpine.js data store for state management.
+- HTMX partials enable dynamic content updates without full page reloads.
+- Template inheritance with modular partials for maintainability.
+- Responsive design with custom CSS classes and design tokens.
+
+**New Section**
+
+**Section sources**
+- [templates/base.html:1-213](file://templates/base.html#L1-L213)
+- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
+- [templates/partials/document_table.html:1-64](file://templates/partials/document_table.html#L1-L64)
 
 ### Settings and Environment
 - Settings class loads environment variables with UTF-8 encoding and supports VK tokens, group ID, and comprehensive RAG configuration.
@@ -227,6 +341,7 @@ Best practices:
 - Intelligent .env loading with load_env_var() function that only sets variables when they're not already defined.
 - Environment variable precedence ensures runtime overrides take priority over .env file values.
 - Comprehensive RAG configuration including LLM providers, embedding models, and storage settings.
+- Interactive provider selection for LLM and embedding providers with default values.
 - Default values are applied after .env loading for robust configuration management.
 
 Configuration precedence:
@@ -300,12 +415,14 @@ Key features:
 - Interactive provider selection for LLM and embedding providers with default values.
 - Comprehensive environment variable loading for RAG configuration including URLs, API keys, and model settings.
 - Graceful handling of missing .env files with clear error messages.
+- Dynamic dependency synchronization based on provider selection.
 
 Provider selection workflow:
 1. Check for existing environment variables
 2. Load missing values from .env file if present
 3. Apply defaults for any remaining unset variables
 4. Present interactive selection for provider configuration
+5. Sync Python dependencies with provider-specific extras
 
 **New Section**
 
@@ -409,8 +526,9 @@ Recommended test coverage:
 - Admin interface authentication and authorization
 - Document upload validation and background processing
 - Configuration loading with environment variable precedence
+- Alpine.js component state management and HTMX partials
 
-**Updated** Added configuration testing recommendations for .env integration.
+**Updated** Added testing recommendations for Alpine.js components, HTMX partials, and modernized frontend architecture.
 
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
@@ -426,7 +544,7 @@ Validation commands:
 - Run linter and type checker before review per AGENTS.md.
 
 **Section sources**
-- [pyproject.toml:49-61](file://pyproject.toml#L49-L61)
+- [pyproject.toml:49-66](file://pyproject.toml#L49-L66)
 - [AGENTS.md:82-88](file://AGENTS.md#L82-L88)
 
 ### Local Infrastructure: Docker Compose
@@ -448,11 +566,14 @@ Validation commands:
 - Enhanced .env integration provides configuration precedence for flexible deployment scenarios.
 - Handlers depend on keyboard builders for consistent UI.
 - Tests depend on the module under test and vkbottle Keyboard type.
+- Modernized frontend architecture depends on Alpine.js, HTMX, and custom CSS system.
+- Resource factory consolidates initialization logic from main.py lifespan.
 
 ```mermaid
 graph TD
 CFG["app/config.py<br/>.env integration"] --> BOT["app/integrations/vk/bot.py"]
 CFG --> MAIN["app/main.py"]
+RES["app/resources.py<br/>Resource factory"] --> MAIN
 RUNADMIN["scripts/run_admin.sh<br/>.env integration"] --> CFG
 RUNADMIN --> MAIN
 MAIN --> DOCSAPI["app/api/documents.py"]
@@ -463,17 +584,22 @@ FALL["handlers/fallback.py"] --> BOT
 BOT --> POLL["scripts/polling_vk.py"]
 MAIN --> ADMINSRV["scripts/admin_server.py"]
 DOCSAPI --> ADMINSRV
+DOCSAPI --> PARTIAL["templates/partials/<br/>HTMX partials"]
+COMPONENTS["static/js/components.js<br/>Alpine.js components"] --> PARTIAL
+STYLE["static/css/style.css<br/>Custom design system"] --> BASE["templates/base.html"]
+BASE --> DOCS["templates/documents.html"]
 TCFG["tests/test_config.py"] --> CFG
 TKEY["tests/test_keyboards.py"] --> KEY
 TSTAT["tests/test_states.py"] --> STAT
 ```
 
-**Updated** Added run_admin.sh dependency and enhanced .env integration dependencies.
+**Updated** Added modernized frontend architecture dependencies and resource factory consolidation.
 
 **Diagram sources**
 - [app/config.py:14-15](file://app/config.py#L14-L15)
+- [app/main.py:22-49](file://app/main.py#L22-L49)
+- [app/resources.py:127-303](file://app/resources.py#L127-L303)
 - [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
-- [app/main.py:99-124](file://app/main.py#L99-L124)
 - [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
 - [app/integrations/vk/keyboards.py:56-98](file://app/integrations/vk/keyboards.py#L56-L98)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
@@ -482,6 +608,10 @@ TSTAT["tests/test_states.py"] --> STAT
 - [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
 - [scripts/admin_server.py:37-60](file://scripts/admin_server.py#L37-L60)
 - [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
+- [static/js/components.js:23-623](file://static/js/components.js#L23-L623)
+- [static/css/style.css:104-171](file://static/css/style.css#L104-L171)
+- [templates/base.html:1-213](file://templates/base.html#L1-L213)
+- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
 - [tests/test_config.py:7-13](file://tests/test_config.py#L7-L13)
 - [tests/test_keyboards.py:8-21](file://tests/test_keyboards.py#L8-L21)
 - [tests/test_states.py:5-10](file://tests/test_states.py#L5-L10)
@@ -502,8 +632,10 @@ TSTAT["tests/test_states.py"] --> STAT
 - Hot reloading in development should be disabled in production environments.
 - HTTP/2 support in admin server improves connection multiplexing and performance.
 - Efficient .env loading with environment variable precedence reduces configuration overhead.
+- Alpine.js reactive data stores minimize DOM manipulation overhead.
+- Custom CSS design system reduces style calculation complexity.
 
-**Updated** Added performance considerations for admin server HTTP/2 support and efficient .env loading.
+**Updated** Added performance considerations for Alpine.js components, HTMX partials, and custom CSS design system.
 
 ## Troubleshooting Guide
 Common issues and remedies:
@@ -518,6 +650,9 @@ Common issues and remedies:
 - .env file loading issues: Verify .env file syntax and load_env_var() function execution.
 - Configuration precedence problems: Check environment variable vs .env file conflicts.
 - Provider selection errors: Verify provider-specific environment variables and model availability.
+- Alpine.js component not responding: Check Alpine.js initialization and data binding.
+- HTMX partial not updating: Verify partial endpoint and data attributes.
+- CSS styling issues: Check custom design tokens and theme configuration.
 
 Validation checklist:
 - Run tests for affected modules.
@@ -527,8 +662,11 @@ Validation checklist:
 - Verify hot reload functionality during development.
 - Validate .env file loading and configuration precedence.
 - Check provider selection and model availability.
+- Test Alpine.js component state management.
+- Verify HTMX partial functionality and data updates.
+- Validate custom CSS design system and responsive behavior.
 
-**Updated** Added troubleshooting guidance for .env integration, configuration precedence, and provider selection.
+**Updated** Added troubleshooting guidance for Alpine.js components, HTMX partials, and custom CSS design system.
 
 **Section sources**
 - [app/config.py:14-15](file://app/config.py#L14-L15)
@@ -540,28 +678,28 @@ Validation checklist:
 - [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
 
 ## Conclusion
-This guide consolidates the development workflow for cafetera_hr_bot, from environment setup to validation and code review. The addition of the admin server with hot reloading capabilities and comprehensive .env integration significantly enhances the development experience for document management functionality. The intelligent configuration loading with environment variable precedence provides flexible deployment scenarios while maintaining robust defaults. By following the documented standards, using the provided scripts and configurations, and adhering to the validation commands, contributors can maintain high-quality code and a smooth development lifecycle.
+This guide consolidates the development workflow for cafetera_hr_bot, from environment setup to validation and code review. The modernization of the main application entry point with async resource management, the enhanced frontend architecture with Vue.js-like Alpine.js components and comprehensive CSS styling system, and the streamlined template architecture for client-side rendering significantly enhance the development experience. The addition of the admin server with hot reloading capabilities and comprehensive .env integration with interactive provider selection provides a robust development environment. The intelligent configuration loading with environment variable precedence offers flexible deployment scenarios while maintaining robust defaults. By following the documented standards, using the provided scripts and configurations, and adhering to the validation commands, contributors can maintain high-quality code and a smooth development lifecycle.
 
-**Updated** Enhanced conclusion to reflect the improved development workflow with admin server capabilities and comprehensive .env integration.
+**Updated** Enhanced conclusion to reflect the modernized application architecture with async resource management, Vue.js-like frontend components, and streamlined template architecture.
 
 ## Appendices
 
 ### Development Environment Setup
-- Install Python 3.11+ and uv package manager.
+- Install Python 3.13+ and uv package manager.
 - Create a virtual environment via uv and install dependencies.
 - Configure environment variables according to AGENTS.md.
 - Start local VK long polling with the provided script.
 - **Alternative**: Start admin server with hot reloading for document management development.
-- **Enhanced**: Use run_admin.sh for comprehensive .env integration and provider selection.
+- **Enhanced**: Use run_admin.sh for comprehensive .env integration, provider selection, and interactive configuration.
 
 Practical steps:
 - Install dependencies including dev extras for testing and linting.
 - Set VK-related environment variables.
 - Launch long polling to verify the bot responds to /start and navigates to the main menu.
 - **Alternative**: Set ADMIN_API_KEY and launch admin server for document management interface.
-- **Enhanced**: Use run_admin.sh to automatically load .env configuration and select providers.
+- **Enhanced**: Use run_admin.sh to automatically load .env configuration, select providers, and start local infrastructure.
 
-**Updated** Added run_admin.sh option with .env integration and enhanced development environment setup.
+**Updated** Added run_admin.sh option with comprehensive .env integration and enhanced development environment setup.
 
 **Section sources**
 - [AGENTS.md:7-14](file://AGENTS.md#L7-L14)
@@ -576,15 +714,17 @@ Practical steps:
 
 **Section sources**
 - [AGENTS.md:82-88](file://AGENTS.md#L82-L88)
-- [pyproject.toml:49-61](file://pyproject.toml#L49-L61)
+- [pyproject.toml:49-66](file://pyproject.toml#L49-L66)
 
 ### Executing Tests
 - Run the test suite with the configured pytest settings.
 - Focus on tests for modules you modified.
 - **New**: Include admin interface tests for document management functionality.
 - **Enhanced**: Include configuration tests for .env file loading and environment variable precedence.
+- **New**: Include Alpine.js component tests for frontend state management.
+- **New**: Include HTMX partial tests for client-side rendering functionality.
 
-**Updated** Added recommendation for admin interface testing and configuration testing.
+**Updated** Added recommendation for admin interface testing, configuration testing, and modernized frontend testing.
 
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
@@ -598,8 +738,10 @@ Practical steps:
 - Summarize what passed, what failed, and remaining risks as per AGENTS.md.
 - **New**: Ensure admin interface changes include proper authentication and security validation.
 - **Enhanced**: Validate .env integration and configuration precedence behavior.
+- **New**: Ensure Alpine.js component changes include proper state management and data binding.
+- **New**: Validate HTMX partial functionality and client-side rendering behavior.
 
-**Updated** Added requirement for admin interface security validation and .env integration testing.
+**Updated** Added requirement for admin interface security validation, .env integration testing, and modernized frontend component validation.
 
 **Section sources**
 - [PLAN.md:113-120](file://PLAN.md#L113-L120)
@@ -613,8 +755,10 @@ Practical steps:
 - **New**: Monitor admin server logs for authentication and document operations.
 - **New**: Use browser developer tools for HTMX partial updates and admin interface debugging.
 - **Enhanced**: Debug .env loading issues and configuration precedence problems.
+- **New**: Debug Alpine.js component state management and reactive data binding.
+- **New**: Debug HTMX partials and client-side rendering functionality.
 
-**Updated** Added debugging techniques for admin server, document management interface, and .env integration.
+**Updated** Added debugging techniques for Alpine.js components, HTMX partials, and modernized frontend architecture.
 
 **Section sources**
 - [scripts/polling_vk.py:18-22](file://scripts/polling_vk.py#L18-L22)
@@ -627,8 +771,10 @@ Practical steps:
 - Adhere to hard constraints: reuse existing patterns, avoid unnecessary changes, preserve contracts.
 - **New**: Admin interface changes should include proper authentication and authorization validation.
 - **Enhanced**: Configuration changes should include .env integration and environment variable precedence validation.
+- **New**: Frontend changes should include Alpine.js component validation and HTMX partial testing.
+- **New**: Resource management changes should include async context manager validation and graceful degradation testing.
 
-**Updated** Added security validation requirement for admin interface contributions and configuration validation requirements.
+**Updated** Added security validation requirement for admin interface contributions, configuration validation requirements, and modernized frontend component validation.
 
 **Section sources**
 - [AGENTS.md:58-74](file://AGENTS.md#L58-L74)
@@ -641,8 +787,9 @@ Practical steps:
 - Logging: INFO level logging with timestamp formatting
 - Environment variables: Configure all RAG and storage settings for full functionality
 - HTTP/2 support: Enhanced performance with HTTP/2 multiplexing
+- Interactive provider selection: Choose LLM and embedding providers during startup
 
-**Enhanced** Added HTTP/2 support and comprehensive environment variable configuration.
+**Enhanced** Added HTTP/2 support, interactive provider selection, and comprehensive environment variable configuration.
 
 **Section sources**
 - [scripts/admin_server.py:1-66](file://scripts/admin_server.py#L1-L66)
@@ -653,6 +800,7 @@ Practical steps:
 - .env file provides default values while environment variables override them at runtime.
 - Comprehensive RAG configuration including LLM providers, embedding models, and storage settings.
 - Interactive provider selection for flexible development and deployment scenarios.
+- Dynamic dependency synchronization based on provider selection.
 
 Configuration loading workflow:
 1. Check if environment variable is already set
@@ -666,3 +814,26 @@ Configuration loading workflow:
 - [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
 - [app/config.py:14-15](file://app/config.py#L14-L15)
 - [app/config.py:16-62](file://app/config.py#L16-L62)
+
+### Modernized Frontend Architecture Guide
+- Alpine.js components provide reactive data stores with Alpine.data() and Alpine.store()
+- HTMX partials enable client-side rendering with server-side data fetching
+- Custom CSS design system with semantic tokens and theme customization
+- Window functions bridge template interactions with Alpine.js components
+- Responsive design with mobile-first approach and adaptive layouts
+
+Frontend development workflow:
+1. Define Alpine.js data stores for component state management
+2. Create HTMX partials for dynamic content updates
+3. Implement custom CSS classes with design tokens
+4. Use window functions for template-to-component communication
+5. Test responsive behavior across different screen sizes
+
+**New Section**
+
+**Section sources**
+- [static/js/components.js:1-623](file://static/js/components.js#L1-L623)
+- [static/js/upload.js:1-83](file://static/js/upload.js#L1-L83)
+- [static/css/style.css:1-171](file://static/css/style.css#L1-L171)
+- [templates/base.html:1-213](file://templates/base.html#L1-L213)
+- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)

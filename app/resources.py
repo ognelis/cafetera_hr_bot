@@ -12,6 +12,8 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from databases import Database
+
 from app.config import Settings
 from app.domain.category_file_service import CategoryFileService
 from app.domain.document_service import DocumentService
@@ -115,6 +117,7 @@ class AppResources:
     embeddings: Embeddings | None = None
     llm: BaseChatModel | None = None
     s3: S3Storage | None = None
+    db: Database | None = None
     doc_repo: DocumentRepository | None = None
     doc_service: DocumentService | None = None
     qa_service: QAService | None = None
@@ -204,7 +207,17 @@ async def build_resources(
     # 3. Document repository and service (if requested)
     if with_db:
         try:
-            repo = DocumentRepository(settings.db_path)
+            db = Database(settings.database_url)
+            await db.connect()
+            res.db = db
+            logger.info("Database connected")
+
+            from app.storage.database import init_db
+
+            await init_db(db)
+            logger.info("Database schema initialized")
+
+            repo = DocumentRepository(db)
             res.doc_repo = repo
             logger.info("DocumentRepository initialized")
 
@@ -220,7 +233,7 @@ async def build_resources(
                 logger.info("DocumentService initialized")
 
             # Initialize category file repository and service
-            category_file_repo = CategoryFileRepository(settings.db_path)
+            category_file_repo = CategoryFileRepository(db)
             res.category_file_repo = category_file_repo
             logger.info("CategoryFileRepository initialized")
 
@@ -329,8 +342,16 @@ async def close_resources(res: AppResources) -> None:
         except Exception:
             logger.warning("Error closing Qdrant client", exc_info=True)
 
-    # 3. Set all fields to None
+    # 3. Disconnect database if present
+    if res.db is not None:
+        try:
+            await res.db.disconnect()
+        except Exception:
+            logger.warning("Error disconnecting database", exc_info=True)
+
+    # 4. Set all fields to None
     res.s3 = None
+    res.db = None
     res.qdrant_client = None
     res.embeddings = None
     res.sparse_embeddings = None

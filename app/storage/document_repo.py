@@ -1,11 +1,12 @@
-"""CRUD operations for document metadata in SQLite."""
+"""CRUD operations for document metadata in PostgreSQL."""
 
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 
-import aiosqlite
+from databases import Database
 
 from app.storage.models import DocumentRecord, DocumentStatus
 
@@ -29,23 +30,23 @@ _COLUMNS = (
 )
 
 
-def _row_to_record(row: aiosqlite.Row) -> DocumentRecord:
+def _row_to_record(row: Mapping) -> DocumentRecord:
     """Convert a database row to a ``DocumentRecord``."""
     return DocumentRecord(
-        id=row[0],
-        document_id=row[1],
-        filename=row[2],
-        title=row[3],
-        s3_key=row[4],
-        mime_type=row[5],
-        size_bytes=row[6],
-        status=DocumentStatus(row[7]),
-        is_search_enabled=bool(row[8]),
-        error=row[9],
-        created_at=datetime.fromisoformat(row[10]),
-        updated_at=datetime.fromisoformat(row[11]),
-        indexed_at=datetime.fromisoformat(row[12]) if row[12] else None,
-        chunk_count=row[13],
+        id=row["id"],
+        document_id=row["document_id"],
+        filename=row["filename"],
+        title=row["title"],
+        s3_key=row["s3_key"],
+        mime_type=row["mime_type"],
+        size_bytes=row["size_bytes"],
+        status=DocumentStatus(row["status"]),
+        is_search_enabled=bool(row["is_search_enabled"]),
+        error=row["error"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        indexed_at=row["indexed_at"],
+        chunk_count=row["chunk_count"],
     )
 
 
@@ -61,10 +62,10 @@ _SENTINEL = _SentinelType()
 
 
 class DocumentRepository:
-    """Async CRUD repository for document metadata stored in SQLite."""
+    """Async CRUD repository for document metadata stored in PostgreSQL."""
 
-    def __init__(self, db_path: str) -> None:
-        self._db_path = db_path
+    def __init__(self, db: Database) -> None:
+        self._db = db
 
     # ── Create ────────────────────────────────────────────────────
 
@@ -72,34 +73,34 @@ class DocumentRepository:
         """Insert a new document record and return it."""
         now = datetime.now(UTC)
         record = record.model_copy(update={"created_at": now, "updated_at": now})
-        async with aiosqlite.connect(self._db_path) as db:
-            cursor = await db.execute(
-                """
+        row_id = await self._db.execute(
+            query="""
                 INSERT INTO documents
                     (document_id, filename, title, s3_key, mime_type,
                      size_bytes, status, is_search_enabled, error,
                      created_at, updated_at, indexed_at, chunk_count)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    record.document_id,
-                    record.filename,
-                    record.title,
-                    record.s3_key,
-                    record.mime_type,
-                    record.size_bytes,
-                    record.status.value,
-                    int(record.is_search_enabled),
-                    record.error,
-                    record.created_at.isoformat(),
-                    record.updated_at.isoformat(),
-                    record.indexed_at.isoformat() if record.indexed_at else None,
-                    record.chunk_count,
-                ),
-            )
-            await db.commit()
-            # Get the auto-generated id
-            record = record.model_copy(update={"id": cursor.lastrowid})
+                VALUES (:document_id, :filename, :title, :s3_key, :mime_type,
+                        :size_bytes, :status, :is_search_enabled, :error,
+                        :created_at, :updated_at, :indexed_at, :chunk_count)
+                RETURNING id
+            """,
+            values={
+                "document_id": record.document_id,
+                "filename": record.filename,
+                "title": record.title,
+                "s3_key": record.s3_key,
+                "mime_type": record.mime_type,
+                "size_bytes": record.size_bytes,
+                "status": record.status.value,
+                "is_search_enabled": record.is_search_enabled,
+                "error": record.error,
+                "created_at": record.created_at,
+                "updated_at": record.updated_at,
+                "indexed_at": record.indexed_at,
+                "chunk_count": record.chunk_count,
+            },
+        )
+        record = record.model_copy(update={"id": row_id})
         return record
 
     # ── Read ──────────────────────────────────────────────────────
@@ -107,12 +108,10 @@ class DocumentRepository:
     async def get(self, document_id: str) -> DocumentRecord | None:
         """Return a single document by id, or ``None`` if not found."""
         cols = ", ".join(_COLUMNS)
-        async with aiosqlite.connect(self._db_path) as db:
-            cursor = await db.execute(
-                f"SELECT {cols} FROM documents WHERE document_id = ?",  # noqa: S608
-                (document_id,),
-            )
-            row = await cursor.fetchone()
+        row = await self._db.fetch_one(
+            query=f"SELECT {cols} FROM documents WHERE document_id = :document_id",  # noqa: S608
+            values={"document_id": document_id},
+        )
         if row is None:
             return None
         return _row_to_record(row)
@@ -142,39 +141,40 @@ class DocumentRepository:
 
         # Build WHERE clauses and parameters
         where_clauses: list[str] = []
-        params: list[object] = []
+        params: dict[str, object] = {}
 
         if search:
             search_pattern = f"%{search}%"
-            where_clauses.append("(LOWER(title) LIKE LOWER(?) OR LOWER(filename) LIKE LOWER(?))")
-            params.extend([search_pattern, search_pattern])
+            where_clauses.append("(title ILIKE :search_title OR filename ILIKE :search_filename)")
+            params["search_title"] = search_pattern
+            params["search_filename"] = search_pattern
 
         if date_from is not None:
-            where_clauses.append("created_at >= ?")
-            params.append(date_from.isoformat())
+            where_clauses.append("created_at >= :date_from")
+            params["date_from"] = date_from
 
         if date_to is not None:
             # Set time to end of day for inclusive filtering
             date_to_end = date_to.replace(hour=23, minute=59, second=59, microsecond=999999)
-            where_clauses.append("created_at <= ?")
-            params.append(date_to_end.isoformat())
+            where_clauses.append("created_at <= :date_to")
+            params["date_to"] = date_to_end
 
         if status and status != "all":
-            where_clauses.append("status = ?")
-            params.append(status)
+            where_clauses.append("status = :status")
+            params["status"] = status
 
         if source_type and source_type != "all":
             if source_type == "docx":
-                where_clauses.append("LOWER(filename) LIKE '%.docx'")
+                where_clauses.append("filename ILIKE '%.docx'")
             elif source_type == "doc":
                 where_clauses.append(
-                    "(LOWER(filename) LIKE '%.doc'"
-                    " AND LOWER(filename) NOT LIKE '%.docx')"
+                    "(filename ILIKE '%.doc'"
+                    " AND filename NOT ILIKE '%.docx')"
                 )
             elif source_type == "other":
                 where_clauses.append(
-                    "LOWER(filename) NOT LIKE '%.doc'"
-                    " AND LOWER(filename) NOT LIKE '%.docx'"
+                    "filename NOT ILIKE '%.doc'"
+                    " AND filename NOT ILIKE '%.docx'"
                 )
 
         where_sql = ""
@@ -191,21 +191,18 @@ class DocumentRepository:
         direction = "ASC" if sort_dir == "asc" else "DESC"
         order_clause = f"ORDER BY {order_expr} {direction}"
 
-        async with aiosqlite.connect(self._db_path) as db:
-            # Count total
-            count_sql = f"SELECT COUNT(*) FROM documents {where_sql}"  # noqa: S608
-            cursor = await db.execute(count_sql, params)
-            row = await cursor.fetchone()
-            total = row[0] if row else 0
+        # Count total
+        count_sql = f"SELECT COUNT(*) FROM documents {where_sql}"  # noqa: S608
+        total = await self._db.fetch_val(query=count_sql, values=params) or 0
 
-            # Select page
-            offset = (page - 1) * per_page
-            select_sql = (
-                f"SELECT {cols} FROM documents {where_sql} "  # noqa: S608
-                f"{order_clause} LIMIT ? OFFSET ?"
-            )
-            cursor = await db.execute(select_sql, params + [per_page, offset])
-            rows = await cursor.fetchall()
+        # Select page
+        offset = (page - 1) * per_page
+        select_sql = (
+            f"SELECT {cols} FROM documents {where_sql} "  # noqa: S608
+            f"{order_clause} LIMIT :limit OFFSET :offset"
+        )
+        page_params = {**params, "limit": per_page, "offset": offset}
+        rows = await self._db.fetch_all(query=select_sql, values=page_params)
 
         return [_row_to_record(r) for r in rows], total
 
@@ -223,37 +220,46 @@ class DocumentRepository:
     ) -> DocumentRecord | None:
         """Update selected fields of a document.  Returns the updated record."""
         sets: list[str] = []
-        params: list[object] = []
+        params: dict[str, object] = {"document_id": document_id}
+        param_counter = 0
+
+        def _next_param() -> str:
+            nonlocal param_counter
+            param_counter += 1
+            return f"p{param_counter}"
 
         if title is not None:
-            sets.append("title = ?")
-            params.append(title)
+            param = _next_param()
+            sets.append(f"title = :{param}")
+            params[param] = title
         if status is not None:
-            sets.append("status = ?")
-            params.append(status.value)
+            param = _next_param()
+            sets.append(f"status = :{param}")
+            params[param] = status.value
         if not isinstance(error, _SentinelType):
-            sets.append("error = ?")
-            params.append(error)
+            param = _next_param()
+            sets.append(f"error = :{param}")
+            params[param] = error
         if chunk_count is not None:
-            sets.append("chunk_count = ?")
-            params.append(chunk_count)
+            param = _next_param()
+            sets.append(f"chunk_count = :{param}")
+            params[param] = chunk_count
         if not isinstance(indexed_at, _SentinelType):
-            sets.append("indexed_at = ?")
-            params.append(indexed_at.isoformat() if indexed_at else None)
+            param = _next_param()
+            sets.append(f"indexed_at = :{param}")
+            params[param] = indexed_at
 
         if not sets:
             return await self.get(document_id)
 
-        sets.append("updated_at = ?")
-        params.append(datetime.now(UTC).isoformat())
-        params.append(document_id)
+        param = _next_param()
+        sets.append(f"updated_at = :{param}")
+        params[param] = datetime.now(UTC)
 
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                f"UPDATE documents SET {', '.join(sets)} WHERE document_id = ?",  # noqa: S608
-                params,
-            )
-            await db.commit()
+        await self._db.execute(
+            query=f"UPDATE documents SET {', '.join(sets)} WHERE document_id = :document_id",  # noqa: S608
+            values=params,
+        )
 
         return await self.get(document_id)
 
@@ -261,17 +267,17 @@ class DocumentRepository:
         self, document_id: str, enabled: bool
     ) -> DocumentRecord | None:
         """Toggle the ``is_search_enabled`` flag without changing status."""
-        async with aiosqlite.connect(self._db_path) as db:
-            await db.execute(
-                "UPDATE documents SET is_search_enabled = ?, updated_at = ? "
-                "WHERE document_id = ?",
-                (
-                    int(enabled),
-                    datetime.now(UTC).isoformat(),
-                    document_id,
-                ),
-            )
-            await db.commit()
+        await self._db.execute(
+            query=(
+                "UPDATE documents SET is_search_enabled = :enabled, updated_at = :updated_at "
+                "WHERE document_id = :document_id"
+            ),
+            values={
+                "enabled": enabled,
+                "updated_at": datetime.now(UTC),
+                "document_id": document_id,
+            },
+        )
         return await self.get(document_id)
 
     # ── Delete ────────────────────────────────────────────────────
@@ -279,22 +285,20 @@ class DocumentRepository:
     async def list_recently_finished(self, *, seconds: int = 10) -> list[DocumentRecord]:
         """Return documents that completed or failed within the last *seconds*."""
         cols = ", ".join(_COLUMNS)
-        cutoff = (datetime.now(UTC) - timedelta(seconds=seconds)).isoformat()
-        async with aiosqlite.connect(self._db_path) as db:
-            cursor = await db.execute(
+        cutoff = datetime.now(UTC) - timedelta(seconds=seconds)
+        rows = await self._db.fetch_all(
+            query=(
                 f"SELECT {cols} FROM documents "  # noqa: S608
-                "WHERE status IN ('completed', 'failed') AND updated_at >= ?",
-                (cutoff,),
-            )
-            rows = await cursor.fetchall()
+                "WHERE status IN ('completed', 'failed') AND updated_at >= :cutoff"
+            ),
+            values={"cutoff": cutoff},
+        )
         return [_row_to_record(r) for r in rows]
 
     async def delete(self, document_id: str) -> bool:
         """Delete a document record.  Returns ``True`` if a row was removed."""
-        async with aiosqlite.connect(self._db_path) as db:
-            cursor = await db.execute(
-                "DELETE FROM documents WHERE document_id = ?",
-                (document_id,),
-            )
-            await db.commit()
-            return cursor.rowcount > 0
+        row = await self._db.fetch_one(
+            query="DELETE FROM documents WHERE document_id = :document_id RETURNING id",
+            values={"document_id": document_id},
+        )
+        return row is not None

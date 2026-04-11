@@ -49,19 +49,18 @@
 - [tests/test_api_documents_bulk.py](file://tests/test_api_documents_bulk.py)
 - [tests/test_storage.py](file://tests/test_storage.py)
 - [tests/test_qa_service.py](file://tests/test_qa_service.py)
+- [tests/test_document_service.py](file://tests/test_document_service.py)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- **Major Architectural Refactoring**: System restructured from monolithic to modular document management with specialized routers
-- **Authentication Extraction**: Authentication, logout, and root redirect moved to dedicated `documents_auth.py` router
-- **Upload Functionality Extraction**: File upload and background indexing moved to dedicated `documents_upload.py` router
-- **Bulk Operations Extraction**: Delete, reindex, and search toggle operations moved to dedicated `documents_bulk.py` router
-- **QA Functionality Extraction**: Document-specific and global question-answering moved to dedicated `documents_qa.py` router
-- **Router Composition**: Main `documents.py` router maintains backward compatibility through router composition
-- **Enhanced Modular Organization**: Clear separation of concerns with specialized routers for different functional areas
-- **Maintained Backward Compatibility**: All existing API endpoints and functionality preserved through router composition
+- **Enhanced Async Indexing Architecture**: Implemented comprehensive async indexing capabilities with semaphore-based concurrency control
+- **Direct Async Operations**: Document service now uses direct async operations throughout the indexing pipeline
+- **Streamlined Ingestion Pipeline**: Improved error handling and collection management in the ingestion script
+- **Enhanced Semaphore Management**: Added robust concurrency control for background indexing operations
+- **Improved Error Handling**: Enhanced error handling and resource cleanup in async operations
+- **Streamlined Background Processing**: Unified background processing function with better resource management
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -98,7 +97,7 @@
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-**Updated** The system has undergone a major architectural refactoring from a monolithic structure to a modular document management system. Authentication, upload, bulk operations, and QA functionality have been extracted to specialized routers (`documents_auth.py`, `documents_upload.py`, `documents_bulk.py`, `documents_qa.py`) while maintaining backward compatibility through router composition in the main `documents.py` file. This refactoring provides enhanced modularity, maintainability, and separation of concerns while preserving all existing functionality and API endpoints.
+**Updated** The system has undergone significant enhancements to improve document processing workflow with async indexing capabilities, streamline the document service architecture with direct async operations, and optimize the ingestion pipeline with better error handling and collection management. These improvements provide enhanced performance, reliability, and scalability for enterprise-grade document management scenarios.
 
 ## System Architecture
 
@@ -106,6 +105,14 @@ The Document Management System follows a layered architecture pattern with clear
 
 ```mermaid
 graph TB
+subgraph "Enhanced Async Architecture"
+AsyncDocumentService[Async Document Service]
+AsyncIndexer[Async Indexer Operations]
+AsyncSemaphore[Semaphore-Based Concurrency Control]
+AsyncBackgroundTasks[Background Task Management]
+AsyncErrorHandling[Enhanced Error Handling]
+EndUserExperience[Improved User Experience]
+end
 subgraph "Modular Router Architecture"
 MainRouter[Main Documents Router]
 AuthRouter[Authentication Router]
@@ -142,7 +149,6 @@ subgraph "Application Layer"
 Service[Document Service]
 QAService[QA Service]
 FormatHandler[Format Detection Handler]
-Semaphore[Asyncio Semaphore]
 FilterSortAPI[Filter & Sort API]
 BatchPoller[Batch Status Poller]
 OOBSwapper[Out-of-Band Swapper]
@@ -184,6 +190,17 @@ LLM[LLM Provider]
 Parser[Enhanced Parser]
 EndUserIntegration[Enhanced Integration]
 end
+AsyncDocumentService --> AsyncIndexer
+AsyncDocumentService --> AsyncSemaphore
+AsyncDocumentService --> AsyncBackgroundTasks
+AsyncDocumentService --> AsyncErrorHandling
+AsyncIndexer --> Qdrant
+AsyncIndexer --> S3
+AsyncSemaphore --> AsyncBackgroundTasks
+AsyncBackgroundTasks --> AsyncDocumentService
+AsyncErrorHandling --> AsyncDocumentService
+AsyncErrorHandling --> AsyncIndexer
+AsyncErrorHandling --> AsyncBackgroundTasks
 MainRouter --> AuthRouter
 MainRouter --> UploadRouter
 MainRouter --> BulkRouter
@@ -217,7 +234,7 @@ StreamingResponse --> SSEClient
 StreamingResponse --> EndUserFeedback
 BulkOps --> Service
 BulkOps --> Repo
-BulkOps --> Semaphore
+BulkOps --> AsyncSemaphore
 BatchPoller --> OOBSwapper
 FormatHandler --> FormatDispatch
 FormatHandler --> Parser
@@ -233,26 +250,31 @@ EndUserTracking --> RecentlyFinished
 ```
 
 **Diagram sources**
+- [app/main.py:21-49](file://app/main.py#L21-L49)
+- [app/config.py:47-49](file://app/config.py#L47-L49)
 - [app/api/documents.py:50-85](file://app/api/documents.py#L50-L85)
 - [app/api/documents_auth.py:20-77](file://app/api/documents_auth.py#L20-L77)
 - [app/api/documents_upload.py:41-288](file://app/api/documents_upload.py#L41-L288)
 - [app/api/documents_bulk.py:30-224](file://app/api/documents_bulk.py#L30-L224)
 - [app/api/documents_qa.py:23-91](file://app/api/documents_qa.py#L23-L91)
-- [app/main.py:72-77](file://app/main.py#L72-L77)
+- [app/domain/document_service.py:106-155](file://app/domain/document_service.py#L106-L155)
+- [app/rag/indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
 
 The architecture consists of five main layers with enhanced modular organization, comprehensive document type handling, modernized frontend capabilities, and revolutionary HTMX partial response system:
 
-1. **Modular Router Architecture**: The system now uses specialized routers for different functional areas with router composition maintaining backward compatibility. The main `documents.py` router includes authentication, upload, bulk operations, and QA routers while preserving all existing endpoints and functionality.
+1. **Enhanced Async Architecture**: The system now implements comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control, direct async operations in the document service, and streamlined background processing with improved error handling and resource management.
 
-2. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, comprehensive status polling system with automatic activation, HTMX OOB swapping for efficient row updates, enhanced user experience with real-time status monitoring, and centralized batch status management.
+2. **Modular Router Architecture**: The system now uses specialized routers for different functional areas with router composition maintaining backward compatibility. The main `documents.py` router includes authentication, upload, bulk operations, and QA routers while preserving all existing endpoints and functionality.
 
-3. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, template context management for consistent rendering, DOCX integrity validation for file content verification, HTMX partial response system with OOB swapping capabilities, and enhanced user management with automatic polling control.
+3. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, comprehensive status polling system with automatic activation, HTMX OOB swapping for efficient row updates, enhanced user experience with real-time status monitoring, and centralized batch status management.
 
-4. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms supporting DOCX, DOC, and XLSX formats, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, recently finished documents tracking for status updates, and enhanced monitoring capabilities for user activity.
+4. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, template context management for consistent rendering, DOCX integrity validation for file content verification, HTMX partial response system with OOB swapping capabilities, and enhanced user management with automatic polling control.
 
-5. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking for all supported document types, enhanced filtering/sorting database operations, recently finished documents functionality for status tracking, and enhanced tracking for user interactions and document processing.
+5. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms supporting DOCX, DOC, and XLSX formats, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, recently finished documents tracking for status updates, and enhanced monitoring capabilities for user activity.
 
-6. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for DOC, DOCX, and XLSX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, streaming response generation for real-time feedback, and enhanced integration with HTMX for real-time UI updates.
+6. **Data Access Layer**: Async repository pattern for SQLite database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking for all supported document types, enhanced filtering/sorting database operations, recently finished documents functionality for status tracking, and enhanced tracking for user interactions and document processing.
+
+7. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for DOC, DOCX, and XLSX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, streaming response generation for real-time feedback, and enhanced integration with HTMX for real-time UI updates.
 
 ## Core Components
 
@@ -275,7 +297,7 @@ App->>Config : Load configuration
 App->>DB : Initialize SQLite with auto-incrementing primary key
 App->>S3 : Connect to storage
 App->>Qdrant : Connect to vector database
-App->>Service : Create document service
+App->>Service : Create document service with async operations
 App->>QAService : Initialize QA service with global and document-scoped retrievers
 App->>Semaphore : Initialize with max_concurrent_indexing
 App->>HTMX : Initialize OOB swapping capabilities
@@ -287,70 +309,57 @@ App->>App : Register modular routers and templates
 - [app/config.py:37-39](file://app/config.py#L37-L39)
 - [app/storage/database.py:32-39](file://app/storage/database.py#L32-L39)
 
-### Modular Router Architecture
+### Enhanced Async Architecture
 
-The system now uses a modular router architecture with specialized routers for different functional areas:
+The system now implements comprehensive async operations throughout the document processing pipeline:
 
 ```mermaid
 classDiagram
-class MainDocumentsRouter {
-+include_router(auth_router)
-+include_router(upload_router)
-+include_router(bulk_router)
-+include_router(qa_router)
-+documents_page() HTMLResponse
-+document_table_partial() HTMLResponse
-+document_row_partial() HTMLResponse
-+documents_status_partial() HTMLResponse
-+list_documents() JSON
-+get_document() JSON
-+update_title() JSON/HTML
-+toggl_search() JSON/HTML
-+reindex_document() JSON/HTML
-+delete_document() JSON/HTML
-+download_document() Response
+class AsyncDocumentService {
++index_document() AsyncOperation
++reindex_document() AsyncOperation
++toggle_search() AsyncOperation
++delete_document() AsyncOperation
++get_active_and_recent_documents() AsyncOperation
++has_active_documents() AsyncOperation
 }
-class AuthRouter {
-+login_page() HTMLResponse
-+login_submit() RedirectResponse
-+logout() RedirectResponse
-+root_redirect() RedirectResponse
+class AsyncIndexer {
++prepare_chunks() AsyncOperation
++index_chunks() AsyncOperation
++delete_document_chunks() AsyncOperation
++set_search_enabled() AsyncOperation
++count_document_chunks() AsyncOperation
 }
-class UploadRouter {
-+upload_documents() JSON/HTML
-+_download_and_validate() bytes|None
-+_parse_document_chunks() list
-+_index_document_from_s3() None
+class AsyncSemaphore {
++acquire() AsyncOperation
++release() AsyncOperation
 }
-class BulkRouter {
-+bulk_delete_documents() HTMLResponse
-+bulk_reindex_documents() HTMLResponse
-+bulk_toggle_search() HTMLResponse
+class AsyncBackgroundTasks {
++add_task() AsyncOperation
++background_indexing() AsyncOperation
 }
-class QARouter {
-+ask_global_question() StreamingResponse
-+ask_about_document() StreamingResponse
-}
-MainDocumentsRouter --> AuthRouter : includes
-MainDocumentsRouter --> UploadRouter : includes
-MainDocumentsRouter --> BulkRouter : includes
-MainDocumentsRouter --> QARouter : includes
+AsyncDocumentService --> AsyncIndexer : uses
+AsyncDocumentService --> AsyncSemaphore : manages
+AsyncDocumentService --> AsyncBackgroundTasks : schedules
+AsyncIndexer --> AsyncSemaphore : uses
+AsyncBackgroundTasks --> AsyncSemaphore : uses
 ```
 
 **Diagram sources**
-- [app/api/documents.py:79-85](file://app/api/documents.py#L79-L85)
-- [app/api/documents_auth.py:20-77](file://app/api/documents_auth.py#L20-L77)
-- [app/api/documents_upload.py:41-288](file://app/api/documents_upload.py#L41-L288)
-- [app/api/documents_bulk.py:30-224](file://app/api/documents_bulk.py#L30-L224)
-- [app/api/documents_qa.py:23-91](file://app/api/documents_qa.py#L23-L91)
+- [app/domain/document_service.py:106-155](file://app/domain/document_service.py#L106-L155)
+- [app/rag/indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
+- [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
+- [app/api/deps.py:91-92](file://app/api/deps.py#L91-L92)
 
 **Section sources**
 - [app/main.py:1-80](file://app/main.py#L1-L80)
+- [app/config.py:47-49](file://app/config.py#L47-L49)
 - [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
 - [app/api/documents_auth.py:1-77](file://app/api/documents_auth.py#L1-L77)
 - [app/api/documents_upload.py:1-288](file://app/api/documents_upload.py#L1-L288)
 - [app/api/documents_bulk.py:1-224](file://app/api/documents_bulk.py#L1-L224)
 - [app/api/documents_qa.py:1-91](file://app/api/documents_qa.py#L1-L91)
+- [app/api/deps.py:91-92](file://app/api/deps.py#L91-L92)
 
 ## Document Management Workflow
 
@@ -369,6 +378,13 @@ Index --> Complete[Mark as Completed]
 Validate --> |Invalid| Error[Return Error Response]
 Error --> End([End])
 Complete --> End
+subgraph "Enhanced Async Indexing Pipeline"
+Complete --> AsyncSemaphore[Acquire Semaphore]
+AsyncSemaphore --> AsyncIndexing[Async Indexing Operation]
+AsyncIndexing --> AsyncCleanup[Async Cleanup Resources]
+AsyncCleanup --> AsyncRelease[Release Semaphore]
+AsyncRelease --> End
+end
 subgraph "Enhanced HTMX Partial Response System with OOB Swapping"
 Complete --> StatusPoller[Automatic Status Polling Activation]
 StatusPoller --> BatchPoller[Centralized Batch Poller]
@@ -460,20 +476,22 @@ The system implements comprehensive validation for uploaded documents with enhan
 | Template Context | Centralized rendering management | Ensure consistent UI rendering |
 | DOCX Integrity | Zip file validation | Check word/document.xml presence |
 | Spreadsheet Processing | XLSX workbook parsing | Handle multiple worksheets |
-| **Updated** | **Modular Router Architecture** | **Authentication, upload, bulk, and QA functionality extracted to specialized routers** |
-| **Updated** | **Router Composition** | **Main router maintains backward compatibility while providing modular organization** |
-| **Updated** | **Enhanced HTMX Partial Responses** | **Implement OOB swapping for efficient row updates** |
-| **Updated** | **Batch Status Polling** | **Replace individual row polling with centralized system** |
-| **Updated** | **Automatic Polling Control** | **Start/stop polling based on active document count** |
-| **Updated** | **Recently Finished Tracking** | **Track documents completed within 10 seconds** |
+| **Updated** | **Enhanced Async Indexing** | **Semaphore-based concurrency control for background operations** |
+| **Updated** | **Direct Async Operations** | **Async document service with direct async operations** |
+| **Updated** | **Streamlined Ingestion Pipeline** | **Improved error handling and collection management** |
+| **Updated** | **Enhanced Semaphore Management** | **Robust concurrency control for background indexing** |
+| **Updated** | **Improved Error Handling** | **Enhanced error handling and resource cleanup** |
+| **Updated** | **Streamlined Background Processing** | **Unified background processing with better resource management** |
 
-**Updated** The validation system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files, modern DOCX files, and spreadsheet XLSX files. The new DOCX integrity checking using `_validate_docx_bytes()` function verifies that DOCX files contain valid content by checking for the required word/document.xml structure within the ZIP archive. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The new `load_xlsx()` function in the parser module handles spreadsheet processing with worksheet-based sectioning and row formatting. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the `GLOBAL_EXPERTS_PROMPT` system prompt and specialized retriever construction. The revolutionary HTMX partial response system now includes proper OOB swapping capabilities for dynamic document row updates, automatic status polling activation that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The system now tracks recently finished documents within a 10-second window to provide final status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling.
+**Updated** The validation system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files, modern DOCX files, and spreadsheet XLSX files. The new DOCX integrity checking using `_validate_docx_bytes()` function verifies that DOCX files contain valid content by checking for the required word/document.xml structure within the ZIP archive. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The new `load_xlsx()` function in the parser module handles spreadsheet processing with worksheet-based sectioning and row formatting. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the `GLOBAL_EXPERTS_PROMPT` system prompt and specialized retriever construction. The revolutionary HTMX partial response system now includes proper OOB swapping capabilities for dynamic document row updates, automatic status polling activation that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The system now tracks recently finished documents within a 10-second window to provide final status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The enhanced async architecture now provides comprehensive semaphore-based concurrency control for background indexing operations, direct async operations throughout the document service, and streamlined background processing with improved error handling and resource management.
 
 **Section sources**
 - [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
 - [app/api/documents_helpers.py:31-50](file://app/api/documents_helpers.py#L31-L50)
 - [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
 - [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
+- [app/domain/document_service.py:106-155](file://app/domain/document_service.py#L106-L155)
+- [app/rag/indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
 
 ## Enhanced Filtering and Sorting System
 
@@ -738,7 +756,7 @@ The modernized interface includes several key interactive elements:
 
 #### Enhanced Filtering and Sorting
 - **Filter Chips**: Visual filter indicators with active state highlighting
-- **Sort Indicators**: Arrow icons showing current sort direction
+- **Sort Indicators**: arrow icons showing current sort direction
 - **Real-time Filtering**: Immediate updates when filters change
 - **Parameter Persistence**: Filter and sort parameters maintained across navigation
 - **Centralized Date Handling**: Consistent date range processing across all components
@@ -964,7 +982,7 @@ Background tasks are coordinated through enhanced functions:
 
 ## Comprehensive Test Coverage
 
-The system includes comprehensive testing across all layers with extensive search, pagination, bulk operation, concurrency control, streaming response, global question-answering, HTMX partial responses, batch status polling, and automatic polling control coverage:
+The system includes comprehensive testing across all layers with extensive search, pagination, bulk operation, concurrency control, streaming response, global question-answering, HTMX partial responses, batch status polling, automatic polling control, and recently finished documents tracking coverage:
 
 ### Test Coverage Areas
 
@@ -974,7 +992,7 @@ The system includes comprehensive testing across all layers with extensive searc
 | `test_api_documents_auth.py` | Authentication router functionality | Unit and integration tests |
 | `test_api_documents_upload.py` | Upload router functionality | Unit and integration tests |
 | `test_api_documents_bulk.py` | Bulk operations router functionality | Unit and integration tests |
-| `test_document_service.py` | Domain service logic | Mock-based testing |
+| `test_document_service.py` | Domain service logic with async operations | Mock-based testing |
 | `test_storage.py` | Database operations | SQLite in-memory testing |
 | `test_rag_block6.py` | RAG pipeline components | End-to-end testing |
 | `test_bot_factory.py` | VK bot integration | State machine validation |
@@ -982,7 +1000,7 @@ The system includes comprehensive testing across all layers with extensive searc
 
 ### Enhanced Test Coverage Areas
 
-**Updated** The testing strategy now includes extensive coverage for the newly modular router architecture, batch status polling, automatic polling control, and recently finished documents tracking:
+**Updated** The testing strategy now includes extensive coverage for the newly modular router architecture, batch status polling, automatic polling control, recently finished documents tracking, enhanced async operations, and streamlined background processing:
 
 #### Router Architecture Testing Coverage
 - **Router Composition**: Tests that main router properly includes and delegates to specialized routers
@@ -992,6 +1010,13 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Bulk Router**: Tests bulk delete, reindex, and search toggle operations
 - **QA Router**: Tests document-specific and global question-answering functionality
 - **Helper Functions**: Tests shared utilities and validation functions
+
+#### Async Operations Testing Coverage
+- **Async Document Service**: Tests async indexing, reindexing, and search toggling operations
+- **Async Indexer**: Tests async chunk preparation and vector indexing operations
+- **Semaphore Management**: Tests async concurrency control and resource management
+- **Background Task Execution**: Tests async background task scheduling and execution
+- **Error Handling**: Validates async error recovery and resource cleanup
 
 #### Search and Status Testing Coverage
 - **Search functionality**: Tests case-insensitive pattern matching against titles and filenames
@@ -1063,7 +1088,8 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Recently Finished Tracking**: Validates tracking of documents that completed within 10 seconds
 - **OOB Swapping Functionality Testing**: Validates proper OOB swapping for dynamic row updates
 - **Automatic Polling Activation Testing**: Tests intelligent start/stop polling based on document activity
-- **Deduplicated Updates Testing**: Validates prevention of duplicate HTML updates
+- **Deduplicated Updates Testing**: Validates prevention of duplicate updates for overlapping documents
+- **Recently Finished Documents Testing**: Validates tracking of documents completed within 10 seconds
 
 #### Document-Specific Question Answering Testing Coverage
 - **Document Validation**: Tests document existence and status validation
@@ -1127,6 +1153,14 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Chunk Generation**: Tests chunk generation with worksheet context
 - **Search Compatibility**: Validates XLSX content searchability
 
+#### **Updated** Async Architecture Testing Coverage
+- **Async Document Service Testing**: Tests async operations throughout the document service
+- **Async Indexer Testing**: Tests async chunk preparation and vector indexing operations
+- **Semaphore Management Testing**: Tests async concurrency control and resource management
+- **Background Task Testing**: Tests async background task scheduling and execution
+- **Error Recovery Testing**: Validates async error handling and resource cleanup
+- **Performance Testing**: Validates system performance with async operations
+
 #### **Updated** Router Architecture Testing Coverage
 - **Router Composition Validation**: Tests that main router properly includes and delegates to specialized routers
 - **Backward Compatibility Testing**: Validates that all existing endpoints continue to work after modular refactoring
@@ -1170,6 +1204,7 @@ The system includes comprehensive testing across all layers with extensive searc
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_storage.py:244-275](file://tests/test_storage.py#L244-L275)
 - [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
+- [tests/test_document_service.py:126-325](file://tests/test_document_service.py#L126-L325)
 
 ## Improved Text Chunking Algorithms
 
@@ -1358,6 +1393,17 @@ The system now implements revolutionary HTMX partial response capabilities:
 - **Template Integration**: Seamless integration with document table and status poller templates
 - **Real-time Status Monitoring**: Provides immediate status updates for processing documents
 
+### **Updated** Enhanced Async Architecture
+
+The system now implements comprehensive async operations throughout the document processing pipeline:
+
+- **Async Document Service**: Direct async operations for indexing, reindexing, and search toggling
+- **Async Indexer**: Async chunk preparation and vector indexing operations
+- **Semaphore Management**: Robust concurrency control for background indexing operations
+- **Background Task Execution**: Async background task scheduling and execution with proper error handling
+- **Resource Management**: Improved resource cleanup and error recovery in async operations
+- **Performance Optimization**: Enhanced system performance with async operations
+
 **Section sources**
 - [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
 - [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
@@ -1368,6 +1414,8 @@ The system now implements revolutionary HTMX partial response capabilities:
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 - [app/api/documents_helpers.py:82-112](file://app/api/documents_helpers.py#L82-L112)
 - [app/api/documents_helpers.py:31-50](file://app/api/documents_helpers.py#L31-L50)
+- [app/domain/document_service.py:106-155](file://app/domain/document_service.py#L106-L155)
+- [app/rag/indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
 
 ## Enhanced Status Display System
 
@@ -1759,7 +1807,7 @@ The Retrieval-Augmented Generation pipeline processes documents through multiple
 sequenceDiagram
 participant Parser as Enhanced Parser
 participant Splitter as Text Splitter
-participant Embedder as Embedding Model
+participant Embedder as Embeddings
 participant VectorDB as Qdrant
 participant DenseRetriever as Dense Retriever
 participant DocScopedRetriever as Document Scoped Retriever
@@ -1841,6 +1889,16 @@ The RAG pipeline now integrates with the revolutionary modular router architectu
 - **Real-time Status Updates**: Immediate status updates for processing documents
 - **Template Integration**: Seamless integration with document table and status poller templates
 
+### **Updated** Enhanced Async Architecture Integration
+
+The RAG pipeline now integrates with the enhanced async architecture:
+
+- **Async Operations**: Direct async operations for indexing, reindexing, and search toggling
+- **Semaphore Management**: Robust concurrency control for background indexing operations
+- **Background Task Execution**: Async background task scheduling and execution
+- **Resource Management**: Improved resource cleanup and error recovery
+- **Performance Optimization**: Enhanced system performance with async operations
+
 **Section sources**
 - [app/rag/parser.py:15-17](file://app/rag/parser.py#L15-L17)
 - [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
@@ -1851,6 +1909,8 @@ The RAG pipeline now integrates with the revolutionary modular router architectu
 - [app/rag/prompts.py:21-56](file://app/rag/prompts.py#L21-L56)
 - [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
 - [app/api/documents_bulk.py:114-162](file://app/api/documents_bulk.py#L114-L162)
+- [app/domain/document_service.py:106-155](file://app/domain/document_service.py#L106-L155)
+- [app/rag/indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
 
 ## Document-Specific Question Answering
 
@@ -2346,7 +2406,7 @@ The SQLite schema supports comprehensive document tracking with:
 - **Automatic Polling Control**: Status tracking for intelligent polling management
 - **Deduplication Logic**: Prevention of duplicate updates for overlapping documents
 
-**Updated** The database now tracks MIME types for DOC, DOCX, and XLSX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new document-specific question-answering feature relies on the existing database structure for document validation and status checking. The `list_recently_finished` method provides efficient tracking of documents that completed or failed within the last 10 seconds for status updates. The global question-answering capability leverages the same search enablement mechanism for knowledge base-wide queries. The revolutionary HTMX partial response system now includes enhanced tracking capabilities for OOB swapping, automatic polling control, and deduplication logic to prevent duplicate updates.
+**Updated** The database now tracks MIME types for DOC, DOCX, and XLSX formats, enabling precise format identification and filtering. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` field supports precise date range filtering with inclusive boundaries. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new document-specific question-answering feature relies on the existing database structure for document validation and status checking. The `list_recently_finished` method provides efficient tracking of documents that completed or failed within the last 10 seconds for status updates. The global question-answering capability leverages the same search enablement mechanism for knowledge base-wide queries. The revolutionary HTMX partial response system now includes enhanced tracking capabilities for OOB swapping, automatic polling control, and deduplication logic to prevent duplicate updates. The enhanced async architecture now provides comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control and streamlined background processing.
 
 **Section sources**
 - [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
@@ -2435,7 +2495,7 @@ All list endpoints support the following parameters:
 
 ### **Updated** Enhanced HTMX Partial Response Endpoints
 
-**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates with revolutionary OOB swapping capabilities, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized `parse_date_range()` utility ensures consistent date parameter handling across all endpoints, while the `_document_table_context()` function provides standardized template context management for all partials. The new DOCX integrity validation using `_validate_docx_bytes()` function ensures file content validity before processing. The revolutionary HTMX partial response system now includes proper OOB swapping for dynamic document row updates, automatic polling control that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint.
+**Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates with revolutionary OOB swapping capabilities, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized `parse_date_range()` utility ensures consistent date parameter handling across all endpoints, while the `_document_table_context()` function provides standardized template context management for all partials. The new DOCX integrity validation using `_validate_docx_bytes()` function ensures file content validity before processing. The revolutionary HTMX partial response system now includes proper OOB swapping for dynamic document row updates, automatic polling control that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The enhanced async architecture now provides comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control and streamlined background processing.
 
 **Section sources**
 - [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
@@ -2578,6 +2638,17 @@ The unified `_index_document_from_s3()` function provides centralized error hand
 - **Logging Consistency**: Standardized logging format for all background operations
 - **Format Validation**: Validates DOCX integrity and handles XLSX processing errors
 
+### **Updated** Enhanced Async Architecture Error Handling
+
+The enhanced async architecture implements comprehensive error handling:
+
+- **Async Operations**: Handles async operation failures gracefully
+- **Semaphore Management**: Manages semaphore acquisition/release errors
+- **Background Task Errors**: Handles async background task failures
+- **Resource Cleanup**: Ensures proper cleanup of async resources
+- **Performance Monitoring**: Monitors async operation performance
+- **Error Propagation**: Ensures async errors propagate correctly
+
 ### **Updated** Modular Router Architecture Error Handling
 
 The revolutionary modular router architecture implements comprehensive error handling:
@@ -2659,6 +2730,8 @@ The recently finished documents tracking system implements comprehensive error h
 - [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
 - [app/api/documents_helpers.py:82-112](file://app/api/documents_helpers.py#L82-L112)
 - [app/api/documents_helpers.py:31-50](file://app/api/documents_helpers.py#L31-L50)
+- [app/domain/document_service.py:106-155](file://app/domain/document_service.py#L106-L155)
+- [app/rag/indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
 
 ## Deployment and Operations
 
@@ -2677,6 +2750,8 @@ HTMXEngine[HTMX Engine]
 EndUserIntegration[Enhanced User Integration]
 RouterArchitecture[Modular Router Architecture]
 EndUserExperience[Enhanced Experience]
+AsyncOperations[Enhanced Async Operations]
+EndUserMonitoring[Enhanced Monitoring]
 end
 subgraph "Data Services"
 DB[(SQLite Database with Auto-Increment)]
@@ -2701,6 +2776,8 @@ RouterArchitecture --> Web
 EndUserMonitoring --> DB
 EndUserExperience --> HTMXEngine
 EndUserExperience --> RouterArchitecture
+EndUserExperience --> AsyncOperations
+EndUserMonitoring --> EndUserMonitoring
 ```
 
 ### Environment Setup
@@ -2718,8 +2795,9 @@ Required environment variables:
 - **HTMX Configuration**: `MAX_CONCURRENT_INDEXING` for HTMX partial responses
 - **OOB Swapping**: `MAX_CONCURRENT_INDEXING` for OOB swapping operations
 - **Polling Control**: `MAX_CONCURRENT_INDEXING` for automatic polling control
+- **Async Operations**: `MAX_CONCURRENT_INDEXING` for async background processing
 
-**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The revolutionary HTMX partial response system with OOB swapping reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified `_index_document_from_s3()` function requires proper semaphore configuration for optimal background processing performance. The centralized `parse_date_range()` utility requires proper date format validation for consistent date parameter handling. The `_document_table_context()` function requires proper template context validation for consistent UI rendering. The new DOCX integrity validation function requires proper ZIP file handling and validation for DOCX file processing. The revolutionary batch status polling system requires proper HTMX engine configuration and OOB swapping support for optimal performance. The automatic polling control system requires proper server load monitoring and resource management for efficient operation. The recently finished documents tracking system requires proper database configuration and query optimization for reliable status updates. The modular router architecture requires proper router composition and dependency injection for optimal performance.
+**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The revolutionary HTMX partial response system with OOB swapping reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified `_index_document_from_s3()` function requires proper semaphore configuration for optimal background processing performance. The centralized `parse_date_range()` utility requires proper date format validation for consistent date parameter handling. The `_document_table_context()` function requires proper template context validation for consistent UI rendering. The new DOCX integrity validation function requires proper ZIP file handling and validation for DOCX file processing. The revolutionary batch status polling system requires proper HTMX engine configuration and OOB swapping support for optimal performance. The automatic polling control system requires proper server load monitoring and resource management for efficient operation. The recently finished documents tracking system requires proper database configuration and query optimization for reliable status updates. The modular router architecture requires proper router composition and dependency injection for optimal performance. The enhanced async architecture requires proper semaphore configuration and resource management for optimal async operations.
 
 **Section sources**
 - [docker-compose.yml](file://docker-compose.yml)
@@ -2780,6 +2858,8 @@ Required environment variables:
 | **Batch Status Polling Performance Issues** | High server load | Check server load optimization, verify polling interval, validate deduplication logic |
 | **Automatic Polling Control Issues** | Polling not responding to document activity | Check automatic polling activation logic, verify document status monitoring |
 | **Recently Finished Tracking Issues** | Final status updates not appearing | Check database query optimization, verify timestamp calculations, validate deduplication logic |
+| **Enhanced Async Operations Issues** | Async operations failing | Check semaphore configuration, verify async operation implementation, validate error handling |
+| **Async Semaphore Issues** | Semaphore not working properly | Check semaphore initialization, verify acquisition/release logic, validate resource cleanup |
 
 ### Logging and Monitoring
 
@@ -2821,8 +2901,10 @@ The system provides comprehensive logging at multiple levels:
 - **HTMX Engine Logs**: OOB swapping operations, polling management, partial response handling
 - **Server Load Monitoring Logs**: Performance optimization, resource management, error recovery
 - **Router Composition Logs**: Modular router delegation, error propagation, logging consistency
+- **Async Operations Logs**: Enhanced async architecture implementation, semaphore management, resource cleanup
+- **Async Semaphore Logs**: Semaphore-based concurrency control, task queuing, error recovery
 
-**Updated** The troubleshooting guide now includes comprehensive coverage for the newly modular router architecture, batch status polling, automatic polling control, and recently finished documents tracking. The logging system provides detailed coverage for all new functionality including centralized batch polling through '/partials/documents-status', proper OOB swapping for dynamic document row updates, automatic polling activation that starts/stops based on active document count, and recently finished documents tracking within a 10-second window. The system now includes specific troubleshooting steps for router architecture issues, authentication router problems, upload router failures, bulk router issues, QA router problems, and helper function errors. The logging system provides comprehensive coverage for all new modular router functionality including router composition errors, backward compatibility errors, specialized router errors, and helper function errors. The troubleshooting guide addresses the revolutionary batch status polling system that dramatically reduces server load by eliminating N concurrent requests for individual row polling, the automatic polling control that intelligently manages polling based on document activity, and the recently finished documents tracking that provides final status updates for documents completed within 10 seconds. The system now includes comprehensive coverage for router architecture issues, authentication router problems, upload router failures, bulk router issues, QA router problems, and helper function errors.
+**Updated** The troubleshooting guide now includes comprehensive coverage for the newly modular router architecture, batch status polling, automatic polling control, recently finished documents tracking, enhanced async operations, and streamlined background processing. The logging system provides detailed coverage for all new functionality including centralized batch polling through '/partials/documents-status', proper OOB swapping for dynamic document row updates, automatic polling activation that starts/stops based on active document count, and recently finished documents tracking within a 10-second window. The system now includes specific troubleshooting steps for router architecture issues, authentication router problems, upload router failures, bulk router issues, QA router problems, and helper function errors. The logging system provides comprehensive coverage for all new modular router functionality including router composition errors, backward compatibility errors, specialized router errors, and helper function errors. The troubleshooting guide addresses the revolutionary batch status polling system that dramatically reduces server load by eliminating N concurrent requests for individual row polling, the automatic polling control that intelligently manages polling based on document activity, and the recently finished documents tracking that provides final status updates for documents completed within 10 seconds. The system now includes comprehensive coverage for router architecture issues, authentication router problems, upload router failures, bulk router issues, QA router problems, and helper function errors. The enhanced async architecture troubleshooting covers async operation failures, semaphore management issues, background task errors, resource cleanup problems, and performance monitoring concerns.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -2832,7 +2914,7 @@ The system provides comprehensive logging at multiple levels:
 
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
 
-**Updated** The system has undergone a major architectural refactoring from a monolithic structure to a modular document management system. Authentication, upload, bulk operations, and QA functionality have been extracted to specialized routers (`documents_auth.py`, `documents_upload.py`, `documents_bulk.py`, `documents_qa.py`) while maintaining backward compatibility through router composition in the main `documents.py` file. This refactoring provides enhanced modularity, maintainability, and separation of concerns while preserving all existing functionality and API endpoints. The system now features a revolutionary modular router architecture with router composition maintaining backward compatibility, enhanced HTMX partial response capabilities that include proper OOB (out-of-band) swapping for dynamic document row updates and automatic status polling activation for processing documents, and comprehensive testing coverage for all new modular functionality. The enhanced user interface now features intelligent polling control that starts/stops based on active document count, recently finished documents tracking that provides final status updates within a 10-second window, and efficient OOB swapping that enables dynamic row updates without full page reloads. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials and components. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, batch status polling, automatic polling control, and recently finished documents tracking. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
+**Updated** The system has undergone significant enhancements to improve document processing workflow with async indexing capabilities, streamline the document service architecture with direct async operations, and optimize the ingestion pipeline with better error handling and collection management. The system now features a revolutionary modular router architecture with router composition maintaining backward compatibility, enhanced HTMX partial response capabilities that include proper OOB (out-of-band) swapping for dynamic document row updates and automatic status polling activation for processing documents, and comprehensive testing coverage for all new modular functionality. The enhanced user interface now features intelligent polling control that starts/stops based on active document count, recently finished documents tracking that provides final status updates within a 10-second window, and efficient OOB swapping that enables dynamic row updates without full page reloads. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials and components. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, automatic polling control, recently finished documents tracking, enhanced async operations, and streamlined background processing. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
 Key strengths include:
 - **Revolutionary Modular Router Architecture**: Specialized routers for authentication, upload, bulk operations, and QA while maintaining backward compatibility
@@ -2867,16 +2949,16 @@ Key strengths include:
 - **Comprehensive Logging**: Detailed monitoring and debugging capabilities
 - **Enhanced Visual Presentation**: Modern rounded corner styling, sophisticated background treatments, and improved visual hierarchy throughout the interface
 - **Advanced Filtering and Sorting**: Comprehensive server-side processing with real-time updates and centralized date handling
-- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, batch status polling, document-specific question answering, global question answering, streaming responses, unified background processing, date range utilities, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, automatic polling control, and recently finished documents tracking
+- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, batch status polling, document-specific question answering, global question answering, streaming responses, unified background processing, date range utilities, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, automatic polling control, recently finished documents tracking, enhanced async operations, and streamlined background processing
 - **Mobile-First Responsive Design**: Overlay sidebar, toast notifications, and adaptive layouts for all device sizes
 - **Document-Specific Prompt Engineering**: Specialized prompts for focused document responses
 - **Global Prompt Engineering**: Specialized prompts for comprehensive knowledge base responses
 - **Modal-Based User Interaction**: Intuitive question interfaces with Alpine.js integration
 - **Comprehensive Security Validation**: Document existence, status, and search enablement verification for both question types
-- **Performance Optimization**: Reduced server load through batch processing, centralized utilities, unified background processing, and intelligent polling control
+- **Performance Optimization**: Reduced server load through batch processing, centralized utilities, unified background processing, intelligent polling control, and enhanced async operations
 - **Real-time Streaming Response**: Immediate display of AI responses as they arrive for both question types
 - **International Character Support**: Proper filename encoding for global compatibility
-- **Enhanced Status Tracking**: Comprehensive tracking of document status changes, recently finished documents, and polling activity
+- **Enhanced Status Tracking**: Comprehensive tracking of document status changes, recently finished documents, polling activity, and async operations
 - **Global Knowledge Base Access**: Unified knowledge base queries across all searchable documents
 - **Unified Background Processing**: Centralized error handling, resource management, and logging for all background operations
 - **Centralized Date Range Handling**: Standardized ISO date format parsing across all endpoints
@@ -2884,8 +2966,9 @@ Key strengths include:
 - **Spreadsheet Query Support**: XLSX documents can be queried with worksheet context for focused analysis
 - **Format-Aware Processing**: Different handling for DOCX headings, DOC text structure, and XLSX worksheets with unified output
 - **Revolutionary Router Architecture**: Modular router structure with router composition maintaining backward compatibility
-- **Intelligent Server Load Management**: Automatic polling control and server load optimization
-- **Enhanced User Experience**: Real-time status monitoring and efficient UI updates
+- **Intelligent Server Load Management**: Automatic polling control and server load optimization through async operations
+- **Enhanced User Experience**: Real-time status monitoring and efficient UI updates through async operations
 - **Comprehensive Router Testing**: Extensive testing for router composition, backward compatibility, and modular functionality
+- **Enhanced Async Architecture**: Comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control and streamlined background processing
 
 The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.

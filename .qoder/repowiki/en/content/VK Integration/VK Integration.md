@@ -18,9 +18,12 @@
 - [entities.py](file://app/domain/entities.py)
 - [qa_service.py](file://app/domain/qa_service.py)
 - [chain.py](file://app/rag/chain.py)
+- [retriever.py](file://app/rag/retriever.py)
+- [indexer.py](file://app/rag/indexer.py)
 - [polling_vk.py](file://scripts/polling_vk.py)
 - [resources.py](file://app/resources.py)
 - [config.py](file://app/config.py)
+- [main.py](file://app/main.py)
 - [test_bot_factory.py](file://tests/test_bot_factory.py)
 - [test_qa_service.py](file://tests/test_qa_service.py)
 - [test_keyboards.py](file://tests/test_keyboards.py)
@@ -40,14 +43,13 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced error handling consistency with new require_entity decorators and @catch_entity_error decorators
-- Replaced get_entity_or_error pattern with require_entity functions and @catch_entity_error decorators for improved error handling across fire.py and handlers/__init__.y modules
-- Added EntityNotFoundError class for consistent entity validation error handling
-- Updated handler registration and ordering with improved error handling patterns
-- Enhanced fire handler with require_entity decorator integration
-- Improved error handling patterns in hire handler with @catch_entity_error decorators
-- Updated vacation handler to maintain backward compatibility with get_entity_or_error pattern
-- Enhanced test infrastructure with updated error handling expectations
+- Enhanced domain services with async Qdrant client integration for improved performance and resource management
+- Implemented comprehensive resource lifecycle management with graceful degradation and cleanup
+- Added AsyncQdrantRetriever for fully async operations without sync client overhead
+- Integrated hybrid search capabilities with sparse embeddings for enhanced retrieval
+- Improved error handling and fallback mechanisms for Qdrant client failures
+- Enhanced resource initialization with proper async patterns and collection management
+- Updated QA service to support both dense and hybrid retrieval modes
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -61,17 +63,20 @@
 9. [QA Service and RAG Integration](#qa-service-and-rag-integration)
 10. [Enhanced Fire Handler with Entity-Based Resignation Flow](#enhanced-fire-handler-with-entity-based-resignation-flow)
 11. [Enhanced Error Handling with Decorators](#enhanced-error-handling-with-decorators)
-12. [Detailed Component Analysis](#detailed-component-analysis)
-13. [Dependency Analysis](#dependency-analysis)
-14. [Performance Considerations](#performance-considerations)
-15. [Troubleshooting Guide](#troubleshooting-guide)
-16. [Conclusion](#conclusion)
-17. [Appendices](#appendices)
+12. [Async Qdrant Client Integration](#async-qdrant-client-integration)
+13. [Improved Resource Management](#improved-resource-management)
+14. [Hybrid Search Capabilities](#hybrid-search-capabilities)
+15. [Detailed Component Analysis](#detailed-component-analysis)
+16. [Dependency Analysis](#dependency-analysis)
+17. [Performance Considerations](#performance-considerations)
+18. [Troubleshooting Guide](#troubleshooting-guide)
+19. [Conclusion](#conclusion)
+20. [Appendices](#appendices)
 
 ## Introduction
 This document explains the VKontakte integration system built with the vkbottle framework, featuring a comprehensive QA service integration for Retrieval-Augmented Generation (RAG) processing across all HR-related handlers. The system implements a bot factory pattern with centralized state dispenser sharing, advanced handler registration and ordering, payload-based navigation, and sophisticated VK API integration patterns. It covers bot initialization, message routing, RAG-powered content delivery, and practical guidance for extending the bot with new handlers, customizing behavior, and integrating with VK's webhook system. Common integration challenges, robust error handling, and best practices for VK bot development are addressed.
 
-**Updated** The system now features enhanced error handling consistency with new require_entity decorators and @catch_entity_error decorators, providing improved reliability and user experience across all HR-related handlers. The new error handling patterns replace the previous get_entity_or_error pattern with more consistent and maintainable approaches.
+**Updated** The system now features enhanced domain services with async Qdrant client integration and improved resource management, providing better performance, reliability, and scalability for RAG operations. The new async patterns eliminate sync client overhead and enable fully asynchronous operations throughout the system.
 
 ## Project Structure
 The VK integration resides under app/integrations/vk and includes:
@@ -79,7 +84,7 @@ The VK integration resides under app/integrations/vk and includes:
 - Handler modules for start/main menu, section entry points, dedicated ask-a-question functionality, and HR request workflows
 - Keyboard builders for consistent UI and payload-driven navigation
 - State definitions for multi-step dialogs using centralized state dispenser
-- A domain-level QA service that provides RAG processing capabilities
+- A domain-level QA service that provides RAG processing capabilities with async Qdrant client integration
 - Enhanced fire handler with entity-based resignation flow and improved error handling
 - A new document attachment system for delivering company-specific templates
 - Tests validating factory wiring, keyboard layouts, state definitions, QA service integration, and enhanced handler functionality
@@ -103,6 +108,13 @@ UTILS["handlers/__init__.py<br/>Centralized state & QA access"]
 RULES["rules.py<br/>Custom payload rules"]
 ENTITIES["entities.py<br/>Updated legal entities"]
 end
+subgraph "Enhanced Domain Services"
+RESOURCES["resources.py<br/>Async resource management"]
+QA_SERVICE["domain/qa_service.py<br/>Async Qdrant integration"]
+CHAIN["rag/chain.py<br/>RAG implementation"]
+RETRIEVER["rag/retriever.py<br/>Async Qdrant retriever"]
+INDEXER["rag/indexer.py<br/>Async document indexing"]
+end
 subgraph "Enhanced Error Handling"
 REQUIRE_ENTITY["require_entity<br/>Entity validation function"]
 CATCH_ERROR["@catch_entity_error<br/>Error handling decorator"]
@@ -113,35 +125,11 @@ FIRE_MENU["Fire menu keyboard<br/>Resignation & grounds"]
 ENTITY_SELECT["Entity selection keyboard<br/>Company-specific templates"]
 DOC_ATTACHMENT["Document attachment<br/>Template delivery"]
 end
-RESOURCES["resources.py<br/>Resource management"]
-QA_SERVICE["domain/qa_service.py<br/>RAG chain wrapper"]
-CHAIN["rag/chain.py<br/>RAG implementation"]
-SCRIPT["scripts/polling_vk.py<br/>Long Poll runner"]
-CONFIG["app/config.py<br/>Settings"]
-TESTS["tests/<br/>Enhanced integration tests"]
-BOT --> START
-BOT --> SECTIONS
-BOT --> ASK
-BOT --> HIRE
-BOT --> FIRE
-BOT --> PAY
-BOT --> VACATION
-BOT --> FALLBACK
-START --> KEYBOARDS
-SECTIONS --> KEYBOARDS
-ASK --> KEYBOARDS
-HIRE --> KEYBOARDS
-FIRE --> KEYBOARDS
-PAY --> KEYBOARDS
-VACATION --> KEYBOARDS
-FIRE --> ATTACHMENTS
-ATTACHMENTS --> ENTITIES
-ASK --> UTILS
-FIRE --> UTILS
-PAY --> UTILS
-VACATION --> UTILS
-SECTIONS --> UTILS
-HIRE --> UTILS
+RESOURCES --> SCRIPT["scripts/polling_vk.py<br/>Async runner"]
+RESOURCES --> MAIN["app/main.py<br/>FastAPI lifespan"]
+RESOURCES --> QA_SERVICE
+QA_SERVICE --> RETRIEVER
+RETRIEVER --> INDEXER
 UTILS --> QA_SERVICE
 UTILS --> STATES
 UTILS --> ENTITIES
@@ -152,16 +140,8 @@ KEYBOARDS --> FIRE_MENU
 KEYBOARDS --> ENTITY_SELECT
 FIRE_MENU --> DOC_ATTACHMENT
 ENTITY_SELECT --> DOC_ATTACHMENT
-RESOURCES --> SCRIPT
-RESOURCES --> QA_SERVICE
-QA_SERVICE --> CHAIN
-BOT --> CONFIG
-TESTS --> BOT
-TESTS --> QA_SERVICE
-TESTS --> UTILS
-TESTS --> ENTITIES
-TESTS --> FIRE
-TESTS --> ATTACHMENTS
+BOT --> CONFIG["app/config.py<br/>Async settings"]
+TESTS["tests/<br/>Enhanced integration tests"]
 ```
 
 **Diagram sources**
@@ -177,6 +157,8 @@ TESTS --> ATTACHMENTS
 - [resources.py:32-49](file://app/resources.py#L32-L49)
 - [qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
 - [chain.py:1-80](file://app/rag/chain.py#L1-L80)
+- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
+- [indexer.py:13-49](file://app/rag/indexer.py#L13-49)
 - [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
 - [config.py:1-9](file://app/config.py#L1-L9)
 - [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
@@ -200,7 +182,10 @@ TESTS --> ATTACHMENTS
 - Legal entities: Manage company information with updated names and centralized entity lookup
 - Local runner: Initializes Settings and starts the bot in Long Poll mode with proper resource management
 - Resource management: Handles graceful initialization and cleanup of RAG resources and enhanced service components
+- **New** Async Qdrant client integration: Provides fully asynchronous operations with AsyncQdrantClient for improved performance
 - **New** Enhanced error handling system: Provides consistent entity validation and error handling across all handlers using require_entity functions and @catch_entity_error decorators
+- **New** Hybrid search capabilities: Supports both dense and sparse embedding retrieval for enhanced document search
+- **New** Resource lifecycle management: Implements proper async resource initialization and cleanup with graceful degradation
 
 Key implementation references:
 - Factory and handler loading order with centralized state sharing: [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
@@ -219,7 +204,9 @@ Key implementation references:
 - Local runner with resource management: [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
 - Settings: [config.py:4-9](file://app/config.py#L4-L9)
 - Resource management: [resources.py:51-165](file://app/resources.py#L51-L165)
+- **New** Async Qdrant client integration: [retriever.py:20-53](file://app/rag/retriever.py#L20-L53), [resources.py:167-189](file://app/resources.py#L167-L189)
 - **New** Enhanced error handling system: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
+- **New** Hybrid search capabilities: [retriever.py:135-151](file://app/rag/retriever.py#L135-L151), [resources.py:191-202](file://app/resources.py#L191-L202)
 
 **Section sources**
 - [bot.py:24-59](file://app/integrations/vk/bot.py#L24-L59)
@@ -238,6 +225,8 @@ Key implementation references:
 - [config.py:4-9](file://app/config.py#L4-L9)
 - [resources.py:51-165](file://app/resources.py#L51-L165)
 - [attachments.py:1-121](file://app/integrations/vk/attachments.py#L1-121)
+- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
+- [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
 
 ## Architecture Overview
 The VK bot follows a modular architecture with integrated RAG capabilities and centralized service management:
@@ -248,7 +237,9 @@ The VK bot follows a modular architecture with integrated RAG capabilities and c
 - Optional state groups enable multi-step dialogs with sophisticated HR workflows
 - Enhanced fire handler implements entity-based resignation flow with document template attachment and improved error handling
 - Resource management handles graceful initialization and cleanup of RAG components and enhanced service components
+- **New** Async Qdrant client integration provides fully asynchronous operations with improved performance and reduced overhead
 - **New** Enhanced error handling system provides consistent entity validation and error handling across all handlers using require_entity functions and @catch_entity_error decorators
+- **New** Hybrid search capabilities support both dense and sparse embedding retrieval for enhanced document search
 
 ```mermaid
 sequenceDiagram
@@ -263,6 +254,7 @@ participant Utils as "handlers/__init__.py"
 participant QA as "QA Service"
 participant Attachments as "attachments.send_category_document()"
 participant Entities as "Legal Entities"
+participant Qdrant as "AsyncQdrantClient"
 participant VK as "VK API"
 Dev->>Script : Run long poll
 Script->>Resources : build_resources(Settings)
@@ -272,10 +264,11 @@ Factory->>Bot : Initialize with token
 Factory->>SD : Create BuiltinStateDispenser
 Factory->>Bot : Set bot.state_dispenser = SD
 Factory->>Utils : set_state_dispenser(SD)
-Factory->>Utils : set_qa_service(resources.qa_service)
+Factory->>Utils : set_qa_service(resources.vk_qa_service)
 Factory->>Labelers : Load handlers (start, hire, fire, vacation, pay, sections, ask, fallback)
-Script->>Utils : set_qa_service(resources.qa_service)
-Utils->>QA : Initialize RAG chain
+Script->>Utils : set_qa_service(resources.vk_qa_service)
+Utils->>QA : Initialize RAG chain with AsyncQdrantClient
+Utils->>Qdrant : Connect async client
 Utils->>Entities : Load legal entities
 Labelers->>Utils : get_state_dispenser()
 Utils-->>Labelers : Shared BuiltinStateDispenser
@@ -599,7 +592,7 @@ The QA service provides a centralized RAG processing layer with robust error han
 classDiagram
 class QAService {
 -_chain : Runnable | None
--_qdrant_client : QdrantClient | None
+-_qdrant_client : AsyncQdrantClient | None
 +init_qa(settings) None
 +ask(question) str
 +close_qa() None
@@ -792,6 +785,183 @@ The new error handling system provides consistent patterns across all HR-related
 - [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
 - [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
 
+## Async Qdrant Client Integration
+
+### Fully Asynchronous Operations
+The system now features comprehensive async Qdrant client integration that eliminates sync client overhead and enables fully asynchronous operations:
+
+```mermaid
+classDiagram
+class AsyncQdrantClient {
++url : str
++api_key : str | None
++collection_exists(name) Coroutine[bool]
++create_collection(name, vectors_config, sparse_vectors_config) Coroutine[None]
++query_points(collection, query, limit, query_filter) Coroutine[QueryResult]
++close() Coroutine[None]
+}
+class AsyncQdrantRetriever {
++client : AsyncQdrantClient
++collection_name : str
++embeddings : Any
++k : int
++filter : Filter | None
++_aget_relevant_documents(query, run_manager) Coroutine[list[Document]]
++_get_relevant_documents(query, run_manager) NotImplementedError
+}
+class QAService {
++_qdrant_client : AsyncQdrantClient | None
++_build_global_chain(k) Runnable | None
++_build_document_chain(document_id) Runnable | None
++ask(question) Coroutine[str]
++ask_about_document(question, document_id) Coroutine[str]
+}
+AsyncQdrantClient --> AsyncQdrantRetriever : provides async operations
+AsyncQdrantRetriever --> QAService : enables async retrieval
+```
+
+**Diagram sources**
+- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
+- [retriever.py:87-89](file://app/rag/retriever.py#L87-L89)
+- [qa_service.py:50-72](file://app/domain/qa_service.py#L50-L72)
+
+### Async Resource Initialization
+The new async resource management system provides proper initialization and cleanup of Qdrant clients:
+
+```mermaid
+sequenceDiagram
+participant App as "Application"
+participant Resources as "build_resources()"
+participant Qdrant as "AsyncQdrantClient"
+participant Embeddings as "Embeddings"
+participant QA as "QAService"
+App->>Resources : build_resources(settings)
+Resources->>Qdrant : build_qdrant_client(settings)
+Resources->>Embeddings : build_embeddings(settings)
+Resources->>QA : Create QAService with AsyncQdrantClient
+Resources-->>App : AppResources
+App->>Resources : close_resources(res)
+Resources->>Qdrant : await close()
+Resources->>QA : Release references
+Resources-->>App : Cleanup complete
+```
+
+**Diagram sources**
+- [resources.py:127-303](file://app/resources.py#L127-L303)
+- [retriever.py:87-89](file://app/rag/retriever.py#L87-L89)
+
+### Key Features of Async Integration
+- **Fully Asynchronous Operations**: Eliminates sync client overhead with AsyncQdrantClient
+- **Improved Performance**: Reduces latency and resource consumption through async patterns
+- **Better Scalability**: Supports concurrent operations without blocking the event loop
+- **Proper Resource Management**: Implements async cleanup with graceful degradation
+- **Collection Management**: Automatically creates collections with proper vector configurations
+- **Error Handling**: Provides comprehensive error handling for async operations
+
+**Updated** The async Qdrant client integration represents a significant architectural improvement, eliminating sync client overhead and enabling fully asynchronous operations throughout the RAG pipeline. The new AsyncQdrantRetriever provides direct async access to Qdrant without LangChain's QdrantVectorStore overhead.
+
+**Section sources**
+- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
+- [retriever.py:87-89](file://app/rag/retriever.py#L87-L89)
+- [resources.py:127-303](file://app/resources.py#L127-L303)
+- [qa_service.py:50-72](file://app/domain/qa_service.py#L50-L72)
+
+## Improved Resource Management
+
+### Comprehensive Resource Lifecycle Management
+The new resource management system provides proper async initialization and cleanup with graceful degradation:
+
+```mermaid
+classDiagram
+class AppResources {
++settings : Settings
++qdrant_client : AsyncQdrantClient | None
++embeddings : Embeddings | None
++llm : BaseChatModel | None
++s3 : S3Storage | None
++doc_repo : DocumentRepository | None
++doc_service : DocumentService | None
++qa_service : QAService | None
++vk_qa_service : QAService | None
++sparse_embeddings : object | None
++category_file_repo : CategoryFileRepository | None
++category_file_service : CategoryFileService | None
+}
+class ResourceManager {
++build_resources(settings, with_s3, with_db) Coroutine[AppResources]
++close_resources(res) Coroutine[None]
++_ensure_collection(client, embeddings, settings, sparse_embedding) Coroutine[None]
+}
+class GracefulDegradation {
++try/except blocks for each resource
++logging for initialization failures
++None values for unavailable resources
++cleanup attempts for partial failures
+}
+AppResources --> ResourceManager : created by
+ResourceManager --> GracefulDegradation : implements
+```
+
+**Diagram sources**
+- [resources.py:104-125](file://app/resources.py#L104-L125)
+- [resources.py:127-303](file://app/resources.py#L127-L303)
+
+### Async Resource Initialization Patterns
+The new async resource management system provides robust initialization with proper error handling:
+
+**Updated** The resource management system now uses async patterns throughout, with proper error handling and graceful degradation. Each major resource block (S3, Qdrant+embeddings, QA) is wrapped in try/except blocks with comprehensive logging. The system gracefully degrades by setting None values when resources are unavailable, allowing the application to continue functioning with reduced capabilities.
+
+**Section sources**
+- [resources.py:127-303](file://app/resources.py#L127-L303)
+- [resources.py:306-344](file://app/resources.py#L306-L344)
+
+## Hybrid Search Capabilities
+
+### Dense and Sparse Embedding Support
+The system now supports hybrid search capabilities combining dense and sparse embeddings for enhanced document retrieval:
+
+```mermaid
+classDiagram
+class HybridSearch {
++retrieval_mode : str
++dense_retriever : AsyncQdrantRetriever
++sparse_embeddings : FastEmbedSparse | None
++build_retriever(settings, qdrant_client, embeddings, collection_name, k, sparse_embedding) AsyncQdrantRetriever
++build_retriever_for_document(settings, document_id, qdrant_client, embeddings, collection_name, k, sparse_embedding) AsyncQdrantRetriever
+}
+class DenseRetriever {
++client : AsyncQdrantClient
++collection_name : str
++embeddings : Any
++k : int
++filter : Filter | None
++_aget_relevant_documents(query, run_manager) Coroutine[list[Document]]
+}
+class SparseRetriever {
++model_name : str
++index : SparseIndexParams
++build_sparse_embeddings(settings) FastEmbedSparse
+}
+HybridSearch --> DenseRetriever : uses for dense search
+HybridSearch --> SparseRetriever : uses for sparse search
+```
+
+**Diagram sources**
+- [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
+- [retriever.py:186-223](file://app/rag/retriever.py#L186-L223)
+- [retriever.py:226-268](file://app/rag/retriever.py#L226-L268)
+
+### Hybrid Search Configuration
+The hybrid search system provides flexible configuration for different retrieval modes:
+
+**Updated** The hybrid search system supports both dense and sparse embedding retrieval modes. When retrieval_mode is set to "hybrid", the system initializes sparse embeddings using FastEmbedSparse and configures Qdrant collections with sparse vector parameters. The AsyncQdrantRetriever can handle both dense and sparse embeddings, providing enhanced document retrieval capabilities.
+
+**Section sources**
+- [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
+- [retriever.py:186-223](file://app/rag/retriever.py#L186-L223)
+- [retriever.py:226-268](file://app/rag/retriever.py#L226-L268)
+- [config.py:59-62](file://app/config.py#L59-L62)
+
 ## Detailed Component Analysis
 
 ### Bot Factory Pattern and Handler Registration
@@ -801,8 +971,9 @@ The new error handling system provides consistent patterns across all HR-related
 - The order is crucial because vkbottle evaluates handlers top-to-bottom; fallback must be last to avoid intercepting intended matches
 - The QA service is initialized during bot creation and registered with the centralized utilities module for consistent access patterns
 - Enhanced fire handler is now included in the handler registration process with improved error handling patterns
+- **New** Async resource management ensures proper initialization of Qdrant clients and embeddings before handler registration
 
-**Updated** The factory now registers 27 total handlers across all VK integration modules, with the enhanced fire handler providing comprehensive entity-based resignation flow and improved error handling using decorators. The handler registration order ensures proper routing precedence with fallback as the last handler.
+**Updated** The factory now registers 27 total handlers across all VK integration modules, with the enhanced fire handler providing comprehensive entity-based resignation flow and improved error handling using decorators. The handler registration order ensures proper routing precedence with fallback as the last handler. The new async resource management ensures Qdrant clients and embeddings are properly initialized before any handlers attempt to use them.
 
 ```mermaid
 flowchart TD
@@ -833,6 +1004,7 @@ Log --> ReturnBot(["Return Bot"])
 - Enhanced fire workflow provides two-step entity selection process for resignation flow
 - Document attachment system delivers company-specific templates based on entity selection
 - QA service integration provides fallback content when templates are unavailable
+- **New** Async Qdrant client integration enables fully asynchronous RAG operations
 - **New** Enhanced error handling system provides consistent entity validation across all handlers using require_entity functions and @catch_entity_error decorators
 
 ```mermaid
@@ -992,6 +1164,7 @@ BotStates --> BuiltinStateDispenser : uses
 - The factory initializes the QA service during bot creation and registers it with centralized utilities for immediate RAG capabilities
 - Resource management handles graceful initialization and cleanup of RAG components
 - Logging is configured for development visibility with RAG processing metrics
+- **New** Async resource management ensures proper initialization of Qdrant clients and embeddings before bot creation
 
 ```mermaid
 sequenceDiagram
@@ -1010,8 +1183,8 @@ Resources-->>Runner : AppResources
 Runner->>Factory : create_bot(resources.settings)
 Factory-->>Runner : Bot instance
 Factory->>Utils : set_state_dispenser(bot.state_dispenser)
-Factory->>Utils : set_qa_service(resources.qa_service)
-Utils->>QA : Initialize RAG chain
+Factory->>Utils : set_qa_service(resources.vk_qa_service)
+Utils->>QA : Initialize RAG chain with AsyncQdrantClient
 Utils->>Entities : Load legal entities
 Utils->>Attachments : Load module
 Runner->>Bot : run_forever()
@@ -1091,7 +1264,7 @@ The legal entity definitions have been updated with new company names:
 
 **Updated** The legal entities now include four companies with their full legal names:
 - "Кафетера" (Ooo "Кафетера Групп Рус")
-- "Вкусно" (Ooo "Вкусно") 
+- "Вкусно" (Ooo "Вкусно")
 - "Аврора" (Ooo "Аврора РусКо")
 - "СМАРТ" (Ooo "СМАРТ ПИТАНИЕ")
 
@@ -1125,7 +1298,9 @@ External dependencies relevant to VK integration:
 - pydantic-settings provides typed configuration from environment variables
 - pytest is used for unit tests covering factory wiring, keyboards, states, QA service integration, and enhanced handler functionality
 - LangChain provides the RAG framework with configurable LLM providers
-- Qdrant client provides vector database capabilities for document retrieval
+- **New** qdrant-client provides AsyncQdrantClient for fully asynchronous vector database operations
+- **New** langchain-qdrant provides integration with Qdrant vector database
+- **New** fastembed provides sparse embedding support for hybrid search
 - aiobotocore provides async S3/MinIO client for cloud storage
 - aiosqlite provides async SQLite access for metadata storage
 
@@ -1142,7 +1317,8 @@ Attachments --> CFService["CategoryFileService"]
 CFService --> CFRepo["CategoryFileRepository"]
 CFService --> S3["S3Storage"]
 QA --> LangChain["LangChain"]
-QA --> Qdrant["Qdrant Client"]
+QA --> AsyncQdrant["AsyncQdrantClient"]
+QA --> FastEmbed["FastEmbed (hybrid)"]
 Resources["Resources (resources.py)"] --> VKBot
 Resources --> QA
 Resources --> Attachments
@@ -1191,6 +1367,10 @@ Tests --> Cfg
 - Centralized utilities provide consistent error handling and fallback responses for QA service failures
 - Shared state dispenser reduces memory overhead across handlers
 - Resource management handles graceful initialization and cleanup of RAG components
+- **New** Async Qdrant client integration eliminates sync client overhead and improves performance
+- **New** Fully asynchronous operations reduce latency and resource consumption
+- **New** Async resource management ensures proper initialization order and cleanup
+- **New** Hybrid search capabilities provide enhanced document retrieval performance
 - **New** Intelligent timeout handling prevents blocking operations and improves perceived performance
 - **New** Automatic question context prepending reduces user confusion and improves conversation clarity
 - **New** The `send_rag_answer()` helper function standardizes RAG response handling across all handlers, reducing code duplication and improving consistency
@@ -1201,6 +1381,7 @@ Tests --> Cfg
 - **New** Improved test infrastructure validates enhanced handler functionality and handler count expectations
 - **New** Enhanced error handling system provides consistent patterns across all handlers using require_entity functions and @catch_entity_error decorators
 - **New** EntityNotFoundError class provides clear error semantics for entity validation failures
+- **New** Graceful degradation ensures application continues functioning even when resources are unavailable
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -1239,6 +1420,21 @@ Common issues and resolutions:
   - Verify BuiltinStateDispenser is properly shared between bot and handlers
   - Check that set_state_dispenser() is called during bot creation
   - Ensure get_state_dispenser() is used consistently across all handlers
+- **New** Async Qdrant client issues:
+  - Verify AsyncQdrantClient is properly initialized with correct URL and API key
+  - Check for async resource initialization order in build_resources()
+  - Ensure collection exists before attempting retrieval operations
+  - Verify proper async cleanup in close_resources()
+- **New** Hybrid search configuration issues:
+  - Check retrieval_mode setting in config.py
+  - Verify fastembed installation for sparse embeddings
+  - Ensure Qdrant collection is created with proper sparse vector configuration
+  - Test sparse embedding model availability
+- **New** Resource lifecycle issues:
+  - Verify async resource initialization order
+  - Check for proper error handling in resource initialization
+  - Ensure graceful degradation when resources are unavailable
+  - Verify proper cleanup order in close_resources()
 - **New** Timeout handling issues:
   - Verify query_rag_with_wait() is properly imported in handlers
   - Check that timeout values are appropriate for your RAG service performance
@@ -1284,10 +1480,13 @@ Validation references:
 - Enhanced fire handler functionality: [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
 - Document attachment system: [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
 - State dispenser sharing: [test_bot_factory.py:82-86](file://tests/test_bot_factory.py#L82-L86)
+- **New** Async Qdrant client integration: [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
 - **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
 - **New** Fire handler with decorators: [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
 - **New** Hire handler with decorators: [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
 - **New** Vacation handler with backward compatibility: [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
+- **New** Hybrid search capabilities: [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
+- **New** Resource lifecycle management: [resources.py:127-303](file://app/resources.py#L127-L303)
 
 **Section sources**
 - [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -1302,15 +1501,20 @@ Validation references:
 - [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
 - [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
 - [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
+- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
+- [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
+- [resources.py:127-303](file://app/resources.py#L127-L303)
 
 ## Conclusion
 The VK integration leverages a clean factory pattern with centralized state dispenser sharing, deterministic handler ordering, payload-driven navigation, and comprehensive RAG integration with centralized service management to deliver a sophisticated, extensible bot. The system now includes significant user experience improvements through intelligent timeout handling for RAG responses, automatic question context prepending, enhanced fire workflow with entity-based resignation flow, document template attachment capabilities, and updated legal entity definitions with new company names.
 
-**Updated** The system now features enhanced error handling consistency with new require_entity decorators and @catch_entity_error decorators, providing improved reliability and user experience across all HR-related handlers. The new error handling patterns replace the previous get_entity_or_error pattern with more consistent and maintainable approaches. The system now includes 27 total handlers across all VK integration modules, providing comprehensive HR coverage with enhanced user experience.
+**Updated** The system now features enhanced domain services with async Qdrant client integration and improved resource management, providing better performance, reliability, and scalability for RAG operations. The new async patterns eliminate sync client overhead and enable fully asynchronous operations throughout the system. The enhanced error handling consistency with new require_entity decorators and @catch_entity_error decorators provides improved reliability and user experience across all HR-related handlers.
 
 The new `query_rag_with_wait()` function provides intelligent timeout detection that automatically sends "please wait" notifications when RAG responses take longer than 3 seconds, while the `send_rag_answer()` helper function standardizes RAG response handling across all handlers by automatically setting typing indicators, querying RAG with timeout handling, prepending question context, truncating responses to VK limits, and adding appropriate navigation keyboards.
 
 The enhanced fire handler with entity-based resignation flow represents a significant advancement in HR workflow automation, providing company-specific templates and seamless document delivery. The document attachment system ensures accurate, company-specific HR documentation while maintaining backward compatibility with RAG-based fallback responses.
+
+The new async Qdrant client integration eliminates sync client overhead and enables fully asynchronous operations throughout the RAG pipeline, while the comprehensive resource management system provides proper initialization and cleanup with graceful degradation. The hybrid search capabilities support both dense and sparse embedding retrieval for enhanced document search performance.
 
 The new enhanced error handling system provides consistent patterns across all handlers using require_entity functions and @catch_entity_error decorators, with EntityNotFoundError class providing clear error semantics for entity validation failures. The system maintains backward compatibility with the vacation handler's use of get_entity_or_error pattern while adopting the new patterns in fire and hire handlers.
 
@@ -1332,8 +1536,9 @@ Steps to add a new section:
 - Register the new labeler in the factory's loader list and ensure it precedes fallback
 - Update handler count expectations in tests
 - **New** Implement proper error handling using require_entity and @catch_entity_error patterns
+- **New** Ensure async resource initialization order if using Qdrant or other async resources
 
-**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `app.integrations.vk.handlers` and using the provided utility functions for consistent error handling and resource management. Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. For multi-step workflows with template attachment, consider implementing document attachment system integration using the provided helper functions. Implement proper error handling using require_entity and @catch_entity_error patterns for consistent error handling across all handlers.
+**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `app.integrations.vk.handlers` and using the provided utility functions for consistent error handling and resource management. Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. For multi-step workflows with template attachment, consider implementing document attachment system integration using the provided helper functions. Implement proper error handling using require_entity and @catch_entity_error patterns for consistent error handling across all handlers. Ensure proper async resource initialization order if using Qdrant or other async resources.
 
 References:
 - Payload constants: [keyboards.py:13-24](file://app/integrations/vk/keyboards.py#L13-L24)
@@ -1343,8 +1548,7 @@ References:
 - Keyboard service row: [keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
 - Enhanced fire handler integration: [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
 - Document attachment system: [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
-- **New** Timeout handling: [handlers/__init__.py:46-86](file://app/integrations/vk/handlers/__init__.py#L46-L86)
-- **New** State management patterns: [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
+- **New** Async Qdrant client integration: [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
 - **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
 - **New** Fire handler with decorators: [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
 - **New** Hire handler with decorators: [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
@@ -1353,13 +1557,14 @@ References:
 **Section sources**
 - [keyboards.py:13-50](file://app/integrations/vk/keyboards.py#L13-L50)
 - [bot.py:31-41](file://app/integrations/vk/bot.py#L31-L41)
-- [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
+- [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L29)
 - [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
 - [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
 - [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
 - [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
 - [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
 - [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
+- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
 
 ### Integrating with VK Webhook System
 Guidance:
@@ -1371,6 +1576,7 @@ Guidance:
 - Maintain the centralized QA service initialization patterns for consistent access across all handlers
 - Ensure state dispenser is properly shared between bot and handlers in webhook mode
 - **New** Implement consistent error handling patterns using require_entity and @catch_entity_error decorators in webhook mode
+- **New** Ensure async resource initialization order for Qdrant clients and embeddings in webhook mode
 
 References:
 - Bot initialization and token forwarding: [bot.py:45-58](file://app/integrations/vk/bot.py#L45-L58), [test_bot_factory.py:75-81](file://tests/test_bot_factory.py#L75-L81)
@@ -1378,12 +1584,14 @@ References:
 - Centralized state dispenser sharing: [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
 - Centralized QA service initialization: [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
 - **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
+- **New** Async resource management: [resources.py:127-303](file://app/resources.py#L127-L303)
 
 **Section sources**
 - [bot.py:45-58](file://app/integrations/vk/bot.py#L45-L58)
 - [test_bot_factory.py:75-81](file://tests/test_bot_factory.py#L75-L81)
 - [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
 - [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
+- [resources.py:127-303](file://app/resources.py#L127-L303)
 
 ### Best Practices for VK Bot Development
 - Keep handler order explicit and documented
@@ -1412,6 +1620,10 @@ References:
 - **New** Use require_entity functions and @catch_entity_error decorators for consistent error handling across all handlers
 - **New** Implement EntityNotFoundError class for clear error semantics in entity validation failures
 - **New** Maintain backward compatibility with existing handlers while adopting new error handling patterns
+- **New** Ensure proper async resource initialization order for Qdrant clients and embeddings
+- **New** Implement graceful degradation for async resource failures
+- **New** Use hybrid search capabilities for enhanced document retrieval performance
+- **New** Configure retrieval_mode appropriately for dense or hybrid search requirements
 
 ### Centralized State and Service Integration Patterns
 - Initialize state dispenser during bot creation and register with centralized utilities for immediate state management capabilities
@@ -1428,7 +1640,7 @@ References:
 - Monitor service health and implement graceful degradation strategies through centralized access layer
 - Ensure centralized state dispenser is initialized before handler registration to prevent runtime errors
 - Ensure centralized QA service is initialized before handler registration to prevent runtime errors
-- **New** Use `query_rag_with_wait()` for any handler that processes user questions to provide intelligent timeout handling
+- **New** Use intelligent timeout handling for any handler that processes user questions to provide better user experience
 - **New** Always use `send_rag_answer()` instead of direct QA service calls to ensure consistent user experience and question context preservation
 - **New** Leverage the centralized utilities module for consistent error handling and resource management patterns across all handlers
 - **New** Implement state management patterns for multi-step workflows using the centralized BuiltinStateDispenser
@@ -1440,6 +1652,10 @@ References:
 - **New** Use require_entity functions and @catch_entity_error decorators for consistent error handling across all handlers
 - **New** Implement EntityNotFoundError class for clear error semantics in entity validation failures
 - **New** Maintain backward compatibility with existing handlers while adopting new error handling patterns
+- **New** Ensure proper async resource initialization order for Qdrant clients and embeddings
+- **New** Implement graceful degradation for async resource failures
+- **New** Use hybrid search capabilities for enhanced document retrieval performance
+- **New** Configure retrieval_mode appropriately for dense or hybrid search requirements
 
 **Section sources**
 - [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
@@ -1456,3 +1672,7 @@ References:
 - [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
 - [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
 - [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
+- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
+- [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
+- [resources.py:127-303](file://app/resources.py#L127-L303)
+- [config.py:59-62](file://app/config.py#L59-L62)

@@ -10,10 +10,13 @@
 - [document_service.py](file://app/domain/document_service.py)
 - [document_repo.py](file://app/storage/document_repo.py)
 - [indexer.py](file://app/rag/indexer.py)
+- [parser.py](file://app/rag/parser.py)
 - [chain.py](file://app/rag/chain.py)
+- [retriever.py](file://app/rag/retriever.py)
 - [bot.py](file://app/integrations/vk/bot.py)
 - [handlers/__init__.py](file://app/integrations/vk/handlers/__init__.py)
 - [admin_server.py](file://scripts/admin_server.py)
+- [ingest.py](file://scripts/ingest.py)
 - [docker-compose.yml](file://docker-compose.yml)
 - [pyproject.toml](file://pyproject.toml)
 - [base.html](file://templates/base.html)
@@ -25,10 +28,10 @@
 ## Update Summary
 **Changes Made**
 - Updated Resource Lifecycle Management section to reflect streamlined FastAPI application initialization
-- Removed references to the complex AppState dataclass and replaced with direct state assignment
-- Updated lifespan manager documentation to reflect new build_resources() factory usage
-- Enhanced dependency injection system documentation to reflect direct app.state storage
-- Updated troubleshooting guide to address new resource management patterns
+- Enhanced ingestion pipeline documentation to cover improved async Qdrant client interfaces
+- Added comprehensive coverage of enhanced ingestion capabilities including hybrid search support
+- Updated dependency injection system documentation to reflect direct app.state storage
+- Enhanced troubleshooting guide to address new resource management patterns and ingestion improvements
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -38,20 +41,21 @@
 5. [Static File Serving Infrastructure](#static-file-serving-infrastructure)
 6. [Configuration Management](#configuration-management)
 7. [Resource Lifecycle Management](#resource-lifecycle-management)
-8. [API Integration](#api-integration)
-9. [Dependency Injection System](#dependency-injection-system)
-10. [Domain Service Layer](#domain-service-layer)
-11. [Storage Layer](#storage-layer)
-12. [RAG Pipeline Components](#rag-pipeline-components)
-13. [Development Server Setup](#development-server-setup)
-14. [Production Deployment](#production-deployment)
-15. [Troubleshooting Guide](#troubleshooting-guide)
+8. [Enhanced Ingestion Pipeline](#enhanced-ingestion-pipeline)
+9. [API Integration](#api-integration)
+10. [Dependency Injection System](#dependency-injection-system)
+11. [Domain Service Layer](#domain-service-layer)
+12. [Storage Layer](#storage-layer)
+13. [RAG Pipeline Components](#rag-pipeline-components)
+14. [Development Server Setup](#development-server-setup)
+15. [Production Deployment](#production-deployment)
+16. [Troubleshooting Guide](#troubleshooting-guide)
 
 ## Introduction
 
 The Cafetera HR Bot is a comprehensive RAG (Retrieval-Augmented Generation) application designed to manage HR-related documents and provide intelligent Q&A capabilities through VKontakte integration. This document focuses specifically on the main application entry point and its surrounding infrastructure, explaining how the FastAPI application is initialized, configured, and integrated with various services.
 
-The application serves as both a document management system for HR policies and procedures, and an AI-powered assistant that can answer employee questions about company policies using a Retrieval-Augmented Generation pipeline.
+The application serves as both a document management system for HR policies and procedures, and an AI-powered assistant that can answer employee questions about company policies using a Retrieval-Augmented Generation pipeline with enhanced ingestion capabilities and improved async Qdrant client interfaces.
 
 ## Application Architecture Overview
 
@@ -81,6 +85,9 @@ end
 subgraph "External Services"
 LLM[LLM Provider]
 Embeddings[Embedding Model]
+Parser[Document Parser]
+Indexer[Chunk Indexer]
+Ingestion[Batch Ingestion Script]
 end
 API --> DocService
 API --> Static
@@ -90,7 +97,14 @@ DocService --> SQLite
 DocService --> S3
 DocService --> Qdrant
 DocService --> Embeddings
+DocService --> Parser
+DocService --> Indexer
 Embeddings --> LLM
+Parser --> Indexer
+Indexer --> Qdrant
+Ingestion --> Parser
+Ingestion --> Indexer
+Ingestion --> Qdrant
 VKBot --> Handlers
 Handlers --> DocService
 ```
@@ -98,6 +112,7 @@ Handlers --> DocService
 **Diagram sources**
 - [main.py:98-119](file://app/main.py#L98-L119)
 - [document_service.py:35-53](file://app/domain/document_service.py#L35-L53)
+- [ingest.py:1-210](file://scripts/ingest.py#L1-L210)
 
 ## Entry Point Analysis
 
@@ -354,11 +369,12 @@ The `Settings` class defines all configurable parameters organized into logical 
 | Category | Parameters | Purpose |
 |----------|------------|---------|
 | **VK Integration** | `vk_access_token`, `vk_group_id` | VKontakte bot authentication |
-| **RAG/Qdrant** | `qdrant_url`, `qdrant_api_key`, `qdrant_collection` | Vector database configuration |
+| **RAG/Qdrant** | `qdrant_url`, `qdrant_api_key`, `qdrant_collection`, `retrieval_mode` | Vector database configuration |
 | **LLM** | `llm_provider`, `llm_model`, `llm_base_url`, `llm_api_key` | Language model settings |
-| **Embeddings** | `embedding_model` | Text embedding configuration |
+| **Embeddings** | `embedding_provider`, `embedding_model`, `embedding_base_url`, `embedding_api_key` | Text embedding configuration |
 | **Storage** | `db_path`, `s3_endpoint_url`, `s3_access_key`, `s3_secret_key`, `s3_bucket` | Storage backend configuration |
 | **Admin** | `admin_api_key` | Administrative access control |
+| **Ingestion** | `chunk_size`, `chunk_overlap`, `chunk_strategy`, `semantic_breakpoint_threshold_type`, `semantic_breakpoint_threshold_amount` | Document parsing configuration |
 
 ### Environment Variable Loading
 
@@ -427,6 +443,117 @@ Each resource initialization includes comprehensive error handling:
 **Section sources**
 - [main.py:22-46](file://app/main.py#L22-L46)
 - [resources.py:51-165](file://app/resources.py#L51-L165)
+
+## Enhanced Ingestion Pipeline
+
+**Updated** The application now features an enhanced ingestion pipeline with improved async Qdrant client interfaces and comprehensive document processing capabilities.
+
+### Batch Ingestion Architecture
+
+The ingestion system provides a complete solution for bulk document processing:
+
+```mermaid
+flowchart LR
+subgraph "Ingestion Pipeline"
+CLI[Command Line Interface]
+Parser[Document Parser]
+Chunker[Chunk Generator]
+Embedder[Embedding Engine]
+Indexer[Qdrant Indexer]
+Updater[Metadata Updater]
+end
+subgraph "Qdrant Operations"
+Collection[Collection Management]
+Upsert[Upsert Points]
+Filter[Metadata Filters]
+end
+CLI --> Parser
+Parser --> Chunker
+Chunker --> Embedder
+Embedder --> Indexer
+Indexer --> Collection
+Indexer --> Upsert
+Indexer --> Filter
+Indexer --> Updater
+```
+
+**Diagram sources**
+- [ingest.py:45-184](file://scripts/ingest.py#L45-L184)
+- [parser.py:585-649](file://app/rag/parser.py#L585-L649)
+- [indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
+
+### Document Parsing Capabilities
+
+The enhanced parser supports multiple document formats with advanced chunking strategies:
+
+| Format | Supported | Chunking Strategies | Special Features |
+|--------|-----------|-------------------|------------------|
+| **DOCX** | ✅ | Recursive, Semantic | Table extraction, section hierarchy |
+| **DOC** | ✅ | Recursive, Semantic | Legacy format support |
+| **XLSX** | ✅ | Recursive, Semantic | Spreadsheet parsing, header preservation |
+
+### Advanced Chunking Strategies
+
+**Enhanced** The ingestion pipeline now supports sophisticated chunking approaches:
+
+#### Recursive Character Splitting
+- Configurable chunk size and overlap
+- Intelligent paragraph and sentence boundary detection
+- Optimized for readability and context preservation
+
+#### Semantic Chunking
+- Embedding-based segmentation
+- Context-aware chunk boundaries
+- Dynamic threshold adjustment based on content complexity
+
+### Hybrid Search Support
+
+**New** The ingestion system now supports hybrid search capabilities:
+
+```mermaid
+graph TB
+subgraph "Hybrid Search Pipeline"
+Dense[dense vectors]
+Sparse[sparse vectors]
+Weighting[weighting scheme]
+Ranking[reranking]
+end
+Dense --> Weighting
+Sparse --> Weighting
+Weighting --> Ranking
+Ranking --> Results[enriched results]
+```
+
+**Diagram sources**
+- [retriever.py:135-150](file://app/rag/retriever.py#L135-L150)
+- [ingest.py:136-147](file://scripts/ingest.py#L136-L147)
+
+### Async Qdrant Client Integration
+
+**Improved** The ingestion pipeline utilizes enhanced async Qdrant client interfaces:
+
+- **Batch Upsert Operations**: Efficient bulk indexing of document chunks
+- **Metadata Enrichment**: Comprehensive chunk metadata including document IDs and search flags
+- **Collection Management**: Automated collection creation with proper vector configurations
+- **Error Handling**: Robust error recovery and transaction rollback capabilities
+
+### Ingestion Workflow
+
+The enhanced ingestion process follows a comprehensive workflow:
+
+1. **File Discovery**: Scans directory for supported document formats
+2. **Document Parsing**: Extracts text content with structural awareness
+3. **Chunk Generation**: Creates optimized text chunks with metadata
+4. **Vector Embedding**: Generates dense and sparse embeddings
+5. **Qdrant Indexing**: Bulk inserts chunks with proper metadata
+6. **Database Updates**: Records completion status and statistics
+7. **Cleanup**: Proper resource disposal and connection management
+
+**Section sources**
+- [ingest.py:1-210](file://scripts/ingest.py#L1-L210)
+- [parser.py:1-649](file://app/rag/parser.py#L1-L649)
+- [indexer.py:1-186](file://app/rag/indexer.py#L1-L186)
+- [retriever.py:135-150](file://app/rag/retriever.py#L135-L150)
 
 ## API Integration
 
@@ -630,8 +757,18 @@ The system supports multiple LLM providers through a unified interface:
 - **OpenAI**: Cloud-based API
 - **Llama.cpp**: Alternative local inference
 
+### Enhanced Async Qdrant Interfaces
+
+**Improved** The RAG pipeline now utilizes enhanced async Qdrant client interfaces:
+
+- **AsyncQdrantRetriever**: Fully asynchronous retrieval without sync client overhead
+- **Collection Management**: Automated collection existence checking and creation
+- **Metadata Filtering**: Sophisticated filtering based on document metadata
+- **Hybrid Search**: Seamless integration of dense and sparse vector retrieval
+
 **Section sources**
 - [chain.py:30-95](file://app/rag/chain.py#L30-L95)
+- [retriever.py:20-269](file://app/rag/retriever.py#L20-L269)
 
 ## Development Server Setup
 
@@ -765,6 +902,12 @@ In production deployments, static files are served efficiently through:
 - **Missing Dependencies**: Check that `build_resources()` completes successfully
 - **State Attribute Errors**: Ensure resources are properly assigned to `app.state`
 
+**Enhanced Ingestion Pipeline Issues**
+- **Collection Creation Failures**: Verify embedding dimensions and vector configurations
+- **Chunk Indexing Errors**: Check document parsing and embedding generation
+- **Batch Processing Failures**: Monitor ingestion script error handling and recovery
+- **Hybrid Search Configuration**: Verify sparse embedding setup for hybrid mode
+
 **Streamlined Resource Patterns**
 - **Direct State Access**: All dependencies now access resources via `request.app.state.attribute_name`
 - **Graceful Degradation**: Failed resource initialization logs warnings but doesn't crash the app
@@ -803,9 +946,12 @@ The application provides comprehensive logging at multiple levels:
 - **Static File Access**: Asset loading and serving statistics
 - **Theme System**: CSS loading and theme application status
 - **Resource Management**: Direct state assignment and cleanup verification
+- **Ingestion Pipeline**: Document parsing, chunking, and indexing operations
+- **Qdrant Operations**: Vector database interactions and collection management
 
 **Section sources**
 - [main.py:22-46](file://app/main.py#L22-L46)
 - [admin_server.py:31-36](file://scripts/admin_server.py#L31-L36)
 - [base.html:26-80](file://templates/base.html#L26-L80)
 - [resources.py:168-202](file://app/resources.py#L168-L202)
+- [ingest.py:1-210](file://scripts/ingest.py#L1-L210)

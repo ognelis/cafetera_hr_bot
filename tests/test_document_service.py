@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from databases import Database
 from langchain_core.documents import Document as LCDocument
 
 from app.domain.document_service import DocumentService
@@ -50,10 +51,22 @@ def _make_chunks(n: int = 3) -> list[LCDocument]:
 
 
 @pytest.fixture()
-async def repo(tmp_path):
-    db_path = str(tmp_path / "test.db")
-    await init_db(db_path)
-    return DocumentRepository(db_path)
+async def repo():
+    """Create a fresh PostgreSQL DB and return a DocumentRepository."""
+    import os
+
+    url = os.environ.get(
+        "TEST_DATABASE_URL",
+        "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
+    )
+    db = Database(url)
+    await db.connect()
+    # Clean tables before each test for isolation
+    await db.execute(query="DROP TABLE IF EXISTS category_files CASCADE")
+    await db.execute(query="DROP TABLE IF EXISTS documents CASCADE")
+    await init_db(db)
+    yield DocumentRepository(db)
+    await db.disconnect()
 
 
 @pytest.fixture()
@@ -138,7 +151,11 @@ class TestIndexDocument:
         assert result.error is None
         mock_index.assert_called_once()
 
-    @patch("app.domain.document_service.index_chunks", new_callable=AsyncMock, side_effect=RuntimeError("Qdrant down"))
+    @patch(
+        "app.domain.document_service.index_chunks",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("Qdrant down"),
+    )
     async def test_marks_failed_on_error(self, mock_index, service, repo):
         rec = _make_record()
         await repo.create(rec)
@@ -263,7 +280,11 @@ class TestReindexDocument:
         mock_delete.assert_called_once()
         mock_index.assert_called_once()
 
-    @patch("app.domain.document_service.index_chunks", new_callable=AsyncMock, side_effect=RuntimeError("fail"))
+    @patch(
+        "app.domain.document_service.index_chunks",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("fail"),
+    )
     @patch("app.domain.document_service.delete_document_chunks", new_callable=AsyncMock)
     async def test_marks_failed_on_error(
         self, mock_delete, mock_index, service, repo

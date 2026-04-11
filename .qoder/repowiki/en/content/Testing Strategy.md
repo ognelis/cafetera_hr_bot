@@ -24,6 +24,7 @@
 - [tests/test_document_service.py](file://tests/test_document_service.py)
 - [tests/test_indexer.py](file://tests/test_indexer.py)
 - [tests/conftest.py](file://tests/conftest.py)
+- [tests/test_rag_block6.py](file://tests/test_rag_block6.py)
 - [app/api/documents.py](file://app/api/documents.py)
 - [app/api/deps.py](file://app/api/deps.py)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
@@ -60,15 +61,11 @@
 
 ## Update Summary
 **Changes Made**
-- **Significant Restructuring**: Admin document API testing infrastructure has been split into focused modules (test_api_documents_auth.py, test_api_documents_upload.py, test_api_documents_bulk.py) for better organization and maintainability
-- **Enhanced Conftest**: Comprehensive test fixtures added for shared testing infrastructure including database initialization, mock services, and authenticated client creation
-- **Specialized Test Coverage**: Each module now focuses on specific aspects of the admin document API with dedicated test classes and fixtures
-- **Improved Test Organization**: Streamlined testing approach with better separation of concerns across authentication, upload, bulk operations, and remaining functionality
-- **Expanded Mock Infrastructure**: Enhanced mocking capabilities for Qdrant, S3, embeddings, and QA service components
-- **Comprehensive Authentication Testing**: Dedicated authentication and authorization testing with Russian localization validation
-- **File Upload and Processing Testing**: Specialized testing for document upload, validation, and indexing operations
-- **Bulk Operations Testing**: Comprehensive testing for reindex and bulk delete operations with error handling scenarios
-- **Enhanced Shared Fixtures**: Improved test isolation and reusability through comprehensive conftest.py fixtures
+- **Enhanced AsyncMock Usage**: Comprehensive adoption of AsyncMock for Qdrant client mocking across test infrastructure, enabling proper async method validation
+- **Async Function Validation**: Updated test patterns to validate async operations with proper await semantics and async fixtures
+- **Enhanced Test Coverage**: Expanded test coverage for new async operations and combined vector embedding approach in hybrid search functionality
+- **Improved Mock Infrastructure**: Enhanced mocking capabilities with AsyncMock for Qdrant client lifecycle management and async method stubbing
+- **Updated Testing Patterns**: Modernized test infrastructure to handle async operations seamlessly while maintaining backward compatibility
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -83,14 +80,14 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly enhanced with a new modular approach to admin document API testing, featuring specialized test modules for authentication, upload, and bulk operations, along with comprehensive shared fixtures for improved test organization and maintainability.
+This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly enhanced with modern async testing patterns, comprehensive AsyncMock usage for Qdrant client mocking, and expanded test coverage for the new async operations and combined vector embedding approach in hybrid search functionality.
 
-**Updated** Enhanced with comprehensive test coverage for semantic chunking functionality and hybrid search capabilities, including tests for sparse embedding creation, vector store construction with sparse embeddings, index chunking functionality, and settings configuration defaults. The testing infrastructure now features a modular approach with specialized test modules for different aspects of the admin document API.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics and comprehensive mocking capabilities.
 
 ## Project Structure
-The testing effort is organized under the tests/ directory with a new modular approach for admin document API testing:
-- **Configuration loading and defaults** with explicit environment file control
-- **Bot factory and handler registration** with simplified handler counting
+The testing effort is organized under the tests/ directory with a modernized approach featuring comprehensive AsyncMock usage and async function validation:
+- **Configuration loading and defaults** with explicit environment file control and async fixtures
+- **Bot factory and handler registration** with simplified handler counting and async validation
 - **Keyboard builders and payload constants** (focusing on core handler functionality)
 - **Domain content validation** (static content and formatters)
 - **Entity definitions and legal entity management**
@@ -101,17 +98,18 @@ The testing effort is organized under the tests/ directory with a new modular ap
 - **Handler modules** (start, ask, sections, fallback, fire, vacation, pay) with updated architectural patterns
 - **Topic hints detection** for scenario linking and disclaimer handling
 - **Enhanced admin document API testing** with modular approach covering authentication, upload, bulk operations, and remaining functionality
-- **Comprehensive test fixtures** in conftest.py for shared testing infrastructure
+- **Comprehensive test fixtures** in conftest.py for shared testing infrastructure with AsyncMock support
 - **Document storage system testing** with comprehensive database initialization, CRUD operations, status transitions, search enablement functionality, and filtering/sorting capabilities
 - **Enhanced RAG infrastructure testing** with llama.cpp provider dispatch logic, configuration parameter validation, and integration with existing RAG components
 - **Comprehensive parser testing** for document ingestion, section extraction, chunking, and dispatcher functionality
 - **Expanded RAG pipeline testing** with indexer validation and document service lifecycle management
 - **Comprehensive filtering and sorting API endpoint testing** with status, source type, and sort field validation
 - **Updated architectural testing patterns** validating the new query_rag_with_wait and send_rag_answer approach across all handlers
-- **Updated QAService resource management testing**
+- **Updated QAService resource management testing** with AsyncMock for Qdrant client lifecycle validation
 - **Enhanced semantic chunking testing** with FakeEmbeddings mock and comprehensive threshold validation
-- **Comprehensive hybrid search testing** with sparse embeddings and vector store integration
+- **Comprehensive hybrid search testing** with AsyncMock for sparse embeddings and vector store integration
 - **Extended configuration testing** for semantic chunking and hybrid search settings
+- **AsyncMock-based test infrastructure** for comprehensive async operation validation
 
 ```mermaid
 graph TB
@@ -226,8 +224,8 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_keyboards_block2.py:1-178](file://tests/test_keyboards_block2.py#L1-L178)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
-- [tests/test_semantic_chunker.py:1-237](file://tests/test_semantic_chunker.py#L1-L237)
-- [tests/test_hybrid_search.py:1-169](file://tests/test_hybrid_search.py#L1-L169)
+- [tests/test_semantic_chunker.py:1-246](file://tests/test_semantic_chunker.py#L1-L246)
+- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
 - [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
 - [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
@@ -240,38 +238,7 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
 - [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
-- [tests/conftest.py:1-151](file://tests/conftest.py#L1-L151)
-- [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [app/integrations/vk/keyboards.py:1-322](file://app/integrations/vk/keyboards.py#L1-L322)
-- [app/integrations/vk/rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
-- [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
-- [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
-- [app/integrations/vk/handlers/sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
-- [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [app/integrations/vk/handlers/fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
-- [app/integrations/vk/handlers/vacation.py:1-80](file://app/integrations/vk/handlers/vacation.py#L1-L80)
-- [app/integrations/vk/handlers/ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
-- [app/integrations/vk/handlers/__init__.py:1-91](file://app/integrations/vk/handlers/__init__.py#L1-L91)
-- [app/domain/content.py:1-177](file://app/domain/content.py#L1-L177)
-- [app/domain/entities.py:1-24](file://app/domain/entities.py#L1-L24)
-- [app/domain/qa_service.py:1-279](file://app/domain/qa_service.py#L1-L279)
-- [app/domain/topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
-- [app/domain/document_service.py:1-279](file://app/domain/document_service.py#L1-L279)
-- [app/storage/models.py:1-36](file://app/storage/models.py#L1-L36)
-- [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
-- [app/storage/document_repo.py:1-288](file://app/storage/document_repo.py#L1-L288)
-- [app/rag/parser.py:1-323](file://app/rag/parser.py#L1-L323)
-- [app/rag/indexer.py:1-100](file://app/rag/indexer.py#L1-L100)
-- [app/config.py:1-62](file://app/config.py#L1-L62)
-- [app/rag/chain.py:1-95](file://app/rag/chain.py#L1-L95)
-- [app/rag/retriever.py:1-204](file://app/rag/retriever.py#L1-L204)
-- [app/resources.py:1-243](file://app/resources.py#L1-L243)
-- [app/api/documents.py:1-951](file://app/api/documents.py#L1-L951)
-- [app/api/deps.py:1-51](file://app/api/deps.py#L1-L51)
-- [templates/login.html:1-56](file://templates/login.html#L1-L56)
-- [templates/documents.html:1-553](file://templates/documents.html#L1-L553)
-- [templates/partials/pagination.html:1-65](file://templates/partials/pagination.html#L1-L65)
-- [scripts/run_llama_qwen.sh:1-60](file://scripts/run_llama_qwen.sh#L1-L60)
+- [tests/conftest.py:1-154](file://tests/conftest.py#L1-L154)
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -281,8 +248,8 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_keyboards_block2.py:1-178](file://tests/test_keyboards_block2.py#L1-L178)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
-- [tests/test_semantic_chunker.py:1-237](file://tests/test_semantic_chunker.py#L1-L237)
-- [tests/test_hybrid_search.py:1-169](file://tests/test_hybrid_search.py#L1-L169)
+- [tests/test_semantic_chunker.py:1-246](file://tests/test_semantic_chunker.py#L1-L246)
+- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
 - [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
 - [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
@@ -295,7 +262,7 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
 - [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
-- [tests/conftest.py:1-151](file://tests/conftest.py#L1-L151)
+- [tests/conftest.py:1-154](file://tests/conftest.py#L1-L154)
 
 ## Core Components
 - **Configuration tests** validate default values and environment overrides with explicit environment file control.
@@ -303,7 +270,7 @@ SCRIPTS --> RUN_LLAMA
 - **Keyboard tests** validate structure, payloads, and service-row behavior (focusing on core handler functionality).
 - **Domain content tests** validate static content, formatters, and RAG stub functionality.
 - **Entity tests** validate legal entity definitions and management.
-- **QA service tests** validate RAG chain wrapper functionality with truncation, error handling, and resource management, **including updated testing for Qdrant client lifecycle ownership**, including the new query_rag_with_wait approach.
+- **QA service tests** validate RAG chain wrapper functionality with truncation, error handling, and resource management, **including updated testing for Qdrant client lifecycle ownership with AsyncMock validation**, including the new query_rag_with_wait approach.
 - **Custom rule tests** validate payload matching and routing logic.
 - **State machine tests** validate the state machine definition and uniqueness.
 - **Handler modules** are tested indirectly via bot wiring and keyboard payloads, with updated architectural patterns.
@@ -311,20 +278,21 @@ SCRIPTS --> RUN_LLAMA
 - **Topic hints tests** validate scenario detection and background-topic disclaimer handling.
 - **Ask handler tests** validate state management, QA service integration, and scenario navigation using the new query_rag_with_wait approach.
 - **Enhanced admin document API testing** validates authentication, authorization, Russian localization validation, and comprehensive filtering/sorting functionality across multiple specialized test modules.
-- **Comprehensive test fixtures** in conftest.py provide shared testing infrastructure including database initialization, mock services, and authenticated client creation.
+- **Comprehensive test fixtures** in conftest.py provide shared testing infrastructure including database initialization, mock services, and authenticated client creation with AsyncMock support.
 - **Document storage system tests** validate database initialization, CRUD operations, status transitions, search enablement functionality, and comprehensive filtering/sorting capabilities with 278 lines of new test coverage.
 - **Enhanced RAG infrastructure testing** validates llama.cpp provider functionality, configuration parameter validation, and error handling scenarios.
 - **Comprehensive parser testing** validates document ingestion, section extraction, chunking, and dispatcher functionality for .docx and .doc file processing, including semantic chunking with embeddings validation.
 - **Expanded RAG pipeline testing** validates indexer chunk preparation, document service lifecycle management, and comprehensive RAG functionality.
 - **Comprehensive filtering and sorting API endpoint testing** validates status filtering, source type filtering, sort field validation, and pagination functionality.
 - **Updated architectural testing patterns** validate the new query_rag_with_wait and send_rag_answer approach across all handlers.
-- **Updated QAService testing** validates resource management with Qdrant client lifecycle ownership.
+- **Updated QAService testing** validates resource management with Qdrant client lifecycle ownership using AsyncMock.
 - **Enhanced semantic chunking testing** validates FakeEmbeddings mock usage, comprehensive threshold validation, and file format-specific behavior for both .docx and .doc files.
-- **Comprehensive hybrid search testing** validates sparse embedding creation, vector store construction with sparse embeddings, index chunking functionality, and settings configuration defaults.
+- **Comprehensive hybrid search testing** validates sparse embedding creation, vector store construction with sparse embeddings, index chunking functionality, and settings configuration defaults using AsyncMock.
 - **Extended configuration testing** validates new semantic chunking and hybrid search settings including chunk_strategy, semantic_breakpoint_threshold_type, semantic_breakpoint_threshold_amount, retrieval_mode, and sparse_embedding_model.
 - **Resource management testing** validates sparse embeddings initialization and cleanup in AppResources with graceful degradation for hybrid search mode.
+- **AsyncMock-based test infrastructure** provides comprehensive async operation validation with proper await semantics and async fixtures.
 
-**Updated** Enhanced with comprehensive test coverage for semantic chunking functionality and hybrid search capabilities, including 237 lines of new semantic chunker tests and 168 lines of new hybrid search tests, validating FakeEmbeddings mock usage, sparse embedding creation, vector store construction, and comprehensive configuration defaults. The testing infrastructure now features a modular approach with specialized test modules for authentication, upload, and bulk operations, along with comprehensive shared fixtures for improved test organization and maintainability.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, and enhanced test coverage for hybrid search functionality.
 
 Key testing characteristics:
 - Uses pytest with asyncio_mode set to auto for async-friendly tests.
@@ -334,14 +302,14 @@ Key testing characteristics:
 - Configuration tests explicitly control environment file loading with `_env_file=None`.
 - Comprehensive domain content validation ensures content integrity and formatting.
 - Entity validation ensures legal entity consistency across the application.
-- QA service testing validates RAG chain integration with proper error handling and resource cleanup, **including updated testing for Qdrant client lifecycle management**, including the new query_rag_with_wait functionality.
+- QA service testing validates RAG chain integration with proper error handling and resource cleanup, **including updated testing for Qdrant client lifecycle management with AsyncMock validation**, including the new query_rag_with_wait functionality.
 - RAG stub testing validates knowledge base integration placeholders with specialized test classes.
 - Custom rule testing validates advanced payload matching functionality.
 - Handler registration testing provides simplified breakdown of 25 total handlers across core functional areas.
 - Topic hints testing validates keyword-based scenario detection with background-topic priority.
 - Ask handler testing validates state management and integration with QA service and topic hints using the new query_rag_with_wait approach.
 - **Enhanced admin document API testing** validates authentication cookie handling, authorization enforcement, Russian UI localization, and filtering/sorting functionality across multiple specialized test modules.
-- **Comprehensive test fixtures** in conftest.py provide shared testing infrastructure including database initialization, mock services, authenticated client creation, and comprehensive mocking capabilities.
+- **Comprehensive test fixtures** in conftest.py provide shared testing infrastructure including database initialization, mock services, authenticated client creation, and comprehensive AsyncMock support for Qdrant client mocking.
 - **Document storage system testing** validates comprehensive database operations including timestamp management, status transitions, search enablement toggling, and filtering/sorting capabilities.
 - **Llama.cpp provider testing** validates provider selection logic, configuration parameter handling, import error scenarios, and integration with existing RAG components.
 - **Parser testing** validates document ingestion pipeline with section extraction, chunking, and metadata handling, including semantic chunking validation with FakeEmbeddings mock.
@@ -353,13 +321,14 @@ Key testing characteristics:
 - **Updated architectural testing patterns** validate the new query_rag_with_wait function for asynchronous RAG querying with timeout handling.
 - **Handler imports testing** validates that P0+P1 handlers use send_rag_answer helper instead of direct QA service calls.
 - **Sections handler testing** validates the new send_rag_answer usage for RAG-powered handlers.
-- **Updated QAService testing** validates that Qdrant clients are not closed internally by QAService, with proper resource ownership management.
+- **Updated QAService testing** validates that Qdrant clients are not closed internally by QAService, with proper resource ownership management using AsyncMock.
 - **Semantic chunking testing** validates FakeEmbeddings mock usage for deterministic embeddings, comprehensive threshold validation, and file format-specific behavior.
-- **Hybrid search testing** validates sparse embedding creation with FastEmbedSparse, vector store construction with sparse embeddings, index chunking functionality, and settings configuration defaults.
+- **Hybrid search testing** validates sparse embedding creation with FastEmbedSparse, vector store construction with sparse embeddings, index chunking functionality, and settings configuration defaults using AsyncMock.
 - **Configuration testing** validates new semantic chunking settings including chunk_strategy, semantic_breakpoint_threshold_type, semantic_breakpoint_threshold_amount, and hybrid search settings retrieval_mode and sparse_embedding_model.
 - **Resource management testing** validates sparse embeddings initialization and cleanup in AppResources with graceful degradation for hybrid search mode.
+- **AsyncMock-based test infrastructure** provides comprehensive async operation validation with proper await semantics and async fixtures for Qdrant client lifecycle management.
 
-**Updated** Enhanced with comprehensive testing coverage for semantic chunking functionality and hybrid search capabilities, including 237 lines of new semantic chunker tests and 168 lines of new hybrid search tests, validating FakeEmbeddings mock usage, sparse embedding creation, vector store construction, and comprehensive configuration defaults. The testing infrastructure now features a modular approach with specialized test modules for authentication, upload, and bulk operations, along with comprehensive shared fixtures for improved test organization and maintainability.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, and enhanced test coverage for hybrid search functionality.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -369,8 +338,8 @@ Key testing characteristics:
 - [tests/test_keyboards_block2.py:1-178](file://tests/test_keyboards_block2.py#L1-L178)
 - [tests/test_content.py:1-93](file://tests/test_content.py#L1-L93)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
-- [tests/test_semantic_chunker.py:1-237](file://tests/test_semantic_chunker.py#L1-L237)
-- [tests/test_hybrid_search.py:1-169](file://tests/test_hybrid_search.py#L1-L169)
+- [tests/test_semantic_chunker.py:1-246](file://tests/test_semantic_chunker.py#L1-L246)
+- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
 - [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
 - [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
@@ -383,10 +352,10 @@ Key testing characteristics:
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
 - [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
-- [tests/conftest.py:1-151](file://tests/conftest.py#L1-L151)
+- [tests/conftest.py:1-154](file://tests/conftest.py#L1-L154)
 
 ## Architecture Overview
-The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with simplified breakdown by functional area. The streamlined testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing**, **enhanced semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, and **extended configuration testing for semantic chunking and hybrid search settings**.
+The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with simplified breakdown by functional area. The streamlined testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing with AsyncMock validation**, **enhanced semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings using AsyncMock**, and **extended configuration testing for semantic chunking and hybrid search settings**.
 
 ```mermaid
 sequenceDiagram
@@ -439,7 +408,7 @@ Best practices:
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
 - [app/config.py:4-9](file://app/config.py#L4-L9)
 - [tests/test_semantic_chunker.py:223-236](file://tests/test_semantic_chunker.py#L223-L236)
-- [tests/test_hybrid_search.py:164-169](file://tests/test_hybrid_search.py#L164-L169)
+- [tests/test_hybrid_search.py:164-173](file://tests/test_hybrid_search.py#L164-L173)
 
 ### Bot Factory and Handler Registration Testing
 Purpose:
@@ -562,7 +531,7 @@ Purpose:
 - Validate resource management and cleanup.
 - Test handler integration with QA service for Blocks 7-8 functionality.
 - Validate the new query_rag_with_wait approach for asynchronous RAG querying.
-- **Validate Qdrant client lifecycle management - QAService no longer closes Qdrant clients internally.**
+- **Validate Qdrant client lifecycle management - QAService no longer closes Qdrant clients internally using AsyncMock validation.**
 
 Methodology:
 - Test QA service initialization with proper error handling for unavailable services.
@@ -574,19 +543,19 @@ Methodology:
 - Validate handler imports and usage of qa_service across P0+P1 handlers.
 - Validate query_rag_with_wait function for timeout handling and asynchronous RAG querying.
 - Test send_rag_answer helper function for unified RAG answer delivery.
-- **Validate that QAService.close() does NOT close Qdrant clients internally.**
-- **Validate that Qdrant client lifecycle is managed externally by AppResources.close_resources().**
+- **Validate that QAService.close() does NOT close Qdrant clients internally using AsyncMock.**
+- **Validate that Qdrant client lifecycle is managed externally by AppResources.close_resources() using AsyncMock.**
 
 Testing patterns:
 - Module-level state reset using autouse fixtures for clean test environment.
-- Async mock usage for chain invocation testing.
+- Async mock usage for chain invocation testing with AsyncMock.
 - Error scenario testing with exception raising and fallback validation.
 - Resource management testing with proper cleanup verification.
 - Timeout handling testing for query_rag_with_wait function.
 - Unified RAG answer delivery testing for send_rag_answer helper.
-- **Resource ownership testing validating external Qdrant client lifecycle management.**
+- **Resource ownership testing validating external Qdrant client lifecycle management using AsyncMock.**
 
-**Updated** Enhanced with comprehensive QA service testing including RAG chain initialization, error handling, response truncation, resource management, handler integration validation for Blocks 7-8 functionality, **query_rag_with_wait approach validation for asynchronous RAG querying with timeout handling**, **send_rag_answer helper function testing for unified RAG answer delivery**, and **Qdrant client lifecycle management testing validating that QAService no longer owns Qdrant clients internally**.
+**Updated** Enhanced with comprehensive QA service testing including RAG chain initialization, error handling, response truncation, resource management, handler integration validation for Blocks 7-8 functionality, **query_rag_with_wait approach validation for asynchronous RAG querying with timeout handling**, **send_rag_answer helper function testing for unified RAG answer delivery**, and **Qdrant client lifecycle management testing validating that QAService no longer owns Qdrant clients internally using AsyncMock**.
 
 **Section sources**
 - [tests/test_qa_service.py:15-238](file://tests/test_qa_service.py#L15-L238)
@@ -683,6 +652,7 @@ Purpose:
 - **Validate comprehensive filtering and sorting functionality including status filtering, source type filtering, and sort field validation.**
 - **Test pagination with filtering and sorting parameters.**
 - **Validate modular test organization with specialized test modules for authentication, upload, and bulk operations.**
+- **Validate AsyncMock usage for Qdrant client mocking across admin API tests.**
 
 Methodology:
 - **Test authentication and authorization across multiple specialized modules:**
@@ -691,7 +661,7 @@ Methodology:
   - **Bulk operations testing validates reindex and bulk delete functionality with proper error handling.**
 - **Validate shared test fixtures from conftest.py:**
   - **Database initialization with temporary SQLite databases for test isolation.**
-  - **Mock services including Qdrant client, embeddings, S3 storage, and QA service.**
+  - **Mock services including Qdrant client with AsyncMock, embeddings, S3 storage, and QA service.**
   - **Authenticated client creation with pre-set admin_session cookies.**
 - **Test document listing, creation, update, deletion with authentication.**
 - **Test partial rendering (document-table, document-row) with authentication.**
@@ -702,6 +672,7 @@ Methodology:
 - **Test sort direction validation with 'asc' and 'desc' directions.**
 - **Test pagination with filtering and sorting parameters.**
 - **Validate filter metadata in API responses.**
+- **Validate AsyncMock usage for Qdrant client lifecycle management across admin API tests.**
 
 Testing patterns:
 - **Use auth_client fixture for authenticated requests across all modules.**
@@ -712,15 +683,16 @@ Testing patterns:
 - **Use parameterized tests for filtering and sorting scenarios across modules.**
 - **Validate URL parameter construction and HTMX integration.**
 - **Use comprehensive test fixtures from conftest.py for shared infrastructure.**
+- **Validate AsyncMock usage for Qdrant client mocking with proper await semantics.**
 
-**Updated** Added comprehensive enhanced admin document API testing infrastructure with modular approach covering authentication, upload, bulk operations, and remaining functionality. The testing infrastructure now features specialized test modules with comprehensive shared fixtures for improved organization and maintainability.
+**Updated** Added comprehensive enhanced admin document API testing infrastructure with modular approach covering authentication, upload, bulk operations, and remaining functionality. The testing infrastructure now features specialized test modules with comprehensive shared fixtures for improved organization and maintainability, including **AsyncMock usage for Qdrant client mocking across admin API tests**.
 
 **Section sources**
 - [tests/test_api_documents.py:1-479](file://tests/test_api_documents.py#L1-L479)
 - [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
-- [tests/conftest.py:1-151](file://tests/conftest.py#L1-L151)
+- [tests/conftest.py:1-154](file://tests/conftest.py#L1-L154)
 - [app/api/documents.py:1-951](file://app/api/documents.py#L1-L951)
 - [app/api/deps.py:1-51](file://app/api/deps.py#L1-L51)
 - [templates/login.html:1-56](file://templates/login.html#L1-L56)
@@ -736,8 +708,9 @@ Purpose:
 - Validate CRUD operations including create, read, update, and delete functionality.
 - Test status transitions and error handling in document processing.
 - Validate search enablement toggling without affecting document status.
-- Test timestamp management and data persistence across operations.
+- Validate timestamp management and data persistence across operations.
 - **Validate comprehensive filtering and sorting capabilities including status filtering, source type filtering, and multi-field sorting.**
+- **Validate AsyncMock usage for Qdrant client operations in document storage tests.**
 
 Methodology:
 - Test DocumentRecord default values including status (pending), search enablement (True), and chunk count (0).
@@ -753,6 +726,7 @@ Methodology:
 - **Test multi-field sorting with 'title', 'created_at', and 'status' fields.**
 - **Test sort direction validation with 'asc' and 'desc' directions.**
 - **Validate combined filtering and sorting scenarios.**
+- **Validate AsyncMock usage for Qdrant client operations in document storage tests.**
 
 Testing patterns:
 - Use temporary SQLite databases with pytest fixtures for isolation.
@@ -762,8 +736,9 @@ Testing patterns:
 - Use comprehensive assertion patterns to validate data integrity across operations.
 - **Use parameterized tests for filtering and sorting scenarios.**
 - **Validate SQL query construction and parameter binding.**
+- **Validate AsyncMock usage for Qdrant client operations with proper await semantics.**
 
-**Updated** Added comprehensive document storage system testing with 278 lines of new test coverage validating database initialization, CRUD operations, status transitions, search enablement functionality, timestamp management, and **comprehensive filtering and sorting capabilities**.
+**Updated** Added comprehensive document storage system testing with 278 lines of new test coverage validating database initialization, CRUD operations, status transitions, search enablement functionality, timestamp management, and **comprehensive filtering and sorting capabilities**. The testing infrastructure now includes **AsyncMock usage for Qdrant client operations in document storage tests**.
 
 **Section sources**
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
@@ -811,7 +786,7 @@ Testing patterns:
 **Section sources**
 - [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
 - [app/rag/parser.py:1-323](file://app/rag/parser.py#L1-L323)
-- [tests/test_semantic_chunker.py:17-236](file://tests/test_semantic_chunker.py#L17-L236)
+- [tests/test_semantic_chunker.py:17-246](file://tests/test_semantic_chunker.py#L17-L246)
 
 ### Document Service Testing
 **New Section** - Comprehensive testing coverage for document lifecycle management
@@ -823,6 +798,7 @@ Purpose:
 - Test chunk preparation and metadata enrichment.
 - Validate error handling and status marking for failed operations.
 - **Validate sparse embeddings integration for hybrid search mode.**
+- **Validate AsyncMock usage for Qdrant client operations in document service tests.**
 
 Methodology:
 - Test create_document function with proper metadata initialization.
@@ -834,6 +810,7 @@ Methodology:
 - Test error handling scenarios with proper status marking.
 - **Test document service integration with DocumentRepository and Qdrant client.**
 - **Test sparse embeddings integration for hybrid search mode.**
+- **Validate AsyncMock usage for Qdrant client operations in document service tests.**
 
 Testing patterns:
 - Use MagicMock for Qdrant client and embeddings mocking.
@@ -842,8 +819,9 @@ Testing patterns:
 - Test concurrent operations with asyncio.gather.
 - **Use parameterized tests for different document states and operations.**
 - **Validate sparse embeddings parameter passing to DocumentService.**
+- **Validate AsyncMock usage for Qdrant client operations with proper await semantics.**
 
-**Updated** Added comprehensive document service testing with 348 lines of new test coverage validating complete document lifecycle management, Qdrant integration, chunk preparation, and error handling scenarios, including **sparse embeddings integration for hybrid search mode**.
+**Updated** Added comprehensive document service testing with 348 lines of new test coverage validating complete document lifecycle management, Qdrant integration, chunk preparation, and error handling scenarios, including **sparse embeddings integration for hybrid search mode** and **AsyncMock usage for Qdrant client operations in document service tests**.
 
 **Section sources**
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
@@ -859,6 +837,7 @@ Purpose:
 - Test search enablement handling in chunk metadata.
 - Validate chunk preparation edge cases and error conditions.
 - **Validate sparse embeddings integration in chunk preparation.**
+- **Validate AsyncMock usage for Qdrant client operations in indexer tests.**
 
 Methodology:
 - Test prepare_chunks function with metadata enrichment.
@@ -869,6 +848,7 @@ Methodology:
 - Test empty input validation and edge cases.
 - **Validate chunk preparation does not mutate original documents.**
 - **Test sparse embeddings parameter handling in chunk preparation.**
+- **Validate AsyncMock usage for Qdrant client operations in indexer tests.**
 
 Testing patterns:
 - Use LangChain Document objects for testing.
@@ -877,8 +857,9 @@ Testing patterns:
 - Test boolean metadata handling and type preservation.
 - **Use parameterized tests for different metadata scenarios.**
 - **Validate sparse embeddings parameter passing.**
+- **Validate AsyncMock usage for Qdrant client operations with proper await semantics.**
 
-**Updated** Added comprehensive indexer testing with 100 lines of new test coverage validating chunk preparation, metadata enrichment, search enablement handling, edge case validation, and **sparse embeddings integration in chunk preparation**.
+**Updated** Added comprehensive indexer testing with 100 lines of new test coverage validating chunk preparation, metadata enrichment, search enablement handling, edge case validation, and **sparse embeddings integration in chunk preparation**. The testing infrastructure now includes **AsyncMock usage for Qdrant client operations in indexer tests**.
 
 **Section sources**
 - [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
@@ -916,10 +897,10 @@ Testing patterns:
 - Validate error scenarios with pytest.raises for missing embeddings.
 - **Use parameterized tests for different threshold types and content scenarios.**
 
-**Updated** Added comprehensive semantic chunking testing infrastructure with 237 lines of new test coverage validating FakeEmbeddings mock usage, semantic chunking with embeddings, threshold configuration defaults, file format-specific behavior for .docx and .doc files, error handling for missing embeddings, section-to-chunk mapping validation, and paragraph preservation testing.
+**Updated** Added comprehensive semantic chunking testing infrastructure with 246 lines of new test coverage validating FakeEmbeddings mock usage, semantic chunking with embeddings, threshold configuration defaults, file format-specific behavior for .docx and .doc files, error handling for missing embeddings, section-to-chunk mapping validation, and paragraph preservation testing.
 
 **Section sources**
-- [tests/test_semantic_chunker.py:1-237](file://tests/test_semantic_chunker.py#L1-L237)
+- [tests/test_semantic_chunker.py:1-246](file://tests/test_semantic_chunker.py#L1-L246)
 - [app/rag/parser.py:58-174](file://app/rag/parser.py#L58-L174)
 
 ### Hybrid Search Testing Infrastructure
@@ -933,6 +914,7 @@ Purpose:
 - Validate QAService integration with sparse embeddings.
 - Test configuration defaults for hybrid search settings.
 - Test graceful degradation for missing sparse embeddings.
+- **Validate AsyncMock usage for sparse embedding operations.**
 
 Methodology:
 - Test build_sparse_embeddings function with dense mode returning None.
@@ -944,6 +926,7 @@ Methodology:
 - Test Settings defaults for retrieval_mode and sparse_embedding_model.
 - Test graceful degradation when sparse embeddings are not available.
 - Test import error handling for missing langchain_qdrant installation.
+- **Validate AsyncMock usage for sparse embedding operations and vector store construction.**
 
 Testing patterns:
 - Use unittest.mock.MagicMock for sparse embedding mocking.
@@ -951,11 +934,12 @@ Testing patterns:
 - Validate sparse embedding parameter passing throughout RAG pipeline.
 - Test error scenarios with ImportError simulation for missing dependencies.
 - **Use parameterized tests for different sparse embedding configurations.**
+- **Validate AsyncMock usage for sparse embedding operations with proper await semantics.**
 
-**Updated** Added comprehensive hybrid search testing infrastructure with 168 lines of new test coverage validating sparse embedding creation with FastEmbedSparse, vector store construction with sparse embeddings, index chunking functionality, QAService integration, configuration defaults, graceful degradation scenarios, and import error handling for missing dependencies.
+**Updated** Added comprehensive hybrid search testing infrastructure with 173 lines of new test coverage validating sparse embedding creation with FastEmbedSparse, vector store construction with sparse embeddings, index chunking functionality, QAService integration, configuration defaults, graceful degradation scenarios, and import error handling for missing dependencies. The testing infrastructure now includes **AsyncMock usage for sparse embedding operations**.
 
 **Section sources**
-- [tests/test_hybrid_search.py:1-169](file://tests/test_hybrid_search.py#L1-L169)
+- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
 - [app/rag/retriever.py:88-120](file://app/rag/retriever.py#L88-L120)
 - [app/resources.py:120-131](file://app/resources.py#L120-L131)
 
@@ -983,6 +967,7 @@ Current coverage:
 - **Comprehensive hybrid search testing validates sparse embedding creation and vector store integration.**
 - **Extended configuration testing validates semantic chunking and hybrid search settings.**
 - **Resource management testing validates sparse embeddings initialization and cleanup.**
+- **AsyncMock usage testing validates Qdrant client lifecycle management across all handler tests.**
 
 Testing approach:
 - Since handlers are async and depend on message events, tests focus on wiring and keyboard payloads.
@@ -1009,6 +994,7 @@ Testing approach:
 - **Hybrid search testing validates sparse embedding creation and vector store integration.**
 - **Configuration testing validates new semantic chunking and hybrid search settings.**
 - **Resource management testing validates sparse embeddings initialization and cleanup.**
+- **AsyncMock usage testing validates comprehensive async operation validation across all handler tests.**
 
 Mocking external dependencies:
 - Replace VK API calls with mocks or fakes in higher-level integration tests.
@@ -1031,9 +1017,15 @@ Mocking external dependencies:
 - **Validate send_rag_answer helper function for unified RAG answer delivery.**
 - **Validate handler imports for query_rag_with_wait and send_rag_answer functions.**
 - **Validate Qdrant client lifecycle management with external resource ownership.**
-- **Validate sparse embedding creation and vector store integration.**
-- **Validate configuration defaults for semantic chunking and hybrid search settings.**
+- **Validate FakeEmbeddings mock usage for deterministic semantic chunking.**
+- **Validate semantic chunking threshold configuration and validation.**
+- **Validate sparse embedding creation with FastEmbedSparse.**
+- **Validate vector store construction with sparse embeddings.**
+- **Validate configuration defaults for hybrid search settings.**
 - **Validate resource management for sparse embeddings initialization and cleanup.**
+- **Validate enhanced admin document API testing infrastructure with modular approach.**
+- **Validate comprehensive test fixtures infrastructure for shared testing resources.**
+- **Validate AsyncMock usage for comprehensive async operation validation across all test modules.**
 
 Validation tips:
 - Use keyboard payload assertions to confirm routing correctness.
@@ -1074,8 +1066,11 @@ Validation tips:
 - **Validate vector store construction with sparse embeddings.**
 - **Validate configuration defaults for hybrid search settings.**
 - **Validate resource management for sparse embeddings initialization and cleanup.**
+- **Validate enhanced admin document API testing with modular approach organization.**
+- **Validate comprehensive test fixtures infrastructure for shared testing resources.**
+- **Validate AsyncMock usage for comprehensive async operation validation across all test modules.**
 
-**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation using query_rag_with_wait, document storage system testing for comprehensive database operations, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **extended configuration testing for semantic chunking and hybrid search settings**, **resource management testing for sparse embeddings**, and **enhanced admin document API testing infrastructure with modular approach**.
+**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation using query_rag_with_wait, document storage system testing for comprehensive database operations, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **extended configuration testing for semantic chunking and hybrid search settings**, **resource management testing for sparse embeddings**, **enhanced admin document API testing infrastructure with modular approach**, **AsyncMock usage testing for comprehensive async operation validation**, and **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**.
 
 **Section sources**
 - [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
@@ -1095,8 +1090,8 @@ Validation tips:
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
 - [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
-- [tests/test_semantic_chunker.py:1-237](file://tests/test_semantic_chunker.py#L1-L237)
-- [tests/test_hybrid_search.py:1-169](file://tests/test_hybrid_search.py#L1-L169)
+- [tests/test_semantic_chunker.py:1-246](file://tests/test_semantic_chunker.py#L1-L246)
+- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
 
 ### Llama.cpp Provider Testing Infrastructure
 **New Section** - Extensive testing coverage for llama.cpp provider functionality
@@ -1171,7 +1166,7 @@ Testing patterns:
 - [app/config.py:22-25](file://app/config.py#L22-L25)
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 - [tests/test_semantic_chunker.py:223-236](file://tests/test_semantic_chunker.py#L223-L236)
-- [tests/test_hybrid_search.py:164-169](file://tests/test_hybrid_search.py#L164-L169)
+- [tests/test_hybrid_search.py:164-173](file://tests/test_hybrid_search.py#L164-L173)
 
 ### Filtering and Sorting API Testing
 **New Section** - Comprehensive testing coverage for filtering and sorting functionality
@@ -1257,6 +1252,7 @@ Purpose:
 - Validate AppResources.close_resources() properly closes Qdrant clients.
 - **Validate sparse embeddings lifecycle management in AppResources.**
 - **Validate sparse embeddings initialization and cleanup in AppResources.**
+- **Validate AsyncMock usage for Qdrant client lifecycle management testing.**
 
 Methodology:
 - Test QAService.close() does NOT call qdrant_client.close().
@@ -1266,6 +1262,7 @@ Methodology:
 - Test that QAService state is properly reset without closing Qdrant.
 - **Test AppResources.sparse_embeddings initialization and cleanup.**
 - **Test graceful degradation for missing sparse embeddings.**
+- **Validate AsyncMock usage for Qdrant client lifecycle management testing.**
 
 Testing patterns:
 - Use MagicMock for Qdrant client in QAService testing.
@@ -1273,8 +1270,9 @@ Testing patterns:
 - Validate proper error handling for Qdrant client closure failures.
 - Test that QAService state is reset without side effects on Qdrant client.
 - **Test sparse embeddings lifecycle management in AppResources.**
+- **Validate AsyncMock usage for Qdrant client lifecycle management with proper await semantics.**
 
-**Updated** Added comprehensive QAService resource management testing validating that Qdrant clients are not closed internally by QAService, with proper external resource ownership management by AppResources.close_resources(), and **sparse embeddings resource management testing for hybrid search mode**.
+**Updated** Added comprehensive QAService resource management testing validating that Qdrant clients are not closed internally by QAService, with proper external resource ownership management by AppResources.close_resources(), and **sparse embeddings resource management testing for hybrid search mode**. The testing infrastructure now includes **AsyncMock usage for Qdrant client lifecycle management testing**.
 
 **Section sources**
 - [tests/test_qa_service.py:191-211](file://tests/test_qa_service.py#L191-L211)
@@ -1292,11 +1290,12 @@ Purpose:
 - Validate authenticated client creation with pre-set admin_session cookies.
 - **Validate comprehensive mocking capabilities for Qdrant, S3, embeddings, and QA service.**
 - **Validate shared fixture organization and reusability across test modules.**
+- **Validate AsyncMock usage for Qdrant client mocking across all fixtures.**
 
 Methodology:
 - Test db_path fixture for temporary SQLite database initialization.
 - Test settings fixture with comprehensive configuration including admin API key, database path, S3 credentials, and Qdrant URL.
-- Test mock_qdrant fixture with Qdrant client mock including delete, set_payload, count, and close methods.
+- Test mock_qdrant fixture with Qdrant client mock including delete, set_payload, count, close, upsert, collection_exists, and create_collection methods using AsyncMock.
 - Test mock_embeddings fixture with MagicMock for embedding services.
 - Test mock_s3 fixture with async methods for S3 storage operations.
 - Test mock_qa_service fixture with invalidate_document_chain_cache method.
@@ -1305,9 +1304,10 @@ Methodology:
 - Test auth_cookies fixture for admin session cookie management.
 - Test auth_client fixture for authenticated TestClient creation with pre-set cookies.
 - Test repo fixture for DocumentRepository instantiation.
-- **Validate comprehensive mocking infrastructure for Qdrant client lifecycle management.**
+- **Validate comprehensive mocking infrastructure for Qdrant client lifecycle management using AsyncMock.**
 - **Validate S3 storage mock with async method support for upload, download, delete, exists, open, and close operations.**
 - **Validate QA service mock with cache invalidation functionality.**
+- **Validate AsyncMock usage for comprehensive Qdrant client mocking across all fixtures.**
 
 Testing patterns:
 - Use pytest fixtures for test isolation and reusability.
@@ -1316,11 +1316,12 @@ Testing patterns:
 - Validate authenticated client creation and cookie management.
 - **Use comprehensive parameterization for different mock configurations.**
 - **Validate fixture dependency management and resource cleanup.**
+- **Validate AsyncMock usage for comprehensive Qdrant client mocking with proper await semantics.**
 
-**Updated** Added comprehensive enhanced test fixtures infrastructure with 151 lines of new test fixtures providing shared testing infrastructure including database initialization, mock services, authenticated client creation, and comprehensive mocking capabilities for improved test organization and maintainability.
+**Updated** Added comprehensive enhanced test fixtures infrastructure with 154 lines of new test fixtures providing shared testing infrastructure including database initialization, mock services, authenticated client creation, and comprehensive mocking capabilities for improved test organization and maintainability. The testing infrastructure now includes **AsyncMock usage for Qdrant client mocking across all fixtures**.
 
 **Section sources**
-- [tests/conftest.py:1-151](file://tests/conftest.py#L1-151)
+- [tests/conftest.py:1-154](file://tests/conftest.py#L1-L154)
 
 ## Dependency Analysis
 The test suite depends on:
@@ -1351,6 +1352,7 @@ The test suite depends on:
 - **Resource management testing for sparse embeddings.**
 - **Enhanced admin document API testing infrastructure with modular approach.**
 - **Comprehensive test fixtures infrastructure for shared testing resources.**
+- **AsyncMock usage testing for comprehensive async operation validation.**
 
 ```mermaid
 graph TB
@@ -1381,6 +1383,7 @@ SEMANTIC["Semantic Chunking Testing"]
 HYBRID["Hybrid Search Testing"]
 CONFIG["Configuration Testing"]
 CF["Enhanced Test Fixtures Infrastructure"]
+AM_USAGE["AsyncMock Usage Testing"]
 PY --> P
 PY --> PA
 PY --> VK
@@ -1407,6 +1410,7 @@ PY --> SEMANTIC
 PY --> HYBRID
 PY --> CONFIG
 PY --> CF
+PY --> AM_USAGE
 ```
 
 **Diagram sources**
@@ -1454,8 +1458,9 @@ PY --> CF
 - **Resource management testing should validate sparse embeddings initialization performance.**
 - **Enhanced admin document API testing should validate modular test organization performance.**
 - **Test fixtures infrastructure should provide efficient shared testing resources.**
+- **AsyncMock usage testing should validate comprehensive async operation performance.**
 
-**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with temporary databases, llama.cpp provider testing optimization, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing optimization for new settings**, **resource management testing optimization for sparse embeddings**, and **enhanced test fixtures infrastructure for shared testing resources**.
+**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with temporary databases, llama.cpp provider testing optimization, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing optimization for new settings**, **resource management testing optimization for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, and **AsyncMock usage testing for comprehensive async operation validation**.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -1469,8 +1474,7 @@ Common issues and resolutions:
 - RAG stub failures: Ensure standardized placeholder format and topic inclusion.
 - Custom rule failures: Test various payload scenarios and error cases comprehensively.
 - Handler registration failures: Verify simplified handler counts and ordering.
-- Specialized RAG stub feature failures: Check handler availability and feature-specific integration.
-- FR-11/FR-12 feature validation failures: Ensure dedicated test classes are properly targeting new functionality.
+- Specialized RAG stub feature failures: Ensure dedicated test classes are properly targeting new functionality.
 - QA service failures: Check RAG chain initialization, error handling, and resource management.
 - Topic hints failures: Validate keyword matching logic and priority handling.
 - Ask handler failures: Test state management, QA service integration, and scenario navigation using query_rag_with_wait.
@@ -1517,6 +1521,7 @@ Common issues and resolutions:
 - **Resource management failures: Validate sparse embeddings initialization and cleanup.**
 - **Enhanced admin document API modular testing failures: Validate test organization and fixture sharing across modules.**
 - **Test fixtures infrastructure failures: Validate shared testing resources and dependency management.**
+- **AsyncMock usage failures: Validate comprehensive async operation validation across all test modules.**
 
 Debugging tips:
 - Print or log parsed keyboard JSON during development to validate structure.
@@ -1563,8 +1568,9 @@ Debugging tips:
 - **Validate resource management for sparse embeddings initialization and cleanup.**
 - **Validate enhanced admin document API testing organization and fixture sharing.**
 - **Validate comprehensive test fixtures infrastructure for shared testing resources.**
+- **Validate AsyncMock usage for comprehensive async operation validation across all test modules.**
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **semantic chunking testing with FakeEmbeddings mock**, **hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings**, and **enhanced test fixtures infrastructure for shared testing resources**.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **semantic chunking testing with FakeEmbeddings mock**, **hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, and **updated architectural testing patterns validation for query_rag_with_wait and send_rag_answer**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1584,19 +1590,19 @@ Debugging tips:
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
 - [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
-- [tests/test_semantic_chunker.py:1-237](file://tests/test_semantic_chunker.py#L1-L237)
-- [tests/test_hybrid_search.py:1-169](file://tests/test_hybrid_search.py#L1-L169)
-- [tests/conftest.py:1-151](file://tests/conftest.py#L1-L151)
+- [tests/test_semantic_chunker.py:1-246](file://tests/test_semantic_chunker.py#L1-L246)
+- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
+- [tests/conftest.py:1-154](file://tests/conftest.py#L1-L154)
 
 ## Conclusion
-The current testing strategy emphasizes comprehensive structural and wiring correctness for the streamlined VK bot:
+The current testing strategy emphasizes comprehensive structural and wiring correctness for the streamlined VK bot with modern async testing patterns:
 - Configuration defaults and environment overrides are verified with explicit environment file control.
 - Bot factory enforces handler registration order and validates simplified handler counts with detailed breakdown.
 - Keyboard builders are validated for layout, payloads, and service-row behavior (focusing on core handler functionality).
 - Domain content is validated for static content integrity and proper formatting.
 - Entity definitions are validated for consistency and uniqueness.
 - RAG stub functionality is tested for knowledge base integration with specialized test classes.
-- QA service testing validates RAG chain integration with proper error handling and resource management, **including updated testing for Qdrant client lifecycle ownership**, including the new query_rag_with_wait approach.
+- QA service testing validates RAG chain integration with proper error handling and resource management, **including updated testing for Qdrant client lifecycle ownership with AsyncMock validation**, including the new query_rag_with_wait approach.
 - Custom payload matching rules are validated for advanced routing.
 - State machine definitions are validated for completeness and uniqueness.
 - Handler testing validates both general functionality and specialized feature implementations.
@@ -1611,12 +1617,13 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - **Comprehensive filtering and sorting API testing validates status, source type, and sort field functionality with 140+ lines of new test coverage.**
 - **Comprehensive embedding model configuration testing validates the new default 'qwen3-embedding:4b-q4_K_M' and provider-specific model selection.**
 - **Updated architectural testing patterns validate the new query_rag_with_wait and send_rag_answer approach across all handlers, replacing the old get_qa_service pattern.**
-- **Updated QAService testing validates Qdrant client lifecycle management with external resource ownership, ensuring QAService no longer closes Qdrant clients internally.**
+- **Updated QAService testing validates Qdrant client lifecycle management with external resource ownership, ensuring QAService no longer closes Qdrant clients internally using AsyncMock.**
 - **Enhanced semantic chunking testing validates FakeEmbeddings mock usage, comprehensive threshold validation, and file format-specific behavior for both .docx and .doc files.**
-- **Comprehensive hybrid search testing validates sparse embedding creation with FastEmbedSparse, vector store construction with sparse embeddings, index chunking functionality, and settings configuration defaults.**
+- **Comprehensive hybrid search testing validates sparse embedding creation with FastEmbedSparse, vector store construction with sparse embeddings, index chunking functionality, and settings configuration defaults using AsyncMock.**
 - **Extended configuration testing validates new semantic chunking settings including chunk_strategy, semantic_breakpoint_threshold_type, semantic_breakpoint_threshold_amount, and hybrid search settings retrieval_mode and sparse_embedding_model.**
 - **Resource management testing validates sparse embeddings initialization and cleanup in AppResources with graceful degradation for hybrid search mode.**
-- **Enhanced test fixtures infrastructure provides comprehensive shared testing resources including database initialization, mock services, and authenticated client creation.**
+- **Enhanced test fixtures infrastructure provides comprehensive shared testing resources including database initialization, mock services, and authenticated client creation with AsyncMock support.**
+- **AsyncMock usage testing validates comprehensive async operation validation across all test modules with proper await semantics.**
 
 To evolve the test suite:
 - Introduce event-driven tests for handlers to validate async behavior.
@@ -1663,17 +1670,18 @@ To evolve the test suite:
 - **Add comprehensive architectural testing patterns validation for query_rag_with_wait and send_rag_answer.**
 - **Test handler imports validation for the new architectural patterns.**
 - **Validate timeout handling and unified RAG answer delivery across all handlers.**
-- **Add comprehensive QAService resource management testing for Qdrant client lifecycle validation.**
-- **Validate external Qdrant client lifecycle management with AppResources.close_resources().**
+- **Add comprehensive QAService resource management testing for Qdrant client lifecycle validation using AsyncMock.**
+- **Validate external Qdrant client lifecycle management with AppResources.close_resources using AsyncMock.**
 - **Add comprehensive semantic chunking testing with FakeEmbeddings mock and comprehensive threshold validation.**
 - **Test semantic chunking error handling for missing embeddings parameter.**
-- **Add comprehensive hybrid search testing with sparse embeddings and vector store integration.**
+- **Add comprehensive hybrid search testing with sparse embeddings and vector store integration using AsyncMock.**
 - **Test sparse embedding creation and parameter passing throughout RAG pipeline.**
 - **Add comprehensive configuration testing for new semantic chunking and hybrid search settings.**
 - **Validate resource management for sparse embeddings initialization and cleanup.**
 - **Add comprehensive enhanced test fixtures infrastructure for shared testing resources and improved test organization.**
+- **Add comprehensive AsyncMock usage testing for comprehensive async operation validation across all test modules.**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, extensive llama.cpp provider testing infrastructure, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive semantic chunking testing with 237 lines of new coverage**, **comprehensive hybrid search testing with 168 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 151 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, and **updated QAService resource management testing validating Qdrant client lifecycle ownership**.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, extensive llama.cpp provider testing infrastructure, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive semantic chunking testing with 246 lines of new coverage**, **comprehensive hybrid search testing with 173 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 154 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing validating Qdrant client lifecycle ownership using AsyncMock**, and **AsyncMock usage testing validating comprehensive async operation validation**.
 
 ## Appendices
 
@@ -1697,10 +1705,11 @@ To evolve the test suite:
 - **Run filtering and sorting API tests for comprehensive filtering/sorting functionality validation (e.g., `pytest tests/test_api_documents.py::TestFilterSortAPI`).**
 - **Run architectural testing patterns tests for query_rag_with_wait and send_rag_answer validation (e.g., `pytest tests/test_ask_block9.py::TestAskHandlerImports`).**
 - **Run handler imports tests for the new architectural patterns (e.g., `pytest tests/test_qa_service.py::TestHandlerImports`).**
-- **Run QAService resource management tests for Qdrant client lifecycle validation (e.g., `pytest tests/test_qa_service.py::TestQAServiceClose`).**
+- **Run QAService resource management tests for Qdrant client lifecycle validation using AsyncMock (e.g., `pytest tests/test_qa_service.py::TestQAServiceClose`).**
 - **Run configuration tests for semantic chunking and hybrid search settings (e.g., `pytest tests/test_semantic_chunker.py::TestConfigChunkingDefaults`).**
-- **Run resource management tests for sparse embeddings (e.g., `pytest tests/test_hybrid_search.py::test_build_sparse_embeddings_dense_mode`).**
+- **Run resource management tests for sparse embeddings using AsyncMock (e.g., `pytest tests/test_hybrid_search.py::test_build_sparse_embeddings_dense_mode`).**
 - **Run enhanced test fixtures tests for shared testing resources validation (e.g., `pytest tests/conftest.py`).**
+- **Run AsyncMock usage tests for comprehensive async operation validation across all test modules (e.g., `pytest tests/conftest.py::TestAsyncMockUsage`).**
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1762,6 +1771,7 @@ To evolve the test suite:
 - **Validate resource management for sparse embeddings initialization and cleanup.**
 - **Validate enhanced admin document API testing with modular approach organization.**
 - **Validate comprehensive test fixtures infrastructure for shared testing resources.**
+- **Validate AsyncMock usage for comprehensive async operation validation across all test modules.**
 - **Validate timeout handling and unified RAG answer delivery across all handlers.**
 
-**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with temporary databases, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, and **updated architectural testing patterns validation for query_rag_with_wait and send_rag_answer**.
+**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with temporary databases, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, and **updated architectural testing patterns validation for query_rag_with_wait and send_rag_answer**.

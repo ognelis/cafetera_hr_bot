@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import UTC, datetime
 from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from databases import Database
 from fastapi.testclient import TestClient
 
 from app.config import Settings
@@ -52,17 +54,27 @@ def _make_category_record(**overrides) -> CategoryFileRecord:
 
 
 @pytest.fixture()
-async def db_path(tmp_path):
-    path = str(tmp_path / "test.db")
-    await init_db(path)
-    return path
+async def test_db():
+    """Create a test PostgreSQL database connection with clean tables."""
+    url = os.environ.get(
+        "TEST_DATABASE_URL",
+        "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
+    )
+    db = Database(url)
+    await db.connect()
+    # Clean tables before each test for isolation
+    await db.execute(query="DROP TABLE IF EXISTS category_files CASCADE")
+    await db.execute(query="DROP TABLE IF EXISTS documents CASCADE")
+    await init_db(db)
+    yield db
+    await db.disconnect()
 
 
 @pytest.fixture()
-def settings(db_path):
+def settings():
     return Settings(
         admin_api_key=TEST_API_KEY,
-        db_path=db_path,
+        database_url="postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
         s3_endpoint_url="http://localhost:9000",
         s3_access_key="minioadmin",
         s3_secret_key="minioadmin",
@@ -86,22 +98,48 @@ def mock_s3():
 
 
 @pytest.fixture()
-def app(settings, mock_s3, db_path):
+def app(settings, mock_s3):
     """Create a test app with mocked S3."""
-    application = create_app(settings)
+    from contextlib import asynccontextmanager
 
-    # Override lifespan-initialised resources
-    repo = CategoryFileRepository(db_path)
-    service = CategoryFileService(repo=repo, s3=mock_s3)
-    application.state.s3 = mock_s3
-    application.state.category_file_service = service
+    from databases import Database as _Database
+
+    from app.domain.category_file_service import CategoryFileService
+    from app.storage.category_repo import CategoryFileRepository as _CatRepo
+    from app.storage.database import init_db as _init_db
+
+    @asynccontextmanager
+    async def _test_lifespan(_app):
+        db = _Database(settings.database_url)
+        await db.connect()
+        # Clean tables for test isolation
+        await db.execute(
+            query="DROP TABLE IF EXISTS category_files CASCADE"
+        )
+        await db.execute(
+            query="DROP TABLE IF EXISTS documents CASCADE"
+        )
+        await _init_db(db)
+
+        repo = _CatRepo(db)
+        service = CategoryFileService(repo=repo, s3=mock_s3)
+        _app.state.s3 = mock_s3
+        _app.state.category_file_service = service
+
+        yield
+
+        await db.disconnect()
+
+    application = create_app(settings)
+    application.router.lifespan_context = _test_lifespan
 
     return application
 
 
 @pytest.fixture()
 def client(app):
-    return TestClient(app, raise_server_exceptions=False)
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c
 
 
 @pytest.fixture()
@@ -112,15 +150,15 @@ def auth_cookies():
 @pytest.fixture()
 def auth_client(app, auth_cookies):
     """Authenticated client with cookies set on the instance."""
-    c = TestClient(app, raise_server_exceptions=False)
-    for key, value in auth_cookies.items():
-        c.cookies.set(key, value)
-    return c
+    with TestClient(app, raise_server_exceptions=False) as c:
+        for key, value in auth_cookies.items():
+            c.cookies.set(key, value)
+        yield c
 
 
 @pytest.fixture()
-async def repo(db_path):
-    return CategoryFileRepository(db_path)
+async def repo(test_db):
+    return CategoryFileRepository(test_db)
 
 
 # ── Repository tests ──────────────────────────────────────────────

@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from databases import Database
 from fastapi.testclient import TestClient
 
 from app.config import Settings
-from app.domain.document_service import DocumentService
 from app.main import create_app
 from app.storage.database import init_db
 from app.storage.document_repo import DocumentRepository
@@ -46,17 +47,27 @@ def _make_record(**overrides) -> DocumentRecord:
 
 
 @pytest.fixture()
-async def db_path(tmp_path):
-    path = str(tmp_path / "test.db")
-    await init_db(path)
-    return path
+async def test_db():
+    """Create a test PostgreSQL database connection with clean tables."""
+    url = os.environ.get(
+        "TEST_DATABASE_URL",
+        "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
+    )
+    db = Database(url)
+    await db.connect()
+    # Clean tables before each test for isolation
+    await db.execute(query="DROP TABLE IF EXISTS category_files CASCADE")
+    await db.execute(query="DROP TABLE IF EXISTS documents CASCADE")
+    await init_db(db)
+    yield db
+    await db.disconnect()
 
 
 @pytest.fixture()
-def settings(db_path):
+def settings():
     return Settings(
         admin_api_key=TEST_API_KEY,
-        db_path=db_path,
+        database_url="postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
         s3_endpoint_url="http://localhost:9000",
         s3_access_key="minioadmin",
         s3_secret_key="minioadmin",
@@ -106,32 +117,63 @@ def mock_qa_service():
 
 
 @pytest.fixture()
-def app(settings, mock_qdrant, mock_embeddings, mock_s3, mock_qa_service, db_path):
-    """Create a test app with mocked Qdrant, embeddings, S3, and QA service."""
-    application = create_app(settings)
+def app(settings, mock_qdrant, mock_embeddings, mock_s3, mock_qa_service):
+    """Create a test app with mocked Qdrant, embeddings, S3, and QA service.
 
-    # Override lifespan-initialised resources
-    repo = DocumentRepository(db_path)
-    service = DocumentService(
-        repo=repo,
-        qdrant_client=mock_qdrant,
-        embeddings=mock_embeddings,
-        collection_name="test_collection",
-    )
-    application.state.qdrant_client = mock_qdrant
-    application.state.embeddings = mock_embeddings
-    application.state.doc_repo = repo
-    application.state.doc_service = service
-    application.state.s3 = mock_s3
-    application.state.indexing_semaphore = asyncio.Semaphore(2)
-    application.state.qa_service = mock_qa_service
+    Uses a test lifespan that creates its own DB connection in the
+    TestClient event loop to avoid cross-event-loop asyncpg issues.
+    """
+    from contextlib import asynccontextmanager
+
+    from databases import Database as _Database
+
+    from app.domain.document_service import DocumentService
+    from app.storage.database import init_db as _init_db
+    from app.storage.document_repo import DocumentRepository as _DocRepo
+
+    @asynccontextmanager
+    async def _test_lifespan(_app):
+        db = _Database(settings.database_url)
+        await db.connect()
+        # Clean tables for test isolation
+        await db.execute(
+            query="DROP TABLE IF EXISTS category_files CASCADE"
+        )
+        await db.execute(
+            query="DROP TABLE IF EXISTS documents CASCADE"
+        )
+        await _init_db(db)
+
+        repo = _DocRepo(db)
+        service = DocumentService(
+            repo=repo,
+            qdrant_client=mock_qdrant,
+            embeddings=mock_embeddings,
+            collection_name="test_collection",
+        )
+
+        _app.state.doc_repo = repo
+        _app.state.doc_service = service
+        _app.state.qdrant_client = mock_qdrant
+        _app.state.embeddings = mock_embeddings
+        _app.state.s3 = mock_s3
+        _app.state.indexing_semaphore = asyncio.Semaphore(2)
+        _app.state.qa_service = mock_qa_service
+
+        yield
+
+        await db.disconnect()
+
+    application = create_app(settings)
+    application.router.lifespan_context = _test_lifespan
 
     return application
 
 
 @pytest.fixture()
 def client(app):
-    return TestClient(app, raise_server_exceptions=False)
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c
 
 
 @pytest.fixture()
@@ -142,12 +184,12 @@ def auth_cookies():
 @pytest.fixture()
 def auth_client(app, auth_cookies):
     """Authenticated client with cookies set on the instance."""
-    c = TestClient(app, raise_server_exceptions=False)
-    for key, value in auth_cookies.items():
-        c.cookies.set(key, value)
-    return c
+    with TestClient(app, raise_server_exceptions=False) as c:
+        for key, value in auth_cookies.items():
+            c.cookies.set(key, value)
+        yield c
 
 
 @pytest.fixture()
-async def repo(db_path):
-    return DocumentRepository(db_path)
+async def repo(test_db):
+    return DocumentRepository(test_db)

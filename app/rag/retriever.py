@@ -75,7 +75,6 @@ def estimate_k(question: str) -> int:
 
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
-    from langchain_core.vectorstores import VectorStoreRetriever
 
     from app.config import Settings
 

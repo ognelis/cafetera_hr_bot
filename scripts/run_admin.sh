@@ -22,6 +22,11 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+mask_credentials() {
+  # Strip userinfo (user:password@) from URLs for safe logging
+  echo "$1" | sed -E 's|://[^@]+@|://***@|'
+}
+
 wait_for_service() {
   local name="$1"
   local url="$2"
@@ -41,6 +46,26 @@ wait_for_service() {
   done
 
   log "ERROR: $name did not become ready after $retries attempts"
+  return 1
+}
+
+wait_for_postgres() {
+  local retries="${1:-$HEALTH_RETRIES}"
+  local interval="${2:-$HEALTH_INTERVAL}"
+
+  log "Waiting for PostgreSQL..."
+
+  for i in $(seq 1 "$retries"); do
+    if docker compose exec -T postgres pg_isready -U cafetera >/dev/null 2>&1; then
+      log "PostgreSQL is ready"
+      return 0
+    fi
+    if [[ $i -lt $retries ]]; then
+      sleep "$interval"
+    fi
+  done
+
+  log "ERROR: PostgreSQL did not become ready after $retries attempts"
   return 1
 }
 
@@ -119,6 +144,7 @@ load_env_var OLLAMA_URL
 load_env_var LLM_N_GPU_LAYERS
 load_env_var EMBED_N_GPU_LAYERS
 load_env_var OLLAMA_NUM_GPU
+load_env_var DATABASE_URL
 
 log "Loaded .env overrides (if any)"
 
@@ -147,7 +173,8 @@ select_llm_provider() {
       LLM_PROVIDER="openai"
       LLM_MODEL="${LLM_MODEL:-gpt-4o-mini}"
       LLM_BASE_URL="https://api.openai.com/v1"
-      read -r -p "[admin] Enter OpenAI API key: " LLM_API_KEY
+      read -rs -p "[admin] Enter OpenAI API key: " LLM_API_KEY
+      echo
       ;;
     3|llamacpp)
       LLM_PROVIDER="llamacpp"
@@ -187,7 +214,8 @@ select_embedding_provider() {
       EMBEDDING_PROVIDER="openai"
       EMBEDDING_MODEL="${EMBEDDING_MODEL:-text-embedding-3-small}"
       EMBEDDING_BASE_URL="https://api.openai.com/v1"
-      read -r -p "[admin] Enter OpenAI API key: " EMBEDDING_API_KEY
+      read -rs -p "[admin] Enter OpenAI API key: " EMBEDDING_API_KEY
+      echo
       ;;
     3|llamacpp)
       EMBEDDING_PROVIDER="llamacpp"
@@ -243,6 +271,14 @@ log "Dependencies OK"
 # Start infrastructure
 log "Starting infrastructure via docker compose..."
 docker compose up -d
+
+# Wait for PostgreSQL
+if ! wait_for_postgres; then
+  log "ERROR: PostgreSQL failed to start"
+  log "FIX:   Check docker logs: docker compose logs postgres"
+  log "       Make sure port 5432 is not in use: lsof -i :5432"
+  exit 1
+fi
 
 # Wait for Qdrant
 if ! wait_for_service "Qdrant" "${QDRANT_URL}/healthz"; then
@@ -412,6 +448,7 @@ log "Admin UI:    http://${ADMIN_HOST}:${ADMIN_PORT}/documents"
 log "API docs:    http://${ADMIN_HOST}:${ADMIN_PORT}/docs"
 log "Qdrant:      $QDRANT_URL"
 log "MinIO:       $MINIO_URL"
+log "PostgreSQL:  $(mask_credentials "${DATABASE_URL:-postgresql://localhost:5432/cafetera}")"
 log "LLM:         $LLM_PROVIDER ($LLM_MODEL)"
 log "Embedding:   $EMBEDDING_PROVIDER ($EMBEDDING_MODEL)"
 if [[ "$LLM_PROVIDER" == "ollama" || "$EMBEDDING_PROVIDER" == "ollama" ]]; then

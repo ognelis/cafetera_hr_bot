@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from databases import Database
 
 from app.domain.category_file_service import CategoryFileService
 from app.storage.category_models import LEGAL_ENTITIES, CategoryFileRecord
@@ -37,11 +38,22 @@ def _make_record(**overrides) -> CategoryFileRecord:
 
 
 @pytest.fixture()
-async def repo(tmp_path):
-    """Create a fresh SQLite DB in a temp directory and return a repository."""
-    db_path = str(tmp_path / "test.db")
-    await init_db(db_path)
-    return CategoryFileRepository(db_path)
+async def repo():
+    """Create a fresh PostgreSQL DB and return a CategoryFileRepository."""
+    import os
+
+    url = os.environ.get(
+        "TEST_DATABASE_URL",
+        "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
+    )
+    db = Database(url)
+    await db.connect()
+    # Clean tables before each test for isolation
+    await db.execute(query="DROP TABLE IF EXISTS category_files CASCADE")
+    await db.execute(query="DROP TABLE IF EXISTS documents CASCADE")
+    await init_db(db)
+    yield CategoryFileRepository(db)
+    await db.disconnect()
 
 
 @pytest.fixture()

@@ -119,7 +119,9 @@ def test_build_vectorstore_with_sparse():
 
 
 async def test_index_chunks_uses_sparse_embedding():
-    """index_chunks() with sparse_embedding produces combined dense+sparse points in a single upsert."""
+    """index_chunks() with sparse_embedding produces combined dense+sparse
+    points in a single upsert.
+    """
     mock_client = AsyncMock()
     mock_embeddings = MagicMock()
     mock_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]]

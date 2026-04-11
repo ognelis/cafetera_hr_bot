@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     embedding_api_key: str = ""
 
     # Storage
-    db_path: str = "data/cafetera.db"
+    database_url: str = "postgresql://cafetera:cafetera@localhost:5432/cafetera"
     s3_endpoint_url: str = "http://localhost:9000"
     s3_access_key: str = "minioadmin"
     s3_secret_key: str = "minioadmin"
