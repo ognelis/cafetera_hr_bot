@@ -46,6 +46,7 @@
 - [templates/base.html](file://templates/base.html)
 - [static/js/htmx.js](file://static/js/htmx.js)
 - [scripts/ingest.py](file://scripts/ingest.py)
+- [tests/conftest.py](file://tests/conftest.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
 - [tests/test_api_documents_auth.py](file://tests/test_api_documents_auth.py)
 - [tests/test_api_documents_upload.py](file://tests/test_api_documents_upload.py)
@@ -53,18 +54,16 @@
 - [tests/test_storage.py](file://tests/test_storage.py)
 - [tests/test_qa_service.py](file://tests/test_qa_service.py)
 - [tests/test_document_service.py](file://tests/test_document_service.py)
-- [tests/conftest.py](file://tests/conftest.py)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- **Updated Storage System Migration**: Document storage system migrated from SQLite to PostgreSQL with comprehensive database schema changes
-- **Enhanced DocumentRepository CRUD Operations**: Updated CREATE, UPDATE, and DELETE operations to use PostgreSQL syntax with RETURNING clauses for generated IDs
-- **Added CategoryFileRepository Upsert Operations**: Implemented ON CONFLICT clauses for upsert operations in category file management
-- **Updated Database Schema**: PostgreSQL tables with TIMESTAMPTZ for timezone-aware timestamps and SERIAL primary keys
-- **Enhanced Database Connection Management**: Updated resource initialization to use PostgreSQL with asyncpg driver
-- **Improved Error Handling**: Enhanced database operation error handling and resource cleanup
+- **Enhanced Admin Document API Testing**: Implemented comprehensive modular testing approach covering authentication, upload, bulk operations, and remaining functionality
+- **Improved Test Fixtures Infrastructure**: Enhanced PostgreSQL container testing with proper isolation and cleanup
+- **Comprehensive Filtering and Sorting API Testing**: Added extensive coverage for status filtering, source type filtering, sorting, and pagination
+- **Enhanced Test Coverage Areas**: Expanded testing to include router architecture, async operations, streaming responses, and batch status polling
+- **Revolutionary Batch Status Polling Testing**: Added comprehensive testing for centralized status updates and OOB swapping
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -101,7 +100,7 @@
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-**Updated** The system has undergone a significant transformation with the migration from SQLite to PostgreSQL, implementing comprehensive database schema changes, enhanced CRUD operations with RETURNING clauses for generated IDs, and ON CONFLICT clauses for upsert operations. The storage layer now provides enterprise-grade database capabilities with proper timezone handling, concurrent access support, and improved error handling. These enhancements provide enhanced performance, reliability, and scalability for enterprise-grade document management scenarios.
+**Updated** The system has undergone significant enhancements with the implementation of a comprehensive modular testing approach for the admin document API. The testing infrastructure now includes enhanced fixtures with PostgreSQL container support, improved isolation between test cases, and extensive coverage for authentication, upload operations, bulk operations, and filtering/sorting functionality. The modular router architecture testing ensures backward compatibility while validating the new specialized routers for authentication, upload, bulk operations, and QA functionality. These improvements provide enhanced reliability, maintainability, and test coverage for the entire document management ecosystem.
 
 ## System Architecture
 
@@ -109,6 +108,15 @@ The Document Management System follows a layered architecture pattern with clear
 
 ```mermaid
 graph TB
+subgraph "Enhanced Testing Infrastructure"
+PostgreSQLContainer[Testcontainers PostgreSQL]
+TestFixtures[Test Fixtures & Isolation]
+AsyncOperations[Async Operations Testing]
+StreamingResponses[Streaming Response Testing]
+BatchStatusPolling[Batch Status Polling Testing]
+RouterArchitecture[Router Architecture Testing]
+EndUserExperience[Enhanced User Experience]
+end
 subgraph "PostgreSQL Storage Architecture"
 PostgreSQLDB[(PostgreSQL Database)]
 TIMESTAMPTZ[Timezone-Aware Timestamps]
@@ -203,6 +211,11 @@ LLM[LLM Provider]
 Parser[Enhanced Parser]
 EndUserIntegration[Enhanced Integration]
 end
+PostgreSQLContainer --> TestFixtures
+TestFixtures --> AsyncOperations
+TestFixtures --> StreamingResponses
+TestFixtures --> BatchStatusPolling
+TestFixtures --> RouterArchitecture
 PostgreSQLDB --> DATABASESCHEMA
 DATABASESCHEMA --> Repo
 DATABASESCHEMA --> CategoryRepo
@@ -282,21 +295,23 @@ EndUserTracking --> RecentlyFinished
 
 The architecture consists of five main layers with enhanced modular organization, comprehensive document type handling, modernized frontend capabilities, and revolutionary HTMX partial response system:
 
-1. **PostgreSQL Storage Architecture**: The system now uses PostgreSQL as the primary database with timezone-aware timestamps, SERIAL primary keys, ON CONFLICT upsert operations, and RETURNING clauses for generated IDs. The database schema includes enhanced search capabilities, pagination support, and advanced date range filtering with proper timezone handling.
+1. **Enhanced Testing Infrastructure**: The system now includes comprehensive testing infrastructure with PostgreSQL container support, improved test isolation, and extensive coverage for all functional areas including authentication, upload operations, bulk operations, filtering/sorting, async operations, streaming responses, and batch status polling. The modular router architecture testing ensures backward compatibility while validating specialized routers.
 
-2. **Enhanced Async Architecture**: The system now implements comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control, direct async operations in the document service, and streamlined background processing with improved error handling and resource management.
+2. **PostgreSQL Storage Architecture**: The system now uses PostgreSQL as the primary database with timezone-aware timestamps, SERIAL primary keys, ON CONFLICT upsert operations, and RETURNING clauses for generated IDs. The database schema includes enhanced search capabilities, pagination support, and advanced date range filtering with proper timezone handling.
 
-3. **Modular Router Architecture**: The system now uses specialized routers for different functional areas with router composition maintaining backward compatibility. The main `documents.py` router includes authentication, upload, bulk operations, and QA routers while preserving all existing endpoints and functionality.
+3. **Enhanced Async Architecture**: The system now implements comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control, direct async operations in the document service, and streamlined background processing with improved error handling and resource management.
 
-4. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, comprehensive status polling system with automatic activation, HTMX OOB swapping for efficient row updates, enhanced user experience with real-time status monitoring, and centralized batch status management.
+4. **Modular Router Architecture**: The system now uses specialized routers for different functional areas with router composition maintaining backward compatibility. The main `documents.py` router includes authentication, upload, bulk operations, and QA routers while preserving all existing endpoints and functionality.
 
-5. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, template context management for consistent rendering, DOCX integrity validation for file content verification, HTMX partial response system with OOB swapping capabilities, and enhanced user management with automatic polling control.
+5. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, comprehensive status polling system with automatic activation, HTMX OOB swapping for efficient row updates, enhanced user experience with real-time status monitoring, and centralized batch status management.
 
-6. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms supporting DOCX, DOC, and XLSX formats, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, recently finished documents tracking for status updates, and enhanced monitoring capabilities for user activity.
+6. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, template context management for consistent rendering, DOCX integrity validation for file content verification, HTMX partial response system with OOB swapping capabilities, and enhanced user management with automatic polling control.
 
-7. **Data Access Layer**: Async repository pattern for PostgreSQL database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking for all supported document types, enhanced filtering/sorting database operations, recently finished documents functionality for status tracking, and enhanced tracking for user interactions and document processing.
+7. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms supporting DOCX, DOC, and XLSX formats, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, recently finished documents tracking for status updates, and enhanced monitoring capabilities for user activity.
 
-8. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for DOC, DOCX, and XLSX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, streaming response generation for real-time feedback, and enhanced integration with HTMX for real-time UI updates.
+8. **Data Access Layer**: Async repository pattern for PostgreSQL database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking for all supported document types, enhanced filtering/sorting database operations, recently finished documents functionality for status tracking, and enhanced tracking for user interactions and document processing.
+
+9. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for DOC, DOCX, and XLSX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, streaming response generation for real-time feedback, and enhanced integration with HTMX for real-time UI updates.
 
 ## Core Components
 
@@ -374,10 +389,10 @@ CategoryFileRepository --> CategoryFileRecord : returns
 **Section sources**
 - [app/main.py:1-80](file://app/main.py#L1-L80)
 - [app/config.py:37-39](file://app/config.py#L37-L39)
-- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
+- [app/api/documents.py:1-539](file://app/api/documents.py#L1-L539)
 - [app/api/documents_auth.py:1-77](file://app/api/documents_auth.py#L1-L77)
-- [app/api/documents_upload.py:1-288](file://app/api/documents_upload.py#L1-L288)
-- [app/api/documents_bulk.py:1-224](file://app/api/documents_bulk.py#L1-L224)
+- [app/api/documents_upload.py:1-292](file://app/api/documents_upload.py#L1-L292)
+- [app/api/documents_bulk.py:1-229](file://app/api/documents_bulk.py#L1-L229)
 - [app/api/documents_qa.py:1-91](file://app/api/documents_qa.py#L1-L91)
 - [app/api/deps.py:91-92](file://app/api/deps.py#L91-L92)
 - [app/resources.py:208-252](file://app/resources.py#L208-L252)
@@ -477,7 +492,7 @@ end
 - [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
 - [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
 - [app/api/documents.py:386-464](file://app/api/documents.py#L386-L464)
-- [app/api/documents.py:499-531](file://app/api/documents.py#L499-L531)
+- [app/api/documents.py:499-539](file://app/api/documents.py#L499-L539)
 - [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
 - [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
 - [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
@@ -507,15 +522,16 @@ The system implements comprehensive validation for uploaded documents with enhan
 | Template Context | Centralized rendering management | Ensure consistent UI rendering |
 | DOCX Integrity | Zip file validation | Check word/document.xml presence |
 | Spreadsheet Processing | XLSX workbook parsing | Handle multiple worksheets |
-| **Updated** | **PostgreSQL Migration** | **Enhanced database schema with TIMESTAMPTZ and SERIAL primary keys** |
-| **Updated** | **Enhanced CRUD Operations** | **RETURNING clauses for generated IDs in CREATE/DELETE operations** |
-| **Updated** | **ON CONFLICT Upsert** | **Upsert operations with conflict resolution in CategoryFileRepository** |
-| **Updated** | **Enhanced Async Indexing** | **Semaphore-based concurrency control for background operations** |
-| **Updated** | **Direct Async Operations** | **Async document service with direct async operations** |
-| **Updated** | **Streamlined Ingestion Pipeline** | **Improved error handling and collection management** |
-| **Updated** | **Enhanced Semaphore Management** | **Robust concurrency control for background indexing** |
-| **Updated** | **Improved Error Handling** | **Enhanced error handling and resource cleanup** |
-| **Updated** | **Streamlined Background Processing** | **Unified background processing with better resource management** |
+| **Updated** | **Enhanced Testing Infrastructure** | **Comprehensive modular testing with PostgreSQL container support** |
+| **Updated** | **Improved Test Fixtures** | **Enhanced isolation and cleanup for test reliability** |
+| **Updated** | **Router Architecture Testing** | **Validates modular router composition and backward compatibility** |
+| **Updated** | **Async Operations Testing** | **Comprehensive async operation validation** |
+| **Updated** | **Streaming Response Testing** | **Extensive SSE streaming response testing** |
+| **Updated** | **Batch Status Polling Testing** | **Centralized status update and OOB swapping validation** |
+| **Updated** | **Filtering and Sorting Testing** | **Comprehensive filter/sort API endpoint testing** |
+| **Updated** | **Authentication Testing** | **Login, logout, and authentication guard validation** |
+| **Updated** | **Upload Operations Testing** | **File upload, validation, and background indexing testing** |
+| **Updated** | **Bulk Operations Testing** | **Delete, reindex, and search toggle operations testing** |
 
 **Updated** The validation system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files, modern DOCX files, and spreadsheet XLSX files. The new DOCX integrity checking using `_validate_docx_bytes()` function verifies that DOCX files contain valid content by checking for the required word/document.xml structure within the ZIP archive. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The new `load_xlsx()` function in the parser module handles spreadsheet processing with worksheet-based sectioning and row formatting. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the `GLOBAL_EXPERTS_PROMPT` system prompt and specialized retriever construction. The revolutionary HTMX partial response system now includes proper OOB swapping capabilities for dynamic document row updates, automatic status polling activation that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The system now tracks recently finished documents within a 10-second window to provide final status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The enhanced async architecture now provides comprehensive semaphore-based concurrency control for background indexing operations, direct async operations throughout the document service, and streamlined background processing with improved error handling and resource management. The PostgreSQL migration provides enterprise-grade database capabilities with proper timezone handling, concurrent access support, and improved error handling.
 
@@ -1250,6 +1266,13 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Deduplication Logic**: Tests prevention of duplicate updates for documents in both active and recently finished lists
 - **Centralized Management**: Validates unified tracking through repository layer
 
+#### **Updated** Enhanced Testing Infrastructure Coverage
+- **PostgreSQL Container Testing**: Tests with Testcontainers PostgreSQL for realistic database testing
+- **Test Isolation**: Validates proper cleanup and isolation between test cases
+- **Async Test Support**: Tests async operations in isolated test environments
+- **Mock Integration**: Validates proper mocking of external dependencies
+- **Fixture Management**: Tests comprehensive fixture infrastructure with proper setup and teardown
+
 **Section sources**
 - [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
 - [tests/test_api_documents.py:506-605](file://tests/test_api_documents.py#L506-L605)
@@ -1683,7 +1706,7 @@ Client->>Client : Update UI with success/error feedback
 **Diagram sources**
 - [app/api/documents_bulk.py:46-97](file://app/api/documents_bulk.py#L46-L97)
 - [app/api/documents_bulk.py:99-174](file://app/api/documents_bulk.py#L99-L174)
-- [app/api/documents_bulk.py:176-224](file://app/api/documents_bulk.py#L176-L224)
+- [app/api/documents_bulk.py:176-229](file://app/api/documents_bulk.py#L176-L229)
 - [templates/documents.html:537-561](file://templates/documents.html#L537-L561)
 
 ### Bulk Operations Architecture
@@ -1759,7 +1782,7 @@ The bulk operations provide comprehensive functionality:
 - **Automatic Polling Control**: Intelligent start/stop polling for bulk operations
 
 **Section sources**
-- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
+- [app/api/documents_bulk.py:46-229](file://app/api/documents_bulk.py#L46-L229)
 - [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
 - [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
 
@@ -2265,7 +2288,7 @@ MainRouter-->>Client : File with proper encoding
 ```
 
 **Diagram sources**
-- [app/api/documents.py:499-531](file://app/api/documents.py#L499-L531)
+- [app/api/documents.py:499-539](file://app/api/documents.py#L499-L539)
 - [app/api/documents_auth.py:23-77](file://app/api/documents_auth.py#L23-L77)
 - [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
 - [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
@@ -2294,7 +2317,7 @@ The enhanced download system provides:
 - **Security Validation**: Ensures only authorized users can download files
 
 **Section sources**
-- [app/api/documents.py:499-531](file://app/api/documents.py#L499-L531)
+- [app/api/documents.py:499-539](file://app/api/documents.py#L499-L539)
 
 ## Improved Document Status Tracking
 
@@ -2570,10 +2593,10 @@ All list endpoints support the following parameters:
 **Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates with revolutionary OOB swapping capabilities, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized `parse_date_range()` utility ensures consistent date parameter handling across all endpoints, while the `_document_table_context()` function provides standardized template context management for all partials. The new DOCX integrity validation using `_validate_docx_bytes()` function ensures file content validity before processing. The revolutionary HTMX partial response system now includes proper OOB swapping for dynamic document row updates, automatic polling control that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The enhanced async architecture now provides comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control and streamlined background processing. The PostgreSQL migration provides enterprise-grade database capabilities with proper timezone handling, concurrent access support, and improved error handling.
 
 **Section sources**
-- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
+- [app/api/documents.py:1-539](file://app/api/documents.py#L1-L539)
 - [app/api/documents_auth.py:1-77](file://app/api/documents_auth.py#L1-L77)
-- [app/api/documents_upload.py:1-288](file://app/api/documents_upload.py#L1-L288)
-- [app/api/documents_bulk.py:1-224](file://app/api/documents_bulk.py#L1-L224)
+- [app/api/documents_upload.py:1-292](file://app/api/documents_upload.py#L1-L292)
+- [app/api/documents_bulk.py:1-229](file://app/api/documents_bulk.py#L1-L229)
 - [app/api/documents_qa.py:1-91](file://app/api/documents_qa.py#L1-L91)
 - [app/api/deps.py:54-74](file://app/api/deps.py#L54-L74)
 
@@ -2939,6 +2962,11 @@ Required environment variables:
 | **PostgreSQL CRUD Issues** | CREATE/UPDATE/DELETE failures | Check RETURNING clauses, verify parameter binding, validate PostgreSQL syntax |
 | **PostgreSQL Upsert Issues** | ON CONFLICT upsert failures | Check unique constraints, verify conflict resolution logic, validate EXCLUDED values |
 | **PostgreSQL Timezone Issues** | Incorrect timestamps | Check TIMESTAMPTZ handling, verify timezone configuration, validate timestamp conversions |
+| **Enhanced Testing Infrastructure Issues** | Test failures or instability | Check PostgreSQL container configuration, verify test isolation, validate fixture cleanup |
+| **Router Architecture Testing Issues** | Modular router test failures | Check router composition, verify backward compatibility, validate specialized router functionality |
+| **Async Operations Testing Issues** | Async test failures | Check semaphore configuration in tests, verify async operation mocking, validate error handling |
+| **Streaming Response Testing Issues** | SSE test failures | Check streaming response mocking, verify token streaming, validate error recovery |
+| **Batch Status Polling Testing Issues** | Status polling test failures | Check centralized polling endpoint, verify OOB swapping, validate deduplication logic |
 
 ### Logging and Monitoring
 
@@ -2983,8 +3011,13 @@ The system provides comprehensive logging at multiple levels:
 - **Async Operations Logs**: Enhanced async architecture implementation, semaphore management, resource cleanup
 - **Async Semaphore Logs**: Semaphore-based concurrency control, task queuing, error recovery
 - **PostgreSQL Migration Logs**: Database connection management, schema initialization, error handling
+- **Enhanced Testing Infrastructure Logs**: PostgreSQL container testing, test isolation, fixture management
+- **Router Architecture Testing Logs**: Modular router validation, backward compatibility testing
+- **Async Operations Testing Logs**: Enhanced async operation testing, semaphore validation
+- **Streaming Response Testing Logs**: SSE streaming response testing, error recovery validation
+- **Batch Status Polling Testing Logs**: Centralized status polling testing, OOB swapping validation, deduplication logic testing
 
-**Updated** The troubleshooting guide now includes comprehensive coverage for the PostgreSQL migration, enhanced CRUD operations with RETURNING clauses, ON CONFLICT upsert operations, and enhanced async operations. The logging system provides detailed coverage for all new PostgreSQL functionality including database connection management, schema initialization, CRUD operations with RETURNING clauses, upsert operations with ON CONFLICT, and proper timezone handling. The system now includes specific troubleshooting steps for database connection failures, schema initialization issues, CREATE/UPDATE/DELETE operation failures, and ON CONFLICT upsert failures. The enhanced async architecture troubleshooting covers async operation failures, semaphore management issues, background task errors, resource cleanup problems, and performance monitoring concerns. The PostgreSQL-specific troubleshooting includes database URL format validation, asyncpg driver installation, PostgreSQL connectivity issues, and proper timezone handling for TIMESTAMPTZ fields.
+**Updated** The troubleshooting guide now includes comprehensive coverage for the PostgreSQL migration, enhanced CRUD operations with RETURNING clauses, ON CONFLICT upsert operations, and enhanced async operations. The logging system provides detailed coverage for all new PostgreSQL functionality including database connection management, schema initialization, CRUD operations with RETURNING clauses, upsert operations with ON CONFLICT, and proper timezone handling. The system now includes specific troubleshooting steps for database connection failures, schema initialization issues, CREATE/UPDATE/DELETE operation failures, and ON CONFLICT upsert failures. The enhanced async architecture troubleshooting covers async operation failures, semaphore management issues, background task errors, resource cleanup problems, and performance monitoring concerns. The PostgreSQL-specific troubleshooting includes database URL format validation, asyncpg driver installation, PostgreSQL connectivity issues, and proper timezone handling for TIMESTAMPTZ fields. The enhanced testing infrastructure troubleshooting covers PostgreSQL container configuration, test isolation issues, and fixture cleanup problems.
 
 **Section sources**
 - [app/main.py:21-96](file://app/main.py#L21-L96)
@@ -2994,7 +3027,7 @@ The system provides comprehensive logging at multiple levels:
 
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
 
-**Updated** The system has undergone a significant transformation with the migration from SQLite to PostgreSQL, implementing comprehensive database schema changes, enhanced CRUD operations with RETURNING clauses for generated IDs, and ON CONFLICT clauses for upsert operations. The storage layer now provides enterprise-grade database capabilities with proper timezone handling, concurrent access support, and improved error handling. The enhanced user interface now features intelligent polling control that starts/stops based on active document count, recently finished documents tracking that provides final status updates within a 10-second window, and efficient OOB swapping that enables dynamic row updates without full page reloads. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials and components. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, automatic polling control, recently finished documents tracking, enhanced async operations, streamlined background processing, PostgreSQL migration, enhanced CRUD operations, and ON CONFLICT upsert functionality. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
+**Updated** The system has undergone a significant transformation with the implementation of a comprehensive modular testing approach for the admin document API. The testing infrastructure now includes enhanced fixtures with PostgreSQL container support, improved isolation between test cases, and extensive coverage for authentication, upload operations, bulk operations, and filtering/sorting functionality. The modular router architecture testing ensures backward compatibility while validating the new specialized routers for authentication, upload, bulk operations, and QA functionality. The enhanced user interface now features intelligent polling control that starts/stops based on active document count, recently finished documents tracking that provides final status updates within a 10-second window, and efficient OOB swapping that enables dynamic row updates without full page reloads. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials and components. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, automatic polling control, recently finished documents tracking, enhanced async operations, streamlined background processing, PostgreSQL migration, enhanced CRUD operations, and ON CONFLICT upsert functionality. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
 Key strengths include:
 - **Revolutionary PostgreSQL Migration**: Enterprise-grade database with TIMESTAMPTZ, SERIAL primary keys, and enhanced CRUD operations
@@ -3056,5 +3089,14 @@ Key strengths include:
 - **TIMESTAMPTZ Support**: Timezone-aware timestamps for accurate temporal queries
 - **SERIAL Primary Keys**: Automatic ID generation for efficient database operations
 - **Enhanced Database Schema**: Proper indexes, unique constraints, and foreign key relationships
+- **Enhanced Testing Infrastructure**: Comprehensive PostgreSQL container testing, test isolation, and fixture management
+- **Router Architecture Testing**: Extensive validation of modular router composition and backward compatibility
+- **Async Operations Testing**: Comprehensive testing of enhanced async architecture and semaphore management
+- **Streaming Response Testing**: Extensive validation of SSE streaming capabilities
+- **Batch Status Polling Testing**: Revolutionary centralized status polling with OOB swapping validation
+- **Filtering and Sorting Testing**: Comprehensive validation of enhanced filtering and sorting API endpoints
+- **Authentication Testing**: Complete validation of authentication router functionality
+- **Upload Operations Testing**: Extensive validation of upload router operations
+- **Bulk Operations Testing**: Comprehensive validation of bulk router operations
 
-The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability. The PostgreSQL migration provides enterprise-grade database capabilities with improved performance, reliability, and scalability compared to the previous SQLite implementation.
+The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability. The PostgreSQL migration provides enterprise-grade database capabilities with improved performance, reliability, and scalability compared to the previous SQLite implementation. The enhanced testing infrastructure ensures comprehensive coverage of all new functionality while maintaining backward compatibility and operational stability.

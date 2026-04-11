@@ -64,12 +64,13 @@
 
 ## Update Summary
 **Changes Made**
-- **PostgreSQL Migration**: Complete migration from SQLite to PostgreSQL for test database infrastructure
-- **Environment Variable Integration**: Updated test database fixtures to use TEST_DATABASE_URL environment variable
-- **Docker Container Support**: Added Testcontainers integration for PostgreSQL container management
+- **Enhanced PostgreSQL Database Testing Infrastructure**: Complete migration from SQLite to PostgreSQL for test database infrastructure using Testcontainers
+- **Docker Availability Detection**: Implemented automatic Docker availability detection with graceful skipping of container-based tests
+- **Comprehensive Test Fixtures**: Enhanced conftest.py with AsyncMock support, PostgreSQL database integration, and improved test isolation
 - **Improved Test Isolation**: Enhanced table dropping and recreation with CASCADE option for better isolation
 - **Async Database Operations**: Proper async database connection handling with asyncpg driver
-- **Enhanced Test Fixtures**: Comprehensive test fixtures infrastructure supporting PostgreSQL testing
+- **Modular Test Organization**: Enhanced admin document API testing with specialized test modules for authentication, upload, and bulk operations
+- **Advanced Mocking Infrastructure**: Comprehensive AsyncMock usage for Qdrant client mocking and S3 storage operations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -84,9 +85,9 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly enhanced with modern async testing patterns, comprehensive AsyncMock usage for Qdrant client mocking, expanded test coverage for the new async operations and combined vector embedding approach in hybrid search functionality, and a complete migration from SQLite to PostgreSQL for production-like testing environments.
+This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly enhanced with modern async testing patterns, comprehensive AsyncMock usage for Qdrant client mocking, expanded test coverage for the new async operations and combined vector embedding approach in hybrid search functionality, and a complete migration from SQLite to PostgreSQL for production-like testing environments using Testcontainers.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, expanded test coverage for new async operations and combined vector embedding approach, and **complete migration from SQLite to PostgreSQL for production-like testing environments**. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive mocking capabilities, **PostgreSQL database testing with Docker containers**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, expanded test coverage for new async operations and combined vector embedding approach, and **complete migration from SQLite to PostgreSQL for production-like testing environments using Testcontainers**. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive mocking capabilities, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**.
 
 ## Project Structure
 The testing effort is organized under the tests/ directory with a modernized approach featuring comprehensive AsyncMock usage, PostgreSQL database testing, and Docker container integration:
@@ -308,7 +309,7 @@ SCRIPTS --> RUN_LLAMA
 - **Resource management testing** validates sparse embeddings initialization and cleanup in AppResources with graceful degradation for hybrid search mode.
 - **AsyncMock-based test infrastructure** provides comprehensive async operation validation with proper await semantics and async fixtures.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**.
 
 Key testing characteristics:
 - Uses pytest with asyncio_mode set to auto for async-friendly tests.
@@ -345,7 +346,7 @@ Key testing characteristics:
 - **Resource management testing** validates sparse embeddings initialization and cleanup in AppResources with graceful degradation for hybrid search mode.
 - **AsyncMock-based test infrastructure** provides comprehensive async operation validation with proper await semantics and async fixtures for Qdrant client lifecycle management.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -818,7 +819,7 @@ Methodology:
 - Test get endpoint with slot-based retrieval and authentication.
 - Test list endpoint with comprehensive filtering and sorting.
 - Validate delete endpoint with proper authorization and cleanup.
-- Test unique constraint enforcement for same category+subcategory per entity.
+- Validate unique constraint enforcement for same category+subcategory per entity.
 - **Test comprehensive filtering by category, subcategory, and entity_id.**
 - **Test multi-field sorting with category, subcategory, entity_id, and created_at.**
 - **Validate AsyncMock usage for S3 storage operations with proper await semantics.**
@@ -1118,6 +1119,9 @@ Mocking external dependencies:
 - **Validate enhanced admin document API testing with modular approach organization.**
 - **Validate comprehensive test fixtures infrastructure for shared testing resources.**
 - **Validate AsyncMock usage for comprehensive async operation validation across all test modules.**
+- **Validate Docker availability detection and graceful skipping of container-based tests.**
+- **Validate PostgreSQL database initialization and table creation with proper error handling.**
+- **Validate asyncpg driver usage for optimal database performance.**
 
 Validation tips:
 - Use keyboard payload assertions to confirm routing correctness.
@@ -1162,8 +1166,11 @@ Validation tips:
 - **Validate enhanced admin document API testing with modular approach organization.**
 - **Validate comprehensive test fixtures infrastructure for shared testing resources.**
 - **Validate AsyncMock usage for comprehensive async operation validation across all test modules.**
+- **Validate Docker container lifecycle management and cleanup.**
+- **Validate PostgreSQL container startup and connection URL generation.**
+- **Validate asyncpg driver usage for optimal database performance.**
 
-**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation using query_rag_with_wait, document storage system testing for comprehensive database operations, category file service testing for PostgreSQL integration, enhanced admin document API testing for authentication and localization, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **extended configuration testing for semantic chunking and hybrid search settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure with PostgreSQL integration**, **AsyncMock usage testing for comprehensive async operation validation**, and **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**.
+**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation using query_rag_with_wait, document storage system testing for comprehensive database operations, category file service testing for PostgreSQL integration, enhanced admin document API testing for authentication and localization, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **extended configuration testing for semantic chunking and hybrid search settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure with PostgreSQL integration**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, and **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**.
 
 **Section sources**
 - [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
@@ -1387,7 +1394,8 @@ Purpose:
 - **Validate comprehensive mocking capabilities for Qdrant, S3, embeddings, and QA service.**
 - **Validate shared fixture organization and reusability across test modules.**
 - **Validate AsyncMock usage for Qdrant client mocking across all fixtures.**
-- **Validate Docker container integration for PostgreSQL testing.**
+- **Validate Docker availability detection and graceful skipping of container-based tests.**
+- **Validate PostgreSQL database connection URL generation and asyncpg driver usage.**
 
 Methodology:
 - Test pg_container fixture for PostgreSQL Testcontainers with proper cleanup.
@@ -1406,7 +1414,9 @@ Methodology:
 - **Validate S3 storage mock with async method support for upload, download, delete, exists, open, and close operations.**
 - **Validate QA service mock with cache invalidation functionality.**
 - **Validate AsyncMock usage for comprehensive Qdrant client mocking across all fixtures.**
-- **Validate Docker container integration with Testcontainers for PostgreSQL testing.**
+- **Validate Docker availability detection with automatic skipping of container-based tests.**
+- **Validate PostgreSQL container startup and connection URL generation.**
+- **Validate asyncpg driver usage for optimal database performance.**
 
 Testing patterns:
 - Use pytest fixtures for test isolation and reusability.
@@ -1416,9 +1426,10 @@ Testing patterns:
 - **Use comprehensive parameterization for different mock configurations.**
 - **Validate fixture dependency management and resource cleanup.**
 - **Validate AsyncMock usage for comprehensive Qdrant client mocking with proper await semantics.**
-- **Validate Docker container lifecycle management and cleanup.**
+- **Validate Docker availability detection and graceful skipping of container-based tests.**
+- **Validate PostgreSQL database connection URL generation and asyncpg driver usage.**
 
-**Updated** Added comprehensive enhanced test fixtures infrastructure with 235 lines of new test fixtures providing shared testing infrastructure including PostgreSQL database integration with Docker containers, mock services, authenticated client creation, and comprehensive mocking capabilities for improved test organization and maintainability. The testing infrastructure now includes **AsyncMock usage for Qdrant client mocking across all fixtures** and **Docker container integration for PostgreSQL testing**.
+**Updated** Added comprehensive enhanced test fixtures infrastructure with 235 lines of new test fixtures providing shared testing infrastructure including PostgreSQL database integration with Docker containers, mock services, authenticated client creation, and comprehensive mocking capabilities for improved test organization and maintainability. The testing infrastructure now includes **AsyncMock usage for Qdrant client mocking across all fixtures**, **Docker availability detection and graceful skipping of container-based tests**, and **PostgreSQL database connection URL generation and asyncpg driver usage**.
 
 **Section sources**
 - [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
@@ -1453,6 +1464,9 @@ The test suite depends on:
 - **Enhanced admin document API testing infrastructure with modular approach.**
 - **Comprehensive test fixtures infrastructure for shared testing resources.**
 - **AsyncMock usage testing for comprehensive async operation validation.**
+- **Docker availability detection and graceful skipping of container-based tests.**
+- **PostgreSQL database testing with asyncpg driver.**
+- **TEST_DATABASE_URL environment variable integration for database configuration.**
 
 ```mermaid
 graph TB
@@ -1489,6 +1503,8 @@ TC["Testcontainers"]
 PG["PostgreSQL Database"]
 ENV["TEST_DATABASE_URL"]
 DOCKER["Docker Integration"]
+DAV["Docker Availability Detection"]
+ASYNC_PG["Asyncpg Driver"]
 PY --> P
 PY --> PA
 PY --> VK
@@ -1521,6 +1537,8 @@ PY --> TC
 PY --> PG
 PY --> ENV
 PY --> DOCKER
+PY --> DAV
+PY --> ASYNC_PG
 ```
 
 **Diagram sources**
@@ -1570,10 +1588,11 @@ PY --> DOCKER
 - **Enhanced admin document API testing should validate modular test organization performance.**
 - **Test fixtures infrastructure should provide efficient shared testing resources.**
 - **AsyncMock usage testing should validate comprehensive async operation performance.**
-- **Docker container testing should use Testcontainers for efficient PostgreSQL container management.**
+- **Docker availability detection should gracefully skip container-based tests when Docker is not available.**
 - **PostgreSQL database testing should leverage asyncpg driver for optimal performance.**
+- **TEST_DATABASE_URL environment variable should be properly formatted for database connections.**
 
-**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing optimization, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing optimization for new settings**, **resource management testing optimization for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, and **Docker container integration for PostgreSQL testing**.
+**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing optimization, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing optimization for new settings**, **resource management testing optimization for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, and **TEST_DATABASE_URL environment variable integration for database configuration**.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -1616,7 +1635,7 @@ Common issues and resolutions:
 - **Document service indexing failures: Test chunk processing and status updates.**
 - **Document service Qdrant integration failures: Test vector storage and retrieval.**
 - **Indexer failures: Validate chunk preparation and metadata enrichment.**
-- **Indexer metadata failures: Test document ID and chunk ID assignment.**
+- **Indexer metadata failures: Validate document ID and chunk ID assignment.**
 - **Indexer search enablement failures: Test boolean metadata handling.**
 - **Filtering and sorting API failures: Validate status filtering with all values.**
 - **Filtering and sorting API source type failures: Test source type filtering with all values.**
@@ -1637,9 +1656,10 @@ Common issues and resolutions:
 - **Enhanced admin document API modular testing failures: Validate test organization and fixture sharing across modules.**
 - **Test fixtures infrastructure failures: Validate shared testing resources and dependency management.**
 - **AsyncMock usage failures: Validate comprehensive async operation validation across all test modules.**
-- **Docker container failures: Validate PostgreSQL container startup and connection URL generation.**
+- **Docker availability detection failures: Validate graceful skipping of container-based tests when Docker is not available.**
 - **PostgreSQL database failures: Validate asyncpg driver usage and table initialization.**
 - **TEST_DATABASE_URL failures: Validate environment variable configuration and connection string formatting.**
+- **PostgreSQL container failures: Validate container startup and connection URL generation.**
 
 Debugging tips:
 - Print or log parsed keyboard JSON during development to validate structure.
@@ -1687,11 +1707,11 @@ Debugging tips:
 - **Validate enhanced admin document API testing organization and fixture sharing.**
 - **Validate comprehensive test fixtures infrastructure for shared testing resources.**
 - **Validate AsyncMock usage for comprehensive async operation validation across all test modules.**
-- **Validate Docker container lifecycle management and cleanup.**
+- **Validate Docker availability detection and graceful skipping of container-based tests.**
 - **Validate PostgreSQL container startup and connection URL generation.**
 - **Validate asyncpg driver usage for optimal database performance.**
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, category file service testing with PostgreSQL integration, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **semantic chunking testing with FakeEmbeddings mock**, **hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker container integration for PostgreSQL testing**, and **PostgreSQL database testing with asyncpg driver**.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, category file service testing with PostgreSQL integration, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **semantic chunking testing with FakeEmbeddings mock**, **hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, and **TEST_DATABASE_URL environment variable integration for database configuration**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1748,6 +1768,9 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - **Resource management testing validates sparse embeddings initialization and cleanup in AppResources with graceful degradation for hybrid search mode.**
 - **Enhanced test fixtures infrastructure provides comprehensive shared testing resources including PostgreSQL database integration with Docker containers, mock services, and authenticated client creation with AsyncMock support.**
 - **AsyncMock usage testing validates comprehensive async operation validation across all test modules with proper await semantics.**
+- **Docker availability detection testing validates graceful skipping of container-based tests when Docker is not available.**
+- **PostgreSQL database testing with asyncpg driver validates optimal database performance.**
+- **TEST_DATABASE_URL environment variable testing validates database configuration and connection string formatting.**
 
 To evolve the test suite:
 - Introduce event-driven tests for handlers to validate async behavior.
@@ -1801,11 +1824,12 @@ To evolve the test suite:
 - **Validate resource management for sparse embeddings initialization and cleanup.**
 - **Add comprehensive enhanced test fixtures infrastructure for shared testing resources and improved test organization.**
 - **Add comprehensive AsyncMock usage testing for comprehensive async operation validation across all test modules.**
-- **Add comprehensive Docker container integration testing for PostgreSQL container management.**
-- **Validate TEST_DATABASE_URL environment variable usage for database configuration.**
+- **Add comprehensive Docker availability detection testing for graceful skipping of container-based tests.**
+- **Validate PostgreSQL container startup and connection URL generation.**
 - **Validate asyncpg driver usage for optimal PostgreSQL performance.**
+- **Validate TEST_DATABASE_URL environment variable usage for database configuration.**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, **category file service testing with 422 lines of new coverage**, **category files API testing with 553 lines of new coverage**, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive semantic chunking testing with 246 lines of new coverage**, **comprehensive hybrid search testing with 173 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 235 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing validating Qdrant client lifecycle ownership using AsyncMock**, **Docker container integration for PostgreSQL testing**, and **AsyncMock usage testing validating comprehensive async operation validation**.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, **category file service testing with 422 lines of new coverage**, **category files API testing with 553 lines of new coverage**, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive semantic chunking testing with 246 lines of new coverage**, **comprehensive hybrid search testing with 173 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 235 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing validating Qdrant client lifecycle ownership using AsyncMock**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **TEST_DATABASE_URL environment variable integration for database configuration**, and **AsyncMock usage testing validating comprehensive async operation validation**.
 
 ## Appendices
 
@@ -1836,8 +1860,9 @@ To evolve the test suite:
 - **Run resource management tests for sparse embeddings using AsyncMock (e.g., `pytest tests/test_hybrid_search.py::test_build_sparse_embeddings_dense_mode`).**
 - **Run enhanced test fixtures tests for shared testing resources validation (e.g., `pytest tests/conftest.py`).**
 - **Run AsyncMock usage tests for comprehensive async operation validation across all test modules (e.g., `pytest tests/conftest.py::TestAsyncMockUsage`).**
-- **Run Docker container tests for PostgreSQL container management (e.g., `pytest tests/conftest.py::TestPostgreSQLContainer`).**
-- **Run TEST_DATABASE_URL environment variable tests for database configuration (e.g., `pytest tests/test_storage.py::TestInitDb::test_creates_database_tables`).**
+- **Run Docker availability detection tests for graceful skipping of container-based tests (e.g., `pytest tests/conftest.py::TestDockerAvailability`).**
+- **Run PostgreSQL database tests for asyncpg driver usage validation (e.g., `pytest tests/conftest.py::TestPostgreSQLConnection`).**
+- **Run TEST_DATABASE_URL environment variable tests for database configuration validation (e.g., `pytest tests/test_storage.py::TestInitDb::test_creates_database_tables`).**
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1900,10 +1925,10 @@ To evolve the test suite:
 - **Validate enhanced admin document API testing with modular approach organization.**
 - **Validate comprehensive test fixtures infrastructure for shared testing resources.**
 - **Validate AsyncMock usage for comprehensive async operation validation across all test modules.**
-- **Validate Docker container lifecycle management and cleanup.**
+- **Validate Docker availability detection and graceful skipping of container-based tests.**
 - **Validate PostgreSQL container startup and connection URL generation.**
 - **Validate asyncpg driver usage for optimal database performance.**
 - **Validate TEST_DATABASE_URL environment variable usage for database configuration.**
 - **Validate timeout handling and unified RAG answer delivery across all handlers.**
 
-**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker container integration for PostgreSQL testing**, and **PostgreSQL database testing with asyncpg driver**.
+**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, and **TEST_DATABASE_URL environment variable integration for database configuration**.

@@ -43,13 +43,15 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced domain services with async Qdrant client integration for improved performance and resource management
-- Implemented comprehensive resource lifecycle management with graceful degradation and cleanup
-- Added AsyncQdrantRetriever for fully async operations without sync client overhead
-- Integrated hybrid search capabilities with sparse embeddings for enhanced retrieval
-- Improved error handling and fallback mechanisms for Qdrant client failures
-- Enhanced resource initialization with proper async patterns and collection management
-- Updated QA service to support both dense and hybrid retrieval modes
+- Enhanced fire handler with entity-based resignation flow and improved error handling using decorators
+- Integrated document attachment system for delivering company-specific templates
+- Improved error handling with decorators (@catch_entity_error) and require_entity functions
+- Implemented AsyncQdrant client integration for fully asynchronous operations
+- Enhanced resource management with graceful degradation and comprehensive lifecycle management
+- Added hybrid search capabilities with sparse embeddings for enhanced retrieval
+- Updated legal entity definitions with full company names for accurate template generation
+- Implemented send_document_or_fallback helper for consistent document delivery patterns
+- Enhanced keyboard system with entity selection for multi-step workflows
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -76,7 +78,7 @@
 ## Introduction
 This document explains the VKontakte integration system built with the vkbottle framework, featuring a comprehensive QA service integration for Retrieval-Augmented Generation (RAG) processing across all HR-related handlers. The system implements a bot factory pattern with centralized state dispenser sharing, advanced handler registration and ordering, payload-based navigation, and sophisticated VK API integration patterns. It covers bot initialization, message routing, RAG-powered content delivery, and practical guidance for extending the bot with new handlers, customizing behavior, and integrating with VK's webhook system. Common integration challenges, robust error handling, and best practices for VK bot development are addressed.
 
-**Updated** The system now features enhanced domain services with async Qdrant client integration and improved resource management, providing better performance, reliability, and scalability for RAG operations. The new async patterns eliminate sync client overhead and enable fully asynchronous operations throughout the system.
+**Updated** The system now features enhanced domain services with async Qdrant client integration and improved resource management, providing better performance, reliability, and scalability for RAG operations. The new async patterns eliminate sync client overhead and enable fully asynchronous operations throughout the system. The enhanced error handling system provides consistent patterns across all handlers using require_entity functions and @catch_entity_error decorators.
 
 ## Project Structure
 The VK integration resides under app/integrations/vk and includes:
@@ -393,10 +395,12 @@ class VKHandlersUtils {
 + require_entity(message, entity_id, back_payload) Entity
 + catch_entity_error(handler) decorator
 + EntityNotFoundError exception
++ send_document_or_fallback(message, category, subcategory, entity_id, fallback_text, back_payload, caption) None
 }
 class Holder {
 + qa : QAService | None
 + state_dispenser : BuiltinStateDispenser | None
++ category_file_service : CategoryFileService | None
 }
 class QAService {
 +ask(question) str
@@ -879,6 +883,7 @@ class AppResources {
 +embeddings : Embeddings | None
 +llm : BaseChatModel | None
 +s3 : S3Storage | None
++db : Database | None
 +doc_repo : DocumentRepository | None
 +doc_service : DocumentService | None
 +qa_service : QAService | None
@@ -1475,7 +1480,7 @@ Validation references:
 - Handler order and counts: [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
 - QA service integration: [test_qa_service.py:176-198](file://tests/test_qa_service.py#L176-L198)
 - Keyboard composition and payloads: [test_keyboards.py:49-92](file://tests/test_keyboards.py#L49-L92), [test_keyboards.py:176-192](file://tests/test_keyboards.py#L176-L192)
-- State definitions: [test_states.py:8-31](file://tests/test_states.py#L8-L31)
+- state definitions: [test_states.py:8-31](file://tests/test_states.py#L8-L31)
 - Centralized access patterns: [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
 - Enhanced fire handler functionality: [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
 - Document attachment system: [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)

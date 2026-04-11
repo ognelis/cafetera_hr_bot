@@ -214,6 +214,79 @@ bash scripts/run_admin.sh
 
 ---
 
+## Сборка и запуск Docker-контейнеров
+
+Проект содержит два Dockerfile для разных режимов работы.
+
+### Сборка образов
+
+```bash
+# Админ-панель
+docker build -f Dockerfile.admin -t cafetera-admin .
+
+# VK-бот в режиме polling
+docker build -f Dockerfile.polling_vk -t cafetera-polling-vk .
+```
+
+### Запуск контейнеров
+
+```bash
+# Админ-панель (доступна на http://localhost:8000)
+docker run --rm --env-file .env -p 8000:8000 cafetera-admin
+
+# VK-бот в режиме polling
+docker run --rm --env-file .env cafetera-polling-vk
+```
+
+### Подключение к внешним сервисам
+
+Контейнерам нужен доступ к внешним сервисам: PostgreSQL, Qdrant, MinIO, LLM-сервер. Адреса подключения передаются через переменные окружения в `.env`.
+
+Если сервисы запущены через `docker compose`, используйте флаг `--network` для подключения к той же сети:
+
+```bash
+docker run --rm --env-file .env --network cafetera_hr_bot_default -p 8000:8000 cafetera-admin
+```
+
+> **Примечание:** в контейнере админ-панели переменная `BIND_HOST` автоматически устанавливается в `0.0.0.0` для корректной работы внутри Docker.
+
+#### Использование имён сервисов вместо localhost
+
+Когда контейнер запущен с `--network cafetera_hr_bot_default`, внутри него `localhost` ссылается на сам контейнер, а не на хост-машину. Для подключения к сервисам, запущенным через `docker compose`, используйте **имена контейнеров** в качестве хостов:
+
+| Сервис | Имя хоста в docker compose |
+|---|---|
+| PostgreSQL | `rag-bot-postgres` |
+| Qdrant | `rag-bot-qdrant` |
+| MinIO | `rag-bot-minio` |
+
+Пример запуска админ-панели с переопределением адресов сервисов:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  -e DATABASE_URL=postgresql://cafetera:cafetera@rag-bot-postgres:5432/cafetera \
+  -e QDRANT_URL=http://rag-bot-qdrant:6333 \
+  -e S3_ENDPOINT_URL=http://rag-bot-minio:9000 \
+  --network cafetera_hr_bot_default \
+  -p 8000:8000 \
+  cafetera-admin
+```
+
+Аналогично для VK-бота в режиме polling:
+
+```bash
+docker run --rm \
+  --env-file .env \
+  -e DATABASE_URL=postgresql://cafetera:cafetera@rag-bot-postgres:5432/cafetera \
+  -e QDRANT_URL=http://rag-bot-qdrant:6333 \
+  -e S3_ENDPOINT_URL=http://rag-bot-minio:9000 \
+  --network cafetera_hr_bot_default \
+  cafetera-polling-vk
+```
+
+---
+
 ## Частые проблемы
 
 ### «docker: command not found»

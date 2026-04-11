@@ -54,13 +54,14 @@
 
 ## Update Summary
 **Changes Made**
-- Migrated from synchronous QdrantClient to fully asynchronous AsyncQdrantClient throughout the RAG pipeline
-- Added new AsyncQdrantRetriever implementation with fully async operations
-- Enhanced vector storage capabilities with combined dense and sparse embeddings
-- Implemented comprehensive async testing infrastructure for all RAG components
-- Updated resource management to support async initialization and cleanup
-- Enhanced indexing and retrieval components with async operations for improved performance and scalability
-- Updated application lifecycle management with proper async resource handling
+- Enhanced AsyncQdrantRetriever with null checks for payload data to prevent AttributeError exceptions
+- Improved error handling for malformed responses with robust payload validation
+- Refactored build_vectorstore function to support sparse embeddings for hybrid search mode
+- Implemented comprehensive resource lifecycle management with AsyncQdrantClient
+- Added CollectionNotFoundError exception for missing Qdrant collections
+- Enhanced sparse embedding support with FastEmbedSparse model integration
+- Improved error handling throughout the RAG pipeline with proper exception propagation
+- Added comprehensive testing infrastructure for async operations and resource management
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -82,7 +83,7 @@
 ## Introduction
 This document describes the comprehensive Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. The implementation includes a complete LangChain-based processing pipeline, Qdrant vector database integration with fully asynchronous operations, document ingestion capabilities, and specialized HR prompts. The system enhances the bot's HR assistance capabilities by providing contextual, reliable answers drawn from HR documents while maintaining seamless integration with the existing VK bot architecture.
 
-**Updated** The RAG implementation now features a fully asynchronous architecture with AsyncQdrantClient replacing synchronous operations throughout the pipeline, enhanced indexing and retrieval components with async operations, comprehensive resource management for async initialization and cleanup, improved performance and scalability through non-blocking operations, and enhanced application lifecycle management with proper async resource handling for production-ready deployment.
+**Updated** The RAG implementation now features a fully asynchronous architecture with AsyncQdrantClient replacing synchronous operations throughout the pipeline, enhanced indexing and retrieval components with async operations, comprehensive resource management for async initialization and cleanup, improved performance and scalability through non-blocking operations, enhanced application lifecycle management with proper async resource handling, robust error handling with null checks for payload data, improved malformed response handling, sparse embeddings support for hybrid search mode, and comprehensive testing infrastructure for all enhanced features.
 
 ## Project Structure
 The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup with AsyncQdrantClient, document ingestion capabilities, comprehensive QA service layer with enhanced ask handler implementation, SQLite-based document storage system, and dedicated deployment scripts for local LLM serving with comprehensive orchestration capabilities and intelligent GPU detection.
@@ -101,6 +102,8 @@ DocSpecificQA["Document-Specific QA with Async Chains<br/>ask_about_document()"]
 GlobalExperts["Global Experts Prompt System<br/>GLOBAL_EXPERTS_PROMPT"]
 Streaming["Streaming Responses with Async Support<br/>stream_ask() + stream_about_document()"]
 UXHelpers["Enhanced UX Helpers<br/>query_rag_with_wait() + send_rag_answer()"]
+ExceptionHandling["Enhanced Error Handling<br/>CollectionNotFoundError + Null Checks"]
+SparseEmbeddings["Sparse Embeddings Support<br/>FastEmbedSparse for Hybrid Search"]
 end
 subgraph "Enhanced Document Storage System"
 DBInit["Database Initialization<br/>app/storage/database.py"]
@@ -122,6 +125,7 @@ AppState["Application State<br/>AppState class"]
 Lifespan["Async Lifespan Manager<br/>lifespan() context manager"]
 AsyncResources["Async Resource Management<br/>build_resources() + close_resources()"]
 Cleanup["Async Resource Cleanup<br/>Proper teardown handling"]
+ResourceFactory["Resource Factory Pattern<br/>AppResources + build_resources()"]
 end
 subgraph "Enhanced Document Processing"
 Ingest["Async Ingestion Script<br/>scripts/ingest.py"]
@@ -133,6 +137,7 @@ end
 subgraph "Vector Database"
 AsyncQdrant["Async Qdrant Vector Store<br/>AsyncQdrantClient + hr_documents collection"]
 Metadata["Enhanced Document Metadata<br/>source + section + document_id + filename"]
+CollectionManagement["Collection Management<br/>_ensure_collection() + build_resources()"]
 end
 subgraph "Integration"
 VKBot["VK Bot Integration<br/>app/integrations/vk/bot.py"]
@@ -308,8 +313,11 @@ The RAG infrastructure consists of several interconnected components that work t
 - **Enhanced Application Lifecycle Management**: Centralized resource management through FastAPI application lifecycle with proper cleanup and teardown handling
 - **Module-Level Singleton Pattern**: Backward compatibility through module-level state management for VK handlers integration
 - **Comprehensive Testing Infrastructure**: Extensive test coverage for all enhanced features including QA service functionality, document storage system, GPU detection, and UX helper functions
+- **Enhanced Error Handling**: Comprehensive error handling with CollectionNotFoundError exception, null checks for payload data, and robust malformed response handling
+- **Sparse Embeddings Support**: FastEmbedSparse integration for hybrid search mode with retrieval_mode configuration
+- **Resource Lifecycle Management**: AppResources factory pattern with proper async initialization, collection management, and cleanup procedures
 
-**Updated** The RAG infrastructure now provides a complete, production-ready solution with fully asynchronous architecture using AsyncQdrantClient throughout the pipeline, enhanced GPU detection capabilities across all LLM providers, improved document processing with configurable chunking parameters, comprehensive LangChain integration, AsyncQdrant vector store capabilities with non-blocking operations, robust document storage system with SQLite, comprehensive QA service layer with centralized resource management, module-level singleton pattern for backward compatibility, enhanced application lifecycle management with proper cleanup, topic hints detection system, enhanced user experience features including query_rag_with_wait() for delayed response handling, send_rag_answer() for streamlined handler implementations, automatic question context prepending with character limits, support for three LLM providers including the new llama.cpp option with specialized deployment scripts and comprehensive orchestration capabilities, global experts prompt system for cross-document knowledge synthesis, advanced streaming response implementation for real-time user interaction, comprehensive testing infrastructure validating all enhancements, dual-service architecture with cache invalidation, and metadata-aware document formatting with enhanced LRU cache system.
+**Updated** The RAG infrastructure now provides a complete, production-ready solution with fully asynchronous architecture using AsyncQdrantClient throughout the pipeline, enhanced GPU detection capabilities across all LLM providers, improved document processing with configurable chunking parameters, comprehensive LangChain integration, AsyncQdrant vector store capabilities with non-blocking operations, robust document storage system with SQLite, comprehensive QA service layer with centralized resource management, module-level singleton pattern for backward compatibility, enhanced application lifecycle management with proper cleanup, topic hints detection system, enhanced user experience features including query_rag_with_wait() for delayed response handling, send_rag_answer() for streamlined handler implementations, automatic question context prepending with character limits, support for three LLM providers including the new llama.cpp option with specialized deployment scripts and comprehensive orchestration capabilities, global experts prompt system for cross-document knowledge synthesis, advanced streaming response implementation for real-time user interaction, comprehensive testing infrastructure validating all enhancements, dual-service architecture with cache invalidation, metadata-aware document formatting with enhanced LRU cache system, question complexity analysis with k-estimation, refined prompt system with stricter content policies, comprehensive resource lifecycle management with AppResources factory pattern, enhanced error handling with null checks and malformed response protection, sparse embeddings support for hybrid search mode, and comprehensive testing coverage for all enhanced features.
 
 **Section sources**
 - [app/config.py:10-23](file://app/config.py#L10-L23)
@@ -380,7 +388,7 @@ AsyncSQLite-->>DocumentService : Document metadata
 DocumentService-->>QAService : Document metadata
 QAService->>AsyncRAGChain : chain.estimate_k(question) + build_async_rag_chain
 AsyncRAGChain->>AsyncQdrant : Async similarity search with k-estimation
-AsyncQdrant-->>AsyncRAGChain : Retrieved documents
+AsyncQdrant-->>AsyncRAGChain : Retrieved documents with null checks
 AsyncRAGChain->>LLM : System prompt + context (provider-specific)
 LLM-->>AsyncRAGChain : Generated response
 AsyncRAGChain-->>QAService : Formatted answer
@@ -421,8 +429,10 @@ The RAG system now features fully asynchronous Qdrant integration with AsyncQdra
 - **Async Resource Management**: Proper async initialization and cleanup of Qdrant clients
 - **Performance Benefits**: Eliminates blocking operations and improves throughput
 - **Scalability**: Better handling of concurrent requests and operations
+- **Null Checks**: Enhanced payload validation prevents AttributeError exceptions
+- **Error Handling**: Comprehensive malformed response handling with robust error propagation
 
-**Updated** Complete asynchronous Qdrant integration with AsyncQdrantClient throughout the pipeline, including async indexing, retrieval, management operations, collection creation, and resource management for improved performance and scalability.
+**Updated** Complete asynchronous Qdrant integration with AsyncQdrantClient throughout the pipeline, including async indexing, retrieval, management operations, collection creation, resource management, null checks for payload data, and comprehensive error handling for malformed responses, providing improved performance, scalability, and reliability for production deployments.
 
 ```mermaid
 flowchart TD
@@ -432,7 +442,10 @@ AsyncClient --> AsyncManagement["Async Management Operations"]
 AsyncIndex --> AsyncOperations["Non-blocking Vector Operations"]
 AsyncRetrieval --> AsyncOperations
 AsyncManagement --> AsyncOperations
-AsyncOperations --> Performance["Improved Performance & Scalability"]
+AsyncOperations --> NullChecks["Null Checks for Payload Data"]
+AsyncOperations --> ErrorHandling["Enhanced Error Handling"]
+NullChecks --> Performance["Improved Performance & Scalability"]
+ErrorHandling --> Reliability["Enhanced Reliability & Stability"]
 ```
 
 **Diagram sources**
@@ -445,6 +458,22 @@ AsyncOperations --> Performance["Improved Performance & Scalability"]
 - [app/rag/indexer.py:49-141](file://app/rag/indexer.py#L49-L141)
 - [app/resources.py:167-202](file://app/resources.py#L167-L202)
 
+#### Enhanced AsyncQdrantRetriever with Null Checks
+The AsyncQdrantRetriever now includes comprehensive null checks for payload data and improved error handling:
+
+- **Payload Validation**: Enhanced null checks in _aget_relevant_documents to prevent AttributeError exceptions
+- **Robust Error Handling**: Improved malformed response handling with proper exception propagation
+- **Safe Document Construction**: Validates payload existence before constructing Document objects
+- **Metadata Protection**: Safely extracts metadata while handling missing or empty payload fields
+- **Graceful Degradation**: Falls back to empty strings for missing page_content with proper validation
+- **Enhanced Reliability**: Prevents crashes from malformed Qdrant responses or missing payload data
+- **Performance Optimization**: Maintains async operations while adding safety checks
+
+**Updated** Complete AsyncQdrantRetriever enhancement with comprehensive null checks for payload data, robust error handling for malformed responses, safe document construction with metadata protection, graceful degradation capabilities, and enhanced reliability for production deployments with improved performance and stability.
+
+**Section sources**
+- [app/rag/retriever.py:38-60](file://app/rag/retriever.py#L38-L60)
+
 #### Async Chunk Indexer
 The chunk indexer now operates asynchronously for improved performance:
 
@@ -455,8 +484,9 @@ The chunk indexer now operates asynchronously for improved performance:
 - **Async Preparation**: prepare_chunks maintains metadata enrichment with async operations
 - **Error Handling**: Comprehensive async error handling throughout indexing operations
 - **Performance Optimization**: Eliminates blocking operations for better throughput
+- **Sparse Embeddings Support**: Enhanced support for hybrid search with sparse vectors
 
-**Updated** Complete async chunk indexing system with asynchronous operations throughout, including indexing, deletion, payload updates, counting, and preparation with proper error handling and performance optimization.
+**Updated** Complete async chunk indexing system with asynchronous operations throughout, including indexing, deletion, payload updates, counting, and preparation with proper error handling, performance optimization, and sparse embeddings support for hybrid search mode.
 
 **Section sources**
 - [app/rag/indexer.py:49-141](file://app/rag/indexer.py#L49-L141)
@@ -471,8 +501,9 @@ The application now manages resources asynchronously:
 - **Async Error Handling**: Proper error handling for async resource operations
 - **Resource Sharing**: Async resources shared across application components
 - **Graceful Degradation**: Async operations handle failures gracefully
+- **Resource Factory Pattern**: AppResources factory pattern with comprehensive resource management
 
-**Updated** Complete async resource management system with asynchronous initialization, collection creation, cleanup, and lifecycle management for proper async resource handling throughout the application.
+**Updated** Complete async resource management system with asynchronous initialization, collection creation, cleanup, and lifecycle management for proper async resource handling throughout the application, including the new AppResources factory pattern with comprehensive resource management capabilities.
 
 **Section sources**
 - [app/resources.py:127-303](file://app/resources.py#L127-L303)
@@ -686,8 +717,11 @@ The testing framework now includes extensive validation of all enhanced features
 - **Handler Integration Testing**: Validation of UX helper functions and handler integration
 - **GPU Detection Testing**: Testing of enhanced GPU detection capabilities
 - **Provider Testing**: Comprehensive testing of all three LLM providers with enhanced configuration
+- **Async Operations Testing**: Validation of async resource management and error handling
+- **Sparse Embeddings Testing**: Testing of hybrid search mode with sparse embeddings
+- **Collection Management Testing**: Validation of collection creation and resource lifecycle management
 
-**Updated** Complete testing infrastructure with QA service testing, document management testing, prompt system testing, streaming response testing, handler integration testing, GPU detection testing, and provider testing for all enhanced features.
+**Updated** Complete testing infrastructure with QA service testing, document management testing, prompt system testing, streaming response testing, handler integration testing, GPU detection testing, provider testing, async operations testing, sparse embeddings testing, and collection management testing for all enhanced features.
 
 **Section sources**
 - [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
@@ -842,8 +876,11 @@ The testing framework now includes extensive validation of all enhanced features
 - **Handler Integration Testing**: Validation of UX helper functions and handler integration
 - **GPU Detection Testing**: Testing of enhanced GPU detection capabilities
 - **Provider Testing**: Comprehensive testing of all three LLM providers with enhanced configuration
+- **Async Operations Testing**: Validation of async resource management and error handling
+- **Sparse Embeddings Testing**: Testing of hybrid search mode with sparse embeddings
+- **Collection Management Testing**: Validation of collection creation and resource lifecycle management
 
-**Updated** Complete testing infrastructure with QA service testing, document management testing, prompt system testing, streaming response testing, handler integration testing, GPU detection testing, and provider testing for all enhanced features.
+**Updated** Complete testing infrastructure with QA service testing, document management testing, prompt system testing, streaming response testing, handler integration testing, GPU detection testing, provider testing, async operations testing, sparse embeddings testing, and collection management testing for all enhanced features.
 
 **Section sources**
 - [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
@@ -875,8 +912,13 @@ The RAG infrastructure includes several performance optimization strategies for 
 - **Async UX Helper Optimization**: Efficient concurrent processing and timeout handling for improved user experience
 - **Async Character Limit Optimization**: Efficient character limit enforcement with word boundary preservation
 - **Async Cache Invalidation Optimization**: Efficient cache invalidation for improved response times
+- **Async Null Check Optimization**: Efficient payload validation with minimal performance impact
+- **Async Error Handling Optimization**: Robust error propagation with minimal overhead
+- **Async Sparse Embeddings Optimization**: Efficient hybrid search with sparse embeddings support
+- **Async Resource Factory Optimization**: Efficient AppResources factory pattern with lazy initialization
+- **Async Collection Management Optimization**: Efficient collection creation and lifecycle management
 
-**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, efficient state handling, provider-specific optimizations for Ollama, OpenAI-compatible, and llama.cpp deployments, SQLite database optimization techniques, intelligent GPU detection for optimal hardware utilization, document-specific retrieval optimization, expert-level prompting for improved efficiency, global knowledge synthesis optimization, streaming response optimization for real-time user interaction, cross-document filtering optimization, application lifecycle optimization for centralized resource management, UX helper optimization for concurrent processing, character limit optimization for efficient text processing, cache invalidation optimization for improved response times, and comprehensive testing validation for all performance aspects.
+**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, efficient state handling, provider-specific optimizations for Ollama, OpenAI-compatible, and llama.cpp deployments, SQLite database optimization techniques, intelligent GPU detection for optimal hardware utilization, document-specific retrieval optimization, expert-level prompting for improved efficiency, global knowledge synthesis optimization, streaming response optimization for real-time user interaction, cross-document filtering optimization, application lifecycle optimization for centralized resource management, UX helper optimization for concurrent processing, character limit optimization for efficient text processing, cache invalidation optimization for improved response times, null check optimization for payload validation, error handling optimization for robust error propagation, sparse embeddings optimization for hybrid search mode, resource factory optimization for efficient resource management, and collection management optimization for efficient vector database operations.
 
 ### Scalability Planning
 The architecture supports horizontal scaling through:
@@ -898,6 +940,10 @@ The architecture supports horizontal scaling through:
 - **Async UX Helper Scaling**: Efficient concurrent processing for multiple user sessions
 - **Async Character Limit Scaling**: Efficient character limit enforcement for high-volume scenarios
 - **Async Cache Invalidation Scaling**: Efficient cache invalidation for large-scale document operations
+- **Async Null Check Scaling**: Efficient payload validation for high-throughput scenarios
+- **Async Error Handling Scaling**: Robust error propagation for distributed systems
+- **Async Sparse Embeddings Scaling**: Efficient hybrid search for large-scale deployments
+- **Async Resource Factory Scaling**: Efficient AppResources factory pattern for distributed environments
 
 ## Troubleshooting Guide
 
@@ -933,8 +979,13 @@ The RAG infrastructure includes comprehensive error handling and debugging capab
 - **Cache Invalidation Errors**: LRU cache clearing failures or cache coordination issues
 - **K-Estimation Errors**: Question complexity analysis failures or k-value calculation errors
 - **Metadata Formatting Errors**: Filename header formatting failures or metadata preservation issues
+- **Async Null Check Errors**: Payload validation failures or null pointer exceptions
+- **Async Error Handling Errors**: Exception propagation failures or error recovery issues
+- **Sparse Embeddings Errors**: Hybrid search configuration failures or sparse vector processing issues
+- **Async Resource Factory Errors**: AppResources initialization failures or resource sharing issues
+- **Collection Management Errors**: Qdrant collection creation failures or lifecycle management issues
 
-**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, enhanced ask handler, document storage system, enhanced GPU detection capabilities, document-specific question answering functionality, global experts prompt system, streaming response implementation, application lifecycle management, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, metadata formatting, and all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features.
+**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, enhanced ask handler, document storage system, enhanced GPU detection capabilities, document-specific question answering functionality, global experts prompt system, streaming response implementation, application lifecycle management, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, metadata formatting, AsyncQdrantRetriever null checks, enhanced error handling, sparse embeddings support, resource factory pattern, and all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features.
 
 ### Enhanced Debugging Tools
 Available debugging and monitoring capabilities:
@@ -963,6 +1014,11 @@ Available debugging and monitoring capabilities:
 - **Cache Invalidation Monitoring**: LRU cache clearing validation and cache coordination effectiveness
 - **K-Estimation Monitoring**: Question complexity analysis validation and k-value calculation effectiveness
 - **Metadata Formatting Monitoring**: Filename header formatting validation and metadata preservation effectiveness
+- **Async Null Check Monitoring**: Payload validation effectiveness and null pointer exception prevention
+- **Async Error Handling Monitoring**: Exception propagation validation and error recovery effectiveness
+- **Sparse Embeddings Monitoring**: Hybrid search configuration validation and sparse vector processing effectiveness
+- **Async Resource Factory Monitoring**: AppResources initialization validation and resource sharing effectiveness
+- **Collection Management Monitoring**: Qdrant collection creation validation and lifecycle management effectiveness
 
 **Section sources**
 - [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
@@ -982,4 +1038,4 @@ Available debugging and monitoring capabilities:
 ## Conclusion
 The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities and enhanced user experience. The implementation includes complete LangChain integration, AsyncQdrant vector store setup with fully asynchronous operations, document ingestion pipelines with configurable chunking parameters, comprehensive QA service with enhanced singleton pattern and centralized resource management, topic hints detection system, contextual navigation features, extensive testing frameworks, SQLite-based document storage system, support for three LLM providers including the new llama.cpp option with enhanced GPU detection capabilities, and advanced document-specific question answering functionality through the new build_retriever_for_document function.
 
-**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer featuring enhanced singleton pattern with module-level state management, comprehensive error handling, text truncation capabilities with VK character limits (4096), provider flexibility, centralized resource management through FastAPI application lifecycle, topic hints detection system, enhanced ask handler with typing indicators, contextual navigation, automatic question context prepending with character limits, enhanced user experience features, SQLite-based document storage system with comprehensive CRUD operations, document lifecycle management, enhanced GPU detection capabilities across all LLM providers, support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment, advanced document-specific question answering capabilities that enable expert-level document analysis through the new DOCUMENT_EXPERTS_PROMPT system, revolutionary global experts prompt system for cross-document knowledge synthesis, advanced streaming response implementation for real-time user interaction, comprehensive UX helper functions including query_rag_with_wait() for delayed response handling and send_rag_answer() for streamlined handler implementations, comprehensive testing coverage validating all enhancements including UX helper functions, character limit enforcement, and handler integration testing, dual-service architecture with cache invalidation, metadata-aware document formatting with LRU cache system, question complexity analysis with k-estimation, refined prompt system with stricter content policies, and comprehensive testing infrastructure validating all enhanced features. The enhanced singleton pattern ensures efficient resource utilization through centralized management, while comprehensive error handling, text truncation, user experience features, SQLite database integration, llama.cpp integration, document-scoped retrieval functionality, application lifecycle management, module-level state management, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, and metadata formatting provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of intelligent GPU detection for macOS Apple Silicon and NVIDIA GPUs enables optimal performance across different hardware architectures, making the system suitable for enterprise environments with strict data privacy requirements. The comprehensive document storage system with SQLite provides reliable metadata management, complete test coverage with enhanced GPU detection validation, document-specific QA testing, global experts prompt testing, streaming response testing, application lifecycle testing, UX helper testing, cache invalidation testing, k-estimation testing, and metadata formatting testing that form the backbone of the document lifecycle management system. The new multi-provider orchestration via run_admin.sh script with interactive selection, comprehensive health checking, and intelligent GPU detection provides operational excellence for production deployments, while the specialized deployment scripts offer granular control over LLM and embedding server management with CPU detection capabilities and automated model downloading with GPU optimization. The document-specific question answering functionality through the admin interface provides administrators with powerful tools for expert-level document analysis and knowledge extraction, significantly enhancing the HR assistance capabilities of the Cafetera bot. The revolutionary global experts prompt system now enables cross-document knowledge synthesis and comprehensive question answering across the entire knowledge base, representing a major advancement in RAG technology that allows users to ask complex questions that require insights from multiple HR documents simultaneously, providing a truly comprehensive HR assistance experience that goes far beyond traditional document retrieval systems. The enhanced application lifecycle management with centralized resource sharing, proper cleanup procedures, module-level singleton pattern, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, and metadata formatting ensures reliable operation and backward compatibility across all deployment scenarios, while the comprehensive testing framework validates all enhancements and provides confidence in production readiness. The fully asynchronous architecture with AsyncQdrantClient throughout the pipeline provides improved performance, scalability, and reliability for production deployments.
+**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer featuring enhanced singleton pattern with module-level state management, comprehensive error handling with null checks for payload data and improved malformed response handling, text truncation capabilities with VK character limits (4096), provider flexibility, centralized resource management through FastAPI application lifecycle, topic hints detection system, enhanced ask handler with typing indicators, contextual navigation, automatic question context prepending with character limits, enhanced user experience features, SQLite-based document storage system with comprehensive CRUD operations, document lifecycle management, enhanced GPU detection capabilities across all LLM providers, support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment, advanced document-specific question answering capabilities that enable expert-level document analysis through the new DOCUMENT_EXPERTS_PROMPT system, revolutionary global experts prompt system for cross-document knowledge synthesis, advanced streaming response implementation for real-time user interaction, comprehensive UX helper functions including query_rag_with_wait() for delayed response handling and send_rag_answer() for streamlined handler implementations, comprehensive testing coverage validating all enhancements including UX helper functions, character limit enforcement, handler integration testing, async operations testing, sparse embeddings testing, and collection management testing, dual-service architecture with cache invalidation, metadata-aware document formatting with LRU cache system, question complexity analysis with k-estimation, refined prompt system with stricter content policies, comprehensive resource lifecycle management with AppResources factory pattern, enhanced error handling throughout the pipeline, sparse embeddings support for hybrid search mode, and comprehensive testing infrastructure validating all enhanced features. The enhanced singleton pattern ensures efficient resource utilization through centralized management, while comprehensive error handling, text truncation, user experience features, SQLite database integration, llama.cpp integration, document-scoped retrieval functionality, application lifecycle management, module-level singleton pattern, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, metadata formatting, AsyncQdrantRetriever null checks, enhanced error handling, sparse embeddings support, and resource factory pattern provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of intelligent GPU detection for macOS Apple Silicon and NVIDIA GPUs enables optimal performance across different hardware architectures, making the system suitable for enterprise environments with strict data privacy requirements. The comprehensive document storage system with SQLite provides reliable metadata management, complete test coverage with enhanced GPU detection validation, document-specific QA testing, global experts prompt testing, streaming response testing, application lifecycle testing, UX helper testing, cache invalidation testing, k-estimation testing, metadata formatting testing, async operations testing, sparse embeddings testing, and collection management testing that form the backbone of the document lifecycle management system. The new multi-provider orchestration via run_admin.sh script with interactive selection, comprehensive health checking, and intelligent GPU detection provides operational excellence for production deployments, while the specialized deployment scripts offer granular control over LLM and embedding server management with CPU detection capabilities and automated model downloading with GPU optimization. The document-specific question answering functionality through the admin interface provides administrators with powerful tools for expert-level document analysis and knowledge extraction, significantly enhancing the HR assistance capabilities of the Cafetera bot. The revolutionary global experts prompt system now enables cross-document knowledge synthesis and comprehensive question answering across the entire knowledge base, representing a major advancement in RAG technology that allows users to ask complex questions that require insights from multiple HR documents simultaneously, providing a truly comprehensive HR assistance experience that goes far beyond traditional document retrieval systems. The enhanced application lifecycle management with centralized resource sharing, proper cleanup procedures, module-level singleton pattern, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, metadata formatting, AsyncQdrantRetriever null checks, enhanced error handling, sparse embeddings support, resource factory pattern, and collection management ensures reliable operation and backward compatibility across all deployment scenarios, while the comprehensive testing framework validates all enhancements and provides confidence in production readiness. The fully asynchronous architecture with AsyncQdrantClient throughout the pipeline provides improved performance, scalability, and reliability for production deployments, with comprehensive error handling, resource management, and testing infrastructure supporting enterprise-grade RAG capabilities.

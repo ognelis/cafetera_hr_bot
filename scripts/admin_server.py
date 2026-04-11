@@ -16,9 +16,11 @@ Environment variables (see .env.example):
     - LLM_PROVIDER           — llm provider for embeddings (default: ollama)
     - LLM_BASE_URL           — base URL for embeddings API (default: http://localhost:11434)
     - EMBEDDING_MODEL        — embedding model name (default: nomic-embed-text)
+    - BIND_HOST              — bind address (default: 127.0.0.1)
 """
 
 import logging
+import os
 import sys
 
 # Allow running from project root
@@ -41,7 +43,7 @@ async def main() -> None:
         logger.error("ADMIN_API_KEY is not set. Please configure it in .env file.")
         sys.exit(1)
 
-    host = "127.0.0.1"
+    host = os.environ.get("BIND_HOST", "127.0.0.1")
     port = 8000
 
     logger.info("Starting admin server on http://%s:%s (HTTP/2 enabled)", host, port)

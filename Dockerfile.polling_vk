@@ -1,0 +1,70 @@
+# Stage 1: Builder
+FROM python:3.13-slim AS builder
+
+# Copy uv binary from official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Set uv environment variables
+ENV UV_PYTHON_DOWNLOADS=never \
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1
+
+WORKDIR /app
+
+# Copy dependency files first for layer caching
+COPY pyproject.toml uv.lock ./
+
+# Install production dependencies + LLM provider extras
+RUN uv sync --locked --no-dev --extra ollama --extra openai_compatible --extra hybrid
+
+# Copy application code
+COPY app/ ./app/
+COPY scripts/polling_vk.py ./scripts/polling_vk.py
+COPY templates/ ./templates/
+COPY static/ ./static/
+
+# Pre-download BM25 sparse embedding model during build
+ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
+RUN .venv/bin/python -c "from langchain_qdrant import FastEmbedSparse; FastEmbedSparse(model_name='Qdrant/bm25')"
+
+# Cleanup: remove test files and caches to reduce image size
+RUN find /app/.venv/lib/python3.13/site-packages \
+        \( -type d -name 'tests' -o -type d -name 'test' \
+           -o -type d -name '*_tests' -o -name 'test_*.py' \) \
+        -exec rm -rf {} + 2>/dev/null; \
+    rm -rf /root/.cache/pip /root/.cache/uv /tmp/* 2>/dev/null; \
+    true
+
+# Stage 2: Runtime
+FROM python:3.13-slim AS runtime
+
+# Create non-root system user
+RUN groupadd --system appuser && useradd --system --gid appuser --no-create-home appuser
+
+WORKDIR /app
+
+# Copy virtual environment and application from builder
+COPY --from=builder /app/.venv ./.venv
+COPY --from=builder /app/app ./app
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/templates ./templates
+COPY --from=builder /app/static ./static
+COPY --from=builder /app/pyproject.toml ./
+
+# Set PATH to use virtual environment
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Set FastEmbed cache path for runtime
+ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
+
+# Copy pre-downloaded FastEmbed model cache
+COPY --from=builder /app/.cache/fastembed /app/.cache/fastembed
+
+# Ensure cache directory is accessible by appuser
+RUN chown -R appuser:appuser /app/.cache
+
+# Switch to non-root user
+USER appuser
+
+# Run VK polling bot
+CMD ["python", "scripts/polling_vk.py"]

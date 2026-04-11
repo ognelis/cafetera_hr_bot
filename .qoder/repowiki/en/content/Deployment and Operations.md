@@ -2,7 +2,10 @@
 
 <cite>
 **Referenced Files in This Document**
+- [Dockerfile.admin](file://Dockerfile.admin)
+- [Dockerfile.polling_vk](file://Dockerfile.polling_vk)
 - [docker-compose.yml](file://docker-compose.yml)
+- [.dockerignore](file://.dockerignore)
 - [pyproject.toml](file://pyproject.toml)
 - [app/config.py](file://app/config.py)
 - [app/main.py](file://app/main.py)
@@ -15,7 +18,8 @@
 - [scripts/run_admin.sh](file://scripts/run_admin.sh)
 - [scripts/run_llama_embeddings.sh](file://scripts/run_llama_embeddings.sh)
 - [scripts/run_llama_llm.sh](file://scripts/run_llama_llm.sh)
-- [scripts/run_ollama_embeddings.sh](file://scripts/run_ollama_embeddings.sh)
+- [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
+- [scripts/run_ollama_embeddings.sh](file://scripts/run_llvm_embeddings.sh)
 - [scripts/run_ollama_llm.sh](file://scripts/run_ollama_llm.sh)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
 - [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
@@ -27,15 +31,15 @@
 - [tests/conftest.py](file://tests/conftest.py)
 - [AGENTS.md](file://AGENTS.md)
 - [PLAN.md](file://PLAN.md)
+- [README.md](file://README.md)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added PostgreSQL service definition to Docker Compose configuration with proper environment variables, volume mounting, health checks, and credentials
-- Integrated PostgreSQL database initialization and table creation for document metadata storage
-- Enhanced orchestration script with PostgreSQL health checking and connection management
-- Updated configuration to support PostgreSQL database URL with asyncpg driver
-- Added comprehensive database schema initialization with proper table creation and indexing
+- Added comprehensive Docker containerization support documentation with multi-stage Docker builds for admin server and VK polling bot
+- Documented environment variable configuration and container networking setup for production deployments
+- Updated infrastructure orchestration to include Docker Compose services with health checks and persistent volumes
+- Enhanced deployment playbooks with containerized infrastructure management and production-ready configurations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -49,13 +53,14 @@
 9. [Security Considerations](#security-considerations)
 10. [Scaling Approaches](#scaling-approaches)
 11. [Production Deployment Playbooks](#production-deployment-playbooks)
-12. [Troubleshooting Guide](#troubleshooting-guide)
-13. [Conclusion](#conclusion)
+12. [Containerization and Docker Support](#containerization-and-docker-support)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+14. [Conclusion](#conclusion)
 
 ## Introduction
 This document provides comprehensive guidance for deploying and operating cafetera_hr_bot in production. It covers containerized infrastructure using Docker Compose, operational controls for VK bot long-polling versus webhook-based production operation, planned Telegram integration, and future webhook deployment. The system now features a PostgreSQL database for storing document metadata alongside the existing Qdrant vector database and MinIO object storage. The production server utilizes Hypercorn with HTTP/2 support, replacing Uvicorn for improved performance and modern protocol support. It also documents monitoring and logging strategies, secrets management, scaling approaches, performance optimization, disaster recovery planning, and practical deployment playbooks.
 
-**Updated**: The system now includes PostgreSQL database integration for persistent document metadata storage, comprehensive database initialization with table creation and indexing, and enhanced orchestration with PostgreSQL health checking and connection management.
+**Updated**: The system now includes comprehensive Docker containerization support with multi-stage Docker builds for admin server and VK polling bot, environment variable configuration, and container networking setup for production deployments.
 
 ## Project Structure
 The repository organizes runtime concerns into layered modules with a new centralized orchestration approach and PostgreSQL database integration:
@@ -65,6 +70,7 @@ The repository organizes runtime concerns into layered modules with a new centra
 - Scripts: Centralized orchestration via run_admin.sh with specialized deployment scripts for individual components
 - Infrastructure: Docker Compose services for Qdrant, MinIO, and PostgreSQL with health checking
 - Storage: PostgreSQL database initialization and repository pattern implementation
+- Containerization: Multi-stage Docker builds for admin server and VK polling bot with uv package manager
 
 ```mermaid
 graph TB
@@ -85,6 +91,12 @@ LlamaLLM["llama.cpp LLM Server<br/>scripts/run_llama_llm.sh"]
 LlamaEmbed["llama.cpp Embedding Server<br/>scripts/run_llama_embeddings.sh"]
 OllamaLLM["Ollama LLM Server<br/>scripts/run_ollama_llm.sh"]
 OllamaEmbed["Ollama Embedding Server<br/>scripts/run_ollama_embeddings.sh"]
+end
+subgraph "Containerization"
+AdminDocker["Admin Server Dockerfile<br/>Dockerfile.admin"]
+VKDocker["VK Polling Dockerfile<br/>Dockerfile.polling_vk"]
+DockerCompose["Docker Compose<br/>docker-compose.yml"]
+DockerIgnore[".dockerignore<br/>.dockerignore"]
 end
 subgraph "Operations"
 DevPoll["Dev Long Poll Script<br/>scripts/polling_vk.py"]
@@ -113,6 +125,12 @@ Orchestrator --> LlamaEmbed
 Orchestrator --> OllamaLLM
 Orchestrator --> OllamaEmbed
 DBInit --> PostgreSQL
+AdminDocker --> Hypercorn
+VKDocker --> DevPoll
+DockerCompose --> AdminDocker
+DockerCompose --> VKDocker
+DockerIgnore --> AdminDocker
+DockerIgnore --> VKDocker
 ```
 
 **Diagram sources**
@@ -129,6 +147,9 @@ DBInit --> PostgreSQL
 - [docker-compose.yml:1-53](file://docker-compose.yml#L1-L53)
 - [scripts/admin_server.py:1-74](file://scripts/admin_server.py#L1-L74)
 - [scripts/run_admin.sh:1-464](file://scripts/run_admin.sh#L1-L464)
+- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
+- [Dockerfile.polling_vk:1-58](file://Dockerfile.polling_vk#L1-L58)
+- [.dockerignore:1-17](file://.dockerignore#L1-L17)
 
 **Section sources**
 - [docker-compose.yml:1-53](file://docker-compose.yml#L1-L53)
@@ -148,6 +169,9 @@ DBInit --> PostgreSQL
 - [scripts/run_admin.sh:1-464](file://scripts/run_admin.sh#L1-L464)
 - [AGENTS.md:1-88](file://AGENTS.md#L1-L88)
 - [PLAN.md:1-207](file://PLAN.md#L1-L207)
+- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
+- [Dockerfile.polling_vk:1-58](file://Dockerfile.polling_vk#L1-L58)
+- [.dockerignore:1-17](file://.dockerignore#L1-L17)
 
 ## Core Components
 - VK Bot Adapter: Creates a fully wired vkbottle Bot with registered labelers and logging.
@@ -160,6 +184,7 @@ DBInit --> PostgreSQL
 - Specialized Deployment Scripts: Separate scripts for LLM and embedding servers for llama.cpp and Ollama providers with automated model downloading and verification.
 - Modular Infrastructure: Docker Compose services with comprehensive health checking for Qdrant, MinIO, and PostgreSQL.
 - Database Layer: PostgreSQL database initialization with table creation for document metadata storage and category file management.
+- **Updated**: Containerization Layer: Multi-stage Docker builds using uv package manager with non-root user execution and optimized runtime images.
 
 **Updated**: The centralized orchestrator (run_admin.sh) provides interactive provider selection, automated dependency management, comprehensive service startup with health checks including PostgreSQL readiness, and robust error handling with detailed fix suggestions for seamless deployment across different LLM providers and database configurations.
 
@@ -182,7 +207,7 @@ DBInit --> PostgreSQL
 ## Architecture Overview
 The system runs a VK bot with optional RAG capabilities backed by PostgreSQL for document metadata storage, Qdrant for vector search, and MinIO for document storage. The RAG system supports multiple embedding providers including llama.cpp with optimized server flags for document embedding tasks. In production, the VK bot operates via FastAPI webhook transport with Hypercorn server supporting HTTP/2; long polling is for local development only. The centralized orchestrator manages all deployment aspects and provider-specific configurations with enhanced error handling, verification, and PostgreSQL database initialization.
 
-**Updated**: The architecture now features modular deployment scripts that separate LLM and embedding server responsibilities, enabling more flexible and maintainable deployment configurations with automated model management, comprehensive verification, and PostgreSQL database integration for persistent document metadata storage.
+**Updated**: The architecture now features modular deployment scripts that separate LLM and embedding server responsibilities, enabling more flexible and maintainable deployment configurations with automated model management, comprehensive verification, and PostgreSQL database integration for persistent document metadata storage. Containerization support enables production-ready deployments with multi-stage Docker builds and optimized runtime environments.
 
 ```mermaid
 graph TB
@@ -202,6 +227,9 @@ OllamaLLM["Ollama LLM Server"]
 OllamaEmbed["Ollama Embedding Server"]
 Hypercorn["Hypercorn Server<br/>HTTP/2 Enabled"]
 Orchestrator["run_admin.sh<br/>Centralized Orchestration"]
+AdminDocker["Admin Server Container<br/>Dockerfile.admin"]
+VKDocker["VK Polling Container<br/>Dockerfile.polling_vk"]
+DockerCompose["Docker Compose<br/>docker-compose.yml"]
 Client --> Webhook
 Webhook --> Bot
 Bot --> Handlers
@@ -223,6 +251,10 @@ Orchestrator --> LlamaEmbed
 Orchestrator --> OllamaLLM
 Orchestrator --> OllamaEmbed
 Orchestrator --> PostgreSQL
+AdminDocker --> Hypercorn
+AdminDocker --> DockerCompose
+VKDocker --> DevPoll
+VKDocker --> DockerCompose
 ```
 
 **Diagram sources**
@@ -236,6 +268,8 @@ Orchestrator --> PostgreSQL
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 - [scripts/admin_server.py:55-68](file://scripts/admin_server.py#L55-L68)
 - [scripts/run_admin.sh:223-356](file://scripts/run_admin.sh#L223-L356)
+- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
+- [Dockerfile.polling_vk:1-58](file://Dockerfile.polling_vk#L1-L58)
 
 **Section sources**
 - [AGENTS.md:16-18](file://AGENTS.md#L16-L18)
@@ -664,9 +698,9 @@ LogReady --> Return0["Return 0 (success)"]
 - [scripts/run_admin.sh:275-281](file://scripts/run_admin.sh#L275-L281)
 
 ## Dependency Analysis
-External dependencies include FastAPI, Hypercorn, LangChain stack, Qdrant client, VK and Telegram adapters, PostgreSQL asyncpg driver, and testing tools. Optional extras enable Ollama or OpenAI-compatible LLMs. The system now supports llama.cpp with optimized embedding server flags and uses Hypercorn as the production ASGI server instead of Uvicorn. PostgreSQL integration adds asyncpg driver for database connectivity.
+External dependencies include FastAPI, Hypercorn, LangChain stack, Qdrant client, VK and Telegram adapters, PostgreSQL asyncpg driver, and testing tools. Optional extras enable Ollama or OpenAI-compatible LLMs. The system now supports llama.cpp with optimized embedding server flags and uses Hypercorn as the production ASGI server instead of Uvicorn. PostgreSQL integration adds asyncpg driver for database connectivity. **Updated**: Containerization dependencies include uv package manager for optimized dependency installation and multi-stage Docker builds.
 
-**Updated**: The centralized orchestrator manages dependency installation through uv sync with provider-specific extras, eliminates manual dependency management complexity, and includes comprehensive error handling for dependency resolution failures. The PostgreSQL integration adds asyncpg driver for production database connectivity.
+**Updated**: The centralized orchestrator manages dependency installation through uv sync with provider-specific extras, eliminates manual dependency management complexity, and includes comprehensive error handling for dependency resolution failures. The PostgreSQL integration adds asyncpg driver for production database connectivity. Containerization support uses uv for efficient dependency management in Docker images.
 
 ```mermaid
 graph LR
@@ -682,6 +716,9 @@ LlamaCpp["llama.cpp"]
 Ollama["ollama"]
 Uv["uv (orchestration)"]
 PostgreSQL["asyncpg (database)"]
+Docker["docker (containerization)"]
+AdminDocker["Dockerfile.admin"]
+VKDocker["Dockerfile.polling_vk"]
 App --> FastAPI
 App --> Hypercorn
 App --> LangChain
@@ -693,6 +730,11 @@ App --> LlamaCpp
 App --> Ollama
 App --> Uv
 App --> PostgreSQL
+App --> Docker
+AdminDocker --> Uv
+VKDocker --> Uv
+AdminDocker --> Docker
+VKDocker --> Docker
 ```
 
 **Diagram sources**
@@ -716,6 +758,8 @@ App --> PostgreSQL
 - **Updated**: Automated model downloading capabilities eliminate manual intervention and reduce deployment downtime.
 - **Updated**: PostgreSQL database integration provides persistent storage for document metadata with proper indexing and connection pooling for improved performance.
 - **Updated**: Database initialization with proper table creation and unique indexes ensures efficient metadata queries and prevents data integrity issues.
+- **Updated**: Multi-stage Docker builds with uv package manager reduce image size and improve build performance.
+- **Updated**: Non-root user execution in containers improves security posture and compliance requirements.
 
 ## Monitoring and Logging
 - Logging: Configure structured logging at INFO level for operational visibility. Use consistent log formatting and include correlation IDs where applicable.
@@ -729,6 +773,7 @@ App --> PostgreSQL
 - **Updated**: The centralized orchestrator provides comprehensive service status monitoring, automated cleanup on shutdown, and detailed error reporting with fix suggestions.
 - **Updated**: Enhanced provider verification includes health checks, model validation, and smoke tests for improved observability.
 - **Updated**: PostgreSQL database monitoring includes connection pool metrics, query performance, and table statistics for optimal database performance.
+- **Updated**: Container health monitoring includes Docker Compose health checks and container resource utilization tracking.
 
 ## Security Considerations
 - Secrets management: Store all secrets in environment variables managed by pydantic-settings. Provide a template file with placeholders (.env.example) and never commit secrets.
@@ -742,6 +787,7 @@ App --> PostgreSQL
 - **Updated**: The centralized orchestrator enforces ADMIN_API_KEY requirement, provides secure service coordination, and includes comprehensive error handling for security-related issues.
 - **Updated**: Enhanced provider verification includes health checks and model validation to prevent deployment of compromised or incompatible models.
 - **Updated**: PostgreSQL database security includes proper credential management, network isolation, and connection pooling with appropriate security settings.
+- **Updated**: Container security includes non-root user execution, minimal base images, and proper volume permissions for production deployments.
 
 ## Scaling Approaches
 - Horizontal scaling: Run multiple replicas behind a load balancer; ensure stateless workers and shared storage/backends.
@@ -754,6 +800,7 @@ App --> PostgreSQL
 - **Updated**: The modular deployment architecture enables independent scaling of LLM and embedding services based on workload characteristics.
 - **Updated**: Enhanced error handling and verification capabilities enable more reliable scaling operations with automated failover and recovery.
 - **Updated**: PostgreSQL database scaling includes connection pooling, read replicas, and proper indexing strategies for optimal performance under load.
+- **Updated**: Container orchestration enables horizontal scaling of admin server and VK polling services with proper resource limits and health checks.
 
 ## Production Deployment Playbooks
 
@@ -891,6 +938,134 @@ App --> PostgreSQL
 - [app/resources.py:208-252](file://app/resources.py#L208-L252)
 - [scripts/run_admin.sh:52-70](file://scripts/run_admin.sh#L52-L70)
 
+### Containerization and Docker Support
+
+#### Multi-Stage Docker Builds
+The project implements comprehensive containerization support through multi-stage Docker builds that optimize image size and security:
+
+**Admin Server Container (Dockerfile.admin)**
+- Builder stage: Uses uv package manager for efficient dependency installation
+- Runtime stage: Minimal Python slim image with non-root user execution
+- Optimized layers: Dependency caching, test file removal, and cache cleanup
+- Environment configuration: Automatic BIND_HOST=0.0.0.0 for container networking
+
+**VK Polling Container (Dockerfile.polling_vk)**
+- Identical multi-stage build process optimized for development use
+- Single CMD instruction for long-polling bot execution
+- Non-root user execution for security compliance
+
+```mermaid
+flowchart TD
+Builder["Builder Stage<br/>python:3.13-slim"] --> UVCopy["Copy uv binary<br/>/uv /uvx /bin/"]
+UVCopy --> EnvVars["Set uv environment<br/>variables"]
+EnvVars --> WorkDir["Set working directory<br/>/app"]
+WorkDir --> DepFiles["Copy dependency files<br/>pyproject.toml uv.lock"]
+DepFiles --> UvSync["uv sync --locked --no-dev<br/>Install production deps"]
+UvSync --> AppCopy["Copy application code<br/>app/, scripts/, templates/"]
+AppCopy --> Cleanup["Remove test files & caches<br/>Reduce image size"]
+Cleanup --> Runtime["Runtime Stage<br/>python:3.13-slim"]
+Runtime --> UserSetup["Create non-root user<br/>appuser"]
+UserSetup --> CopyArtifacts["Copy virtual env & app<br/>from builder stage"]
+CopyArtifacts --> PathConfig["Set PATH to .venv/bin"]
+PathConfig --> HostConfig["Set BIND_HOST=0.0.0.0<br/>for container networking"]
+HostConfig --> UserExec["Switch to non-root user"]
+UserExec --> PortExpose["Expose port 8000"]
+PortExpose --> CmdExec["Execute CMD<br/>python scripts/admin_server.py"]
+```
+
+**Diagram sources**
+- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
+
+**Section sources**
+- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
+- [Dockerfile.polling_vk:1-58](file://Dockerfile.polling_vk#L1-L58)
+
+#### Docker Compose Infrastructure
+The docker-compose.yml defines three core services with comprehensive health checking and persistent storage:
+
+**Qdrant Vector Database**
+- Image: qdrant/qdrant:latest
+- Ports: 6333 (API), 6334 (gRPC)
+- Health check: HTTP GET to /healthz endpoint
+- Persistent storage: qdrant_storage volume
+
+**MinIO Object Storage**
+- Image: minio/minio
+- Command: server /data --console-address ":9001"
+- Ports: 9000 (S3 API), 9001 (web console)
+- Credentials: minioadmin/minioadmin
+- Persistent storage: minio_data volume
+
+**PostgreSQL Database**
+- Image: postgres:16-alpine
+- Ports: 5432
+- Environment: POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+- Health check: pg_isready command
+- Persistent storage: pg_data volume
+
+**Section sources**
+- [docker-compose.yml:1-53](file://docker-compose.yml#L1-L53)
+
+#### Environment Variable Configuration
+Containerized deployments use environment variables loaded from .env files:
+
+**Admin Server Environment Variables**
+- ADMIN_API_KEY: Required for admin authentication
+- DATABASE_URL: PostgreSQL connection string
+- QDRANT_URL: Vector database endpoint
+- S3_ENDPOINT_URL: Object storage endpoint
+- LLM_PROVIDER/EMBEDDING_PROVIDER: Model provider selection
+- BIND_HOST: Container bind address (automatically set to 0.0.0.0)
+
+**Container Networking**
+- Docker Compose creates a default network for service communication
+- Services communicate using service names as hostnames
+- Port mapping enables external access to admin server (8000:8000)
+
+**Section sources**
+- [app/config.py:37-46](file://app/config.py#L37-L46)
+- [scripts/admin_server.py:6-20](file://scripts/admin_server.py#L6-L20)
+- [README.md:241-252](file://README.md#L241-L252)
+
+#### Docker Ignore Configuration
+The .dockerignore file excludes unnecessary files and directories from container images:
+- Python cache files (__pycache__, *.pyc)
+- Git and IDE metadata
+- Test files and models directory
+- Documentation files
+- Lock files backup
+
+**Section sources**
+- [.dockerignore:1-17](file://.dockerignore#L1-L17)
+
+#### Production Deployment Examples
+**Building Containers**
+```bash
+# Admin panel container
+docker build -f Dockerfile.admin -t cafetera-admin .
+
+# VK polling container  
+docker build -f Dockerfile.polling_vk -t cafetera-polling-vk .
+```
+
+**Running Containers**
+```bash
+# Admin panel (accessible on localhost:8000)
+docker run --rm --env-file .env -p 8000:8000 cafetera-admin
+
+# VK polling bot
+docker run --rm --env-file .env cafetera-polling-vk
+```
+
+**Connecting to External Services**
+```bash
+# Connect to services started by docker compose
+docker run --rm --env-file .env --network cafetera_default -p 8000:8000 cafetera-admin
+```
+
+**Section sources**
+- [README.md:217-252](file://README.md#L217-L252)
+
 ## Troubleshooting Guide
 - VK webhook not responding:
   - Verify secret and confirmation tokens match VK settings.
@@ -941,6 +1116,13 @@ App --> PostgreSQL
   - Verify table creation and indexing completed successfully.
   - Check connection pool configuration and limits.
   - Review database backup and recovery procedures.
+- **Updated**: Containerization issues:
+  - Verify Docker daemon is running and accessible.
+  - Check Docker image build logs for dependency installation errors.
+  - Ensure .env file is properly formatted and accessible to containers.
+  - Verify network connectivity between containers and external services.
+  - Check container resource limits and available system resources.
+  - Review Docker Compose logs for service startup failures.
 
 **Section sources**
 - [scripts/polling_vk.py:17-38](file://scripts/polling_vk.py#L17-L38)
@@ -951,8 +1133,8 @@ App --> PostgreSQL
 - [scripts/admin_server.py:55-68](file://scripts/admin_server.py#L55-L68)
 - [scripts/run_admin.sh:69-98](file://scripts/run_admin.sh#L69-L98)
 - [scripts/run_admin.sh:52-70](file://scripts/run_admin.sh#L52-L70)
+- [Dockerfile.admin:1-64](file://Dockerfile.admin#L1-L64)
+- [Dockerfile.polling_vk:1-58](file://Dockerfile.polling_vk#L1-L58)
 
 ## Conclusion
-cafetera_hr_bot is designed for production-grade operations with a clear separation between VK bot orchestration, RAG infrastructure, and storage. The system now features a centralized orchestration approach through run_admin.sh that manages provider selection, dependency installation, infrastructure provisioning, service coordination, PostgreSQL database initialization, and comprehensive error handling. The system supports multiple LLM providers including llama.cpp with optimized embedding capabilities for enhanced RAG functionality. The production server utilizes Hypercorn with HTTP/2 support, providing improved performance and modern protocol features compared to traditional ASGI servers. The modular deployment architecture enables flexible and maintainable configurations for different provider setups. The PostgreSQL database integration provides persistent storage for document metadata with proper table creation and indexing. By adopting webhook-based transport, securing secrets, monitoring health, implementing robust scaling and backup strategies, properly managing the llama.cpp embedding server with automated model downloading, optimizing Hypercorn HTTP/2 configuration, and implementing comprehensive PostgreSQL database management, teams can operate the bot reliably in production while preparing for future Telegram integration and advanced webhook deployments.
-
-**Updated**: The centralized orchestrator significantly simplifies deployment complexity, automates provider-specific configurations, provides comprehensive service management capabilities including PostgreSQL health checking, and includes enhanced error handling with detailed fix suggestions for reliable production operations. The enhanced error handling, verification, automated model downloading capabilities, and PostgreSQL database integration ensure improved deployment reliability and operational efficiency.
+cafetera_hr_bot is designed for production-grade operations with a clear separation between VK bot orchestration, RAG infrastructure, and storage. The system now features a centralized orchestration approach through run_admin.sh that manages provider selection, dependency installation, infrastructure provisioning, service coordination, PostgreSQL database initialization, and comprehensive error handling. The system supports multiple LLM providers including llama.cpp with optimized embedding capabilities for enhanced RAG functionality. The production server utilizes Hypercorn with HTTP/2 support, providing improved performance and modern protocol features compared to traditional ASGI servers. The modular deployment architecture enables flexible and maintainable configurations for different provider setups. The PostgreSQL database integration provides persistent storage for document metadata with proper table creation and indexing. **Updated**: Comprehensive Docker containerization support enables production-ready deployments with multi-stage builds, optimized runtime images, and secure non-root execution. The containerization layer includes uv package manager integration, environment variable management, and Docker Compose orchestration. By adopting webhook-based transport, securing secrets, monitoring health, implementing robust scaling and backup strategies, properly managing the llama.cpp embedding server with automated model downloading, optimizing Hypercorn HTTP/2 configuration, implementing comprehensive PostgreSQL database management, and leveraging containerized infrastructure with proper networking and security practices, teams can operate the bot reliably in production while preparing for future Telegram integration and advanced webhook deployments.
