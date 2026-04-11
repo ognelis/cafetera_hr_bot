@@ -305,7 +305,7 @@
 
       <!-- Answer -->
       <template x-if="docQuestionAnswer">
-        <div class="bg-base-200 rounded-lg p-4 whitespace-pre-wrap" x-text="docQuestionAnswer"></div>
+        <div class="bg-base-200 rounded-lg p-4 markdown-content" x-html="renderMarkdown(docQuestionAnswer)"></div>
       </template>
 
       <div class="modal-action">
@@ -354,7 +354,7 @@
 
       <!-- Answer -->
       <template x-if="globalAnswer">
-        <div class="bg-base-200 rounded-lg p-4 whitespace-pre-wrap" x-text="globalAnswer"></div>
+        <div class="bg-base-200 rounded-lg p-4 markdown-content" x-html="renderMarkdown(globalAnswer)"></div>
       </template>
 
       <div class="modal-action">

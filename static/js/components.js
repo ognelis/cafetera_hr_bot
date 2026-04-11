@@ -2,6 +2,24 @@
 // Alpine.data() and Alpine.store() definitions
 // Loaded in base.html before Alpine.js (both with defer)
 
+// Markdown rendering helper - uses marked.js library
+function renderMarkdown(text) {
+  if (!text) return '';
+  if (typeof marked === 'undefined') {
+    // Fallback if marked is not loaded yet
+    return text.replace(/\n/g, '<br>');
+  }
+  // Configure marked for safe rendering
+  marked.setOptions({
+    breaks: true,
+    gfm: true,
+    headerIds: false,
+    mangle: false,
+    sanitize: false
+  });
+  return marked.parse(text);
+}
+
 document.addEventListener('alpine:init', () => {
 
   // ── Toast manager ──────────────────────────────────────────
