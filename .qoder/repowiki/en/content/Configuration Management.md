@@ -3,6 +3,9 @@
 <cite>
 **Referenced Files in This Document**
 - [app/config.py](file://app/config.py)
+- [scripts/run_admin.sh](file://scripts/run_admin.sh)
+- [pyproject.toml](file://pyproject.toml)
+- [tests/test_config.py](file://tests/test_config.py)
 - [app/storage/s3.py](file://app/storage/s3.py)
 - [app/main.py](file://app/main.py)
 - [app/api/deps.py](file://app/api/deps.py)
@@ -14,22 +17,20 @@
 - [scripts/admin_server.py](file://scripts/admin_server.py)
 - [scripts/run_admin.sh](file://scripts/run_admin.sh)
 - [scripts/ingest.py](file://scripts/ingest.py)
-- [tests/test_config.py](file://tests/test_config.py)
 - [tests/test_api_documents.py](file://tests/test_api_documents.py)
 - [tests/test_hybrid_search.py](file://tests/test_hybrid_search.py)
 - [tests/test_semantic_chunker.py](file://tests/test_semantic_chunker.py)
 - [templates/login.html](file://templates/login.html)
-- [pyproject.toml](file://pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added new chunking strategy configuration with chunk_strategy (default 'recursive')
-- Introduced semantic chunking with semantic_breakpoint_threshold_type and semantic_breakpoint_threshold_amount
-- Added hybrid search functionality with retrieval_mode settings and sparse_embedding_model configuration
-- Enhanced chunking system to support both recursive and semantic strategies
-- Updated parser module to support semantic chunking with embedding-based breakpoint detection
-- Added sparse embeddings support for hybrid search with FastEmbedSparse integration
+- Enhanced configuration system with comprehensive .env file integration capabilities
+- Added intelligent environment variable loading mechanism through load_env_var() function
+- Expanded support for LLM providers, embedding models, Qdrant connections, S3 storage, and Ollama configurations
+- Implemented fallback behavior for configuration resolution with environment variables taking precedence
+- Added GPU layer configuration variables for Ollama models (LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, OLLAMA_NUM_GPU)
+- Integrated provider-specific dependency management with uv extras system
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -51,20 +52,24 @@
 17. [LLM Provider Configuration](#llm-provider-configuration)
 18. [Embedding Provider Configuration](#embedding-provider-configuration)
 19. [Resource Management and Cleanup](#resource-management-and-cleanup)
-20. [Troubleshooting Guide](#troubleshooting-guide)
-21. [Conclusion](#conclusion)
+20. [Environment File Integration](#environment-file-integration)
+21. [GPU Configuration](#gpu-configuration)
+22. [Provider-Specific Dependencies](#provider-specific-dependencies)
+23. [Troubleshooting Guide](#troubleshooting-guide)
+24. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the configuration management system used in cafetera_hr_bot. It focuses on the Pydantic Settings implementation, environment variable loading and validation, configuration structure, centralized logging configuration, and security best practices. The system now supports separate LLM and embedding provider configurations, multiple LLM providers including llama.cpp with backward compatibility, alongside VK API credentials, Qdrant database connections, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, configurable document chunking parameters for optimal RAG performance, hybrid search functionality with sparse embeddings, and centralized logging configuration ensuring consistent log formatting across all application components. It documents all current configuration options and provides examples of development versus production configurations along with templates for different deployment environments.
+This document explains the enhanced configuration management system used in cafetera_hr_bot. The system now features comprehensive .env file integration capabilities with intelligent fallback behavior, supporting LLM providers, embedding models, Qdrant connections, S3 storage, and Ollama configurations. The configuration system centers around a Pydantic Settings class that loads environment variables from a .env file with UTF-8 encoding, providing type-safe configuration for VK integration, separate LLM and embedding provider support, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, configurable document chunking parameters with support for both recursive and semantic strategies, hybrid search functionality with sparse embeddings, and centralized logging configuration ensuring consistent log formatting across all application components.
 
 ## Project Structure
-The configuration system centers around a single Pydantic Settings class that loads environment variables from a .env file. The system supports separate LLM and embedding provider configurations with multiple LLM providers (ollama, openai, llama.cpp) and embedding providers (ollama, openai) with automatic fallback mechanisms, VK API integration, Qdrant vector storage, SQLite database integration for document metadata, S3-compatible storage for document files, admin authentication with API key security, configurable document chunking parameters with support for both recursive and semantic strategies, hybrid search functionality with sparse embeddings, and centralized logging configuration with consistent formatting and level control. The storage components consume these settings to initialize database connections, manage document lifecycle, and handle file uploads/downloads. Tests validate the loading behavior across different providers, storage configurations, authentication systems, chunking parameters, hybrid search functionality, and logging configuration. Scripts demonstrate runtime usage with enhanced cleanup mechanisms and configurable chunking behavior, all using the centralized logging configuration.
+The enhanced configuration system features a multi-layered approach with .env file integration, environment variable precedence, and intelligent fallback mechanisms. The system now supports comprehensive configuration loading through both Pydantic Settings and custom shell-based environment variable loading with the load_env_var() function. The configuration architecture includes separate LLM and embedding provider configurations with multiple LLM providers (ollama, openai, llama.cpp), embedding providers (ollama, openai), VK API integration, Qdrant vector storage, SQLite database integration for document metadata, S3-compatible storage for document files, admin authentication with API key security, configurable document chunking parameters with support for both recursive and semantic strategies, hybrid search functionality with sparse embeddings, centralized logging configuration with consistent formatting and level control, GPU layer configuration for Ollama models, and provider-specific dependency management through uv extras system.
 
 ```mermaid
 graph TB
-subgraph "Configuration Layer"
+subgraph "Enhanced Configuration Layer"
 SettingsClass["Settings (Pydantic BaseSettings)"]
 EnvFile[".env file"]
+LoadEnvVar["load_env_var() Function"]
 LoggingConfig["Centralized Logging Configuration"]
 LLMProvider["LLM Provider Configuration"]
 EmbeddingProvider["Embedding Provider Configuration"]
@@ -73,6 +78,8 @@ S3Config["S3 Storage Configuration"]
 AdminConfig["Admin Authentication"]
 ChunkingConfig["Chunking Configuration"]
 HybridSearchConfig["Hybrid Search Configuration"]
+GPUCfg["GPU Configuration"]
+DepMgmt["Dependency Management"]
 CleanupMechanism["Resource Cleanup Mechanism"]
 end
 subgraph "Application Layer"
@@ -94,6 +101,8 @@ TestHybrid["Hybrid Search Tests"]
 TestLogging["Logging Configuration Tests"]
 end
 EnvFile --> SettingsClass
+EnvFile --> LoadEnvVar
+LoadEnvVar --> SettingsClass
 SettingsClass --> LoggingConfig
 SettingsClass --> LLMProvider
 SettingsClass --> EmbeddingProvider
@@ -104,6 +113,7 @@ SettingsClass --> S3Config
 SettingsClass --> AdminConfig
 SettingsClass --> ChunkingConfig
 SettingsClass --> HybridSearchConfig
+SettingsClass --> GPUCfg
 SettingsClass --> CleanupMechanism
 SettingsClass --> StorageLayer
 SettingsClass --> AdminAuth
@@ -120,6 +130,7 @@ TestLogging --> LoggingConfig
 
 **Diagram sources**
 - [app/config.py:4-62](file://app/config.py#L4-L62)
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
@@ -136,33 +147,38 @@ TestLogging --> LoggingConfig
 
 **Section sources**
 - [app/config.py:4-62](file://app/config.py#L4-L62)
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/main.py:30-47](file://app/main.py#L30-L47)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Core Components
-- **Settings class**: Defines typed configuration fields, environment file binding, and default values for all system components including separate LLM and embedding provider settings, storage configuration, S3 storage settings, admin authentication settings, chunking configuration parameters with support for both recursive and semantic strategies, hybrid search configuration with sparse embeddings, and centralized logging configuration.
+- **Enhanced Settings class**: Defines typed configuration fields with .env file binding and default values for all system components, now supporting comprehensive environment variable loading through load_env_var() function with fallback behavior.
+- **Intelligent Environment Loading**: Implements load_env_var() function that reads variables from .env file only when they're not already set in the environment, with proper quoting and escaping support.
 - **Centralized Logging Configuration**: Provides unified logging setup via configure_logging() function ensuring consistent log formatting and level control across all application components.
-- **LLM Provider System**: Supports multiple providers (ollama, openai, llama.cpp) with automatic fallback and backward compatibility.
-- **Embedding Provider System**: Supports separate embedding providers (ollama, openai) with independent configuration from LLM providers.
+- **LLM Provider System**: Supports multiple providers (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, enhanced with GPU layer configuration.
+- **Embedding Provider System**: Supports separate embedding providers (ollama, openai) with independent configuration from LLM providers and GPU optimization.
 - **Chunking Configuration**: Provides explicit control over document processing behavior with default values of 500 for chunk_size and 50 for chunk_overlap, plus new semantic chunking parameters for embedding-based breakpoint detection.
 - **Hybrid Search Configuration**: Enables dense vector search and hybrid search modes with sparse embeddings support for BM25-based retrieval.
+- **GPU Configuration**: Adds comprehensive GPU layer configuration for Ollama models including LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, and OLLAMA_NUM_GPU variables.
+- **Provider-Specific Dependencies**: Integrates with uv extras system for dynamic dependency management based on selected providers.
 - **VK integration**: Uses Settings to configure the VK bot token and handler registration.
 - **RAG Components**: Build LLM chains and embeddings based on provider selection with separate embedding configuration and hybrid search support.
 - **Storage System**: Manages SQLite database for document metadata with comprehensive CRUD operations.
 - **S3 Storage System**: Provides S3-compatible file storage using MinIO/AWS S3 with async operations.
 - **Admin Authentication**: Implements API key-based authentication with secure cookie management.
 - **Resource Cleanup**: Enhanced cleanup mechanisms for admin server and QA service resources.
-- **Tests**: Verify defaults, environment variable precedence, provider-specific behavior, storage functionality, authentication security, embedding configuration, chunking parameter validation, hybrid search functionality, and centralized logging configuration.
-- **Scripts**: Demonstrate runtime initialization using Settings for different providers, storage operations, admin access, cleanup procedures, configurable chunking behavior, hybrid search configuration, and centralized logging configuration.
+- **Tests**: Verify defaults, environment variable precedence, provider-specific behavior, storage functionality, authentication security, embedding configuration, chunking parameter validation, hybrid search functionality, logging configuration, and environment file integration.
+- **Scripts**: Demonstrate runtime initialization using Settings for different providers, storage operations, admin access, cleanup procedures, configurable chunking behavior, hybrid search configuration, centralized logging configuration, and environment file loading.
 
 Key implementation details:
 - Settings class inherits from Pydantic BaseSettings and binds to a .env file with UTF-8 encoding.
+- Enhanced environment loading through load_env_var() function with intelligent fallback behavior.
 - Centralized logging configuration uses configure_logging() function with INFO level and standardized format.
-- Current fields include VK access token, group ID, Qdrant configuration, separate LLM and embedding provider settings, comprehensive storage configuration, S3 storage settings, admin authentication settings, chunking configuration parameters with semantic chunking support, hybrid search configuration with sparse embeddings, and centralized logging configuration.
-- The LLM system automatically selects providers based on LLM_PROVIDER environment variable with sensible defaults.
-- The embedding system automatically selects providers based on EMBEDDING_PROVIDER environment variable with independent configuration.
+- Current fields include VK access token, group ID, Qdrant configuration, separate LLM and embedding provider settings, comprehensive storage configuration, S3 storage settings, admin authentication settings, chunking configuration parameters with semantic chunking support, hybrid search configuration with sparse embeddings, GPU configuration variables, and centralized logging configuration.
+- The LLM system automatically selects providers based on LLM_PROVIDER environment variable with sensible defaults and GPU optimization.
+- The embedding system automatically selects providers based on EMBEDDING_PROVIDER environment variable with independent configuration and GPU optimization.
 - The chunking system provides configurable chunk_size (default: 500), chunk_overlap (default: 50), chunk_strategy (default: 'recursive'), semantic_breakpoint_threshold_type (default: 'percentile'), and semantic_breakpoint_threshold_amount (default: 95) parameters for document processing optimization.
 - The hybrid search system supports dense vector-only search and hybrid dense+sparse BM25 search modes with configurable sparse embedding model.
 - The storage system uses db_path to configure SQLite database location with automatic table initialization.
@@ -172,9 +188,11 @@ Key implementation details:
 - The admin server includes enhanced cleanup mechanisms using atexit for proper resource management.
 - The document parser module uses both hardcoded defaults and configurable settings for chunking behavior, supporting both recursive and semantic strategies.
 - All scripts and modules use centralized logging configuration for consistent log formatting.
+- GPU configuration variables enable optimized model loading with appropriate GPU layer allocation.
 
 **Section sources**
 - [app/config.py:4-62](file://app/config.py#L4-L62)
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
@@ -187,26 +205,30 @@ Key implementation details:
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Architecture Overview
-The configuration architecture follows a layered approach with provider-aware components, integrated storage, configurable chunking parameters with semantic support, hybrid search functionality, centralized logging configuration, and secure admin access with enhanced cleanup mechanisms:
-- **Configuration layer**: Settings class encapsulates environment-driven configuration with separate provider selections, storage settings, S3 configuration, admin authentication, chunking parameters with semantic strategies, hybrid search configuration, and centralized logging configuration.
-- **Application layer**: Integrations consume Settings to initialize services with appropriate provider backends, database connections, S3 storage, configurable chunking behavior with semantic support, hybrid search modes, centralized logging configuration, and authentication mechanisms.
-- **Runtime layer**: Scripts and handlers access Settings at startup or during operation with automatic provider detection, storage initialization, authentication verification, configurable chunking parameters with semantic strategies, hybrid search configuration, centralized logging configuration, and proper resource cleanup.
+The enhanced configuration architecture follows a layered approach with provider-aware components, integrated storage, configurable chunking parameters with semantic support, hybrid search functionality, centralized logging configuration, secure admin access with enhanced cleanup mechanisms, and comprehensive environment file integration with intelligent fallback behavior:
+- **Configuration layer**: Settings class encapsulates environment-driven configuration with separate provider selections, storage settings, S3 configuration, admin authentication, chunking parameters with semantic strategies, hybrid search configuration, GPU configuration, centralized logging configuration, and environment file integration with load_env_var() function.
+- **Application layer**: Integrations consume Settings to initialize services with appropriate provider backends, database connections, S3 storage, configurable chunking behavior with semantic support, hybrid search modes, centralized logging configuration, authentication mechanisms, and GPU optimization.
+- **Runtime layer**: Scripts and handlers access Settings at startup or during operation with automatic provider detection, storage initialization, authentication verification, configurable chunking parameters with semantic strategies, hybrid search configuration, centralized logging configuration, proper resource cleanup, and environment file loading with fallback behavior.
 
 ```mermaid
 sequenceDiagram
-participant Script as "main.py"
+participant Script as "run_admin.sh"
+participant LoadEnv as "load_env_var()"
 participant Settings as "Settings"
 participant Logging as "configure_logging()"
 participant Provider as "LLM Provider"
 participant EmbeddingProvider as "Embedding Provider"
 participant Chunking as "Chunking Parameters"
 participant HybridSearch as "Hybrid Search Configuration"
+participant GPUCfg as "GPU Configuration"
 participant Storage as "SQLite Database"
 participant S3Storage as "S3 Storage"
 participant AdminAuth as "Admin Authentication"
 participant Cleanup as "Resource Cleanup"
 participant VKBot as "VK Bot Factory"
 participant VK as "VK Bot"
+Script->>LoadEnv : Load variables from .env
+LoadEnv-->>Script : Variables loaded (if not in env)
 Script->>Settings : Initialize Settings()
 Settings-->>Script : Loaded values (defaults or env)
 Script->>Logging : configure_logging()
@@ -215,6 +237,8 @@ Settings->>Chunking : Configure chunk_size, chunk_overlap, chunk_strategy
 Chunking-->>Script : Chunking parameters ready
 Settings->>HybridSearch : Configure retrieval_mode, sparse_embedding_model
 HybridSearch-->>Script : Hybrid search configuration ready
+Settings->>GPUCfg : Configure GPU layers
+GPUCfg-->>Script : GPU configuration ready
 Settings->>Storage : Configure db_path
 Storage-->>Script : Database ready
 Settings->>S3Storage : Configure S3 settings
@@ -234,6 +258,7 @@ Script->>VK : run_polling()
 ```
 
 **Diagram sources**
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/main.py:23-82](file://app/main.py#L23-L82)
 - [app/config.py:15-62](file://app/config.py#L15-L62)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
@@ -246,14 +271,15 @@ Script->>VK : run_polling()
 
 ## Detailed Component Analysis
 
-### Settings Class
-The Settings class defines the comprehensive configuration contract with separate provider configurations, centralized logging configuration, chunking parameters with semantic support, and hybrid search configuration:
+### Enhanced Settings Class
+The Settings class defines the comprehensive configuration contract with separate provider configurations, centralized logging configuration, chunking parameters with semantic support, hybrid search configuration, and GPU configuration:
 - **Environment file binding**: Loads variables from .env with UTF-8 encoding.
-- **Fields**: vk_access_token (str), vk_group_id (int), Qdrant configuration, LLM settings, separate embedding configuration, storage configuration, S3 storage configuration, admin authentication settings, chunking configuration parameters with semantic chunking support, hybrid search configuration with sparse embeddings, and centralized logging configuration.
+- **Fields**: vk_access_token (str), vk_group_id (int), Qdrant configuration, LLM settings, separate embedding configuration, storage configuration, S3 storage configuration, admin authentication settings, chunking configuration parameters with semantic chunking support, hybrid search configuration with sparse embeddings, GPU configuration variables, and centralized logging configuration.
 - **Type safety**: Pydantic ensures type conversion and validation.
 - **Provider awareness**: LLM_PROVIDER and EMBEDDING_PROVIDER fields control which backend to use independently.
 - **Chunking awareness**: chunk_size (int), chunk_overlap (int), chunk_strategy (str), semantic_breakpoint_threshold_type (str), and semantic_breakpoint_threshold_amount (float) control document processing behavior with sensible defaults.
 - **Hybrid search awareness**: retrieval_mode (str) and sparse_embedding_model (str) control dense vs hybrid search modes with sparse embeddings.
+- **GPU configuration awareness**: LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, and OLLAMA_NUM_GPU control model optimization.
 - **Storage awareness**: db_path field controls SQLite database location.
 - **S3 awareness**: s3_endpoint_url, s3_access_key, s3_secret_key, and s3_bucket control S3-compatible storage configuration.
 - **Admin awareness**: admin_api_key controls access to administrative functions.
@@ -272,10 +298,12 @@ class Settings {
 +llm_model : str
 +llm_base_url : str
 +llm_api_key : str
++llm_n_gpu_layers : int
 +embedding_provider : str
 +embedding_model : str
 +embedding_base_url : str
 +embedding_api_key : str
++embedding_n_gpu_layers : int
 +db_path : str
 +s3_endpoint_url : str
 +s3_access_key : str
@@ -290,6 +318,7 @@ class Settings {
 +semantic_breakpoint_threshold_amount : float
 +retrieval_mode : str
 +sparse_embedding_model : str
++ollama_num_gpu : int
 }
 ```
 
@@ -298,6 +327,21 @@ class Settings {
 
 **Section sources**
 - [app/config.py:4-62](file://app/config.py#L4-L62)
+
+### Intelligent Environment Loading
+The load_env_var() function provides comprehensive environment variable loading with intelligent fallback behavior:
+- **Function Purpose**: Reads variables from .env file only when they're not already set in the environment.
+- **Fallback Logic**: Checks if variable is empty (`[[ -z "${!var_name:-}" ]]`) before loading from .env.
+- **Pattern Matching**: Uses regex pattern matching (`^${var_name}=`) to find exact variable definitions.
+- **Value Extraction**: Extracts quoted values with proper escaping support.
+- **Export Behavior**: Exports loaded values to the current shell environment.
+- **Variable Coverage**: Supports LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL, LLM_API_KEY, EMBEDDING_PROVIDER, EMBEDDING_MODEL, EMBEDDING_BASE_URL, EMBEDDING_API_KEY, QDRANT_URL, S3_ENDPOINT_URL, OLLAMA_URL, LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, and OLLAMA_NUM_GPU.
+- **Default Resolution**: Applies URL defaults after loading (.env overrides lower priority than environment variables).
+
+**Updated** Added comprehensive environment variable loading mechanism through load_env_var() function with intelligent fallback behavior, supporting LLM providers, embedding models, Qdrant connections, S3 storage, and Ollama configurations.
+
+**Section sources**
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 
 ### Centralized Logging Configuration
 The centralized logging configuration provides unified logging setup across all application components with consistent formatting and level control:
@@ -351,6 +395,23 @@ The hybrid search configuration enables advanced retrieval modes with sparse emb
 - [app/resources.py:120-131](file://app/resources.py#L120-L131)
 - [tests/test_hybrid_search.py:17-41](file://tests/test_hybrid_search.py#L17-L41)
 
+### GPU Configuration
+The GPU configuration system provides comprehensive control over model optimization for Ollama providers:
+- **LLM_N_GPU_LAYERS**: Controls GPU layers for LLM models (default: 0)
+- **EMBED_N_GPU_LAYERS**: Controls GPU layers for embedding models (default: 0)
+- **OLLAMA_NUM_GPU**: Controls total GPU allocation for Ollama (default: detected based on hardware)
+- **Hardware Detection**: Automatically detects GPU type (Metal for Apple Silicon, CUDA for NVIDIA, CPU otherwise)
+- **Default Allocation**: Sets high GPU layer counts for supported hardware, 0 for CPU-only
+- **Performance Optimization**: Enables hardware-accelerated inference for supported models
+- **Fallback Behavior**: Gracefully falls back to CPU when GPU acceleration is unavailable
+
+**Updated** Added comprehensive GPU configuration system with LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, and OLLAMA_NUM_GPU variables for optimized model loading.
+
+**Section sources**
+- [scripts/run_ollama_embeddings.sh:20-25](file://scripts/run_ollama_embeddings.sh#L20-L25)
+- [scripts/run_ollama_llm.sh:20-25](file://scripts/run_ollama_llm.sh#L20-L25)
+- [scripts/run_admin.sh:119-121](file://scripts/run_admin.sh#L119-L121)
+
 ### VK Bot Factory and Settings Usage
 The VK bot factory constructs a vkbottle Bot using the VK access token from Settings. This demonstrates how configuration flows into application components.
 
@@ -373,8 +434,8 @@ Bot-->>Factory : Ready instance
 - [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
 - [app/config.py:17-18](file://app/config.py#L17-L18)
 
-### Configuration Loading and Validation
-The test suite validates:
+### Enhanced Configuration Loading and Validation
+The enhanced test suite validates:
 - Default values when no environment variables are set.
 - Environment variable precedence over defaults.
 - Numeric parsing for integer fields.
@@ -385,11 +446,13 @@ The test suite validates:
 - Separate embedding provider configuration defaults and validation.
 - **Chunking configuration defaults and validation** for new chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount parameters.
 - **Hybrid search configuration defaults and validation** for retrieval_mode and sparse_embedding_model parameters.
+- **GPU configuration defaults and validation** for LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, and OLLAMA_NUM_GPU parameters.
 - **Centralized logging configuration** for consistent log formatting across all components.
+- **Environment file integration** with load_env_var() function and fallback behavior.
 
 ```mermaid
 flowchart TD
-Start(["Initialize Settings"]) --> LoadEnv["Load .env file"]
+Start(["Initialize Settings"]) --> LoadEnv["Load .env file via load_env_var()"]
 LoadEnv --> Defaults["Apply defaults"]
 Defaults --> EnvOverride{"Environment variables present?"}
 EnvOverride --> |Yes| ApplyEnv["Apply environment values"]
@@ -397,7 +460,8 @@ EnvOverride --> |No| KeepDefaults["Keep defaults"]
 ApplyEnv --> ChunkingConfig["Configure chunk_size, chunk_overlap, chunk_strategy"]
 ChunkingConfig --> SemanticConfig["Configure semantic chunking parameters"]
 SemanticConfig --> HybridConfig["Configure retrieval_mode, sparse_embedding_model"]
-HybridConfig --> ProviderSelect["Select LLM Provider"]
+HybridConfig --> GPUCfg["Configure GPU layers"]
+GPUCfg --> ProviderSelect["Select LLM Provider"]
 ProviderSelect --> EmbeddingSelect["Select Embedding Provider"]
 EmbeddingSelect --> StorageConfig["Configure Storage"]
 StorageConfig --> S3Config["Configure S3 Storage"]
@@ -407,11 +471,13 @@ LoggingConfig --> Validate["Type validation"]
 KeepDefaults --> ChunkingConfig
 ChunkingConfig --> SemanticConfig
 SemanticConfig --> HybridConfig
-HybridConfig --> ProviderSelect
+HybridConfig --> GPUCfg
+GPUCfg --> ProviderSelect
 Validate --> Done(["Settings ready"])
 ```
 
 **Diagram sources**
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
 - [app/config.py:4-62](file://app/config.py#L4-L62)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
@@ -419,6 +485,7 @@ Validate --> Done(["Settings ready"])
 - [tests/test_semantic_chunker.py:223-237](file://tests/test_semantic_chunker.py#L223-L237)
 
 **Section sources**
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
 - [app/config.py:4-62](file://app/config.py#L4-L62)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
@@ -426,8 +493,9 @@ Validate --> Done(["Settings ready"])
 - [tests/test_semantic_chunker.py:223-237](file://tests/test_semantic_chunker.py#L223-L237)
 
 ## Dependency Analysis
-The configuration system has minimal external dependencies with provider-specific extras, storage modules, authentication components, chunking utilities with semantic support, hybrid search dependencies, and centralized logging configuration:
+The enhanced configuration system has minimal external dependencies with provider-specific extras, storage modules, authentication components, chunking utilities with semantic support, hybrid search dependencies, GPU optimization libraries, centralized logging configuration, and intelligent environment loading:
 - **Pydantic Settings**: Provides environment file loading and type validation.
+- **Enhanced Environment Loading**: load_env_var() function with intelligent fallback behavior.
 - **Centralized Logging**: Universal logging configuration via configure_logging() function.
 - **VK integration**: Depends on Settings for bot initialization.
 - **LLM Providers**: Optional dependencies for different provider backends.
@@ -439,12 +507,15 @@ The configuration system has minimal external dependencies with provider-specifi
 - **Resource Cleanup**: Enhanced cleanup mechanisms for proper resource management.
 - **Chunking Utilities**: RecursiveCharacterTextSplitter and SemanticChunker for document processing with configurable parameters.
 - **Hybrid Search Dependencies**: FastEmbedSparse for BM25-based sparse embeddings.
+- **GPU Optimization**: Hardware detection and GPU layer configuration for Ollama models.
+- **Provider-Specific Dependencies**: uv extras system for dynamic dependency management.
 - **Storage Dependencies**: aiosqlite for asynchronous database operations, aiobotocore for S3 operations.
 - **Authentication Dependencies**: secrets module for secure comparison, cryptography for cookie security.
 
 ```mermaid
 graph TB
 Settings["Settings (BaseSettings)"]
+LoadEnv["load_env_var() Function"]
 Pydantic["pydantic-settings"]
 LoggingConfig["configure_logging()"]
 VKIntegration["VK Integration"]
@@ -462,8 +533,11 @@ RecursiveSplitter["RecursiveCharacterTextSplitter"]
 SemanticChunker["SemanticChunker"]
 HybridSearch["Hybrid Search"]
 FastEmbedSparse["FastEmbedSparse"]
+GPUDetection["GPU Detection"]
+UvExtras["uv Extras System"]
 Pyproject["pyproject.toml"]
 Pydantic --> Settings
+LoadEnv --> Settings
 Settings --> LoggingConfig
 Settings --> VKIntegration
 Settings --> Qdrant
@@ -473,6 +547,8 @@ Settings --> AdminAuth
 Settings --> Cleanup
 Settings --> ChunkingUtils
 Settings --> HybridSearch
+Settings --> GPUDetection
+Settings --> UvExtras
 ChunkingUtils --> RecursiveSplitter
 ChunkingUtils --> SemanticChunker
 HybridSearch --> FastEmbedSparse
@@ -482,6 +558,7 @@ SQLite --> Aiosqlite
 S3Storage --> Aiobotocore
 AdminAuth --> Secrets
 Cleanup --> Settings
+UvExtras --> Pyproject
 Pyproject --> Aiosqlite
 Pyproject --> Aiobotocore
 Pyproject --> RecursiveSplitter
@@ -494,6 +571,7 @@ Pyproject --> FastEmbedSparse
 - [pyproject.toml:23](file://pyproject.toml#L23)
 - [pyproject.toml:24](file://pyproject.toml#L24)
 - [app/config.py:1](file://app/config.py#L1)
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/integrations/vk/bot.py:7](file://app/integrations/vk/bot.py#L7)
 - [app/storage/s3.py:9](file://app/storage/s3.py#L9)
 - [app/api/deps.py:5](file://app/api/deps.py#L5)
@@ -506,6 +584,7 @@ Pyproject --> FastEmbedSparse
 - [pyproject.toml:23](file://pyproject.toml#L23)
 - [pyproject.toml:24](file://pyproject.toml#L24)
 - [app/config.py:1](file://app/config.py#L1)
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/integrations/vk/bot.py:7](file://app/integrations/vk/bot.py#L7)
 - [app/storage/s3.py:9](file://app/storage/s3.py#L9)
 - [app/api/deps.py:5](file://app/api/deps.py#L5)
@@ -515,15 +594,18 @@ Pyproject --> FastEmbedSparse
 
 ## Performance Considerations
 - Environment file loading occurs at import-time when Settings is instantiated. This is lightweight and suitable for application startup.
+- Enhanced load_env_var() function provides efficient variable loading with minimal overhead.
 - Type conversion and validation are handled by Pydantic, adding negligible overhead during normal operation.
 - Provider selection happens at runtime when building LLM and embedding instances, with minimal performance impact.
 - Separate provider configurations allow for independent optimization of LLM and embedding performance.
+- **GPU Optimization**: GPU layer configuration enables hardware-accelerated inference for supported models, significantly improving performance.
 - **Chunking optimization**: Configurable chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount parameters allow fine-tuning for different document types and model capabilities.
 - **Local model performance**: Default chunk_size of 500 characters balances processing speed and context preservation for local LLMs.
 - **Memory management**: Proper chunk_overlap configuration prevents context loss while managing memory usage effectively.
 - **Semantic chunking performance**: Embedding-based breakpoint detection adds computational overhead but improves chunk quality.
 - **Hybrid search performance**: Sparse embeddings add minimal overhead while improving search effectiveness.
 - **Centralized logging performance**: Single logging configuration reduces overhead compared to multiple ad-hoc logging setups.
+- **Dependency management**: uv extras system optimizes dependency loading based on selected providers.
 - SQLite database operations use asynchronous connections to minimize blocking.
 - S3 storage operations use async client sessions with connection pooling for efficient file operations.
 - Admin authentication uses constant-time comparison to prevent timing attacks.
@@ -534,6 +616,7 @@ Pyproject --> FastEmbedSparse
 - S3 operations benefit from connection reuse and proper error handling for network failures.
 - Concurrent indexing operations are controlled by max_concurrent_indexing setting.
 - Chunking parameters significantly impact processing time and memory usage in document ingestion pipelines.
+- **GPU layer optimization**: Appropriate GPU layer allocation can dramatically improve model response times.
 - **Logging consistency**: Centralized logging configuration ensures uniform logging behavior across all development and production environments.
 - **Hybrid search efficiency**: Dense vectors provide fast similarity search, while sparse embeddings offer complementary lexical matching capabilities.
 
@@ -557,10 +640,12 @@ Pyproject --> FastEmbedSparse
 - **Chunking Security**: Ensure chunk_size, chunk_overlap, and semantic chunking parameters don't expose sensitive data through improper context boundaries.
 - **Hybrid Search Security**: Validate sparse embedding model configuration and ensure proper dependency management.
 - **Logging Security**: Centralized logging configuration ensures consistent log formatting and level control across all components.
+- **GPU Configuration Security**: Ensure GPU layer allocation doesn't expose system resources unnecessarily.
+- **Dependency Security**: Use uv extras system to minimize unnecessary dependencies and potential security risks.
 
 ## Development vs Production Configurations
-- **Development**: Use local LLM providers (ollama, llama.cpp) with localhost URLs and local SQLite database. Use local S3-compatible storage with MinIO for development. The VK polling script initializes Settings and runs the bot locally. Separate embedding provider can use Ollama for development. Chunking parameters can be tuned for faster local processing. Hybrid search can be disabled for development simplicity. Centralized logging configuration provides consistent log formatting across all development scripts.
-- **Production**: Use cloud LLM providers with proper authentication and managed database services. Use production S3-compatible storage with proper IAM policies and HTTPS endpoints. Use strong admin API keys with rotation policies. Separate embedding provider can use OpenAI for production quality embeddings. Chunking parameters should be optimized for production workload characteristics. Hybrid search can be enabled with appropriate sparse embedding models. Centralized logging configuration ensures consistent log formatting across all production components.
+- **Development**: Use local LLM providers (ollama, llama.cpp) with localhost URLs and local SQLite database. Use local S3-compatible storage with MinIO for development. The VK polling script initializes Settings and runs the bot locally. Separate embedding provider can use Ollama for development. Chunking parameters can be tuned for faster local processing. Hybrid search can be disabled for development simplicity. Centralized logging configuration provides consistent log formatting across all development scripts. GPU configuration can be optimized for local hardware capabilities.
+- **Production**: Use cloud LLM providers with proper authentication and managed database services. Use production S3-compatible storage with proper IAM policies and HTTPS endpoints. Use strong admin API keys with rotation policies. Separate embedding provider can use OpenAI for production quality embeddings. Chunking parameters should be optimized for production workload characteristics. Hybrid search can be enabled with appropriate sparse embedding models. Centralized logging configuration ensures consistent log formatting across all production components. GPU configuration should be optimized for production hardware specifications.
 
 Operational differences:
 - VK polling script demonstrates Settings usage at runtime with centralized logging configuration.
@@ -575,12 +660,15 @@ Operational differences:
 - Resource cleanup mechanisms ensure proper shutdown in production environments.
 - **Chunking optimization**: Production environments may require different chunk_size, chunk_overlap, chunk_strategy, and semantic chunking parameters based on document types and performance requirements.
 - **Hybrid search optimization**: Production environments should enable hybrid search with appropriate sparse embedding models for improved search effectiveness.
+- **GPU optimization**: Production environments should configure appropriate GPU layer allocation based on available hardware resources.
 - **Logging consistency**: Centralized logging configuration ensures uniform logging behavior across all development and production environments.
+- **Dependency management**: Production should use optimized uv extras configuration to minimize dependency footprint.
 
 **Section sources**
 - [app/main.py:23-82](file://app/main.py#L23-L82)
 - [app/config.py:26-62](file://app/config.py#L26-L62)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
+- [scripts/run_admin.sh:119-121](file://scripts/run_admin.sh#L119-L121)
 
 ## Adding New Configuration Variables
 To add new configuration variables:
@@ -596,6 +684,8 @@ To add new configuration variables:
 10. **For chunking-related configurations**, consider performance implications and provide sensible defaults.
 11. **For hybrid search configurations**, ensure proper dependency management and error handling for sparse embeddings.
 12. **For logging-related configurations**, consider centralized logging integration and ensure consistent formatting.
+13. **For GPU-related configurations**, ensure proper hardware detection and optimization.
+14. **For environment file integration**, ensure the variable is covered by load_env_var() function.
 
 Example steps:
 - Add a new field to the Settings class.
@@ -609,9 +699,11 @@ Example steps:
 - **For chunking parameters**, ensure they integrate with document processing pipelines and consider performance trade-offs.
 - **For hybrid search parameters**, ensure proper dependency management and error handling for sparse embeddings.
 - **For logging configuration**, ensure centralized logging integration and consistent formatting across all components.
+- **For GPU configuration**, ensure proper hardware detection and optimization strategies.
 
 **Section sources**
 - [app/config.py:4-62](file://app/config.py#L4-L62)
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
 
 ## Logging Configuration
@@ -1015,6 +1107,7 @@ The system supports multiple LLM providers through the LLM_PROVIDER environment 
 - **Supported values**: "ollama", "openai", "llamacpp"
 - **Automatic fallback**: If LLM_PROVIDER is not set, defaults to "ollama"
 - **Provider-specific defaults**: Different base URLs and API keys per provider
+- **GPU Optimization**: Enhanced with LLM_N_GPU_LAYERS configuration for Ollama models
 
 ### Configuration Options by Provider
 
@@ -1023,6 +1116,7 @@ The system supports multiple LLM providers through the LLM_PROVIDER environment 
 - **LLM_MODEL**: "qwen3.5:4b-q4_K_M" (default)
 - **LLM_BASE_URL**: "http://localhost:11434" (default)
 - **LLM_API_KEY**: "" (no key required)
+- **LLM_N_GPU_LAYERS**: 0 (default - can be optimized)
 - **Embedding model**: "nomic-embed-text"
 
 #### OpenAI Provider
@@ -1051,6 +1145,11 @@ The system supports multiple LLM providers through the LLM_PROVIDER environment 
 - Llama.cpp provider uses "no-key" when empty for local development
 - Ollama provider typically doesn't require API keys
 
+#### GPU Layer Optimization
+- LLM_N_GPU_LAYERS controls GPU layers for Ollama models
+- Can be configured for hardware-accelerated inference
+- Defaults to 0 for CPU-only operation
+
 ### Environment Variable Configuration
 
 ```bash
@@ -1059,11 +1158,13 @@ LLM_PROVIDER=llamacpp
 LLM_MODEL=Qwen3.5-4B-Q4_K_M
 LLM_BASE_URL=http://localhost:8080/v1
 LLM_API_KEY=
+LLM_N_GPU_LAYERS=99
 
 # Alternative configuration for Ollama
 LLM_PROVIDER=ollama
 LLM_MODEL=qwen3.5:4b-q4_K_M
 LLM_BASE_URL=http://localhost:11434
+LLM_N_GPU_LAYERS=99
 
 # Storage configuration
 DB_PATH=data/cafetera.db
@@ -1095,6 +1196,7 @@ The project includes a script for managing Ollama models:
 - **Ollama host**: "127.0.0.1:11434" (configurable)
 - **Auto-start**: Automatically starts Ollama server if not running
 - **Model management**: Pulls models if not found locally
+- **GPU optimization**: Supports hardware-accelerated inference
 
 **Section sources**
 - [app/config.py:25-29](file://app/config.py#L25-L29)
@@ -1102,6 +1204,8 @@ The project includes a script for managing Ollama models:
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [scripts/run_llama_qwen.sh:1-60](file://scripts/run_llama_qwen.sh#L1-L60)
 - [scripts/run_ollama_qwen.sh:1-74](file://scripts/run_ollama_qwen.sh#L1-L74)
+- [scripts/run_ollama_embeddings.sh:20-25](file://scripts/run_ollama_embeddings.sh#L20-L25)
+- [scripts/run_ollama_llm.sh:20-25](file://scripts/run_ollama_llm.sh#L20-L25)
 
 ## Embedding Provider Configuration
 
@@ -1112,6 +1216,7 @@ The system supports separate embedding providers through the EMBEDDING_PROVIDER 
 - **Supported values**: "ollama", "openai"
 - **Automatic fallback**: If EMBEDDING_PROVIDER is not set, defaults to "ollama"
 - **Independent configuration**: Can use different providers than LLM providers
+- **GPU Optimization**: Enhanced with EMBED_N_GPU_LAYERS configuration for Ollama models
 
 ### Configuration Options by Provider
 
@@ -1120,6 +1225,7 @@ The system supports separate embedding providers through the EMBEDDING_PROVIDER 
 - **EMBEDDING_MODEL**: "nomic-embed-text" (default)
 - **EMBEDDING_BASE_URL**: "http://localhost:11434" (default)
 - **EMBEDDING_API_KEY**: "" (no key required)
+- **EMBED_N_GPU_LAYERS**: 0 (default - can be optimized)
 - **LLM Provider**: Can be independent (e.g., OpenAI for LLM, Ollama for embeddings)
 
 #### OpenAI Provider
@@ -1141,6 +1247,11 @@ The system supports separate embedding providers through the EMBEDDING_PROVIDER 
 - Ollama embedding provider typically doesn't require API keys
 - Llama.cpp embedding provider uses "no-key" when empty for local development
 
+#### GPU Layer Optimization
+- EMBED_N_GPU_LAYERS controls GPU layers for Ollama embedding models
+- Can be configured for hardware-accelerated inference
+- Defaults to 0 for CPU-only operation
+
 ### Environment Variable Configuration
 
 ```bash
@@ -1154,6 +1265,7 @@ EMBEDDING_API_KEY=your_openai_api_key
 EMBEDDING_PROVIDER=ollama
 EMBEDDING_MODEL=nomic-embed-text
 EMBEDDING_BASE_URL=http://localhost:11434
+EMBED_N_GPU_LAYERS=99
 
 # LLM configuration (can be independent)
 LLM_PROVIDER=llamacpp
@@ -1173,7 +1285,9 @@ The admin server includes enhanced setup for embedding providers:
 - [app/config.py:31-35](file://app/config.py#L31-L35)
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 - [scripts/admin_server.py:16-18](file://scripts/admin_server.py#L16-L18)
-- [scripts/run_admin.sh:129-159](file://scripts/run_admin.sh#L129-L159)
+- [scripts/run_admin.sh:16-18](file://scripts/run_admin.sh#L16-L18)
+- [scripts/run_admin.sh:171-209](file://scripts/run_admin.sh#L171-L209)
+- [scripts/run_ollama_embeddings.sh:20-25](file://scripts/run_ollama_embeddings.sh#L20-L25)
 
 ## Resource Management and Cleanup
 
@@ -1236,6 +1350,181 @@ MAX_CONCURRENT_INDEXING=2
 - [scripts/admin_server.py:64-68](file://scripts/admin_server.py#L64-L68)
 - [app/config.py:47](file://app/config.py#L47)
 
+## Environment File Integration
+
+### Enhanced .env File Loading
+The enhanced configuration system provides comprehensive .env file integration with intelligent fallback behavior:
+
+- **load_env_var() Function**: Custom shell function for loading environment variables from .env file.
+- **Fallback Priority**: Only loads variables if they're not already set in the environment.
+- **Pattern Matching**: Uses regex pattern matching to find exact variable definitions.
+- **Quoted Value Support**: Handles quoted values with proper escaping.
+- **Variable Coverage**: Supports comprehensive variable loading including LLM, embedding, Qdrant, S3, and Ollama configurations.
+- **URL Default Resolution**: Applies sensible defaults after loading from .env file.
+- **Interactive Provider Selection**: Integrates with provider selection dialogs for user-friendly configuration.
+
+### Environment Variable Coverage
+The load_env_var() function supports the following variables:
+- **LLM Configuration**: LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL, LLM_API_KEY, LLM_N_GPU_LAYERS
+- **Embedding Configuration**: EMBEDDING_PROVIDER, EMBEDDING_MODEL, EMBEDDING_BASE_URL, EMBEDDING_API_KEY, EMBED_N_GPU_LAYERS
+- **Infrastructure Configuration**: QDRANT_URL, S3_ENDPOINT_URL, OLLAMA_URL
+- **GPU Configuration**: OLLAMA_NUM_GPU
+
+### Environment Loading Process
+
+```mermaid
+flowchart TD
+Start(["load_env_var(var_name)"]) --> CheckEnv{"Is variable already set?"}
+CheckEnv --> |Yes| Skip["Skip loading"]
+CheckEnv --> |No| CheckFile{"Does .env contain var?"}
+CheckFile --> |No| Skip
+CheckFile --> |Yes| Extract["Extract quoted value"]
+Extract --> Export["Export to environment"]
+Export --> Done["Variable loaded"]
+Skip --> Done
+```
+
+**Diagram sources**
+- [scripts/run_admin.sh:96-106](file://scripts/run_admin.sh#L96-L106)
+
+### Environment File Integration Benefits
+- **Development Flexibility**: Allows developers to override defaults without modifying code.
+- **Deployment Consistency**: Enables environment-specific configuration through .env files.
+- **Fallback Behavior**: Ensures configuration precedence (environment variables > .env > defaults).
+- **Provider Optimization**: Supports GPU layer configuration for hardware-accelerated inference.
+- **Infrastructure Configuration**: Handles complex URL and credential management.
+
+**Section sources**
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
+
+## GPU Configuration
+
+### GPU Layer Optimization
+The enhanced configuration system provides comprehensive GPU layer configuration for optimized model performance:
+
+- **LLM_N_GPU_LAYERS**: Controls GPU layers for LLM models (default: 0)
+- **EMBED_N_GPU_LAYERS**: Controls GPU layers for embedding models (default: 0)
+- **OLLAMA_NUM_GPU**: Controls total GPU allocation for Ollama (default: detected based on hardware)
+- **Hardware Detection**: Automatically detects GPU type and allocates appropriate layers.
+- **Apple Silicon Optimization**: Uses Metal acceleration for Apple Silicon chips.
+- **NVIDIA Optimization**: Uses CUDA acceleration for NVIDIA GPUs.
+- **CPU Fallback**: Defaults to CPU-only operation when GPU acceleration is unavailable.
+- **Performance Impact**: Proper GPU layer allocation can dramatically improve model response times.
+
+### GPU Configuration Process
+
+```mermaid
+flowchart TD
+Start(["Detect GPU Hardware"]) --> CheckOS{"Operating System?"}
+CheckOS --> |macOS| CheckArch{"Architecture?"}
+CheckOS --> |Linux| CheckCUDA{"NVIDIA GPU?"}
+CheckOS --> |Other| CPU["CPU Only"]
+CheckArch --> |arm64| Metal["Metal Acceleration"]
+CheckArch --> |x86_64| CPU
+CheckCUDA --> |Yes| CUDA["CUDA Acceleration"]
+CheckCUDA --> |No| CPU
+Metal --> GPUConfig["Set high GPU layers"]
+CUDA --> GPUConfig
+CPU --> CPULayers["Set 0 GPU layers"]
+GPUConfig --> Apply["Apply GPU configuration"]
+CPULayers --> Apply
+Apply --> End(["GPU Configuration Complete"])
+```
+
+**Diagram sources**
+- [scripts/run_ollama_embeddings.sh:20-25](file://scripts/run_ollama_embeddings.sh#L20-L25)
+- [scripts/run_ollama_llm.sh:20-25](file://scripts/run_ollama_llm.sh#L20-L25)
+
+### GPU Configuration Examples
+
+#### Apple Silicon (Metal)
+```bash
+OLLAMA_NUM_GPU=99  # High GPU layers for Metal acceleration
+LLM_N_GPU_LAYERS=99
+EMBED_N_GPU_LAYERS=99
+```
+
+#### NVIDIA (CUDA)
+```bash
+OLLAMA_NUM_GPU=99  # High GPU layers for CUDA acceleration
+LLM_N_GPU_LAYERS=99
+EMBED_N_GPU_LAYERS=99
+```
+
+#### CPU-Only
+```bash
+OLLAMA_NUM_GPU=0   # CPU-only operation
+LLM_N_GPU_LAYERS=0
+EMBED_N_GPU_LAYERS=0
+```
+
+### GPU Configuration Benefits
+- **Performance Optimization**: Hardware-accelerated inference significantly improves response times.
+- **Resource Efficiency**: Proper GPU layer allocation maximizes hardware utilization.
+- **Scalability**: GPU configuration adapts to available hardware resources.
+- **Fallback Safety**: Automatic CPU fallback ensures system stability when GPU acceleration is unavailable.
+
+**Section sources**
+- [scripts/run_ollama_embeddings.sh:20-25](file://scripts/run_ollama_embeddings.sh#L20-L25)
+- [scripts/run_ollama_llm.sh:20-25](file://scripts/run_ollama_llm.sh#L20-L25)
+- [scripts/run_admin.sh:119-121](file://scripts/run_admin.sh#L119-L121)
+
+## Provider-Specific Dependencies
+
+### Dynamic Dependency Management
+The enhanced configuration system integrates with uv extras for dynamic dependency management based on selected providers:
+
+- **uv Extras System**: Automatically installs required dependencies based on provider selection.
+- **Ollama Support**: Installs langchain-ollama for Ollama provider support.
+- **OpenAI Compatibility**: Installs langchain-openai for OpenAI provider support.
+- **Hybrid Search**: Installs fastembed for sparse embeddings support.
+- **Conditional Installation**: Only installs dependencies that are actually needed.
+- **Dependency Resolution**: Resolves conflicts between different provider dependencies.
+
+### Dependency Management Process
+
+```mermaid
+flowchart TD
+Start(["Select Providers"]) --> CheckOllama{"Ollama Provider?"}
+CheckOllama --> |Yes| AddOllama["Add --extra ollama"]
+CheckOllama --> |No| CheckOpenAI{"OpenAI Provider?"}
+CheckOpenAI --> |Yes| AddOpenAI["Add --extra openai_compatible"]
+CheckOpenAI --> |No| CheckHybrid{"Hybrid Search?"}
+AddOllama --> CheckOpenAI
+AddOpenAI --> CheckHybrid
+CheckHybrid --> |Yes| AddHybrid["Add --extra hybrid"]
+CheckHybrid --> |No| Install["Install Dependencies"]
+AddHybrid --> Install
+Install --> End(["Dependencies Installed"])
+```
+
+**Diagram sources**
+- [scripts/run_admin.sh:214-231](file://scripts/run_admin.sh#L214-L231)
+- [pyproject.toml:32-43](file://pyproject.toml#L32-L43)
+
+### Dependency Configuration
+
+#### Provider Dependencies
+- **Ollama**: langchain-ollama (optional dependency)
+- **OpenAI**: langchain-openai (optional dependency)
+- **Hybrid Search**: fastembed (optional dependency)
+
+#### Dependency Installation
+- **Automatic Detection**: uv extras system automatically detects required dependencies.
+- **Conflict Resolution**: uv resolves dependency conflicts automatically.
+- **Lock File Management**: uv.lock ensures reproducible builds.
+- **Development Dependencies**: Separate dev dependencies for development tools.
+
+### Dependency Benefits
+- **Reduced Footprint**: Only installs dependencies that are actually needed.
+- **Performance**: Eliminates unused dependencies that could slow down the application.
+- **Maintainability**: Clear separation of provider-specific dependencies.
+- **Reliability**: Automated dependency management reduces manual configuration errors.
+
+**Section sources**
+- [scripts/run_admin.sh:214-231](file://scripts/run_admin.sh#L214-L231)
+- [pyproject.toml:32-43](file://pyproject.toml#L32-L43)
+
 ## Troubleshooting Guide
 Common issues and resolutions:
 - **Missing .env file**: Ensure the .env file exists and is readable. The Settings class expects it at the project root.
@@ -1264,6 +1553,10 @@ Common issues and resolutions:
 - **Logging configuration issues**: Verify centralized logging setup and log formatting consistency.
 - **Log level problems**: Check LOG_LEVEL environment variable and logging configuration.
 - **Cross-component logging inconsistencies**: Ensure all components use centralized logging configuration.
+- **Environment file loading issues**: Verify load_env_var() function is working correctly and variables are being loaded.
+- **GPU configuration problems**: Check hardware detection and GPU layer allocation for Ollama models.
+- **Dependency installation failures**: Verify uv extras system is working correctly and dependencies are compatible.
+- **Provider-specific dependency conflicts**: Check for conflicting provider dependencies and resolve using uv extras.
 
 Validation tips:
 - Use the test suite to verify defaults and environment precedence.
@@ -1284,6 +1577,9 @@ Validation tips:
 - **Monitor processing performance**: Track ingestion time and memory usage with different chunking configurations.
 - **Verify logging consistency**: Ensure centralized logging configuration provides uniform log formatting across all components.
 - **Test log level configuration**: Validate LOG_LEVEL environment variable effects on logging output.
+- **Test environment file integration**: Verify load_env_var() function correctly loads variables from .env file.
+- **Test GPU configuration**: Validate hardware detection and GPU layer allocation for different hardware configurations.
+- **Test dependency management**: Verify uv extras system correctly installs provider-specific dependencies.
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
@@ -1293,6 +1589,7 @@ Validation tips:
 - [tests/test_semantic_chunker.py:1-237](file://tests/test_semantic_chunker.py#L1-L237)
 - [app/storage/s3.py:71-77](file://app/storage/s3.py#L71-L77)
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
+- [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 
 ## Conclusion
-The configuration management system in cafetera_hr_bot uses Pydantic Settings to load environment variables from a .env file, providing type-safe configuration for the VK integration, separate LLM and embedding provider support, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, configurable document chunking parameters with support for both recursive and semantic strategies, hybrid search functionality with sparse embeddings, and centralized logging configuration ensuring consistent log formatting across all application components. The system now supports independent LLM and embedding provider configurations (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, covering VK API credentials, Qdrant database connections, flexible provider-specific behaviors, robust storage management, secure S3 file operations, comprehensive admin access control, enhanced resource cleanup mechanisms, explicit control over document processing behavior through chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount parameters, hybrid search modes with dense vector-only and hybrid dense+sparse BM25 approaches, sparse embeddings support with configurable models, and centralized logging configuration that provides uniform logging behavior across all development and production environments. By following the documented patterns and security practices, teams can safely manage configuration across development and production environments while maintaining flexibility for different LLM and embedding backends, reliable operation with clear provider-specific behaviors, comprehensive document metadata persistence with proper storage configuration and security measures, secure S3 file storage with proper access controls, robust admin authentication with proper security protocols, proper resource management with enhanced cleanup mechanisms, optimized document processing through configurable chunking parameters that balance performance and context preservation, hybrid search functionality that improves search effectiveness with sparse embeddings, and consistent logging behavior through centralized logging configuration that ensures uniform log formatting across all application components.
+The enhanced configuration management system in cafetera_hr_bot provides comprehensive .env file integration capabilities with intelligent fallback behavior, supporting LLM providers, embedding models, Qdrant connections, S3 storage, and Ollama configurations. The system now features a multi-layered approach with Pydantic Settings for type-safe configuration, load_env_var() function for intelligent environment variable loading, GPU optimization for hardware-accelerated inference, provider-specific dependency management through uv extras, and comprehensive configuration validation. The system supports separate LLM and embedding provider configurations (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, covering VK API credentials, Qdrant database connections, flexible provider-specific behaviors, robust storage management, secure S3 file operations, comprehensive admin access control, enhanced resource cleanup mechanisms, explicit control over document processing behavior through chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount parameters, hybrid search modes with dense vector-only and hybrid dense+sparse BM25 approaches, sparse embeddings support with configurable models, centralized logging configuration that provides uniform logging behavior across all development and production environments, GPU layer configuration for optimized model performance, and dynamic dependency management for provider-specific packages. By following the documented patterns and security practices, teams can safely manage configuration across development and production environments while maintaining flexibility for different LLM and embedding backends, reliable operation with clear provider-specific behaviors, comprehensive document metadata persistence with proper storage configuration and security measures, secure S3 file storage with proper access controls, robust admin authentication with proper security protocols, proper resource management with enhanced cleanup mechanisms, optimized document processing through configurable chunking parameters that balance performance and context preservation, hybrid search functionality that improves search effectiveness with sparse embeddings, centralized logging behavior through centralized logging configuration that ensures uniform log formatting across all application components, and comprehensive GPU optimization that maximizes hardware utilization for improved performance.
