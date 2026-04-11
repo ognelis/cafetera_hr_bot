@@ -4,81 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Admin{% endblock %} — Cafetera HR</title>
-  <link href="/static/css/daisyui.css" rel="stylesheet" type="text/css" />
-  <script src="/static/js/tailwindcss.js"></script>
-  <script src="/static/js/htmx.js"></script>
-  <script defer src="/static/js/alpinejs.js"></script>
-  <style>
-    [x-cloak] { display: none !important; }
-
-    /* ═══ Primitive design tokens ═══ */
-    :root {
-      --green-900: #085020;
-      --green-700: #183818;
-      --beige-100: #F0E8E0;
-      --white-50: #F8F8F8;
-      --yellow-500: #F8A800;
-      --blue-300: #78B0E0;
-      --gray-900: #282828;
-      --black: #000000;
-    }
-
-    /* ═══ Custom daisyUI theme: Cafetera ═══ */
-    [data-theme=cafetera] {
-      color-scheme: light;
-      /* Base */
-      --color-base-100: oklch(93.51% 0.014 67.7);   /* #F0E8E0 warm beige */
-      --color-base-200: oklch(92.88% 0.011 106.6);   /* #E8E8E0 */
-      --color-base-300: oklch(86.46% 0.015 70.9);    /* #D9D1C8 */
-      --color-base-content: oklch(27.68% 0 0);       /* #282828 */
-      /* Primary — brand green */
-      --color-primary: oklch(37.83% 0.103 148.6);    /* #085020 */
-      --color-primary-content: oklch(100% 0 0);       /* #FFFFFF */
-      /* Secondary — supporting blue */
-      --color-secondary: oklch(73.68% 0.091 245.3);  /* #78B0E0 */
-      --color-secondary-content: oklch(27.68% 0 0);  /* #282828 */
-      /* Accent — CTA yellow */
-      --color-accent: oklch(78.99% 0.167 74.8);      /* #F8A800 */
-      --color-accent-content: oklch(27.68% 0 0);     /* #282828 */
-      /* Neutral — dark green */
-      --color-neutral: oklch(30.70% 0.067 143.7);    /* #183818 */
-      --color-neutral-content: oklch(100% 0 0);       /* #FFFFFF */
-      /* Status colors (daisyUI defaults) */
-      --color-info: oklch(74% 0.16 232.661);
-      --color-info-content: oklch(29% 0.066 243.157);
-      --color-success: oklch(76% 0.177 163.223);
-      --color-success-content: oklch(37% 0.077 168.94);
-      --color-warning: oklch(82% 0.189 84.429);
-      --color-warning-content: oklch(41% 0.112 45.904);
-      --color-error: oklch(71% 0.194 13.428);
-      --color-error-content: oklch(27% 0.105 12.094);
-      /* Radii & sizing */
-      --radius-selector: .5rem;
-      --radius-field: .25rem;
-      --radius-box: .75rem;
-      --size-selector: .25rem;
-      --size-field: .25rem;
-      --border: 1px;
-      --depth: 1;
-      --noise: 0;
-    }
-
-    /* ═══ Semantic design tokens (extras beyond daisyUI) ═══ */
-    [data-theme=cafetera] {
-      --color-bg: var(--beige-100);
-      --color-surface: var(--white-50);
-      --color-text: var(--gray-900);
-      --color-text-muted: oklch(27.68% 0 0 / 0.55);
-      --color-text-inverse: #FFFFFF;
-      --color-primary-dark: var(--green-700);
-      --color-primary-contrast: #FFFFFF;
-      --color-secondary-contrast: var(--gray-900);
-      --color-accent-contrast: var(--gray-900);
-      --color-neutral-contrast: #FFFFFF;
-      --color-border: #D9D1C8;
-      --color-border-strong: oklch(27.68% 0 0 / 0.3);
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', path='vendor/daisyui/daisyui.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+  <script src="{{ url_for('static', path='vendor/tailwindcss/tailwind-browser.js') }}"></script>
+  <script src="{{ url_for('static', path='vendor/htmx/htmx.min.js') }}" defer></script>
+  <script src="{{ url_for('static', path='js/components.js') }}" defer></script>
+  <script src="{{ url_for('static', path='js/upload.js') }}" defer></script>
+  <script src="{{ url_for('static', path='vendor/alpinejs/cdn.min.js') }}" defer></script>
 </head>
 <body class="min-h-screen bg-base-100" x-data="{ sidebarOpen: false }">
   {% block layout %}
@@ -274,26 +206,6 @@
     </template>
   </div>
 
-  <script>
-    function toastManager() {
-      return {
-        toasts: [],
-        nextId: 0,
-        addToast(detail) {
-          const id = this.nextId++;
-          this.toasts.push({ id, message: detail.message || detail, type: detail.type || 'info' });
-          setTimeout(() => this.remove(id), 5000);
-        },
-        remove(id) {
-          this.toasts = this.toasts.filter(t => t.id !== id);
-        }
-      };
-    }
 
-    // Listen for HX-Trigger "showToast" events from HTMX responses
-    document.body.addEventListener('showToast', function(evt) {
-      window.dispatchEvent(new CustomEvent('show-toast', { detail: evt.detail }));
-    });
-  </script>
 </body>
 </html>
