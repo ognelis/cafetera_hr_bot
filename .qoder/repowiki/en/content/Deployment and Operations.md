@@ -23,6 +23,7 @@
 - [scripts/run_ollama_llm.sh](file://scripts/run_ollama_llm.sh)
 - [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
 - [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
+- [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
 - [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
 - [app/rag/retriever.py](file://app/rag/retriever.py)
 - [app/rag/chain.py](file://app/rag/chain.py)
@@ -36,10 +37,10 @@
 
 ## Update Summary
 **Changes Made**
-- Updated Docker containerization section to reflect pre-downloading FastEmbed sparse embedding models during build process
-- Enhanced cleanup optimizations documentation for reduced image size and improved security
-- Added comprehensive Docker networking documentation with service discovery guidance
-- Updated hybrid search capabilities documentation with FastEmbed sparse embeddings
+- Updated VK bot startup process documentation to reflect enhanced resource management with proper event loop integration using loop_wrapper.on_startup/on_shutdown hooks
+- Added comprehensive coverage of centralized resource initialization patterns and proper event loop binding
+- Enhanced production deployment documentation with improved resource lifecycle management
+- Updated operational procedures to include proper resource cleanup and graceful shutdown handling
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -60,11 +61,11 @@
 ## Introduction
 This document provides comprehensive guidance for deploying and operating cafetera_hr_bot in production. It covers containerized infrastructure using Docker Compose, operational controls for VK bot long-polling versus webhook-based production operation, planned Telegram integration, and future webhook deployment. The system now features a PostgreSQL database for storing document metadata alongside the existing Qdrant vector database and MinIO object storage. The production server utilizes Hypercorn with HTTP/2 support, replacing Uvicorn for improved performance and modern protocol support. It also documents monitoring and logging strategies, secrets management, scaling approaches, performance optimization, disaster recovery planning, and practical deployment playbooks.
 
-**Updated**: The system now includes comprehensive Docker containerization support with multi-stage Docker builds for admin server and VK polling bot, environment variable configuration, and container networking setup for production deployments. The containerization includes pre-downloading FastEmbed sparse embedding models during build process, comprehensive cleanup optimizations for reduced image size and improved security, and enhanced Docker networking documentation with service discovery guidance.
+**Updated**: The system now includes comprehensive Docker containerization support with multi-stage Docker builds for admin server and VK polling bot, environment variable configuration, and container networking setup for production deployments. The containerization includes pre-downloading FastEmbed sparse embedding models during build process, comprehensive cleanup optimizations for reduced image size and improved security, and enhanced Docker networking documentation with service discovery guidance. **Enhanced**: The VK bot startup process now features improved resource management with proper event loop integration using loop_wrapper.on_startup/on_shutdown hooks, ensuring all resources bind to the same event loop that handlers will use for optimal performance and resource lifecycle management.
 
 ## Project Structure
 The repository organizes runtime concerns into layered modules with a new centralized orchestration approach and PostgreSQL database integration:
-- Integrations: VK bot adapter and handlers
+- Integrations: VK bot adapter and handlers with enhanced resource management
 - Domain: States and navigation helpers
 - Config: Pydantic-based settings loader with multiple LLM provider support and PostgreSQL database configuration
 - Scripts: Centralized orchestration via run_admin.sh with specialized deployment scripts for individual components
@@ -82,6 +83,8 @@ Config["Settings Loader<br/>app/config.py"]
 Embeddings["Embedding Models<br/>app/rag/retriever.py"]
 Hypercorn["Hypercorn Server<br/>scripts/admin_server.py"]
 Orchestrator["Centralized Orchestrator<br/>scripts/run_admin.sh"]
+EventLoop["Event Loop Integration<br/>loop_wrapper.on_startup/on_shutdown"]
+ResourceMgr["Resource Management<br/>AppResources, build_resources"]
 end
 subgraph "Infrastructure"
 Qdrant["Qdrant Vector DB<br/>docker-compose.yml"]
@@ -133,15 +136,18 @@ DockerCompose --> AdminDocker
 DockerCompose --> VKDocker
 DockerIgnore --> AdminDocker
 DockerIgnore --> VKDocker
+EventLoop --> ResourceMgr
+ResourceMgr --> VKBot
 ```
 
 **Diagram sources**
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
+- [app/integrations/vk/handlers/start.py:1-42](file://app/integrations/vk/handlers/start.py#L1-L42)
+- [app/integrations/vk/handlers/ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
 - [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
 - [app/config.py:1-62](file://app/config.py#L1-L62)
 - [app/storage/database.py:1-58](file://app/storage/database.py#L1-L58)
-- [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
+- [scripts/polling_vk.py:1-73](file://scripts/polling_vk.py#L1-L73)
 - [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
 - [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
 - [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
@@ -149,6 +155,7 @@ DockerIgnore --> VKDocker
 - [docker-compose.yml:1-53](file://docker-compose.yml#L1-L53)
 - [scripts/admin_server.py:1-74](file://scripts/admin_server.py#L1-L74)
 - [scripts/run_admin.sh:1-464](file://scripts/run_admin.sh#L1-L464)
+- [app/resources.py:1-365](file://app/resources.py#L1-L365)
 - [Dockerfile.admin:1-77](file://Dockerfile.admin#L1-L77)
 - [Dockerfile.polling_vk:1-71](file://Dockerfile.polling_vk#L1-L71)
 - [.dockerignore:1-17](file://.dockerignore#L1-L17)
@@ -158,17 +165,19 @@ DockerIgnore --> VKDocker
 - [pyproject.toml:1-62](file://pyproject.toml#L1-L62)
 - [app/config.py:1-62](file://app/config.py#L1-L62)
 - [app/storage/database.py:1-58](file://app/storage/database.py#L1-L58)
-- [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
+- [scripts/polling_vk.py:1-73](file://scripts/polling_vk.py#L1-L73)
 - [scripts/run_llama_embeddings.sh:1-77](file://scripts/run_llama_embeddings.sh#L1-L77)
 - [scripts/run_llama_llm.sh:1-75](file://scripts/run_llama_llm.sh#L1-L75)
 - [scripts/run_ollama_embeddings.sh:1-73](file://scripts/run_ollama_embeddings.sh#L1-L73)
 - [scripts/run_ollama_llm.sh:1-74](file://scripts/run_ollama_llm.sh#L1-L74)
 - [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
+- [app/integrations/vk/handlers/start.py:1-42](file://app/integrations/vk/handlers/start.py#L1-L42)
+- [app/integrations/vk/handlers/ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
 - [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
 - [app/rag/retriever.py:1-103](file://app/rag/retriever.py#L1-L103)
 - [scripts/admin_server.py:1-74](file://scripts/admin_server.py#L1-L74)
 - [scripts/run_admin.sh:1-464](file://scripts/run_admin.sh#L1-L464)
+- [app/resources.py:1-365](file://app/resources.py#L1-L365)
 - [AGENTS.md:1-88](file://AGENTS.md#L1-L88)
 - [PLAN.md:1-207](file://PLAN.md#L1-L207)
 - [Dockerfile.admin:1-77](file://Dockerfile.admin#L1-L77)
@@ -176,26 +185,28 @@ DockerIgnore --> VKDocker
 - [.dockerignore:1-17](file://.dockerignore#L1-L17)
 
 ## Core Components
-- VK Bot Adapter: Creates a fully wired vkbottle Bot with registered labelers and logging.
-- Handlers: Start/main menu/navigation and fallback handlers.
+- VK Bot Adapter: Creates a fully wired vkbottle Bot with registered labelers and logging, now with enhanced resource management through event loop integration.
+- Handlers: Start/main menu/navigation and fallback handlers with centralized service access.
 - States: Multi-step dialog states for HR request scenario.
 - Config: Pydantic Settings with environment file support and multiple LLM provider configuration including PostgreSQL database URL.
-- Dev Long Poll Script: Local development entry-point for VK bot using long polling.
+- Dev Long Poll Script: Local development entry-point for VK bot using long polling with proper event loop integration.
 - Hypercorn Server: Production-grade ASGI server with HTTP/2 support and configurable worker classes.
 - Centralized Orchestrator: run_admin.sh manages provider selection, dependency installation, infrastructure provisioning, service coordination with enhanced error handling and PostgreSQL health checking.
 - Specialized Deployment Scripts: Separate scripts for LLM and embedding servers for llama.cpp and Ollama providers with automated model downloading and verification.
 - Modular Infrastructure: Docker Compose services with comprehensive health checking for Qdrant, MinIO, and PostgreSQL.
 - Database Layer: PostgreSQL database initialization with table creation for document metadata storage and category file management.
 - **Updated**: Containerization Layer: Multi-stage Docker builds using uv package manager with non-root user execution, pre-downloaded FastEmbed sparse embeddings cache, and optimized runtime images.
+- **Enhanced**: Resource Management: Centralized AppResources container with build_resources() and close_resources() functions for consistent resource lifecycle management across all deployment modes.
 
 **Updated**: The centralized orchestrator (run_admin.sh) provides interactive provider selection, automated dependency management, comprehensive service startup with health checks including PostgreSQL readiness, and robust error handling with detailed fix suggestions for seamless deployment across different LLM providers and database configurations.
 
 **Section sources**
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
-- [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
+- [app/integrations/vk/handlers/start.py:23-42](file://app/integrations/vk/handlers/start.py#L23-L42)
+- [app/integrations/vk/handlers/ask.py:14-90](file://app/integrations/vk/handlers/ask.py#L14-L90)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
 - [app/config.py:15-62](file://app/config.py#L15-L62)
-- [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
+- [scripts/polling_vk.py:23-73](file://scripts/polling_vk.py#L23-L73)
 - [scripts/admin_server.py:55-68](file://scripts/admin_server.py#L55-L68)
 - [scripts/run_llama_embeddings.sh:39-77](file://scripts/run_llama_embeddings.sh#L39-L77)
 - [scripts/run_llama_llm.sh:39-75](file://scripts/run_llama_llm.sh#L39-L75)
@@ -203,13 +214,14 @@ DockerIgnore --> VKDocker
 - [scripts/run_ollama_llm.sh:26-74](file://scripts/run_ollama_llm.sh#L26-L74)
 - [scripts/run_admin.sh:51-70](file://scripts/run_admin.sh#L51-L70)
 - [scripts/run_admin.sh:275-281](file://scripts/run_admin.sh#L275-L281)
+- [app/resources.py:106-365](file://app/resources.py#L106-L365)
 - [AGENTS.md:16-18](file://AGENTS.md#L16-L18)
 - [PLAN.md:132-135](file://PLAN.md#L132-L135)
 
 ## Architecture Overview
 The system runs a VK bot with optional RAG capabilities backed by PostgreSQL for document metadata storage, Qdrant for vector search, and MinIO for document storage. The RAG system supports multiple embedding providers including llama.cpp with optimized server flags for document embedding tasks. In production, the VK bot operates via FastAPI webhook transport with Hypercorn server supporting HTTP/2; long polling is for local development only. The centralized orchestrator manages all deployment aspects and provider-specific configurations with enhanced error handling, verification, and PostgreSQL database initialization.
 
-**Updated**: The architecture now features modular deployment scripts that separate LLM and embedding server responsibilities, enabling more flexible and maintainable deployment configurations with automated model management, comprehensive verification, and PostgreSQL database integration for persistent document metadata storage. Containerization support enables production-ready deployments with multi-stage Docker builds, optimized runtime environments, pre-downloaded FastEmbed sparse embeddings cache, and enhanced security through non-root user execution.
+**Updated**: The architecture now features modular deployment scripts that separate LLM and embedding server responsibilities, enabling more flexible and maintainable deployment configurations with automated model management, comprehensive verification, and PostgreSQL database integration for persistent document metadata storage. Containerization support enables production-ready deployments with multi-stage Docker builds, optimized runtime environments, pre-downloaded FastEmbed sparse embeddings cache, and enhanced security through non-root user execution. **Enhanced**: The VK bot now integrates with vkbottle's loop_wrapper system for proper event loop management, ensuring all resources bind to the same event loop that handlers will use, preventing resource binding issues and improving performance.
 
 ```mermaid
 graph TB
@@ -233,6 +245,8 @@ AdminDocker["Admin Server Container<br/>Dockerfile.admin"]
 VKDocker["VK Polling Container<br/>Dockerfile.polling_vk"]
 DockerCompose["Docker Compose<br/>docker-compose.yml"]
 FastEmbedCache["FastEmbed Cache<br/>Pre-downloaded Models"]
+EventLoop["Event Loop Integration<br/>loop_wrapper.on_startup/on_shutdown"]
+ResourceMgr["Resource Management<br/>AppResources, build_resources"]
 Client --> Webhook
 Webhook --> Bot
 Bot --> Handlers
@@ -260,11 +274,14 @@ AdminDocker --> DockerCompose
 VKDocker --> DevPoll
 VKDocker --> FastEmbedCache
 VKDocker --> DockerCompose
+EventLoop --> ResourceMgr
+ResourceMgr --> Bot
 ```
 
 **Diagram sources**
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
-- [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
+- [app/integrations/vk/handlers/start.py:23-42](file://app/integrations/vk/handlers/start.py#L23-L42)
+- [app/integrations/vk/handlers/ask.py:14-90](file://app/integrations/vk/handlers/ask.py#L14-L90)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
 - [app/config.py:15-62](file://app/config.py#L15-L62)
 - [docker-compose.yml:30-47](file://docker-compose.yml#L30-L47)
@@ -273,6 +290,7 @@ VKDocker --> DockerCompose
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 - [scripts/admin_server.py:55-68](file://scripts/admin_server.py#L55-L68)
 - [scripts/run_admin.sh:223-356](file://scripts/run_admin.sh#L223-L356)
+- [app/resources.py:106-365](file://app/resources.py#L106-L365)
 - [Dockerfile.admin:1-77](file://Dockerfile.admin#L1-L77)
 - [Dockerfile.polling_vk:1-71](file://Dockerfile.polling_vk#L1-L71)
 
@@ -285,8 +303,64 @@ VKDocker --> DockerCompose
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 - [scripts/admin_server.py:55-68](file://scripts/admin_server.py#L55-L68)
 - [scripts/run_admin.sh:223-356](file://scripts/run_admin.sh#L223-L356)
+- [app/resources.py:106-365](file://app/resources.py#L106-L365)
 
 ## Detailed Component Analysis
+
+### Enhanced VK Bot Startup Process with Event Loop Integration
+The VK bot now features improved resource management through proper event loop integration using vkbottle's loop_wrapper.on_startup/on_shutdown hooks, ensuring all resources bind to the same event loop that handlers will use.
+
+```mermaid
+flowchart TD
+Start(["VK Bot Startup"]) --> CreateBot["create_bot(settings)<br/>app/integrations/vk/bot.py"]
+CreateBot --> RegisterHandlers["Register Labelers<br/>_HANDLER_LABELERS order"]
+RegisterHandlers --> SetupEventLoop["Setup loop_wrapper<br/>on_startup/on_shutdown"]
+SetupEventLoop --> OnStartup["_setup(bot) coroutine<br/>scripts/polling_vk.py"]
+OnStartup --> BuildResources["await build_resources()<br/>app/resources.py"]
+BuildResources --> StoreResources["Store on bot._app_resources"]
+StoreResources --> SetServices["set_qa_service()<br/>set_category_file_service()"]
+SetServices --> Ready["Bot Ready<br/>Event Loop Bound Resources"]
+Ready --> ShutdownHook["_cleanup(bot) coroutine<br/>on shutdown"]
+ShutdownHook --> CloseResources["await close_resources()<br/>Graceful Cleanup"]
+CloseResources --> End(["Shutdown Complete"])
+```
+
+**Diagram sources**
+- [app/integrations/vk/bot.py:42-56](file://app/integrations/vk/bot.py#L42-L56)
+- [scripts/polling_vk.py:23-73](file://scripts/polling_vk.py#L23-L73)
+- [app/resources.py:130-316](file://app/resources.py#L130-L316)
+
+**Section sources**
+- [app/integrations/vk/bot.py:42-56](file://app/integrations/vk/bot.py#L42-L56)
+- [scripts/polling_vk.py:23-73](file://scripts/polling_vk.py#L23-L73)
+- [app/resources.py:130-316](file://app/resources.py#L130-L316)
+
+### Centralized Resource Management System
+The AppResources container provides centralized resource initialization and cleanup across all deployment modes, ensuring consistent resource lifecycle management.
+
+```mermaid
+flowchart TD
+Start(["build_resources(settings)"]) --> InitS3["Initialize S3 Storage<br/>if with_s3=True"]
+InitS3 --> InitQdrant["Initialize Qdrant Client<br/>and Embeddings"]
+InitQdrant --> InitSparse["Initialize Sparse Embeddings<br/>(hybrid search)"]
+InitSparse --> InitDB["Initialize Database<br/>if with_db=True"]
+InitDB --> InitDocRepo["Initialize DocumentRepository<br/>and DocumentService"]
+InitDocRepo --> InitQA["Initialize QA Services<br/>QAServices for RAG"]
+InitQA --> ReturnRes["Return AppResources"]
+ReturnRes --> CloseResources["close_resources(res)<br/>Graceful Cleanup"]
+CloseResources --> CloseS3["Close S3 Client"]
+CloseS3 --> CloseQdrant["Close Qdrant Client"]
+CloseQdrant --> CloseDB["Disconnect Database"]
+CloseDB --> ResetFields["Reset All Fields to None"]
+ResetFields --> Done(["Cleanup Complete"])
+```
+
+**Diagram sources**
+- [app/resources.py:130-316](file://app/resources.py#L130-L316)
+- [app/resources.py:319-365](file://app/resources.py#L319-L365)
+
+**Section sources**
+- [app/resources.py:106-365](file://app/resources.py#L106-L365)
 
 ### PostgreSQL Database Integration and Schema Management
 The system now includes PostgreSQL database integration for persistent document metadata storage with comprehensive table creation and indexing.
@@ -425,6 +499,8 @@ class BotFactory {
 class VKBot {
 +labeler
 +run_polling()
++loop_wrapper.on_startup
++loop_wrapper.on_shutdown
 }
 class Handlers {
 +start_bl
@@ -451,15 +527,50 @@ BotFactory --> Settings : "reads"
 
 **Diagram sources**
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
-- [app/integrations/vk/handlers/start.py:12-55](file://app/integrations/vk/handlers/start.py#L12-L55)
+- [app/integrations/vk/handlers/start.py:12-42](file://app/integrations/vk/handlers/start.py#L12-L42)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
 - [app/config.py:15-62](file://app/config.py#L15-L62)
 
 **Section sources**
 - [app/integrations/vk/bot.py:14-56](file://app/integrations/vk/bot.py#L14-L56)
-- [app/integrations/vk/handlers/start.py:12-55](file://app/integrations/vk/handlers/start.py#L12-L55)
+- [app/integrations/vk/handlers/start.py:12-42](file://app/integrations/vk/handlers/start.py#L12-L42)
 - [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
 - [app/config.py:15-62](file://app/config.py#L15-L62)
+
+### Enhanced Resource Lifecycle Management
+The VK bot now implements proper resource lifecycle management through event loop integration, ensuring all resources bind to the same event loop that handlers will use.
+
+```mermaid
+sequenceDiagram
+participant Bot as "VK Bot"
+participant LoopWrapper as "loop_wrapper"
+participant Setup as "_setup(bot)"
+participant Resources as "AppResources"
+participant Cleanup as "_cleanup(bot)"
+Bot->>LoopWrapper : "register on_startup"
+LoopWrapper->>Setup : "call _setup(bot)"
+Setup->>Resources : "await build_resources()"
+Resources-->>Setup : "AppResources instance"
+Setup->>Bot : "store on bot._app_resources"
+Setup-->>LoopWrapper : "resources initialized"
+LoopWrapper->>LoopWrapper : "event loop running"
+LoopWrapper->>LoopWrapper : "handlers use resources"
+LoopWrapper->>LoopWrapper : "shutdown signal"
+LoopWrapper->>Cleanup : "call _cleanup(bot)"
+Cleanup->>Resources : "await close_resources()"
+Resources-->>Cleanup : "cleanup complete"
+Cleanup-->>LoopWrapper : "shutdown complete"
+```
+
+**Diagram sources**
+- [scripts/polling_vk.py:23-73](file://scripts/polling_vk.py#L23-L73)
+- [app/resources.py:130-316](file://app/resources.py#L130-L316)
+- [app/resources.py:319-365](file://app/resources.py#L319-L365)
+
+**Section sources**
+- [scripts/polling_vk.py:23-73](file://scripts/polling_vk.py#L23-L73)
+- [app/resources.py:130-316](file://app/resources.py#L130-L316)
+- [app/resources.py:319-365](file://app/resources.py#L319-L365)
 
 ### Hypercorn Server Configuration and HTTP/2 Support
 The production server uses Hypercorn with HTTP/2 support, providing improved performance and modern protocol features compared to Uvicorn.
@@ -606,8 +717,8 @@ SparseEmbeddingFactory --> FastEmbedSparse : "when retrieval_mode='hybrid'"
 - [app/config.py:15-62](file://app/config.py#L15-L62)
 - [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
 
-### VK Long Polling Development Flow
-Local development uses a script that loads settings and starts the VK bot in long-polling mode.
+### VK Long Polling Development Flow with Enhanced Resource Management
+Local development uses a script that loads settings, creates the bot, registers event loop hooks, and starts the VK bot in long-polling mode with proper resource lifecycle management.
 
 ```mermaid
 sequenceDiagram
@@ -615,21 +726,26 @@ participant Dev as "Developer"
 participant Script as "scripts/polling_vk.py"
 participant Config as "app/config.py"
 participant Bot as "app/integrations/vk/bot.py"
+participant LoopWrapper as "vkbottle.loop_wrapper"
+participant Resources as "app/resources.py"
 Dev->>Script : "Run long poll"
 Script->>Config : "Load settings"
 Script->>Bot : "create_bot(settings)"
-Bot-->>Script : "Bot instance"
-Script->>Bot : "run_forever()"
-Note over Script,Bot : "Long polling loop for VK updates"
+Script->>LoopWrapper : "register on_startup/_setup"
+Script->>LoopWrapper : "register on_shutdown/_cleanup"
+LoopWrapper->>Resources : "await build_resources()"
+Resources-->>LoopWrapper : "AppResources ready"
+LoopWrapper->>Bot : "bot.run_forever()"
+Note over Script,Bot : "Long polling loop with proper resource management"
 ```
 
 **Diagram sources**
-- [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
+- [scripts/polling_vk.py:53-73](file://scripts/polling_vk.py#L53-L73)
 - [app/config.py:15-62](file://app/config.py#L15-L62)
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
 
 **Section sources**
-- [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
+- [scripts/polling_vk.py:1-73](file://scripts/polling_vk.py#L1-L73)
 - [app/config.py:15-62](file://app/config.py#L15-L62)
 - [app/integrations/vk/bot.py:24-56](file://app/integrations/vk/bot.py#L24-L56)
 
@@ -784,9 +900,9 @@ PostgresService --> AppConnections
 - [README.md:253-286](file://README.md#L253-L286)
 
 ## Dependency Analysis
-External dependencies include FastAPI, Hypercorn, LangChain stack, Qdrant client, VK and Telegram adapters, PostgreSQL asyncpg driver, and testing tools. Optional extras enable Ollama or OpenAI-compatible LLMs. The system now supports llama.cpp with optimized embedding server flags and uses Hypercorn as the production ASGI server instead of Uvicorn. PostgreSQL integration adds asyncpg driver for database connectivity. **Updated**: Containerization dependencies include uv package manager for optimized dependency installation and multi-stage Docker builds. The hybrid search capability requires fastembed>=0.8.0 for sparse embeddings support.
+External dependencies include FastAPI, Hypercorn, LangChain stack, Qdrant client, VK and Telegram adapters, PostgreSQL asyncpg driver, and testing tools. Optional extras enable Ollama or OpenAI-compatible LLMs. The system now supports llama.cpp with optimized embedding server flags and uses Hypercorn as the production ASGI server instead of Uvicorn. PostgreSQL integration adds asyncpg driver for database connectivity. **Updated**: Containerization dependencies include uv package manager for optimized dependency installation and multi-stage Docker builds. The hybrid search capability requires fastembed>=0.8.0 for sparse embeddings support. **Enhanced**: The VK bot now depends on vkbottle's loop_wrapper system for proper event loop integration and resource lifecycle management.
 
-**Updated**: The centralized orchestrator manages dependency installation through uv sync with provider-specific extras, eliminates manual dependency management complexity, and includes comprehensive error handling for dependency resolution failures. The PostgreSQL integration adds asyncpg driver for production database connectivity. Containerization support uses uv for efficient dependency management in Docker images. The hybrid search feature requires the 'hybrid' extra for FastEmbed sparse embeddings.
+**Updated**: The centralized orchestrator manages dependency installation through uv sync with provider-specific extras, eliminates manual dependency management complexity, and includes comprehensive error handling for dependency resolution failures. The PostgreSQL integration adds asyncpg driver for production database connectivity. Containerization support uses uv for efficient dependency management in Docker images. The hybrid search feature requires the 'hybrid' extra for FastEmbed sparse embeddings. **Enhanced**: The VK bot integration with loop_wrapper ensures proper event loop binding for all resources, preventing resource binding issues and improving performance.
 
 ```mermaid
 graph LR
@@ -804,6 +920,8 @@ Uv["uv (orchestration)"]
 PostgreSQL["asyncpg (database)"]
 Docker["docker (containerization)"]
 FastEmbed["fastembed>=0.8.0 (hybrid)"]
+LoopWrapper["loop_wrapper (event loop)"]
+AppResources["AppResources (resource mgmt)"]
 AdminDocker["Dockerfile.admin"]
 VKDocker["Dockerfile.polling_vk"]
 App --> FastAPI
@@ -819,12 +937,16 @@ App --> Uv
 App --> PostgreSQL
 App --> Docker
 App --> FastEmbed
+App --> LoopWrapper
+App --> AppResources
 AdminDocker --> Uv
 VKDocker --> Uv
 AdminDocker --> Docker
 VKDocker --> Docker
 AdminDocker --> FastEmbed
 VKDocker --> FastEmbed
+AdminDocker --> LoopWrapper
+VKDocker --> AppResources
 ```
 
 **Diagram sources**
@@ -852,6 +974,7 @@ VKDocker --> FastEmbed
 - **Updated**: Non-root user execution in containers improves security posture and compliance requirements.
 - **Updated**: Pre-downloaded FastEmbed sparse embeddings cache eliminates runtime model downloads and improves container startup times.
 - **Updated**: Comprehensive cleanup optimizations reduce image size and improve security by removing unnecessary files and caches.
+- **Enhanced**: Proper event loop integration ensures all resources bind to the same event loop that handlers will use, preventing resource binding issues and improving performance consistency.
 
 ## Monitoring and Logging
 - Logging: Configure structured logging at INFO level for operational visibility. Use consistent log formatting and include correlation IDs where applicable.
@@ -867,6 +990,7 @@ VKDocker --> FastEmbed
 - **Updated**: PostgreSQL database monitoring includes connection pool metrics, query performance, and table statistics for optimal database performance.
 - **Updated**: Container health monitoring includes Docker Compose health checks and container resource utilization tracking.
 - **Updated**: FastEmbed cache monitoring ensures proper model availability and cache hit rates for hybrid search operations.
+- **Enhanced**: Monitor VK bot resource lifecycle including proper initialization and cleanup through loop_wrapper hooks for reliable resource management.
 
 ## Security Considerations
 - Secrets management: Store all secrets in environment variables managed by pydantic-settings. Provide a template file with placeholders (.env.example) and never commit secrets.
@@ -882,6 +1006,7 @@ VKDocker --> FastEmbed
 - **Updated**: PostgreSQL database security includes proper credential management, network isolation, and connection pooling with appropriate security settings.
 - **Updated**: Container security includes non-root user execution, minimal base images, and proper volume permissions for production deployments.
 - **Updated**: FastEmbed cache security ensures proper file permissions and access controls for cached model files.
+- **Enhanced**: Event loop integration security ensures proper resource binding and prevents resource leakage or binding conflicts.
 
 ## Scaling Approaches
 - Horizontal scaling: Run multiple replicas behind a load balancer; ensure stateless workers and shared storage/backends.
@@ -896,6 +1021,7 @@ VKDocker --> FastEmbed
 - **Updated**: PostgreSQL database scaling includes connection pooling, read replicas, and proper indexing strategies for optimal performance under load.
 - **Updated**: Container orchestration enables horizontal scaling of admin server and VK polling services with proper resource limits and health checks.
 - **Updated**: FastEmbed cache scalability ensures efficient model serving across multiple container instances with shared cache management.
+- **Enhanced**: Event loop integration enables proper resource sharing across scaled instances while maintaining resource lifecycle consistency.
 
 ## Production Deployment Playbooks
 
@@ -949,6 +1075,7 @@ VKDocker --> FastEmbed
 - **Updated**: The centralized orchestrator provides automated cleanup, graceful shutdown procedures, and comprehensive error handling for operational tasks.
 - **Updated**: Enhanced provider verification includes health checks, model validation, and automated recovery procedures for improved operational reliability.
 - **Updated**: Monitor FastEmbed cache health and ensure proper cache synchronization across container instances.
+- **Enhanced**: Monitor VK bot resource lifecycle through loop_wrapper hooks for proper initialization and cleanup across all deployment modes.
 
 ### Centralized Orchestrator Deployment
 - Install prerequisites: Docker, uv, and Python 3.11+.
@@ -975,6 +1102,7 @@ VKDocker --> FastEmbed
 - **Updated**: Automated model downloading capabilities eliminate manual intervention and reduce deployment downtime.
 - **Updated**: PostgreSQL health checking includes detailed error reporting with fix suggestions and integration with Docker Compose services.
 - **Updated**: FastEmbed cache verification ensures proper model availability and cache integrity.
+- **Enhanced**: Event loop integration error handling ensures proper resource lifecycle management and prevents resource binding conflicts.
 
 **Section sources**
 - [scripts/run_admin.sh:243-321](file://scripts/run_admin.sh#L243-L321)
@@ -1036,6 +1164,21 @@ VKDocker --> FastEmbed
 - [app/storage/database.py:11-58](file://app/storage/database.py#L11-L58)
 - [app/resources.py:208-252](file://app/resources.py#L208-L252)
 - [scripts/run_admin.sh:52-70](file://scripts/run_admin.sh#L52-L70)
+
+### Enhanced VK Bot Resource Management Deployment
+- Ensure proper event loop integration through loop_wrapper.on_startup/on_shutdown hooks.
+- Configure resource initialization with build_resources() for consistent resource lifecycle.
+- Implement proper cleanup through close_resources() on shutdown.
+- Monitor resource binding and lifecycle across all deployment modes.
+- **Updated**: The VK bot now properly integrates with vkbottle's loop_wrapper system for event loop management.
+- **Updated**: Resource initialization ensures all resources bind to the same event loop that handlers will use.
+- **Updated**: Graceful shutdown through proper cleanup procedures prevents resource leaks.
+- **Updated**: Enhanced monitoring of resource lifecycle through loop_wrapper hooks for reliable operations.
+
+**Section sources**
+- [scripts/polling_vk.py:23-73](file://scripts/polling_vk.py#L23-L73)
+- [app/resources.py:130-316](file://app/resources.py#L130-L316)
+- [app/resources.py:319-365](file://app/resources.py#L319-L365)
 
 ### Containerization and Docker Support
 
@@ -1182,6 +1325,8 @@ docker run --rm --env-file .env --network cafetera_default -p 8000:8000 cafetera
 - Long polling fails locally:
   - Ensure VK access token is set in environment.
   - Confirm script runs from project root and imports are resolvable.
+  - **Enhanced**: Verify loop_wrapper.on_startup/on_shutdown hooks are properly registered.
+  - **Enhanced**: Check that resources are properly bound to the event loop.
 - Qdrant or MinIO unhealthy:
   - Review health check endpoints and logs.
   - Check volume mounts and disk space.
@@ -1234,9 +1379,15 @@ docker run --rm --env-file .env --network cafetera_default -p 8000:8000 cafetera
   - **Updated**: Verify FastEmbed cache is properly mounted and accessible.
   - **Updated**: Check that pre-downloaded FastEmbed models are available in the cache directory.
   - **Updated**: Ensure cleanup optimizations haven't removed necessary cache files.
+- **Enhanced**: VK bot resource management issues:
+  - Verify loop_wrapper.on_startup/on_shutdown hooks are properly registered.
+  - Check that _setup() coroutine is properly awaited during initialization.
+  - Verify that _cleanup() coroutine executes during shutdown.
+  - Ensure resources are stored on bot._app_resources for proper cleanup access.
+  - Monitor resource binding to event loop for proper lifecycle management.
 
 **Section sources**
-- [scripts/polling_vk.py:17-38](file://scripts/polling_vk.py#L17-L38)
+- [scripts/polling_vk.py:17-73](file://scripts/polling_vk.py#L17-L73)
 - [docker-compose.yml:11-16](file://docker-compose.yml#L11-L16)
 - [AGENTS.md:16-18](file://AGENTS.md#L16-L18)
 - [scripts/run_llama_embeddings.sh:39-77](file://scripts/run_llama_embeddings.sh#L39-L77)
@@ -1246,6 +1397,8 @@ docker run --rm --env-file .env --network cafetera_default -p 8000:8000 cafetera
 - [scripts/run_admin.sh:52-70](file://scripts/run_admin.sh#L52-L70)
 - [Dockerfile.admin:1-77](file://Dockerfile.admin#L1-L77)
 - [Dockerfile.polling_vk:1-71](file://Dockerfile.polling_vk#L1-L71)
+- [app/resources.py:130-316](file://app/resources.py#L130-L316)
+- [app/resources.py:319-365](file://app/resources.py#L319-L365)
 
 ## Conclusion
-cafetera_hr_bot is designed for production-grade operations with a clear separation between VK bot orchestration, RAG infrastructure, and storage. The system now features a centralized orchestration approach through run_admin.sh that manages provider selection, dependency installation, infrastructure provisioning, service coordination, PostgreSQL database initialization, and comprehensive error handling. The system supports multiple LLM providers including llama.cpp with optimized embedding capabilities for enhanced RAG functionality. The production server utilizes Hypercorn with HTTP/2 support, providing improved performance and modern protocol features compared to traditional ASGI servers. The modular deployment architecture enables flexible and maintainable configurations for different provider setups. The PostgreSQL database integration provides persistent storage for document metadata with proper table creation and indexing. **Updated**: Comprehensive Docker containerization support enables production-ready deployments with multi-stage builds, optimized runtime images, secure non-root execution, pre-downloaded FastEmbed sparse embeddings cache, and enhanced cleanup optimizations. The containerization layer includes uv package manager integration, environment variable management, Docker Compose orchestration, and comprehensive service discovery guidance. By adopting webhook-based transport, securing secrets, monitoring health, implementing robust scaling and backup strategies, properly managing the llama.cpp embedding server with automated model downloading, optimizing Hypercorn HTTP/2 configuration, implementing comprehensive PostgreSQL database management, leveraging containerized infrastructure with proper networking and security practices, and utilizing pre-downloaded FastEmbed cache for improved performance, teams can operate the bot reliably in production while preparing for future Telegram integration and advanced webhook deployments.
+cafetera_hr_bot is designed for production-grade operations with a clear separation between VK bot orchestration, RAG infrastructure, and storage. The system now features a centralized orchestration approach through run_admin.sh that manages provider selection, dependency installation, infrastructure provisioning, service coordination, PostgreSQL database initialization, and comprehensive error handling. The system supports multiple LLM providers including llama.cpp with optimized embedding capabilities for enhanced RAG functionality. The production server utilizes Hypercorn with HTTP/2 support, providing improved performance and modern protocol features compared to traditional ASGI servers. The modular deployment architecture enables flexible and maintainable configurations for different provider setups. The PostgreSQL database integration provides persistent storage for document metadata with proper table creation and indexing. **Updated**: Comprehensive Docker containerization support enables production-ready deployments with multi-stage builds, optimized runtime images, secure non-root execution, pre-downloaded FastEmbed sparse embeddings cache, and enhanced cleanup optimizations. The containerization layer includes uv package manager integration, environment variable management, Docker Compose orchestration, and comprehensive service discovery guidance. **Enhanced**: The VK bot startup process now features improved resource management with proper event loop integration using loop_wrapper.on_startup/on_shutdown hooks, ensuring all resources bind to the same event loop that handlers will use for optimal performance and resource lifecycle management. By adopting webhook-based transport, securing secrets, monitoring health, implementing robust scaling and backup strategies, properly managing the llama.cpp embedding server with automated model downloading, optimizing Hypercorn HTTP/2 configuration, implementing comprehensive PostgreSQL database management, leveraging containerized infrastructure with proper networking and security practices, utilizing pre-downloaded FastEmbed cache for improved performance, and implementing proper event loop integration for reliable resource management, teams can operate the bot reliably in production while preparing for future Telegram integration and advanced webhook deployments.

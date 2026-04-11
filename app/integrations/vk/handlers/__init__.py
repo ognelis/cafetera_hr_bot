@@ -60,9 +60,10 @@ async def query_rag_with_wait(
     question: str,
     *,
     timeout: float = 3.0,
+    category: str | None = None,
 ) -> str:
     """Query RAG chain; send a 'please wait' message if it takes longer than *timeout* seconds."""
-    rag_task = asyncio.create_task(get_qa_service().ask(question))
+    rag_task = asyncio.create_task(get_qa_service().ask(question, category=category))
     delay_task = asyncio.create_task(asyncio.sleep(timeout))
 
     try:
@@ -86,12 +87,15 @@ async def query_rag_with_wait(
             await delay_task
 
 
-async def send_rag_answer(message: Message, question: str, back_payload: dict[str, str]) -> None:
+async def send_rag_answer(
+    message: Message, question: str, back_payload: dict[str, str],
+    *, category: str | None = None,
+) -> None:
     """Send typing indicator, query RAG with wait message, and reply with answer + back keyboard."""
     from app.integrations.vk.keyboards import stub_kb
 
     await message.ctx_api.messages.set_activity(type="typing", peer_id=message.peer_id)
-    answer = await query_rag_with_wait(message, question)
+    answer = await query_rag_with_wait(message, question, category=category)
     await message.answer(answer, keyboard=stub_kb(back_payload=back_payload).get_json())
 
 

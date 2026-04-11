@@ -134,6 +134,7 @@ Reference: `.qoder/rules/01-python-style.md`
 
 ## Validation
 Before finishing, always:
+- `uv sync --extra test --extra dev` — install test dependencies before running tests.
 - `uv run pytest` — run tests relevant to changed code.
   - `asyncio_mode = "auto"` — async tests run without extra decorators
 - `uv run ruff check .` — linting with rules E/F/I/UP/B, line-length 100

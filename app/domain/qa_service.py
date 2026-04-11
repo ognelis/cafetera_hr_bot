@@ -117,7 +117,7 @@ class QAService:
 
         return chain
 
-    def _build_global_chain(self, k: int = 4) -> Runnable | None:
+    def _build_global_chain(self, k: int = 4, category: str | None = None) -> Runnable | None:
         """Build a global RAG chain with the specified k value.
 
         Returns the chain if QA is initialized with required resources,
@@ -132,6 +132,7 @@ class QAService:
             return None
 
         from app.rag.chain import build_rag_chain
+        from app.rag.prompts import CATEGORY_HINTS
         from app.rag.retriever import build_retriever
 
         retriever = build_retriever(
@@ -142,14 +143,16 @@ class QAService:
             k=k,
             sparse_embedding=self._sparse_embedding,
         )
+        category_hint = CATEGORY_HINTS.get(category) if category else None
         return build_rag_chain(
             retriever,
             self._llm,
             system_prompt=self._global_system_prompt,
             include_metadata=self._include_metadata,
+            category_hint=category_hint,
         )
 
-    async def ask(self, question: str) -> str:
+    async def ask(self, question: str, category: str | None = None) -> str:
         """Query the RAG chain and return a displayable answer string.
 
         Uses adaptive k based on question complexity:
@@ -164,7 +167,7 @@ class QAService:
         from app.rag.retriever import estimate_k
 
         k = estimate_k(question)
-        chain = self._build_global_chain(k)
+        chain = self._build_global_chain(k, category=category)
         if chain is None:
             return ERR_NO_ANSWER
 
@@ -206,7 +209,7 @@ class QAService:
 
         return _truncate(answer.strip())
 
-    async def stream_ask(self, question: str):
+    async def stream_ask(self, question: str, category: str | None = None):
         """Stream tokens from the global RAG chain.
 
         Uses adaptive k based on question complexity:
@@ -219,7 +222,7 @@ class QAService:
         from app.rag.retriever import estimate_k
 
         k = estimate_k(question)
-        chain = self._build_global_chain(k)
+        chain = self._build_global_chain(k, category=category)
         if chain is None:
             yield ERR_NO_ANSWER
             return

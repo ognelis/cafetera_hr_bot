@@ -101,9 +101,12 @@ def build_rag_chain(
     *,
     system_prompt: str | None,
     include_metadata: bool = False,
+    category_hint: str | None = None,
 ) -> Runnable:
     """Build a RAG chain: retrieve -> format context -> prompt -> LLM -> text."""
     prompt_template = system_prompt or ""
+    if category_hint:
+        prompt_template = f"{prompt_template}\n\nДополнительный контекст:\n{category_hint}"
     prompt = ChatPromptTemplate.from_messages([
         ("system", prompt_template),
         ("human", "{question}"),

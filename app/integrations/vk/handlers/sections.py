@@ -23,7 +23,7 @@ bl = BotLabeler()
 
 @bl.message(payload=CMD_SICK)
 async def on_sick(message: Message) -> None:
-    await send_rag_answer(message, question="Больничный / ЭЛН", back_payload=CMD_HOME)
+    await send_rag_answer(message, question="Больничный / ЭЛН", back_payload=CMD_HOME, category="sick")
 
 
 # -- S-60: probation -- RAG (FR-15, Block 8) ---------------------------
@@ -31,4 +31,4 @@ async def on_sick(message: Message) -> None:
 
 @bl.message(payload=CMD_PROBATION)
 async def on_probation(message: Message) -> None:
-    await send_rag_answer(message, question="Испытательный срок", back_payload=CMD_HOME)
+    await send_rag_answer(message, question="Испытательный срок", back_payload=CMD_HOME, category="probation")

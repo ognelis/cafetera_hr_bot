@@ -73,7 +73,7 @@ async def on_ask_text(message: Message) -> None:
     hint = detect_topic_hint(question)
 
     # Query the RAG chain with wait message
-    answer = await query_rag_with_wait(message, question)
+    answer = await query_rag_with_wait(message, question, category=hint.scenario_id)
 
     # Append background-topic disclaimer if detected (9.2)
     if hint.disclaimer:

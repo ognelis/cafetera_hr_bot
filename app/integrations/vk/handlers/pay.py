@@ -34,7 +34,7 @@ async def on_pay(message: Message) -> None:
 
 @bl.message(payload=CMD_PAY_OVERTIME)
 async def on_pay_overtime(message: Message) -> None:
-    await send_rag_answer(message, question="Оплата сверхурочных и выходных", back_payload=CMD_PAY)
+    await send_rag_answer(message, question="Оплата сверхурочных и выходных", back_payload=CMD_PAY, category="pay")
 
 
 # -- FR-10: bonus conditions -- RAG (Block 7) -------------------------
@@ -42,4 +42,4 @@ async def on_pay_overtime(message: Message) -> None:
 
 @bl.message(payload=CMD_PAY_BONUS)
 async def on_pay_bonus(message: Message) -> None:
-    await send_rag_answer(message, question="Условия премирования", back_payload=CMD_PAY)
+    await send_rag_answer(message, question="Условия премирования", back_payload=CMD_PAY, category="pay")

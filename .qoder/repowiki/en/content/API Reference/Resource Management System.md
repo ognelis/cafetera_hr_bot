@@ -16,6 +16,7 @@
 - [bot.py](file://app/integrations/vk/bot.py)
 - [indexer.py](file://app/rag/indexer.py)
 - [ingest.py](file://scripts/ingest.py)
+- [polling_vk.py](file://scripts/polling_vk.py)
 - [database.py](file://app/storage/database.py)
 - [qa_service.py](file://app/domain/qa_service.py)
 - [parser.py](file://app/rag/parser.py)
@@ -26,12 +27,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated database architecture section to reflect PostgreSQL migration
-- Revised storage layer documentation to show PostgreSQL-specific schemas and data types
-- Updated configuration section to reflect PostgreSQL connection settings
-- Enhanced dependency analysis to show PostgreSQL driver usage
-- Updated troubleshooting guide with PostgreSQL-specific issues
-- Modified architecture diagrams to represent PostgreSQL database layer
+- Consolidated resource management with AppResources container as the central factory
+- Improved async resource initialization patterns with proper lifecycle management
+- Enhanced graceful degradation capabilities with optional resource initialization
+- Streamlined resource sharing across FastAPI, background scripts, and VK bot integration
+- Unified resource cleanup with close_resources() function
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -46,9 +46,9 @@
 10. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the Resource Management System that orchestrates shared resources across the Cafetera HR Bot application. The system ensures proper initialization, sharing, and cleanup of critical components such as the PostgreSQL database, S3 storage, Qdrant vector store, embeddings, LLM, and domain services. It provides a centralized factory pattern for building resources and a lifecycle manager that coordinates startup and shutdown sequences for both the FastAPI application and background workers.
+This document describes the Resource Management System that orchestrates shared resources across the Cafetera HR Bot application. The system ensures proper initialization, sharing, and cleanup of critical components such as PostgreSQL database, S3 storage, Qdrant vector store, embeddings, LLM, and domain services. It provides a centralized factory pattern for building resources and a lifecycle manager that coordinates startup and shutdown sequences for both the FastAPI application and background workers.
 
-**Updated** The system now operates on PostgreSQL with enhanced schema management, supporting advanced data types including TIMESTAMPTZ and BOOLEAN, and provides robust connection pooling through the asyncpg driver.
+**Updated** The system now operates on PostgreSQL with enhanced schema management, supporting advanced data types including TIMESTAMPTZ and BOOLEAN, and provides robust connection pooling through the asyncpg driver. The resource management has been consolidated into a unified AppResources container that enables graceful degradation when services are unavailable.
 
 ## Project Structure
 The Resource Management System spans several modules:
@@ -150,7 +150,7 @@ Key elements:
 - Semaphore-based concurrency control for indexing
 - _ensure_collection(): New function that creates Qdrant collections with appropriate vector configurations
 
-**Updated** The system now manages PostgreSQL connections through the databases library with asyncpg driver, providing robust connection pooling and transaction management for document metadata operations.
+**Updated** The system now manages PostgreSQL connections through the databases library with asyncpg driver, providing robust connection pooling and transaction management for document metadata operations. The resource management has been consolidated into a unified AppResources container that enables graceful degradation when services are unavailable.
 
 **Section sources**
 - [resources.py:38-99](file://app/resources.py#L38-L99)
@@ -167,7 +167,7 @@ The system follows a layered architecture with clear separation of concerns:
 - Infrastructure layer: Qdrant vector store with automatic collection management and embeddings
 - Integration layer: VK bot and background ingestion
 
-**Updated** The architecture now includes PostgreSQL database management with proper schema initialization, supporting advanced data types and connection pooling for production deployments.
+**Updated** The architecture now includes PostgreSQL database management with proper schema initialization, supporting advanced data types and connection pooling for production deployments. The resource management system provides unified initialization patterns across all application components.
 
 ```mermaid
 sequenceDiagram
@@ -219,7 +219,7 @@ The AppResources container encapsulates all shared resources with optional field
 - Automatically creates Qdrant collections with appropriate vector configurations
 - Returns a fully populated container for application use
 
-**Updated** The factory method now includes PostgreSQL database initialization through the databases library, establishing connection pools and creating tables with proper SERIAL primary keys and PostgreSQL-specific data types.
+**Updated** The factory method now includes PostgreSQL database initialization through the databases library, establishing connection pools and creating tables with proper SERIAL primary keys and PostgreSQL-specific data types. The resource management has been consolidated into a unified AppResources container that enables graceful degradation across all components.
 
 ```mermaid
 classDiagram
@@ -265,7 +265,7 @@ The FastAPI lifespan manager coordinates resource initialization and cleanup:
 - Sets global QA service for VK handlers
 - Executes cleanup on shutdown
 
-**Updated** The lifecycle manager now includes PostgreSQL database connection establishment and schema initialization during resource building, ensuring the system is ready for document operations from startup.
+**Updated** The lifecycle manager now includes PostgreSQL database connection establishment and schema initialization during resource building, ensuring the system is ready for document operations from startup. The resource management has been streamlined to use the unified AppResources container across all application components.
 
 ```mermaid
 flowchart TD
@@ -335,7 +335,7 @@ The storage layer provides:
 - S3Storage: Async client wrapper for MinIO/AWS S3 with bucket management
 - PostgreSQL initialization and schema management with proper data types
 
-**Updated** The storage layer now operates exclusively on PostgreSQL with enhanced schema definitions supporting SERIAL primary keys, TIMESTAMPTZ for precise timestamp tracking, and BOOLEAN for search enablement flags.
+**Updated** The storage layer now operates exclusively on PostgreSQL with enhanced schema definitions supporting SERIAL primary keys, TIMESTAMPTZ for precise timestamp tracking, and BOOLEAN for search enablement flags. The resource management system ensures consistent database connection handling across all storage components.
 
 ```mermaid
 classDiagram
@@ -417,7 +417,7 @@ The dependency system provides secure access to resources:
 - Semaphore controls concurrent indexing operations
 - HTMX integration for real-time UI updates
 
-**Updated** The dependency system now relies on PostgreSQL-backed repositories for document and category file operations, providing ACID transactions and referential integrity.
+**Updated** The dependency system now relies on PostgreSQL-backed repositories for document and category file operations, providing ACID transactions and referential integrity. The resource management system ensures consistent access patterns across all API endpoints through the unified AppResources container.
 
 **Section sources**
 - [deps.py:76-109](file://app/api/deps.py#L76-L109)
@@ -435,10 +435,11 @@ QAService provides:
 - Streaming and truncation for messaging platforms
 - Support for both dense and sparse vector configurations
 
-**Updated** QAService now operates with PostgreSQL-backed document metadata, enabling complex queries and filtering capabilities through the enhanced repository layer.
+**Updated** QAService now operates with PostgreSQL-backed document metadata, enabling complex queries and filtering capabilities through the enhanced repository layer. The resource management system provides unified initialization patterns for both FastAPI applications and standalone scripts like the VK bot integration.
 
 **Section sources**
 - [ingest.py:45-158](file://scripts/ingest.py#L45-L158)
+- [polling_vk.py:23-42](file://scripts/polling_vk.py#L23-L42)
 - [qa_service.py:43-279](file://app/domain/qa_service.py#L43-L279)
 
 ## Hybrid Search Configuration and Setup
@@ -475,7 +476,7 @@ The system exhibits loose coupling through dependency injection and shared resou
 - Background scripts reuse the same resource construction logic
 - Automatic collection management reduces external dependencies for first-time setup
 
-**Updated** The dependency graph now includes PostgreSQL database management through the databases library with asyncpg driver, providing robust connection pooling and transaction management for production deployments.
+**Updated** The dependency graph now includes PostgreSQL database management through the databases library with asyncpg driver, providing robust connection pooling and transaction management for production deployments. The unified AppResources container ensures consistent resource initialization across all application components.
 
 ```mermaid
 graph LR
@@ -512,8 +513,9 @@ PG --> Categories[Category Files Table]
 - Graceful degradation: Components can fail independently without affecting others
 - **Automatic Collection Creation**: Reduces startup overhead by handling collection setup programmatically
 - **PostgreSQL Optimization**: Enhanced schema with proper data types and indexes for production workloads
+- **Unified Resource Management**: Consolidated initialization patterns reduce duplication and improve maintainability
 
-**Updated** The PostgreSQL implementation provides superior performance through connection pooling, prepared statements, and optimized queries with proper indexing strategies.
+**Updated** The PostgreSQL implementation provides superior performance through connection pooling, prepared statements, and optimized queries with proper indexing strategies. The unified resource management system eliminates redundant initialization code and improves overall system reliability.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -527,8 +529,9 @@ Common issues and resolutions:
 - **Hybrid search configuration**: Verify sparse embedding model installation and retrieval mode settings
 - **PostgreSQL connection errors**: Verify asyncpg driver installation and connection parameters
 - **Schema migration issues**: Check database initialization logs for table creation failures
+- **Resource cleanup issues**: Verify close_resources() is called during shutdown to prevent resource leaks
 
-**Updated** Added troubleshooting guidance for PostgreSQL-specific issues including connection problems, schema initialization failures, and asyncpg driver configuration.
+**Updated** Added troubleshooting guidance for PostgreSQL-specific issues including connection problems, schema initialization failures, and asyncpg driver configuration. The unified resource management system provides better error reporting and cleanup mechanisms.
 
 **Section sources**
 - [resources.py:70-111](file://app/resources.py#L70-L111)
@@ -540,3 +543,5 @@ Common issues and resolutions:
 The Resource Management System provides a robust foundation for the Cafetera HR Bot by centralizing resource initialization, enabling graceful degradation, and ensuring proper cleanup. Its modular design supports both web application and background processing scenarios while maintaining clear separation of concerns across storage, domain, and infrastructure layers.
 
 **Updated** The addition of PostgreSQL database management significantly enhances the system's reliability and scalability for production deployments. The migration provides better data integrity, connection pooling, and performance characteristics compared to the previous SQLite implementation. The automatic collection creation through the `_ensure_collection()` function continues to simplify deployment while the PostgreSQL schema ensures proper data types and constraints for enterprise-grade document management.
+
+The consolidation of resource management into the AppResources container has improved code maintainability and reduced duplication across the application. The unified initialization patterns enable seamless integration between FastAPI applications, background scripts, and VK bot integration, while the enhanced graceful degradation capabilities ensure system stability even when individual services are unavailable.
