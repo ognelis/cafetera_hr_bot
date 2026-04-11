@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import os
+import shutil
+import subprocess
 import uuid
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
@@ -17,6 +18,27 @@ from app.main import create_app
 from app.storage.database import init_db
 from app.storage.document_repo import DocumentRepository
 from app.storage.models import DocumentRecord, DocumentStatus
+
+
+def _is_docker_available() -> bool:
+    if not shutil.which("docker"):
+        return False
+    try:
+        r = subprocess.run(["docker", "info"], capture_output=True, timeout=5)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+DOCKER_AVAILABLE = _is_docker_available()
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "requires_docker: tests that need Docker (Testcontainers)",
+    )
+    status = "available" if DOCKER_AVAILABLE else "NOT available -- tests skipped"
+    print(f"\nDocker: {status}")
 
 TEST_API_KEY = "test-secret-key-12345"
 
@@ -46,13 +68,26 @@ def _make_record(**overrides) -> DocumentRecord:
 # ── fixtures ──────────────────────────────────────────────────────
 
 
+@pytest.fixture(scope="session")
+def pg_container():
+    """Provide a PostgreSQL Testcontainer for the test session."""
+    from testcontainers.postgres import PostgresContainer
+
+    if not DOCKER_AVAILABLE:
+        pytest.skip("Docker is not running")
+    with PostgresContainer(
+        "postgres:16-alpine", username="test", password="test", dbname="test"
+    ) as pg:
+        yield pg
+
+
 @pytest.fixture()
-async def test_db():
+async def test_db(pg_container):
     """Create a test PostgreSQL database connection with clean tables."""
-    url = os.environ.get(
-        "TEST_DATABASE_URL",
-        "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
-    )
+    raw_url = pg_container.get_connection_url()
+    # get_connection_url() returns postgresql+psycopg2://...
+    # databases[asyncpg] needs postgresql://... or postgresql+asyncpg://...
+    url = raw_url.replace("postgresql+psycopg2", "postgresql")
     db = Database(url)
     await db.connect()
     # Clean tables before each test for isolation
@@ -64,10 +99,15 @@ async def test_db():
 
 
 @pytest.fixture()
-def settings():
+def settings(pg_container):
+    """Create settings with Testcontainers PostgreSQL URL."""
+    raw_url = pg_container.get_connection_url()
+    # get_connection_url() returns postgresql+psycopg2://...
+    # databases[asyncpg] needs postgresql://... or postgresql+asyncpg://...
+    url = raw_url.replace("postgresql+psycopg2", "postgresql")
     return Settings(
         admin_api_key=TEST_API_KEY,
-        database_url="postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
+        database_url=url,
         s3_endpoint_url="http://localhost:9000",
         s3_access_key="minioadmin",
         s3_secret_key="minioadmin",

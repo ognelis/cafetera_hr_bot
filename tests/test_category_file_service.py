@@ -38,14 +38,12 @@ def _make_record(**overrides) -> CategoryFileRecord:
 
 
 @pytest.fixture()
-async def repo():
+async def repo(pg_container):
     """Create a fresh PostgreSQL DB and return a CategoryFileRepository."""
-    import os
-
-    url = os.environ.get(
-        "TEST_DATABASE_URL",
-        "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
-    )
+    raw_url = pg_container.get_connection_url()
+    # get_connection_url() returns postgresql+psycopg2://...
+    # databases[asyncpg] needs postgresql://...
+    url = raw_url.replace("postgresql+psycopg2", "postgresql")
     db = Database(url)
     await db.connect()
     # Clean tables before each test for isolation

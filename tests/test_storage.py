@@ -39,14 +39,12 @@ def _make_record(**overrides) -> DocumentRecord:
 
 
 @pytest.fixture()
-async def repo():
+async def repo(pg_container):
     """Create a fresh PostgreSQL DB and return a DocumentRepository."""
-    import os
-
-    url = os.environ.get(
-        "TEST_DATABASE_URL",
-        "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
-    )
+    raw_url = pg_container.get_connection_url()
+    # get_connection_url() returns postgresql+psycopg2://...
+    # databases[asyncpg] needs postgresql://...
+    url = raw_url.replace("postgresql+psycopg2", "postgresql")
     db = Database(url)
     await db.connect()
     # Clean tables before each test for isolation
@@ -84,13 +82,11 @@ class TestDocumentRecord:
 
 
 class TestInitDb:
-    async def test_creates_database_tables(self, tmp_path):
-        import os
-
-        url = os.environ.get(
-            "TEST_DATABASE_URL",
-            "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
-        )
+    async def test_creates_database_tables(self, pg_container):
+        raw_url = pg_container.get_connection_url()
+        # get_connection_url() returns postgresql+psycopg2://...
+        # databases[asyncpg] needs postgresql://...
+        url = raw_url.replace("postgresql+psycopg2", "postgresql")
         db = Database(url)
         await db.connect()
         # Clean tables first
@@ -99,19 +95,18 @@ class TestInitDb:
         await init_db(db)
         # Verify documents table exists by querying it
         result = await db.fetch_one(
-            query="SELECT table_name FROM information_schema.tables WHERE table_name='documents'"
+            query="SELECT table_name FROM information_schema.tables "
+            "WHERE table_name='documents'"
         )
         assert result is not None
         assert result["table_name"] == "documents"
         await db.disconnect()
 
-    async def test_idempotent(self, tmp_path):
-        import os
-
-        url = os.environ.get(
-            "TEST_DATABASE_URL",
-            "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
-        )
+    async def test_idempotent(self, pg_container):
+        raw_url = pg_container.get_connection_url()
+        # get_connection_url() returns postgresql+psycopg2://...
+        # databases[asyncpg] needs postgresql://...
+        url = raw_url.replace("postgresql+psycopg2", "postgresql")
         db = Database(url)
         await db.connect()
         # Clean tables first

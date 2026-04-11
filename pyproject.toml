@@ -47,9 +47,14 @@ dev = [
   "mypy>=1.20.0"
 ]
 
+test = [
+  "testcontainers[postgres]>=4.0.0"
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = ["requires_docker: tests that need Docker (Testcontainers)"]
 
 [tool.ruff]
 line-length = 100

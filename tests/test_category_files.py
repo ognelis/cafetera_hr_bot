@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import uuid
 from datetime import UTC, datetime
 from io import BytesIO
@@ -54,12 +53,12 @@ def _make_category_record(**overrides) -> CategoryFileRecord:
 
 
 @pytest.fixture()
-async def test_db():
+async def test_db(pg_container):
     """Create a test PostgreSQL database connection with clean tables."""
-    url = os.environ.get(
-        "TEST_DATABASE_URL",
-        "postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
-    )
+    raw_url = pg_container.get_connection_url()
+    # get_connection_url() returns postgresql+psycopg2://...
+    # databases[asyncpg] needs postgresql://...
+    url = raw_url.replace("postgresql+psycopg2", "postgresql")
     db = Database(url)
     await db.connect()
     # Clean tables before each test for isolation
@@ -71,10 +70,15 @@ async def test_db():
 
 
 @pytest.fixture()
-def settings():
+def settings(pg_container):
+    """Create settings with Testcontainers PostgreSQL URL."""
+    raw_url = pg_container.get_connection_url()
+    # get_connection_url() returns postgresql+psycopg2://...
+    # databases[asyncpg] needs postgresql://...
+    url = raw_url.replace("postgresql+psycopg2", "postgresql")
     return Settings(
         admin_api_key=TEST_API_KEY,
-        database_url="postgresql://cafetera:cafetera@localhost:5432/cafetera_test",
+        database_url=url,
         s3_endpoint_url="http://localhost:9000",
         s3_access_key="minioadmin",
         s3_secret_key="minioadmin",
