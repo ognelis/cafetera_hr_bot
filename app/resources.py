@@ -99,6 +99,16 @@ async def _ensure_collection(
         collection_name,
         vector_size,
     )
+    # Create payload index for frequently filtered boolean field
+    await client.create_payload_index(
+        collection_name=collection_name,
+        field_name="is_search_enabled",
+        field_schema=models.PayloadSchemaType.BOOL,
+    )
+    logger.info(
+        "Created BOOL payload index on '%s.is_search_enabled'",
+        collection_name,
+    )
 
 logger = logging.getLogger(__name__)
 

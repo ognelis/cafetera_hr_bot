@@ -52,9 +52,7 @@ class AsyncQdrantRetriever(BaseRetriever):
                 docs.append(
                     Document(
                         page_content=r.payload.get("page_content", ""),
-                        metadata={
-                            k: v for k, v in r.payload.items() if k != "page_content"
-                        },
+                        metadata=r.payload.get("metadata", {}) or {},
                     )
                 )
         return docs
@@ -218,10 +216,10 @@ def build_retriever(
         embeddings = build_embeddings(settings)
 
     search_filter = models.Filter(
-        must=[
+        must_not=[
             models.FieldCondition(
-                key="metadata.is_search_enabled",
-                match=models.MatchValue(value=True),
+                key="is_search_enabled",
+                match=models.MatchValue(value=False),
             )
         ]
     )
@@ -246,9 +244,8 @@ def build_retriever_for_document(
 ) -> AsyncQdrantRetriever:
     """Build an async dense retriever scoped to a single document.
 
-    Returns only chunks that:
-    - belong to ``document_id`` (``metadata.document_id`` must match), and
-    - are not explicitly excluded from search (``is_search_enabled`` != ``False``).
+    Returns only chunks that belong to ``document_id``
+    (``metadata.document_id`` must match).
 
     Note: sparse_embedding is accepted for API compatibility but is not
     used by AsyncQdrantRetriever (dense retrieval only).
@@ -263,11 +260,7 @@ def build_retriever_for_document(
             models.FieldCondition(
                 key="metadata.document_id",
                 match=models.MatchValue(value=document_id),
-            ),
-            models.FieldCondition(
-                key="metadata.is_search_enabled",
-                match=models.MatchValue(value=True),
-            ),
+            )
         ]
     )
     return AsyncQdrantRetriever(

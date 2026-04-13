@@ -73,9 +73,14 @@ async def index_chunks(
     points = []
     for i, chunk in enumerate(chunks):
         point_id = chunk.metadata.get("chunk_id", uuid.uuid4().hex)
+        # Extract is_search_enabled and store as top-level field (no dotted key)
+        # to avoid Qdrant's inconsistent dot interpretation across operations
+        clean_meta = {k: v for k, v in chunk.metadata.items() if k != "is_search_enabled"}
+        is_search_enabled = chunk.metadata.get("is_search_enabled", True)
         payload = {
             "page_content": chunk.page_content,
-            "metadata": chunk.metadata,
+            "metadata": clean_meta,
+            "is_search_enabled": is_search_enabled,
         }
         vector: dict | list = vectors[i]
         if sparse_vectors is not None:
@@ -145,7 +150,7 @@ async def set_search_enabled(
     """
     await client.set_payload(
         collection_name=collection_name,
-        payload={"metadata.is_search_enabled": enabled},
+        payload={"is_search_enabled": enabled},
         points=models.FilterSelector(
             filter=models.Filter(
                 must=[

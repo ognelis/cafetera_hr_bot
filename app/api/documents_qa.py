@@ -65,7 +65,7 @@ async def ask_about_document(
     if doc is None:
         raise HTTPException(status_code=404, detail="Документ не найден")
 
-    if doc.status.value != "completed" or not doc.is_search_enabled:
+    if doc.status.value != "completed":
         raise HTTPException(status_code=400, detail="Документ не готов для вопросов")
 
     async def event_generator():
