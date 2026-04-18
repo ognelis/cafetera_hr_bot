@@ -15,7 +15,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Install production dependencies + LLM provider extras
-RUN uv sync --locked --no-dev --extra ollama --extra openai_compatible --extra hybrid
+RUN uv sync --locked --no-dev --extra ollama --extra openai_compatible
 
 # Copy application code
 COPY app/ ./app/

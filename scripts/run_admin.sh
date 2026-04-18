@@ -248,16 +248,6 @@ if [[ "$LLM_PROVIDER" == "openai" || "$LLM_PROVIDER" == "llamacpp" || "$EMBEDDIN
   UV_EXTRAS="$UV_EXTRAS --extra openai_compatible"
 fi
 
-# Check for hybrid retrieval mode and add fastembed dependency
-RETRIEVAL_MODE="${RETRIEVAL_MODE:-}"
-if [[ -z "$RETRIEVAL_MODE" && -f ".env" ]]; then
-  RETRIEVAL_MODE=$(grep -E '^RETRIEVAL_MODE=' .env 2>/dev/null | cut -d= -f2 | tr -d '"' || true)
-fi
-if [[ "$RETRIEVAL_MODE" == "hybrid" ]]; then
-  UV_EXTRAS="$UV_EXTRAS --extra hybrid"
-  log "Hybrid retrieval mode detected — including fastembed dependency"
-fi
-
 log "Syncing Python dependencies (extras:${UV_EXTRAS:- none})..."
 # shellcheck disable=SC2086
 if ! uv sync $UV_EXTRAS; then

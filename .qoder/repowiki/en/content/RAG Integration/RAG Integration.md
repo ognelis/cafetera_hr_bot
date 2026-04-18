@@ -8,8 +8,10 @@
 - [app/rag/parser.py](file://app/rag/parser.py)
 - [app/rag/prompts.py](file://app/rag/prompts.py)
 - [app/rag/retriever.py](file://app/rag/retriever.py)
+- [app/rag/colbert_embeddings.py](file://app/rag/colbert_embeddings.py)
 - [app/domain/qa_service.py](file://app/domain/qa_service.py)
 - [app/domain/document_service.py](file://app/domain/document_service.py)
+- [app/domain/topic_hints.py](file://app/domain/topic_hints.py)
 - [app/storage/database.py](file://app/storage/database.py)
 - [app/storage/models.py](file://app/storage/models.py)
 - [app/storage/document_repo.py](file://app/storage/document_repo.py)
@@ -50,18 +52,22 @@
 - [tests/test_storage.py](file://tests/test_storage.py)
 - [tests/test_parser.py](file://tests/test_parser.py)
 - [tests/test_indexer.py](file://tests/test_indexer.py)
+- [tests/test_category_hints.py](file://tests/test_category_hints.py)
+- [tests/test_colbert_embeddings.py](file://tests/test_colbert_embeddings.py)
+- [tests/test_hybrid_rerank_retriever.py](file://tests/test_hybrid_rerank_retriever.py)
+- [tests/test_hybrid_search.py](file://tests/test_hybrid_search.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced AsyncQdrantRetriever with null checks for payload data to prevent AttributeError exceptions
-- Improved error handling for malformed responses with robust payload validation
-- Refactored build_vectorstore function to support sparse embeddings for hybrid search mode
-- Implemented comprehensive resource lifecycle management with AsyncQdrantClient
-- Added CollectionNotFoundError exception for missing Qdrant collections
-- Enhanced sparse embedding support with FastEmbedSparse model integration
-- Improved error handling throughout the RAG pipeline with proper exception propagation
-- Added comprehensive testing infrastructure for async operations and resource management
+- Enhanced hybrid search system with comprehensive dense vector embeddings, BM25 sparse vector search, and ColBERT multivector embeddings
+- Implemented AsyncQdrantRetriever supporting both dense-only and hybrid search modes with intelligent mode selection
+- Added collection optimization with INT8 scalar quantization for memory efficiency
+- Integrated automatic optimization triggers in document processing workflows
+- Enhanced configuration management with reranking_enabled flag controlling hybrid rerank functionality
+- Implemented intelligent collection creation with named vector spaces ("dense", "colbert", "bm25")
+- Added automatic segment optimization for sparse BM25 vectors to reduce storage overhead
+- Enhanced error handling with graceful fallback when reranking is disabled
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -73,7 +79,7 @@
 7. [Advanced QA Service Implementation](#advanced-qa-service-implementation)
 8. [Dual-Service Architecture](#dual-service-architecture)
 9. [Enhanced Document Management](#enhanced-document-management)
-10. [Revolutionary Prompt System](#revolutionary-prompt-system)
+10. [Revolutionary Category-Aware Prompt System](#revolutionary-category-aware-prompt-system)
 11. [Advanced Streaming Response Implementation](#advanced-streaming-response-implementation)
 12. [Comprehensive Testing Infrastructure](#comprehensive-testing-infrastructure)
 13. [Performance Considerations](#performance-considerations)
@@ -83,7 +89,7 @@
 ## Introduction
 This document describes the comprehensive Retrieval-Augmented Generation (RAG) integration for the Cafetera HR assistance bot. The implementation includes a complete LangChain-based processing pipeline, Qdrant vector database integration with fully asynchronous operations, document ingestion capabilities, and specialized HR prompts. The system enhances the bot's HR assistance capabilities by providing contextual, reliable answers drawn from HR documents while maintaining seamless integration with the existing VK bot architecture.
 
-**Updated** The RAG implementation now features a fully asynchronous architecture with AsyncQdrantClient replacing synchronous operations throughout the pipeline, enhanced indexing and retrieval components with async operations, comprehensive resource management for async initialization and cleanup, improved performance and scalability through non-blocking operations, enhanced application lifecycle management with proper async resource handling, robust error handling with null checks for payload data, improved malformed response handling, sparse embeddings support for hybrid search mode, and comprehensive testing infrastructure for all enhanced features.
+**Updated** The RAG implementation now features a comprehensive hybrid search system that provides state-of-the-art retrieval quality through Qdrant's late-interaction reranking system. The system consolidates dense vector embeddings, BM25 sparse embeddings, and ColBERT multivector embeddings for superior document ranking and relevance. The implementation includes intelligent collection optimization with INT8 scalar quantization, automatic optimization triggers in document processing workflows, and enhanced AsyncQdrantRetriever supporting both dense-only and hybrid search modes with graceful fallback when reranking is disabled. The simplified architecture eliminates retrieval mode complexity while maintaining advanced hybrid search capabilities with named vector spaces configuration.
 
 ## Project Structure
 The repository is organized with a dedicated RAG module that provides the core infrastructure for document processing, vector storage, and retrieval. The structure includes configuration management, LangChain integration, Qdrant vector store setup with AsyncQdrantClient, document ingestion capabilities, comprehensive QA service layer with enhanced ask handler implementation, SQLite-based document storage system, and dedicated deployment scripts for local LLM serving with comprehensive orchestration capabilities and intelligent GPU detection.
@@ -92,18 +98,24 @@ The repository is organized with a dedicated RAG module that provides the core i
 graph TB
 subgraph "Enhanced RAG Infrastructure"
 Config["Settings Configuration<br/>app/config.py"]
-Chain["RAG Chain with Enhanced Metadata Formatting<br/>app/rag/chain.py"]
-Prompts["Enhanced System Prompts<br/>app/rag/prompts.py"]
+Chain["Enhanced RAG Chain with Category Hint Support<br/>app/rag/chain.py"]
+Prompts["CATEGORY_HINTS Dictionary & Enhanced System Prompts<br/>app/rag/prompts.py"]
 AsyncRetriever["Async Qdrant Retriever with AsyncQdrantClient<br/>app/rag/retriever.py"]
 AsyncIndexer["Async Chunk Indexer with Async Operations<br/>app/rag/indexer.py"]
 Parser["Document Parser<br/>app/rag/parser.py"]
-QAService["Advanced QA Service with Async Resources<br/>app/domain/qa_service.py"]
-DocSpecificQA["Document-Specific QA with Async Chains<br/>ask_about_document()"]
-GlobalExperts["Global Experts Prompt System<br/>GLOBAL_EXPERTS_PROMPT"]
-Streaming["Streaming Responses with Async Support<br/>stream_ask() + stream_about_document()"]
+ColBERTAdapter["ColBERT Embedding Adapter<br/>app/rag/colbert_embeddings.py"]
+AsyncHybridRerank["Async Hybrid Rerank Retriever<br/>Enhanced Hybrid Search System"]
+QAService["Advanced QA Service with Category-Aware Processing<br/>app/domain/qa_service.py"]
+TopicHints["Category-Aware Topic Detection<br/>app/domain/topic_hints.py"]
+CategoryChain["Category-Specific Chain Building<br/>_build_global_chain()"]
+CategoryHints["CATEGORY_HINTS Dictionary<br/>pay, sick, probation, hire, fire, vacation"]
 UXHelpers["Enhanced UX Helpers<br/>query_rag_with_wait() + send_rag_answer()"]
 ExceptionHandling["Enhanced Error Handling<br/>CollectionNotFoundError + Null Checks"]
 SparseEmbeddings["Sparse Embeddings Support<br/>FastEmbedSparse for Hybrid Search"]
+NamedVectors["Named Vector Spaces<br/>dense + colbert + bm25"]
+MultivectorConfig["MultiVectorConfig<br/>MAX_SIM comparator + HNSW m=0"]
+CollectionOptimization["Collection Optimization<br/>INT8 Scalar Quantization"]
+SegmentOptimization["Segment Optimization<br/>Automatic BM25 Storage Reduction"]
 end
 subgraph "Enhanced Document Storage System"
 DBInit["Database Initialization<br/>app/storage/database.py"]
@@ -112,8 +124,7 @@ Repo["Document Repository with Async Operations<br/>app/storage/document_repo.py
 DocService["Dual-Service Architecture with Async<br/>app/domain/document_service.py"]
 end
 subgraph "Enhanced Handler Integration"
-AskHandler["Enhanced Ask Handler<br/>app/integrations/vk/handlers/ask.py"]
-TopicHints["Topic Hints Detection<br/>app/domain/topic_hints.py"]
+AskHandler["Enhanced Ask Handler with Category Support<br/>app/integrations/vk/handlers/ask.py"]
 Keyboards["Contextual Navigation<br/>app/integrations/vk/keyboards.py"]
 States["State Management<br/>app/integrations/vk/states.py"]
 Singleton["Module-Level Singleton<br/>app/integrations/vk/handlers/__init__.py"]
@@ -133,11 +144,15 @@ Docx["Word Document Processing<br/>.docx files"]
 Chunking["Recursive Character Chunking<br/>1000 chars + 200 overlap"]
 Embeddings["Embedding Generation<br/>qwen3-embedding:4b-q4_K_M"]
 AsyncParser["Async Parser<br/>Configurable chunk_size + chunk_overlap"]
+CollectionCreation["Intelligent Collection Creation<br/>Named Vectors + Quantization"]
+OptimizationWorkflow["Optimization Workflow<br/>Automatic Segment Optimization"]
 end
 subgraph "Vector Database"
 AsyncQdrant["Async Qdrant Vector Store<br/>AsyncQdrantClient + hr_documents collection"]
 Metadata["Enhanced Document Metadata<br/>source + section + document_id + filename"]
 CollectionManagement["Collection Management<br/>_ensure_collection() + build_resources()"]
+VectorConfig["Vector Configuration<br/>Named vectors + MultivectorConfig"]
+Optimizers["Optimizers Config<br/>INT8 Quantization + HNSW Parameters"]
 end
 subgraph "Integration"
 VKBot["VK Bot Integration<br/>app/integrations/vk/bot.py"]
@@ -163,10 +178,11 @@ AsyncRetriever --> Chain
 AsyncIndexer --> DocService
 Parser --> DocService
 QAService --> AsyncQdrant
-DocSpecificQA --> GlobalExperts
-DocSpecificQA --> AsyncRetriever
-AdminAPI --> DocSpecificQA
-AdminAPI --> GlobalExperts
+QAService --> TopicHints
+TopicHints --> CategoryChain
+CategoryChain --> CategoryHints
+CategoryChain --> Chain
+AdminAPI --> QAService
 AdminUI --> AdminAPI
 AskHandler --> TopicHints
 AskHandler --> Keyboards
@@ -186,7 +202,14 @@ Embeddings --> AsyncRetriever
 Ingest --> DocService
 Ingest --> AsyncQdrant
 AsyncQdrant --> AsyncRetriever
-AsyncQdrant --> GlobalExperts
+AsyncQdrant --> CategoryChain
+AsyncQdrant --> AsyncHybridRerank
+AsyncHybridRerank --> ColBERTAdapter
+ColBERTAdapter --> NamedVectors
+NamedVectors --> MultivectorConfig
+AsyncQdrant --> CollectionOptimization
+CollectionOptimization --> SegmentOptimization
+AsyncQdrant --> Optimizers
 VKBot --> AskHandler
 AskHandler --> Content
 QAService --> AskHandler
@@ -211,93 +234,55 @@ HelperHandlers --> UXHelpers
 
 **Diagram sources**
 - [app/config.py:4-23](file://app/config.py#L4-L23)
-- [app/rag/chain.py:25-80](file://app/rag/chain.py#L25-L80)
-- [app/rag/prompts.py:5-63](file://app/rag/prompts.py#L5-L63)
+- [app/rag/chain.py:25-125](file://app/rag/chain.py#L25-L125)
+- [app/rag/prompts.py:5-94](file://app/rag/prompts.py#L5-L94)
 - [app/rag/retriever.py:20-59](file://app/rag/retriever.py#L20-L59)
 - [app/rag/indexer.py:13-141](file://app/rag/indexer.py#L13-L141)
 - [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
-- [app/domain/qa_service.py:51-293](file://app/domain/qa_service.py#L51-L293)
-- [app/domain/document_service.py:34-291](file://app/domain/document_service.py#L34-L291)
-- [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
-- [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
-- [app/storage/document_repo.py:61-301](file://app/storage/document_repo.py#L61-L301)
+- [app/rag/colbert_embeddings.py:19-120](file://app/rag/colbert_embeddings.py#L19-L120)
+- [app/domain/qa_service.py:51-297](file://app/domain/qa_service.py#L51-L297)
+- [app/domain/topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
 - [app/integrations/vk/handlers/ask.py:34-90](file://app/integrations/vk/handlers/ask.py#L34-L90)
-- [app/integrations/vk/handlers/__init__.py:15-91](file://app/integrations/vk/handlers/__init__.py#L15-L91)
+- [app/integrations/vk/handlers/__init__.py:15-177](file://app/integrations/vk/handlers/__init__.py#L15-L177)
 - [app/integrations/vk/handlers/fire.py:60-74](file://app/integrations/vk/handlers/fire.py#L60-L74)
 - [app/integrations/vk/handlers/pay.py:30-46](file://app/integrations/vk/handlers/pay.py#L30-L46)
 - [app/integrations/vk/handlers/vacation.py:65-80](file://app/integrations/vk/handlers/vacation.py#L65-L80)
 - [app/integrations/vk/handlers/sections.py:10-33](file://app/integrations/vk/handlers/sections.py#L10-L33)
 - [app/main.py:22-49](file://app/main.py#L22-L49)
-- [app/domain/topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- [app/integrations/vk/keyboards.py:224-254](file://app/integrations/vk/keyboards.py#L224-254)
-- [app/integrations/vk/states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- [app/api/documents.py:808-872](file://app/api/documents.py#L808-L872)
-- [templates/documents.html:318-365](file://templates/documents.html#L318-L365)
-- [templates/partials/document_row.html:125-134](file://templates/partials/document_row.html#L125-L134)
-- [scripts/ingest.py:45-184](file://scripts/ingest.py#L45-L184)
-- [app/integrations/vk/bot.py:44-56](file://app/integrations/vk/bot.py#L44-L56)
-- [app/domain/content.py:127-136](file://app/domain/content.py#L127-L136)
-- [scripts/polling_vk.py:25-38](file://scripts/polling_vk.py#L25-L38)
-- [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
-- [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
-- [scripts/run_llama_llm.sh:1-98](file://scripts/run_llama_llm.sh#L1-L98)
-- [scripts/run_llama_embeddings.sh:1-100](file://scripts/run_llama_embeddings.sh#L1-L100)
-- [scripts/run_ollama_llm.sh:1-100](file://scripts/run_ollama_llm.sh#L1-L100)
-- [scripts/run_ollama_embeddings.sh:1-99](file://scripts/run_ollama_embeddings.sh#L1-L99)
-- [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
 
 **Section sources**
 - [app/config.py:4-23](file://app/config.py#L4-L23)
-- [app/rag/chain.py:1-122](file://app/rag/chain.py#L1-L122)
-- [app/rag/prompts.py:1-63](file://app/rag/prompts.py#L1-L63)
+- [app/rag/chain.py:1-125](file://app/rag/chain.py#L1-L125)
+- [app/rag/prompts.py:1-94](file://app/rag/prompts.py#L1-L94)
 - [app/rag/retriever.py:1-170](file://app/rag/retriever.py#L1-L170)
 - [app/rag/indexer.py:1-186](file://app/rag/indexer.py#L1-L186)
 - [app/rag/parser.py:1-144](file://app/rag/parser.py#L1-L144)
-- [app/domain/qa_service.py:1-293](file://app/domain/qa_service.py#L1-L293)
-- [app/storage/database.py:1-38](file://app/storage/database.py#L1-L38)
-- [app/storage/models.py:1-37](file://app/storage/models.py#L1-L37)
-- [app/storage/document_repo.py:1-301](file://app/storage/document_repo.py#L1-L301)
-- [app/domain/document_service.py:1-291](file://app/domain/document_service.py#L1-L291)
+- [app/rag/colbert_embeddings.py:1-120](file://app/rag/colbert_embeddings.py#L1-L120)
+- [app/domain/qa_service.py:1-297](file://app/domain/qa_service.py#L1-L297)
+- [app/domain/topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
 - [app/integrations/vk/handlers/ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
-- [app/integrations/vk/handlers/__init__.py:1-91](file://app/integrations/vk/handlers/__init__.py#L1-L91)
+- [app/integrations/vk/handlers/__init__.py:1-177](file://app/integrations/vk/handlers/__init__.py#L1-L177)
 - [app/integrations/vk/handlers/fire.py:1-74](file://app/integrations/vk/handlers/fire.py#L1-L74)
 - [app/integrations/vk/handlers/pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
 - [app/integrations/vk/handlers/vacation.py:1-80](file://app/integrations/vk/handlers/vacation.py#L1-L80)
 - [app/integrations/vk/handlers/sections.py:1-33](file://app/integrations/vk/handlers/sections.py#L1-L33)
 - [app/main.py:1-80](file://app/main.py#L1-L80)
-- [app/domain/topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
-- [app/integrations/vk/keyboards.py:1-322](file://app/integrations/vk/keyboards.py#L1-L322)
-- [app/integrations/vk/states.py:1-17](file://app/integrations/vk/states.py#L1-L17)
-- [app/api/documents.py:808-872](file://app/api/documents.py#L808-L872)
-- [templates/documents.html:318-365](file://templates/documents.html#L318-L365)
-- [templates/partials/document_row.html:125-134](file://templates/partials/document_row.html#L125-L134)
-- [scripts/ingest.py:1-210](file://scripts/ingest.py#L1-L210)
-- [app/integrations/vk/bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [app/domain/content.py:124-137](file://app/domain/content.py#L124-L137)
-- [scripts/polling_vk.py:1-57](file://scripts/polling_vk.py#L1-L57)
-- [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
-- [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
-- [scripts/run_llama_llm.sh:1-98](file://scripts/run_llama_llm.sh#L1-L98)
-- [scripts/run_llama_embeddings.sh:1-100](file://scripts/run_llama_embeddings.sh#L1-L100)
-- [scripts/run_ollama_llm.sh:1-100](file://scripts/run_ollama_llm.sh#L1-L100)
-- [scripts/run_ollama_embeddings.sh:1-99](file://scripts/run_ollama_embeddings.sh#L1-L99)
-- [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
 
 ## Core Components
-The RAG infrastructure consists of several interconnected components that work together to provide intelligent document retrieval and response generation with enhanced user experience, comprehensive LLM provider support, optimized GPU detection capabilities, and advanced document-specific question answering capabilities:
+The RAG infrastructure consists of several interconnected components that work together to provide intelligent document retrieval and response generation with enhanced user experience, comprehensive LLM provider support, optimized GPU detection capabilities, and advanced category-aware prompting system:
 
 - **Configuration Management**: Centralized settings for Qdrant connection, LLM providers (Ollama, OpenAI-compatible, llama.cpp), and embedding models with provider-specific configuration
-- **RAG Chain Builder**: LangChain pipeline that orchestrates retrieval, prompting, and LLM generation with provider-specific configuration and metadata-aware formatting
+- **Enhanced RAG Chain Builder**: LangChain pipeline that orchestrates retrieval, prompting, and LLM generation with provider-specific configuration, metadata-aware formatting, and category_hint parameter support for targeted context injection
 - **Async Vector Store Integration**: Qdrant-backed vector store with AsyncQdrantClient for fully asynchronous operations, dense retrieval capabilities, embedding model support, and k-estimation for question complexity analysis
 - **Async Document-Specific Retriever**: Enhanced retriever functionality that scopes searches to individual documents using build_retriever_for_document function with LRU cache system and AsyncQdrantClient
 - **Async Document Storage System**: SQLite-based metadata storage with comprehensive CRUD operations, document lifecycle management, and cache invalidation support with async operations
 - **Enhanced Document Processing**: Word document ingestion with section extraction, configurable chunking parameters (chunk_size: 1000, chunk_overlap: 200), and metadata preservation with async operations
-- **Embedding Models**: Support for local Ollama embeddings, OpenAI-compatible embeddings, and llama.cpp embeddings with enhanced model management
-- **Enhanced System Prompts**: Specialized HR-focused prompts including DOCUMENT_EXPERTS_PROMPT for expert-level document analysis, GLOBAL_EXPERTS_PROMPT for cross-document knowledge synthesis, and stricter content policies
-- **Advanced QA Service Layer**: Comprehensive singleton pattern implementation with centralized resource management, LRU cache system for document chains, error handling, text truncation, comprehensive provider support, document-specific question answering, and streaming response capabilities with AsyncQdrantClient integration
+- **CATEGORY_HINTS Dictionary**: Revolutionary category-aware prompting system with specialized prompts for six HR categories: pay, sick, probation, hire, fire, and vacation, each with focused context injection
+- **Enhanced System Prompts**: Specialized HR-focused prompts including DOCUMENT_EXPERTS_PROMPT for expert-level document analysis, GLOBAL_EXPERTS_PROMPT for cross-document knowledge synthesis, and stricter content policies with enhanced AI response guidelines
+- **Advanced QA Service Layer**: Comprehensive singleton pattern implementation with centralized resource management, LRU cache system for document chains, error handling, text truncation, comprehensive provider support, document-specific question answering, category-aware processing, and streaming response capabilities with AsyncQdrantClient integration
 - **Enhanced UX Helpers**: New utility functions for improved user experience including query_rag_with_wait() for delayed response handling and send_rag_answer() for streamlined handler implementations
-- **Topic Hints Detection**: Keyword-based detection system for contextual navigation and disclaimers
-- **Enhanced Ask Handler**: Multi-step dialog flow with typing indicators, contextual navigation, automatic question context prepending, and enhanced user experience features using module-level singleton pattern
+- **Category-Aware Topic Hints**: Keyword-based detection system for contextual navigation and disclaimers, now integrated with category-aware RAG processing
+- **Enhanced Ask Handler**: Multi-step dialog flow with typing indicators, contextual navigation, automatic question context prepending, category-aware processing, and enhanced user experience features using module-level singleton pattern
 - **Enhanced Handler Integration**: Streamlined handler implementations using send_rag_answer() helper for consistent user experience across all HR scenarios
 - **Enhanced Multi-Provider Orchestration**: Comprehensive deployment management via run_admin.sh with interactive provider selection and intelligent GPU detection
 - **Intelligent GPU Detection**: Platform-specific GPU detection for macOS Apple Silicon (Metal) and NVIDIA GPUs (CUDA) with automatic optimization
@@ -312,58 +297,53 @@ The RAG infrastructure consists of several interconnected components that work t
 - **Advanced Streaming Response Implementation**: Real-time streaming of tokens for both global and document-specific questions with SSE support and comprehensive error handling
 - **Enhanced Application Lifecycle Management**: Centralized resource management through FastAPI application lifecycle with proper cleanup and teardown handling
 - **Module-Level Singleton Pattern**: Backward compatibility through module-level state management for VK handlers integration
-- **Comprehensive Testing Infrastructure**: Extensive test coverage for all enhanced features including QA service functionality, document storage system, GPU detection, and UX helper functions
+- **Comprehensive Testing Infrastructure**: Extensive test coverage for all enhanced features including QA service functionality, document storage system, GPU detection, UX helper functions, and category-aware prompting system
 - **Enhanced Error Handling**: Comprehensive error handling with CollectionNotFoundError exception, null checks for payload data, and robust malformed response handling
-- **Sparse Embeddings Support**: FastEmbedSparse integration for hybrid search mode with retrieval_mode configuration
+- **Sparse Embeddings Support**: FastEmbedSparse integration for hybrid search mode with simplified configuration
 - **Resource Lifecycle Management**: AppResources factory pattern with proper async initialization, collection management, and cleanup procedures
+- **Revolutionary Hybrid Rerank System**: Enhanced hybrid-only architecture with ColBERT multivector embeddings integration for superior document ranking
+- **ColBERT Embedding Adapter**: ColbertEmbeddingAdapter class for per-token ColBERT embeddings with dimension caching and batch processing
+- **AsyncHybridRerankRetriever**: Dense + sparse prefetch with ColBERT reranking for enhanced retrieval quality
+- **Named Vector Spaces**: Support for "dense", "colbert", and "bm25" vector configurations with multivector embedding support
+- **Multivector Configuration**: Qdrant MultiVectorConfig with MAX_SIM comparator and optimized HNSW parameters
+- **Collection Optimization**: INT8 scalar quantization for memory efficiency and improved query performance
+- **Segment Optimization**: Automatic optimization of sparse BM25 vectors to reduce storage overhead and improve query performance
+- **Intelligent Collection Creation**: Named vector spaces configuration with automatic optimization triggers
 
-**Updated** The RAG infrastructure now provides a complete, production-ready solution with fully asynchronous architecture using AsyncQdrantClient throughout the pipeline, enhanced GPU detection capabilities across all LLM providers, improved document processing with configurable chunking parameters, comprehensive LangChain integration, AsyncQdrant vector store capabilities with non-blocking operations, robust document storage system with SQLite, comprehensive QA service layer with centralized resource management, module-level singleton pattern for backward compatibility, enhanced application lifecycle management with proper cleanup, topic hints detection system, enhanced user experience features including query_rag_with_wait() for delayed response handling, send_rag_answer() for streamlined handler implementations, automatic question context prepending with character limits, support for three LLM providers including the new llama.cpp option with specialized deployment scripts and comprehensive orchestration capabilities, global experts prompt system for cross-document knowledge synthesis, advanced streaming response implementation for real-time user interaction, comprehensive testing infrastructure validating all enhancements, dual-service architecture with cache invalidation, metadata-aware document formatting with enhanced LRU cache system, question complexity analysis with k-estimation, refined prompt system with stricter content policies, comprehensive resource lifecycle management with AppResources factory pattern, enhanced error handling with null checks and malformed response protection, sparse embeddings support for hybrid search mode, and comprehensive testing coverage for all enhanced features.
+**Updated** The RAG infrastructure now provides a complete, production-ready solution with fully asynchronous architecture using AsyncQdrantClient throughout the pipeline, enhanced GPU detection capabilities across all LLM providers, improved document processing with configurable chunking parameters, comprehensive LangChain integration, AsyncQdrant vector store capabilities with non-blocking operations, robust document storage system with SQLite, comprehensive QA service layer with centralized resource management, module-level singleton pattern for backward compatibility, enhanced application lifecycle management with proper cleanup, category-aware topic hints detection system, enhanced user experience features including query_rag_with_wait() for delayed response handling, send_rag_answer() for streamlined handler implementations, automatic question context prepending with character limits, support for three LLM providers including the new llama.cpp option with specialized deployment scripts and comprehensive orchestration capabilities, global experts prompt system for cross-document knowledge synthesis, advanced streaming response implementation for real-time user interaction, comprehensive testing infrastructure validating all enhancements, dual-service architecture with cache invalidation, metadata-aware document formatting with enhanced LRU cache system, question complexity analysis with k-estimation, refined prompt system with stricter content policies, comprehensive resource lifecycle management with AppResources factory pattern, enhanced error handling with null checks and malformed response protection, sparse embeddings support for hybrid search mode, comprehensive testing coverage for all enhanced features including the revolutionary CATEGORY_HINTS dictionary and category-aware prompting system, **COMPREHENSIVE HYBRID SEARCH SYSTEM** with dense vector embeddings, BM25 sparse vector search, and ColBERT multivector embeddings, **ENHANCED ASYNC QDRANT RETRIEVER** supporting both dense-only and hybrid search modes with intelligent mode selection, **COLLECTION OPTIMIZATION WITH INT8 SCALAR QUANTIZATION** for memory efficiency, **AUTOMATIC OPTIMIZATION TRIGGERS** in document processing workflows, **ENHANCED CONFIGURATION MANAGEMENT** with reranking_enabled flag controlling hybrid rerank functionality, **INTELLIGENT COLLECTION CREATION** with named vector spaces ("dense", "colbert", "bm25"), **AUTOMATIC SEGMENT OPTIMIZATION** for sparse BM25 vectors to reduce storage overhead, **REVOLUTIONARY COLBERT EMBEDDING ADAPTER** for per-token embeddings with graceful fallback, **ASYNC HYBRID RERANK RETRIEVER** for dense + sparse prefetch with ColBERT reranking, **ENHANCED CONFIGURATION MANAGEMENT** with reranking_enabled flag controlling hybrid rerank functionality, **NAMED VECTOR SPACES SUPPORT** with "dense", "colbert", and "bm25" configurations, **MULTIVECTOR EMBEDDING SUPPORT** with Qdrant's late-interaction scoring system, **COLLECTION OPTIMIZATION** with INT8 scalar quantization, **SEGMENT OPTIMIZATION** for automatic BM25 storage reduction, and **INTELLIGENT COLLECTION CREATION** with automatic optimization triggers.
 
 **Section sources**
 - [app/config.py:10-23](file://app/config.py#L10-L23)
-- [app/rag/chain.py:25-122](file://app/rag/chain.py#L25-L122)
+- [app/rag/chain.py:25-125](file://app/rag/chain.py#L25-L125)
+- [app/rag/prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
 - [app/rag/retriever.py:20-59](file://app/rag/retriever.py#L20-L59)
-- [app/rag/prompts.py:5-63](file://app/rag/prompts.py#L5-L63)
-- [app/domain/qa_service.py:51-293](file://app/domain/qa_service.py#L51-L293)
+- [app/rag/colbert_embeddings.py:19-120](file://app/rag/colbert_embeddings.py#L19-L120)
+- [app/domain/qa_service.py:51-297](file://app/domain/qa_service.py#L51-L297)
 - [app/domain/topic_hints.py:14-26](file://app/domain/topic_hints.py#L14-L26)
 - [app/integrations/vk/handlers/ask.py:34-90](file://app/integrations/vk/handlers/ask.py#L34-L90)
-- [app/integrations/vk/handlers/__init__.py:46-91](file://app/integrations/vk/handlers/__init__.py#L46-L91)
+- [app/integrations/vk/handlers/__init__.py:46-177](file://app/integrations/vk/handlers/__init__.py#L46-L177)
 - [app/integrations/vk/handlers/fire.py:60-74](file://app/integrations/vk/handlers/fire.py#L60-L74)
 - [app/integrations/vk/handlers/pay.py:30-46](file://app/integrations/vk/handlers/pay.py#L30-L46)
 - [app/integrations/vk/handlers/vacation.py:65-80](file://app/integrations/vk/handlers/vacation.py#L65-L80)
 - [app/integrations/vk/handlers/sections.py:10-33](file://app/integrations/vk/handlers/sections.py#L10-L33)
 - [app/main.py:22-49](file://app/main.py#L22-L49)
-- [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
-- [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
-- [app/storage/document_repo.py:61-301](file://app/storage/document_repo.py#L61-L301)
-- [app/domain/document_service.py:34-291](file://app/domain/document_service.py#L34-L291)
-- [app/rag/indexer.py:13-141](file://app/rag/indexer.py#L13-L141)
-- [app/rag/parser.py:16-18](file://app/rag/parser.py#L16-L18)
-- [scripts/run_llama_llm.sh:5-18](file://scripts/run_llama_llm.sh#L5-L18)
-- [scripts/run_llama_embeddings.sh:5-18](file://scripts/run_llama_embeddings.sh#L5-L18)
-- [scripts/run_ollama_llm.sh:5-18](file://scripts/run_ollama_llm.sh#L5-L18)
-- [scripts/run_ollama_embeddings.sh:5-18](file://scripts/run_ollama_embeddings.sh#L5-L18)
-- [scripts/run_admin.sh:1-386](file://scripts/run_admin.sh#L1-L386)
 
 ## Architecture Overview
-The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience, comprehensive LLM provider support, optimized GPU detection across all deployment targets, and advanced document-specific question answering capabilities. The system processes user questions through a LangChain pipeline that retrieves relevant context from AsyncQdrant, generates contextualized responses using the selected LLM provider, detects topic scenarios for navigation, provides typing indicators for improved UX, handles delayed responses with wait messages, and automatically prepends question context with character limits, all managed through a centralized QA service layer with integrated document storage, comprehensive multi-provider orchestration, intelligent GPU detection, document-scoped retrieval functionality with LRU cache system, and revolutionary global experts prompt system for cross-document knowledge synthesis.
+The RAG-enabled bot architecture integrates seamlessly with the existing VK bot infrastructure while providing powerful document retrieval capabilities with enhanced user experience, comprehensive LLM provider support, optimized GPU detection across all deployment targets, and advanced category-aware prompting system. The system processes user questions through a LangChain pipeline that retrieves relevant context from AsyncQdrant, generates contextualized responses using the selected LLM provider, detects topic scenarios for navigation, provides typing indicators for improved UX, handles delayed responses with wait messages, automatically prepends question context with character limits, injects category-specific context through the CATEGORY_HINTS dictionary, and automatically selects appropriate HR domain expertise, all managed through a centralized QA service layer with integrated document storage, comprehensive multi-provider orchestration, intelligent GPU detection, document-scoped retrieval functionality with LRU cache system, and revolutionary category-aware global experts prompt system for cross-document knowledge synthesis.
 
 ```mermaid
 sequenceDiagram
 participant User as "User"
 participant VKBot as "VK Bot"
 participant AskHandler as "Enhanced Ask Handler"
-participant UXHelpers as "UX Helper Functions"
-participant TopicHints as "Topic Hints"
-participant Singleton as "Module-Level Singleton"
+participant TopicHints as "Category-Aware Topic Hints"
 participant QAService as "Advanced QA Service"
-participant DocumentService as "Dual-Service Architecture"
-participant AsyncSQLite as "Async SQLite Database"
-participant AsyncRAGChain as "Async RAG Chain with LRU Cache"
-participant DocumentSpecificQA as "Async Document-Specific QA"
-participant GlobalExperts as "Global Experts Prompt"
+participant CategoryChain as "Category-Aware Chain Builder"
+participant CATEGORY_HINTS as "CATEGORY_HINTS Dictionary"
+participant AsyncRAGChain as "Async RAG Chain with Category Hint"
 participant AsyncQdrant as "Async Qdrant Vector Store"
-participant GPUDetection as "Intelligent GPU Detection"
+participant HybridRerank as "Async Hybrid Rerank Retriever"
+participant ColBERTAdapter as "ColBERT Embedding Adapter"
 participant LLM as "Language Model"
 User->>VKBot : "❓ Задать вопрос"
 VKBot->>AskHandler : CMD_ASK payload
@@ -371,31 +351,24 @@ AskHandler->>AskHandler : Set ASK_QUESTION state
 AskHandler-->>User : Prompt + ask_input_kb
 User->>VKBot : Free-text question
 VKBot->>AskHandler : ASK_QUESTION state
-AskHandler->>AskHandler : Show typing indicator
 AskHandler->>TopicHints : detect_topic_hint(question)
 TopicHints-->>AskHandler : TopicHint(scenario_id, disclaimer)
-AskHandler->>UXHelpers : query_rag_with_wait(message, question)
-UXHelpers->>Singleton : get_qa_service()
-Singleton-->>UXHelpers : QAService instance
-UXHelpers->>QAService : ask(question) with k-estimation
-QAService->>QAService : Check LRU cache for document chains
-QAService->>GPUDetection : Detect hardware capabilities
-GPUDetection-->>QAService : Optimal GPU configuration
-QAService->>QAService : Check chain availability
-QAService->>DocumentService : Get document metadata
-DocumentService->>AsyncSQLite : Query document status
-AsyncSQLite-->>DocumentService : Document metadata
-DocumentService-->>QAService : Document metadata
-QAService->>AsyncRAGChain : chain.estimate_k(question) + build_async_rag_chain
-AsyncRAGChain->>AsyncQdrant : Async similarity search with k-estimation
-AsyncQdrant-->>AsyncRAGChain : Retrieved documents with null checks
-AsyncRAGChain->>LLM : System prompt + context (provider-specific)
-LLM-->>AsyncRAGChain : Generated response
+AskHandler->>QAService : ask(question, category=scenario_id)
+QAService->>CategoryChain : _build_global_chain(k, category)
+CategoryChain->>CATEGORY_HINTS : Lookup category hint
+CATEGORY_HINTS-->>CategoryChain : Return category-specific prompt
+CategoryChain->>AsyncRAGChain : build_rag_chain(category_hint)
+AsyncRAGChain->>HybridRerank : Hybrid rerank retrieval
+HybridRerank->>ColBERTAdapter : Generate per-token embeddings
+ColBERTAdapter-->>HybridRerank : ColBERT multivector embeddings
+HybridRerank->>AsyncQdrant : Dense + Sparse prefetch + ColBERT rerank
+AsyncQdrant-->>HybridRerank : Top-k documents with reranking
+HybridRerank-->>AsyncRAGChain : Retrieved documents with enhanced relevance
+AsyncRAGChain->>LLM : System prompt + context + category_hint
+LLM-->>AsyncRAGChain : Generated response with HR domain expertise
 AsyncRAGChain-->>QAService : Formatted answer
 QAService->>QAService : Truncate to VK limit
-QAService-->>UXHelpers : Response
-UXHelpers->>UXHelpers : Append wait message if needed
-UXHelpers-->>AskHandler : Final answer
+QAService-->>AskHandler : Response
 AskHandler->>AskHandler : Prepend question context (100 char limit)
 AskHandler->>AskHandler : Append disclaimer if present
 AskHandler-->>User : Answer + contextual navigation buttons
@@ -403,16 +376,12 @@ AskHandler-->>User : Answer + contextual navigation buttons
 
 **Diagram sources**
 - [app/integrations/vk/handlers/ask.py:49-90](file://app/integrations/vk/handlers/ask.py#L49-L90)
-- [app/integrations/vk/handlers/__init__.py:46-91](file://app/integrations/vk/handlers/__init__.py#L46-L91)
-- [app/domain/qa_service.py:152-181](file://app/domain/qa_service.py#L152-L181)
-- [app/rag/chain.py:61-80](file://app/rag/chain.py#L61-L80)
-- [app/rag/retriever.py:20-59](file://app/rag/retriever.py#L20-L59)
 - [app/domain/topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- [app/domain/document_service.py:92-130](file://app/domain/document_service.py#L92-L130)
-- [scripts/run_llama_llm.sh:5-18](file://scripts/run_llama_llm.sh#L5-L18)
-- [scripts/run_llama_embeddings.sh:5-18](file://scripts/run_llama_embeddings.sh#L5-L18)
-- [scripts/run_ollama_llm.sh:5-18](file://scripts/run_ollama_llm.sh#L5-L18)
-- [scripts/run_ollama_embeddings.sh:5-18](file://scripts/run_ollama_embeddings.sh#L5-L18)
+- [app/domain/qa_service.py:155-181](file://app/domain/qa_service.py#L155-L181)
+- [app/rag/chain.py:98-125](file://app/rag/chain.py#L98-L125)
+- [app/rag/prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [app/rag/retriever.py:28-98](file://app/rag/retriever.py#L28-L98)
+- [app/rag/colbert_embeddings.py:19-80](file://app/rag/colbert_embeddings.py#L19-L80)
 
 ## Detailed Component Analysis
 
@@ -485,8 +454,9 @@ The chunk indexer now operates asynchronously for improved performance:
 - **Error Handling**: Comprehensive async error handling throughout indexing operations
 - **Performance Optimization**: Eliminates blocking operations for better throughput
 - **Sparse Embeddings Support**: Enhanced support for hybrid search with sparse vectors
+- **ColBERT Multivector Support**: Named vector spaces support with "dense", "colbert", and "bm25" configurations
 
-**Updated** Complete async chunk indexing system with asynchronous operations throughout, including indexing, deletion, payload updates, counting, and preparation with proper error handling, performance optimization, and sparse embeddings support for hybrid search mode.
+**Updated** Complete async chunk indexing system with asynchronous operations throughout, including indexing, deletion, payload updates, counting, and preparation with proper error handling, performance optimization, sparse embeddings support for hybrid search mode, and comprehensive ColBERT multivector embedding support with named vector spaces.
 
 **Section sources**
 - [app/rag/indexer.py:49-141](file://app/rag/indexer.py#L49-L141)
@@ -502,12 +472,164 @@ The application now manages resources asynchronously:
 - **Resource Sharing**: Async resources shared across application components
 - **Graceful Degradation**: Async operations handle failures gracefully
 - **Resource Factory Pattern**: AppResources factory pattern with comprehensive resource management
+- **ColBERT Integration**: Async initialization and cleanup of ColBERT embedding resources
 
-**Updated** Complete async resource management system with asynchronous initialization, collection creation, cleanup, and lifecycle management for proper async resource handling throughout the application, including the new AppResources factory pattern with comprehensive resource management capabilities.
+**Updated** Complete async resource management system with asynchronous initialization, collection creation, cleanup, and lifecycle management for proper async resource handling throughout the application, including the new AppResources factory pattern with comprehensive resource management capabilities and ColBERT embedding resource integration.
 
 **Section sources**
 - [app/resources.py:127-303](file://app/resources.py#L127-L303)
 - [app/main.py:22-49](file://app/main.py#L22-L49)
+
+### Comprehensive Hybrid Search System
+
+#### Enhanced AsyncHybridRerankRetriever
+The new AsyncHybridRerankRetriever provides state-of-the-art hybrid search with ColBERT reranking:
+
+- **Dense + Sparse Prefetch**: Uses parallel dense and sparse retrieval for initial candidate selection
+- **ColBERT Reranking**: Applies ColBERT multivector embeddings for final document ranking
+- **Late-Interaction Scoring**: Leverages Qdrant's late-interaction reranking system
+- **Prefetch Optimization**: Configurable prefetch limits for performance tuning
+- **Named Vector Spaces**: Supports "dense", "colbert", and "bm25" vector configurations
+- **Async Operations**: Fully asynchronous implementation with proper error handling
+- **Filter Support**: Document-scoped filtering with metadata-based search constraints
+- **Payload Extraction**: Efficient metadata extraction with null safety checks
+
+**Updated** Complete AsyncHybridRerankRetriever implementation with dense + sparse prefetch, ColBERT reranking, late-interaction scoring, prefetch optimization, named vector spaces support, async operations, filter support, payload extraction, and comprehensive error handling for superior retrieval quality and performance.
+
+**Section sources**
+- [app/rag/retriever.py:28-98](file://app/rag/retriever.py#L28-L98)
+
+#### Enhanced Configuration Management
+The configuration system now includes comprehensive reranking settings:
+
+- **reranking_enabled**: Boolean flag to enable/disable hybrid rerank functionality
+- **colbert_rerank_model**: HuggingFace model identifier for ColBERT embeddings
+- **colbert_prefetch_limit**: Number of candidates to retrieve for ColBERT reranking
+- **colbert_rerank_limit**: Final number of documents to return after reranking
+- **Simplified Architecture**: Works with hybrid-only approach regardless of mode
+- **Graceful Degradation**: Falls back to dense + sparse search when ColBERT unavailable
+- **Environment Variable Support**: Full configuration through environment variables
+- **Default Values**: Reasonable defaults for production deployment
+
+**Updated** Complete configuration management system with reranking settings, simplified architecture supporting hybrid-only approach, graceful degradation, environment variable support, default values, and comprehensive settings validation for optimal hybrid rerank deployment.
+
+**Section sources**
+- [app/config.py:62-67](file://app/config.py#L62-L67)
+
+#### Intelligent Collection Creation
+The system now includes intelligent collection creation with named vector spaces and optimization:
+
+- **Vector Configuration**: Named vectors "dense", "colbert", and "bm25" with separate configurations
+- **Multivector Embeddings**: ColBERT vectors stored as multivectors with MAX_SIM comparator
+- **HNSW Optimization**: Optimized HNSW parameters (m=0) for multivector similarity
+- **Sparse Vector Support**: BM25 sparse vectors for lexical matching
+- **Legacy Compatibility**: Backward compatibility with unnamed vector layouts
+- **Dynamic Configuration**: Runtime switching between named and unnamed vector layouts
+- **Performance Tuning**: Separate optimization parameters for each vector type
+- **Memory Efficiency**: Optimized memory usage for multivector embeddings
+- **INT8 Scalar Quantization**: Memory-efficient quantization for dense and colbert vectors
+- **Automatic Optimization**: Collection optimization with segment merging for sparse vectors
+
+**Updated** Complete intelligent collection creation system with "dense", "colbert", and "bm25" configurations, multivector embedding support, HNSW optimization, sparse vector integration, legacy compatibility, dynamic configuration, performance tuning, memory efficiency, INT8 scalar quantization for memory efficiency, and automatic optimization with segment merging for sparse vectors.
+
+**Section sources**
+- [app/resources.py:89-131](file://app/resources.py#L89-L131)
+- [app/rag/indexer.py:97-126](file://app/rag/indexer.py#L97-L126)
+- [scripts/ingest.py:145-186](file://scripts/ingest.py#L145-L186)
+
+#### Automatic Segment Optimization
+The system now includes automatic optimization triggers in document processing workflows:
+
+- **Segment Merging**: Forces optimization by setting indexing_threshold to 0 to merge small segments
+- **Polling Mechanism**: Waits for optimization completion by polling collection status
+- **Threshold Restoration**: Restores original indexing_threshold after optimization
+- **BM25 Storage Reduction**: Reduces storage overhead for sparse BM25 vectors
+- **Performance Improvement**: Improves query performance after optimization
+- **Timeout Handling**: Graceful handling of optimization timeouts
+- **Logging**: Comprehensive logging of optimization progress and results
+
+**Updated** Complete automatic segment optimization system with segment merging, polling mechanism, threshold restoration, BM25 storage reduction, performance improvement, timeout handling, and comprehensive logging for optimal sparse vector storage and query performance.
+
+**Section sources**
+- [app/rag/indexer.py:215-266](file://app/rag/indexer.py#L215-L266)
+- [scripts/ingest.py:259-267](file://scripts/ingest.py#L259-L267)
+
+### Revolutionary Category-Aware Prompt System
+
+#### CATEGORY_HINTS Dictionary
+The RAG system now features a revolutionary category-aware prompting system with specialized prompts for six HR categories:
+
+- **CATEGORY_HINTS Dictionary**: Contains six specialized HR prompts with targeted context injection
+- **Pay Category**: Focuses on salary rates, bonuses, overtime, and bonus calculations
+- **Sick Leave Category**: Addresses sick leave procedures, duration, and sickness benefit payments
+- **Probation Category**: Covers probation period duration, conditions, and employee rights
+- **Hiring Category**: Handles employment procedures, documentation checklist, and onboarding
+- **Firing Category**: Manages termination procedures, notice periods, and dismissal documentation
+- **Vacation Category**: Addresses vacation types, application procedures, and vacation pay calculations
+- **Category Validation**: Keys are verified to be subset of known scenario IDs from _SCENARIO_KEYWORDS
+- **Context Injection**: Each category prompt is injected into the RAG chain with "Дополнительный контекст" markers
+- **Fallback Handling**: Unknown categories gracefully handled with None hint values
+
+**Updated** Complete CATEGORY_HINTS dictionary implementation with six specialized HR prompts, category validation against known scenarios, context injection through category_hint parameter, and comprehensive fallback handling for unknown categories, providing targeted HR assistance across all major HR domains.
+
+```mermaid
+flowchart TD
+CATEGORY_HINTS["CATEGORY_HINTS Dictionary"] --> Pay["Pay: Salary & Bonuses"]
+CATEGORY_HINTS --> Sick["Sick: Sick Leave & Benefits"]
+CATEGORY_HINTS --> Probation["Probation: Trial Period"]
+CATEGORY_HINTS --> Hire["Hire: Employment Procedures"]
+CATEGORY_HINTS --> Fire["Fire: Termination Procedures"]
+CATEGORY_HINTS --> Vacation["Vacation: Leave & Pay"]
+Pay --> ContextInjection["Context Injection"]
+Sick --> ContextInjection
+Probation --> ContextInjection
+Hire --> ContextInjection
+Fire --> ContextInjection
+Vacation --> ContextInjection
+ContextInjection --> EnhancedRAG["Enhanced RAG Chain"]
+```
+
+**Diagram sources**
+- [app/rag/prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [app/domain/qa_service.py:146](file://app/domain/qa_service.py#L146)
+
+**Section sources**
+- [app/rag/prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+
+#### Enhanced RAG Chain with Category Hint Support
+The RAG chain now supports category-specific context injection:
+
+- **Category Hint Parameter**: build_rag_chain function accepts category_hint parameter
+- **Context Injection**: Category hints are injected into system prompts with "Дополнительный контекст" markers
+- **Conditional Injection**: Only injected when category_hint is provided and truthy
+- **Prompt Enhancement**: Combines base system prompt with category-specific context
+- **Metadata Preservation**: Maintains existing metadata formatting capabilities
+- **Backward Compatibility**: Works with existing chain configurations without category hints
+- **Testing Coverage**: Comprehensive tests validate category hint injection and exclusion
+- **Performance Impact**: Minimal overhead for category hint processing
+
+**Updated** Complete category hint support implementation with conditional context injection, enhanced prompt formatting, backward compatibility, comprehensive testing, and minimal performance impact for category-aware RAG processing.
+
+**Section sources**
+- [app/rag/chain.py:98-125](file://app/rag/chain.py#L98-L125)
+
+#### Category-Aware QA Service Processing
+The QA service now integrates category-aware processing:
+
+- **Category Parameter**: ask() and stream_ask() methods accept category parameter
+- **Hint Lookup**: _build_global_chain() looks up category hints from CATEGORY_HINTS dictionary
+- **Unknown Category Handling**: Gracefully handles unknown categories with None hint values
+- **Chain Building**: Passes category_hint to build_rag_chain() for context injection
+- **Streaming Support**: Category-aware streaming with proper error handling
+- **Testing Validation**: Comprehensive tests verify category parameter passing and hint lookup
+- **Integration Points**: Works with existing QA service functionality without modification
+
+**Updated** Complete category-aware QA service implementation with category parameter support, hint lookup functionality, unknown category handling, comprehensive testing, and seamless integration with existing QA service features.
+
+**Section sources**
+- [app/domain/qa_service.py:146](file://app/domain/qa_service.py#L146)
+- [app/domain/qa_service.py:155-181](file://app/domain/qa_service.py#L155-L181)
+- [app/domain/qa_service.py:212-244](file://app/domain/qa_service.py#L212-L244)
 
 ### Enhanced RAG Capabilities
 
@@ -616,9 +738,9 @@ class QASingleton {
 +_TRUNCATION_SUFFIX : str
 +_CUT_AT : int
 +init_qa(settings)
-+ask(question) : str
++ask(question, category) : str
 +ask_about_document(question, document_id) : str
-+stream_ask(question)
++stream_ask(question, category)
 +stream_about_document(question, document_id)
 +invalidate_document_chain_cache(document_id)
 +close() : None
@@ -630,7 +752,7 @@ class ModuleLevelSingleton {
 }
 class QAService {
 +init_qa(settings)
-+ask(question) : str
++ask(question, category) : str
 +ask_about_document(question, document_id) : str
 +close() : None
 }
@@ -639,8 +761,8 @@ ModuleLevelSingleton --> QASingleton : "provides backward compatibility"
 ```
 
 **Diagram sources**
-- [app/domain/qa_service.py:43-293](file://app/domain/qa_service.py#L43-L293)
-- [app/integrations/vk/handlers/__init__.py:15-91](file://app/integrations/vk/handlers/__init__.py#L15-L91)
+- [app/domain/qa_service.py:43-297](file://app/domain/qa_service.py#L43-L297)
+- [app/integrations/vk/handlers/__init__.py:15-177](file://app/integrations/vk/handlers/__init__.py#L15-L177)
 
 ### Dual-Service Architecture
 The system now implements a dual-service architecture that coordinates between document management and QA services:
@@ -656,7 +778,7 @@ The system now implements a dual-service architecture that coordinates between d
 **Updated** Complete dual-service architecture with DocumentService for central orchestration, QAService for specialized RAG operations, cache coordination, resource sharing, lifecycle management, error handling, and state management across service boundaries.
 
 **Section sources**
-- [app/domain/qa_service.py:51-293](file://app/domain/qa_service.py#L51-L293)
+- [app/domain/qa_service.py:51-297](file://app/domain/qa_service.py#L51-L297)
 - [app/domain/document_service.py:36-291](file://app/domain/document_service.py#L36-L291)
 
 ### Enhanced Document Management
@@ -675,7 +797,7 @@ The document management system now includes comprehensive cache invalidation and
 - [app/domain/document_service.py:138-184](file://app/domain/document_service.py#L138-L184)
 - [app/api/documents.py:130-171](file://app/api/documents.py#L130-L171)
 
-### Revolutionary Prompt System
+### Enhanced System Prompts
 The prompt system now includes enhanced content policies and specialized prompts:
 
 - **Enhanced System Prompt**: Stricter content policies with improved HR-specific guidelines
@@ -684,11 +806,12 @@ The prompt system now includes enhanced content policies and specialized prompts
 - **Content Policy Enforcement**: Stricter rules for confidentiality, privacy, and HR-specific content
 - **Russian Language Support**: Comprehensive Russian language instructions for all prompts
 - **Contextual Completeness**: Enhanced guidance for acknowledging limitations and providing context
+- **Category Integration**: Category-specific context injection through CATEGORY_HINTS system
 
-**Updated** Complete prompt system with enhanced content policies, document experts prompt, global experts prompt, content policy enforcement, Russian language support, and contextual completeness guidance for all LLM providers with optimized GPU detection.
+**Updated** Complete prompt system with enhanced content policies, document experts prompt, global experts prompt, content policy enforcement, Russian language support, contextual completeness guidance, and category integration through CATEGORY_HINTS system for all LLM providers with optimized GPU detection.
 
 **Section sources**
-- [app/rag/prompts.py:5-63](file://app/rag/prompts.py#L5-L63)
+- [app/rag/prompts.py:5-94](file://app/rag/prompts.py#L5-L94)
 
 ### Advanced Streaming Response Implementation
 The streaming response system now includes comprehensive SSE support and error handling:
@@ -699,18 +822,19 @@ The streaming response system now includes comprehensive SSE support and error h
 - **Content Type**: text/event-stream with proper headers
 - **Global Streaming**: Real-time streaming for global questions
 - **Document Streaming**: Real-time streaming for document-specific questions
+- **Category-Aware Streaming**: Category-aware processing with proper error handling
 - **Client-Side Handling**: Comprehensive client-side SSE handling
 
-**Updated** Complete streaming implementation with SSE event generation, token escaping, error handling, content type management, global and document-specific streaming, and comprehensive client-side handling for reliable real-time communication.
+**Updated** Complete streaming implementation with SSE event generation, token escaping, error handling, content type management, global and document-specific streaming, category-aware processing, and comprehensive client-side handling for reliable real-time communication.
 
 **Section sources**
-- [app/domain/qa_service.py:209-273](file://app/domain/qa_service.py#L209-L273)
+- [app/domain/qa_service.py:212-275](file://app/domain/qa_service.py#L212-L275)
 - [app/api/documents.py:808-872](file://app/api/documents.py#L808-L872)
 
 ### Comprehensive Testing Infrastructure
 The testing framework now includes extensive validation of all enhanced features:
 
-- **QA Service Testing**: Comprehensive testing of LRU cache, k-estimation, and streaming functionality
+- **QA Service Testing**: Comprehensive testing of LRU cache, k-estimation, streaming functionality, and category-aware processing
 - **Document Management Testing**: Testing of cache invalidation, dual-service coordination, and lifecycle management
 - **Prompt System Testing**: Validation of enhanced content policies and prompt functionality
 - **Streaming Response Testing**: Comprehensive testing of SSE implementation and error handling
@@ -720,11 +844,20 @@ The testing framework now includes extensive validation of all enhanced features
 - **Async Operations Testing**: Validation of async resource management and error handling
 - **Sparse Embeddings Testing**: Testing of hybrid search mode with sparse embeddings
 - **Collection Management Testing**: Validation of collection creation and resource lifecycle management
+- **Category-Hints Testing**: Comprehensive testing of CATEGORY_HINTS integration and category-aware functionality
+- **Topic Hints Testing**: Validation of category-aware topic detection and processing
+- **ColBERT Embeddings Testing**: Comprehensive testing of ColBERT embedding adapter and hybrid rerank functionality
+- **Hybrid Rerank Retriever Testing**: Validation of AsyncHybridRerankRetriever implementation and named vector spaces
+- **Collection Optimization Testing**: Testing of INT8 scalar quantization and segment optimization workflows
 
-**Updated** Complete testing infrastructure with QA service testing, document management testing, prompt system testing, streaming response testing, handler integration testing, GPU detection testing, provider testing, async operations testing, sparse embeddings testing, and collection management testing for all enhanced features.
+**Updated** Complete testing infrastructure with QA service testing, document management testing, prompt system testing, streaming response testing, handler integration testing, GPU detection testing, provider testing, async operations testing, sparse embeddings testing, collection management testing, category-hints testing, topic hints testing, ColBERT embeddings testing, hybrid rerank retriever testing, and collection optimization testing for all enhanced features including the revolutionary CATEGORY_HINTS dictionary, category-aware prompting system, ColBERT multivector embeddings integration, AsyncHybridRerankRetriever implementation, named vector spaces support, and automatic segment optimization.
 
 **Section sources**
 - [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
+- [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
+- [tests/test_colbert_embeddings.py:1-143](file://tests/test_colbert_embeddings.py#L1-L143)
+- [tests/test_hybrid_rerank_retriever.py:1-273](file://tests/test_hybrid_rerank_retriever.py#L1-L273)
+- [tests/test_hybrid_search.py:1-231](file://tests/test_hybrid_search.py#L1-L231)
 
 ## Enhanced RAG Capabilities
 
@@ -785,12 +918,13 @@ The QA service implements a comprehensive singleton pattern with module-level st
 - **Resource Management**: Proper cleanup and error handling across all LLM providers
 - **Thread Safety**: Safe concurrent access to the RAG chain through shared instance
 - **Provider Flexibility**: Support for all three LLM providers through unified interface
+- **Category-Aware Processing**: Enhanced with category parameter support for targeted context injection
 
-**Updated** Complete singleton pattern implementation with module-level state management, LRU cache integration, initialization coordination, resource management, thread safety, provider flexibility, and backward compatibility.
+**Updated** Complete singleton pattern implementation with module-level state management, LRU cache integration, initialization coordination, resource management, thread safety, provider flexibility, category-aware processing, and backward compatibility.
 
 **Section sources**
-- [app/domain/qa_service.py:43-293](file://app/domain/qa_service.py#L43-L293)
-- [app/integrations/vk/handlers/__init__.py:15-91](file://app/integrations/vk/handlers/__init__.py#L15-L91)
+- [app/domain/qa_service.py:43-297](file://app/domain/qa_service.py#L43-L297)
+- [app/integrations/vk/handlers/__init__.py:15-177](file://app/integrations/vk/handlers/__init__.py#L15-L177)
 
 ### Comprehensive Cache Invalidation System
 The system now includes comprehensive cache invalidation for document-specific chains:
@@ -815,11 +949,12 @@ The system implements a dual-service architecture that coordinates between docum
 - **Cache Coordination**: Both services share and coordinate cache invalidation
 - **Resource Sharing**: Shared AsyncQdrant client, embeddings, and LLM instances between services
 - **Lifecycle Management**: Coordinated resource management through FastAPI application lifecycle
+- **Category-Aware Integration**: Both services integrate with category-aware processing
 
-**Updated** Complete dual-service architecture with DocumentService for central orchestration, QAService for specialized RAG operations, cache coordination, resource sharing, and lifecycle management across all services.
+**Updated** Complete dual-service architecture with DocumentService for central orchestration, QAService for specialized RAG operations, cache coordination, resource sharing, lifecycle management, and category-aware integration across all services.
 
 **Section sources**
-- [app/domain/qa_service.py:51-293](file://app/domain/qa_service.py#L51-L293)
+- [app/domain/qa_service.py:51-297](file://app/domain/qa_service.py#L51-L297)
 - [app/domain/document_service.py:36-291](file://app/domain/document_service.py#L36-L291)
 
 ## Enhanced Document Management
@@ -836,19 +971,21 @@ The document management system now includes comprehensive cache invalidation and
 - [app/domain/document_service.py:138-184](file://app/domain/document_service.py#L138-L184)
 - [app/api/documents.py:130-171](file://app/api/documents.py#L130-L171)
 
-## Revolutionary Prompt System
+## Revolutionary Category-Aware Prompt System
 The prompt system now includes enhanced content policies and specialized prompts:
 
+- **CATEGORY_HINTS Dictionary**: Revolutionary category-aware prompting system with six HR categories
 - **Enhanced System Prompt**: Stricter content policies with improved HR-specific guidelines
 - **Document Experts Prompt**: Specialized prompt for expert-level document analysis
-- **Global Experts Prompt**: Revolutionary cross-document knowledge synthesis prompt
+- **Global Experts Prompt**: Cross-document knowledge synthesis prompt with category integration
 - **Content Policy Enforcement**: Stricter rules for confidentiality, privacy, and HR-specific content
 - **Russian Language Support**: Comprehensive Russian language instructions for all prompts
+- **Category Integration**: Category-specific context injection through category_hint parameter
 
-**Updated** Complete prompt system with enhanced content policies, document experts prompt, global experts prompt, content policy enforcement, and Russian language support for all LLM providers with optimized GPU detection.
+**Updated** Complete category-aware prompt system with CATEGORY_HINTS dictionary, enhanced content policies, document experts prompt, global experts prompt, content policy enforcement, Russian language support, and category integration for all LLM providers with optimized GPU detection.
 
 **Section sources**
-- [app/rag/prompts.py:5-63](file://app/rag/prompts.py#L5-L63)
+- [app/rag/prompts.py:30-94](file://app/rag/prompts.py#L30-L94)
 
 ## Advanced Streaming Response Implementation
 The streaming response system now includes comprehensive SSE support and error handling:
@@ -859,17 +996,18 @@ The streaming response system now includes comprehensive SSE support and error h
 - **Content Type**: text/event-stream with proper headers
 - **Global Streaming**: Real-time streaming for global questions
 - **Document Streaming**: Real-time streaming for document-specific questions
+- **Category-Aware Streaming**: Category-aware processing with proper error handling
 
-**Updated** Complete streaming implementation with SSE event generation, token escaping, error handling, content type management, global and document-specific streaming, and comprehensive client-side handling for reliable real-time communication.
+**Updated** Complete streaming implementation with SSE event generation, token escaping, error handling, content type management, global and document-specific streaming, category-aware processing, and comprehensive client-side handling for reliable real-time communication.
 
 **Section sources**
-- [app/domain/qa_service.py:209-273](file://app/domain/qa_service.py#L209-L273)
+- [app/domain/qa_service.py:212-275](file://app/domain/qa_service.py#L212-L275)
 - [app/api/documents.py:808-872](file://app/api/documents.py#L808-L872)
 
 ## Comprehensive Testing Infrastructure
 The testing framework now includes extensive validation of all enhanced features:
 
-- **QA Service Testing**: Comprehensive testing of LRU cache, k-estimation, and streaming functionality
+- **QA Service Testing**: Comprehensive testing of LRU cache, k-estimation, streaming functionality, and category-aware processing
 - **Document Management Testing**: Testing of cache invalidation, dual-service coordination, and lifecycle management
 - **Prompt System Testing**: Validation of enhanced content policies and prompt functionality
 - **Streaming Response Testing**: Comprehensive testing of SSE implementation and error handling
@@ -879,11 +1017,20 @@ The testing framework now includes extensive validation of all enhanced features
 - **Async Operations Testing**: Validation of async resource management and error handling
 - **Sparse Embeddings Testing**: Testing of hybrid search mode with sparse embeddings
 - **Collection Management Testing**: Validation of collection creation and resource lifecycle management
+- **Category-Hints Testing**: Comprehensive testing of CATEGORY_HINTS integration and category-aware functionality
+- **Topic Hints Testing**: Validation of category-aware topic detection and processing
+- **ColBERT Embeddings Testing**: Comprehensive testing of ColBERT embedding adapter and hybrid rerank functionality
+- **Hybrid Rerank Retriever Testing**: Validation of AsyncHybridRerankRetriever implementation and named vector spaces
+- **Collection Optimization Testing**: Testing of INT8 scalar quantization and segment optimization workflows
 
-**Updated** Complete testing infrastructure with QA service testing, document management testing, prompt system testing, streaming response testing, handler integration testing, GPU detection testing, provider testing, async operations testing, sparse embeddings testing, and collection management testing for all enhanced features.
+**Updated** Complete testing infrastructure with QA service testing, document management testing, prompt system testing, streaming response testing, handler integration testing, GPU detection testing, provider testing, async operations testing, sparse embeddings testing, collection management testing, category-hints testing, topic hints testing, ColBERT embeddings testing, hybrid rerank retriever testing, and collection optimization testing for all enhanced features including the revolutionary CATEGORY_HINTS dictionary, category-aware prompting system, ColBERT multivector embeddings integration, AsyncHybridRerankRetriever implementation, named vector spaces support, and automatic segment optimization.
 
 **Section sources**
 - [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
+- [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
+- [tests/test_colbert_embeddings.py:1-143](file://tests/test_colbert_embeddings.py#L1-L143)
+- [tests/test_hybrid_rerank_retriever.py:1-273](file://tests/test_hybrid_rerank_retriever.py#L1-L273)
+- [tests/test_hybrid_search.py:1-231](file://tests/test_hybrid_search.py#L1-L231)
 
 ## Performance Considerations
 
@@ -903,7 +1050,7 @@ The RAG infrastructure includes several performance optimization strategies for 
 - **Async GPU Acceleration**: Automatic GPU layer offloading for optimal performance on supported hardware
 - **Async CPU Fallback**: Graceful degradation to CPU-only mode when GPU acceleration is unavailable
 - **Async Document-Specific Retrieval**: Optimized search filters for reduced computational overhead
-- **Async Expert-Level Prompting**: Specialized prompts for improved document analysis efficiency
+- **Async Category-Aware Prompting**: Specialized category prompts for improved document analysis efficiency
 - **Async Global Knowledge Synthesis**: Cross-document retrieval optimization for comprehensive answers
 - **Async Streaming Response Optimization**: Efficient SSE event generation and client-side handling
 - **Async Cross-Document Filtering**: Optimized search filters for global experts prompt system
@@ -917,8 +1064,15 @@ The RAG infrastructure includes several performance optimization strategies for 
 - **Async Sparse Embeddings Optimization**: Efficient hybrid search with sparse embeddings support
 - **Async Resource Factory Optimization**: Efficient AppResources factory pattern with lazy initialization
 - **Async Collection Management Optimization**: Efficient collection creation and lifecycle management
+- **Async Category Hint Optimization**: Efficient category hint lookup and context injection with minimal overhead
+- **Async Hybrid Rerank Optimization**: Optimized ColBERT multivector embeddings with prefetch limits and rerank thresholds
+- **Async Named Vector Spaces Optimization**: Efficient vector configuration management with separate optimization parameters
+- **Async Multivector Scoring Optimization**: Optimized late-interaction reranking with MAX_SIM comparator and HNSW parameters
+- **Async Collection Optimization**: INT8 scalar quantization for memory efficiency and improved query performance
+- **Async Segment Optimization**: Automatic optimization of sparse BM25 vectors to reduce storage overhead
+- **Async Intelligent Collection Creation**: Named vector spaces configuration with automatic optimization triggers
 
-**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, efficient state handling, provider-specific optimizations for Ollama, OpenAI-compatible, and llama.cpp deployments, SQLite database optimization techniques, intelligent GPU detection for optimal hardware utilization, document-specific retrieval optimization, expert-level prompting for improved efficiency, global knowledge synthesis optimization, streaming response optimization for real-time user interaction, cross-document filtering optimization, application lifecycle optimization for centralized resource management, UX helper optimization for concurrent processing, character limit optimization for efficient text processing, cache invalidation optimization for improved response times, null check optimization for payload validation, error handling optimization for robust error propagation, sparse embeddings optimization for hybrid search mode, resource factory optimization for efficient resource management, and collection management optimization for efficient vector database operations.
+**Updated** Comprehensive performance considerations for production deployment with optimization strategies, memory management, typing indicators, efficient state handling, provider-specific optimizations for Ollama, OpenAI-compatible, and llama.cpp deployments, SQLite database optimization techniques, intelligent GPU detection for optimal hardware utilization, document-specific retrieval optimization, category-aware prompting for improved efficiency, global knowledge synthesis optimization, streaming response optimization for real-time user interaction, cross-document filtering optimization, application lifecycle optimization for centralized resource management, UX helper optimization for concurrent processing, character limit optimization for efficient text processing, cache invalidation optimization for improved response times, null check optimization for payload validation, error handling optimization for robust error propagation, sparse embeddings optimization for hybrid search mode, resource factory optimization for efficient resource management, collection management optimization for efficient vector database operations, category hint optimization for efficient context injection, **COMPREHENSIVE HYBRID SEARCH SYSTEM OPTIMIZATION** with dense vector embeddings, BM25 sparse vector search, and ColBERT multivector embeddings, **ENHANCED ASYNC QDRANT RETRIEVER OPTIMIZATION** with dense-only and hybrid search modes, **COLLECTION OPTIMIZATION WITH INT8 SCALAR QUANTIZATION** for memory efficiency, **AUTOMATIC OPTIMIZATION TRIGGERS** in document processing workflows, **INTELLIGENT COLLECTION CREATION OPTIMIZATION** with named vector spaces, **AUTOMATIC SEGMENT OPTIMIZATION** for sparse BM25 vectors, **REVOLUTIONARY COLBERT EMBEDDING OPTIMIZATION** with graceful fallback and dimension caching, **ASYNC HYBRID RERANK OPTIMIZATION** with dense + sparse prefetch and ColBERT reranking, **ENHANCED CONFIGURATION OPTIMIZATION** with reranking_enabled flag controlling hybrid rerank functionality, **NAMED VECTOR SPACES OPTIMIZATION** for efficient vector configuration management, **MULTIVECTOR SCORING OPTIMIZATION** for late-interaction reranking with MAX_SIM comparator and HNSW parameters.
 
 ### Scalability Planning
 The architecture supports horizontal scaling through:
@@ -933,6 +1087,7 @@ The architecture supports horizontal scaling through:
 - **Async Database Scaling**: SQLite optimization for concurrent access patterns
 - **Async GPU Resource Management**: Efficient GPU utilization across multiple providers
 - **Async Document-Specific Scaling**: Independent scaling of document retrieval operations
+- **Async Category-Aware Scaling**: Category-specific scaling of context injection and processing
 - **Async Global Experts Scaling**: Cross-document retrieval optimization for large knowledge bases
 - **Async Streaming Scaling**: SSE event handling optimization for multiple concurrent streams
 - **Async Cross-Document Optimization**: Efficient cross-document knowledge synthesis for large-scale deployments
@@ -944,6 +1099,11 @@ The architecture supports horizontal scaling through:
 - **Async Error Handling Scaling**: Robust error propagation for distributed systems
 - **Async Sparse Embeddings Scaling**: Efficient hybrid search for large-scale deployments
 - **Async Resource Factory Scaling**: Efficient AppResources factory pattern for distributed environments
+- **Async Category Hint Scaling**: Efficient category hint lookup and context injection for high-volume scenarios
+- **Async Hybrid Rerank Scaling**: Efficient ColBERT multivector embeddings with optimized prefetch and rerank parameters
+- **Async Named Vector Spaces Scaling**: Efficient vector configuration management for large-scale deployments
+- **Async Multivector Scoring Scaling**: Efficient late-interaction reranking for large-scale document collections
+- **Async Collection Optimization Scaling**: Efficient INT8 scalar quantization and segment optimization for large-scale deployments
 
 ## Troubleshooting Guide
 
@@ -957,7 +1117,8 @@ The RAG infrastructure includes comprehensive error handling and debugging capab
 - **Memory Issues**: Insufficient RAM for embedding generation or vector storage
 - **Enhanced QA Service Failures**: Chain initialization failures, resource cleanup errors, or runtime exceptions
 - **Text Truncation Errors**: Incorrect message length calculations with VK character limits (4096)
-- **Topic Hints Detection**: Keyword matching issues or missing scenarios
+- **Category-Aware Topic Hints**: Keyword matching issues or missing scenarios
+- **Category Hint Processing**: CATEGORY_HINTS lookup failures or unknown category handling
 - **Typing Indicator Errors**: VK API connectivity or permission issues
 - **State Management**: Memory leaks or state conflicts between handlers
 - **Enhanced GPU Detection**: Platform detection failures or GPU acceleration issues
@@ -984,8 +1145,16 @@ The RAG infrastructure includes comprehensive error handling and debugging capab
 - **Sparse Embeddings Errors**: Hybrid search configuration failures or sparse vector processing issues
 - **Async Resource Factory Errors**: AppResources initialization failures or resource sharing issues
 - **Collection Management Errors**: Qdrant collection creation failures or lifecycle management issues
+- **Category Hint Injection Errors**: Category hint context injection failures or prompt formatting issues
+- **ColBERT Embedding Errors**: Per-token embedding generation failures or model loading issues
+- **AsyncHybridRerankRetriever Errors**: Hybrid rerank retrieval failures or prefetch configuration issues
+- **Named Vector Spaces Errors**: Vector configuration failures or multivector embedding issues
+- **Multivector Scoring Errors**: Late-interaction reranking failures or MAX_SIM comparator issues
+- **Collection Optimization Errors**: INT8 scalar quantization failures or segment optimization issues
+- **Segment Optimization Errors**: Automatic optimization failures or sparse vector storage reduction issues
+- **Intelligent Collection Creation Errors**: Named vector spaces configuration failures or optimization trigger issues
 
-**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, topic hints detection, enhanced ask handler, document storage system, enhanced GPU detection capabilities, document-specific question answering functionality, global experts prompt system, streaming response implementation, application lifecycle management, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, metadata formatting, AsyncQdrantRetriever null checks, enhanced error handling, sparse embeddings support, resource factory pattern, and all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features.
+**Updated** Comprehensive troubleshooting guide for all aspects of the RAG infrastructure, QA service, category-aware topic hints detection, CATEGORY_HINTS dictionary processing, enhanced ask handler, document storage system, enhanced GPU detection capabilities, document-specific question answering functionality, global experts prompt system, streaming response implementation, application lifecycle management, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, metadata formatting, AsyncQdrantRetriever null checks, enhanced error handling, sparse embeddings support, resource factory pattern, collection management, category hint injection, **COMPREHENSIVE HYBRID SEARCH SYSTEM TROUBLESHOOTING**, **REVOLUTIONARY COLBERT EMBEDDING ADAPTER DEBUGGING**, **ASYNC HYBRID RERANK RETRIEVER DEBUGGING**, **NAMED VECTOR SPACES CONFIGURATION ISSUES**, **MULTIVECTOR SCORING OPTIMIZATION PROBLEMS**, **COLLECTION OPTIMIZATION TROUBLESHOOTING**, **SEGMENT OPTIMIZATION DEBUGGING**, and **INTELLIGENT COLLECTION CREATION PROBLEMS** for all three LLM providers including llama.cpp, Ollama, and OpenAI-compatible deployments with user experience features, category-aware processing, and revolutionary CATEGORY_HINTS integration.
 
 ### Enhanced Debugging Tools
 Available debugging and monitoring capabilities:
@@ -995,6 +1164,7 @@ Available debugging and monitoring capabilities:
 - **Performance Metrics**: Timing and throughput measurements
 - **Error Reporting**: Detailed error messages with context information for all providers
 - **Enhanced QA Service Monitoring**: Chain availability, resource status tracking, and cleanup validation
+- **Category-Aware Monitoring**: CATEGORY_HINTS lookup validation and category hint processing effectiveness
 - **User Experience Monitoring**: Typing indicator functionality, wait message handling, and navigation button rendering
 - **Provider Health Checks**: Specific monitoring for llama.cpp server, Ollama server, and OpenAI-compatible endpoints
 - **Async Database Monitoring**: Async SQLite connection status, query performance, and transaction logging
@@ -1019,14 +1189,24 @@ Available debugging and monitoring capabilities:
 - **Sparse Embeddings Monitoring**: Hybrid search configuration validation and sparse vector processing effectiveness
 - **Async Resource Factory Monitoring**: AppResources initialization validation and resource sharing effectiveness
 - **Collection Management Monitoring**: Qdrant collection creation validation and lifecycle management effectiveness
+- **Category Hint Injection Monitoring**: Category hint context injection validation and prompt formatting effectiveness
+- **ColBERT Embedding Monitoring**: Per-token embedding generation validation and model loading effectiveness
+- **AsyncHybridRerankRetriever Monitoring**: Hybrid rerank retrieval validation and prefetch configuration effectiveness
+- **Named Vector Spaces Monitoring**: Vector configuration validation and multivector embedding effectiveness
+- **Multivector Scoring Monitoring**: Late-interaction reranking validation and MAX_SIM comparator effectiveness
+- **Collection Optimization Monitoring**: INT8 scalar quantization validation and segment optimization effectiveness
+- **Segment Optimization Monitoring**: Automatic optimization validation and sparse vector storage reduction effectiveness
+- **Intelligent Collection Creation Monitoring**: Named vector spaces configuration validation and optimization trigger effectiveness
 
 **Section sources**
 - [app/rag/chain.py:30-58](file://app/rag/chain.py#L30-L58)
 - [app/rag/retriever.py:20-59](file://app/rag/retriever.py#L20-L59)
+- [app/rag/prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [app/rag/colbert_embeddings.py:83-120](file://app/rag/colbert_embeddings.py#L83-L120)
 - [scripts/ingest.py:137-166](file://scripts/ingest.py#L137-L166)
 - [app/domain/qa_service.py:82-83](file://app/domain/qa_service.py#L82-L83)
 - [app/integrations/vk/handlers/ask.py:67-70](file://app/integrations/vk/handlers/ask.py#L67-L70)
-- [app/integrations/vk/handlers/__init__.py:46-91](file://app/integrations/vk/handlers/__init__.py#L46-L91)
+- [app/integrations/vk/handlers/__init__.py:46-177](file://app/integrations/vk/handlers/__init__.py#L46-L177)
 - [scripts/run_llama_qwen.sh:32-41](file://scripts/run_llama_qwen.sh#L32-L41)
 - [scripts/run_ollama_qwen.sh:36-52](file://scripts/run_ollama_qwen.sh#L36-L52)
 - [app/storage/database.py:31-38](file://app/storage/database.py#L31-L38)
@@ -1036,6 +1216,6 @@ Available debugging and monitoring capabilities:
 - [scripts/run_ollama_llm.sh:5-18](file://scripts/run_ollama_llm.sh#L5-L18)
 
 ## Conclusion
-The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities and enhanced user experience. The implementation includes complete LangChain integration, AsyncQdrant vector store setup with fully asynchronous operations, document ingestion pipelines with configurable chunking parameters, comprehensive QA service with enhanced singleton pattern and centralized resource management, topic hints detection system, contextual navigation features, extensive testing frameworks, SQLite-based document storage system, support for three LLM providers including the new llama.cpp option with enhanced GPU detection capabilities, and advanced document-specific question answering functionality through the new build_retriever_for_document function.
+The RAG integration provides a comprehensive, production-ready solution for enhancing the Cafetera HR assistance bot with intelligent document retrieval capabilities and enhanced user experience. The implementation includes complete LangChain integration, AsyncQdrant vector store setup with fully asynchronous operations, document ingestion pipelines with configurable chunking parameters, comprehensive QA service with enhanced singleton pattern and centralized resource management, category-aware topic hints detection system, contextual navigation features, extensive testing frameworks, SQLite-based document storage system, support for three LLM providers including the new llama.cpp option with enhanced GPU detection capabilities, and advanced document-specific question answering functionality through the new build_retriever_for_document function.
 
-**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer featuring enhanced singleton pattern with module-level state management, comprehensive error handling with null checks for payload data and improved malformed response handling, text truncation capabilities with VK character limits (4096), provider flexibility, centralized resource management through FastAPI application lifecycle, topic hints detection system, enhanced ask handler with typing indicators, contextual navigation, automatic question context prepending with character limits, enhanced user experience features, SQLite-based document storage system with comprehensive CRUD operations, document lifecycle management, enhanced GPU detection capabilities across all LLM providers, support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment, advanced document-specific question answering capabilities that enable expert-level document analysis through the new DOCUMENT_EXPERTS_PROMPT system, revolutionary global experts prompt system for cross-document knowledge synthesis, advanced streaming response implementation for real-time user interaction, comprehensive UX helper functions including query_rag_with_wait() for delayed response handling and send_rag_answer() for streamlined handler implementations, comprehensive testing coverage validating all enhancements including UX helper functions, character limit enforcement, handler integration testing, async operations testing, sparse embeddings testing, and collection management testing, dual-service architecture with cache invalidation, metadata-aware document formatting with LRU cache system, question complexity analysis with k-estimation, refined prompt system with stricter content policies, comprehensive resource lifecycle management with AppResources factory pattern, enhanced error handling throughout the pipeline, sparse embeddings support for hybrid search mode, and comprehensive testing infrastructure validating all enhanced features. The enhanced singleton pattern ensures efficient resource utilization through centralized management, while comprehensive error handling, text truncation, user experience features, SQLite database integration, llama.cpp integration, document-scoped retrieval functionality, application lifecycle management, module-level singleton pattern, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, metadata formatting, AsyncQdrantRetriever null checks, enhanced error handling, sparse embeddings support, and resource factory pattern provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of intelligent GPU detection for macOS Apple Silicon and NVIDIA GPUs enables optimal performance across different hardware architectures, making the system suitable for enterprise environments with strict data privacy requirements. The comprehensive document storage system with SQLite provides reliable metadata management, complete test coverage with enhanced GPU detection validation, document-specific QA testing, global experts prompt testing, streaming response testing, application lifecycle testing, UX helper testing, cache invalidation testing, k-estimation testing, metadata formatting testing, async operations testing, sparse embeddings testing, and collection management testing that form the backbone of the document lifecycle management system. The new multi-provider orchestration via run_admin.sh script with interactive selection, comprehensive health checking, and intelligent GPU detection provides operational excellence for production deployments, while the specialized deployment scripts offer granular control over LLM and embedding server management with CPU detection capabilities and automated model downloading with GPU optimization. The document-specific question answering functionality through the admin interface provides administrators with powerful tools for expert-level document analysis and knowledge extraction, significantly enhancing the HR assistance capabilities of the Cafetera bot. The revolutionary global experts prompt system now enables cross-document knowledge synthesis and comprehensive question answering across the entire knowledge base, representing a major advancement in RAG technology that allows users to ask complex questions that require insights from multiple HR documents simultaneously, providing a truly comprehensive HR assistance experience that goes far beyond traditional document retrieval systems. The enhanced application lifecycle management with centralized resource sharing, proper cleanup procedures, module-level singleton pattern, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, metadata formatting, AsyncQdrantRetriever null checks, enhanced error handling, sparse embeddings support, resource factory pattern, and collection management ensures reliable operation and backward compatibility across all deployment scenarios, while the comprehensive testing framework validates all enhancements and provides confidence in production readiness. The fully asynchronous architecture with AsyncQdrantClient throughout the pipeline provides improved performance, scalability, and reliability for production deployments, with comprehensive error handling, resource management, and testing infrastructure supporting enterprise-grade RAG capabilities.
+**Updated** The implementation now provides a complete, tested RAG infrastructure with robust QA service layer featuring enhanced singleton pattern with module-level state management, comprehensive error handling with null checks for payload data and improved malformed response handling, text truncation capabilities with VK character limits (4096), provider flexibility, centralized resource management through FastAPI application lifecycle, category-aware topic hints detection system, enhanced ask handler with typing indicators, contextual navigation, automatic question context prepending with character limits, enhanced user experience features, SQLite-based document storage system with comprehensive CRUD operations, document lifecycle management, enhanced GPU detection capabilities across all LLM providers, support for three LLM providers (Ollama, OpenAI-compatible, and llama.cpp) that serve as the foundation for future enhancements and production deployment, advanced document-specific question answering capabilities that enable expert-level document analysis through the new DOCUMENT_EXPERTS_PROMPT system, revolutionary category-aware global experts prompt system for cross-document knowledge synthesis with specialized CATEGORY_HINTS dictionary, advanced streaming response implementation for real-time user interaction, comprehensive UX helper functions including query_rag_with_wait() for delayed response handling and send_rag_answer() for streamlined handler implementations, comprehensive testing coverage validating all enhancements including UX helper functions, character limit enforcement, handler integration testing, async operations testing, sparse embeddings testing, collection management testing, category-aware prompting system testing, **COMPREHENSIVE HYBRID SEARCH SYSTEM** with dense vector embeddings, BM25 sparse vector search, and ColBERT multivector embeddings, **ENHANCED ASYNC QDRANT RETRIEVER** supporting both dense-only and hybrid search modes with intelligent mode selection, **COLLECTION OPTIMIZATION WITH INT8 SCALAR QUANTIZATION** for memory efficiency, **AUTOMATIC OPTIMIZATION TRIGGERS** in document processing workflows, **ENHANCED CONFIGURATION MANAGEMENT** with reranking_enabled flag controlling hybrid rerank functionality, **INTELLIGENT COLLECTION CREATION** with named vector spaces ("dense", "colbert", "bm25"), **AUTOMATIC SEGMENT OPTIMIZATION** for sparse BM25 vectors to reduce storage overhead, **REVOLUTIONARY COLBERT EMBEDDING ADAPTER** with ColbertEmbeddingAdapter class for per-token embeddings and dimension caching, **ASYNC HYBRID RERANK RETRIEVER** with dense + sparse prefetch and ColBERT reranking for superior document ranking, **ENHANCED CONFIGURATION MANAGEMENT** with reranking_enabled flag controlling hybrid rerank functionality, **NAMED VECTOR SPACES SUPPORT** with "dense", "colbert", and "bm25" configurations for optimal hybrid search, **MULTIVECTOR EMBEDDING SUPPORT** with Qdrant's late-interaction scoring system, comprehensive testing infrastructure validating all enhanced features, dual-service architecture with cache invalidation, metadata-aware document formatting with LRU cache system, question complexity analysis with k-estimation, refined prompt system with stricter content policies, comprehensive resource lifecycle management with AppResources factory pattern, enhanced error handling throughout the pipeline, sparse embeddings support for hybrid search mode, comprehensive testing infrastructure validating all enhanced features, **COMPREHENSIVE COLLECTION OPTIMIZATION** with INT8 scalar quantization, **AUTOMATIC SEGMENT OPTIMIZATION** for BM25 storage reduction, **INTELLIGENT COLLECTION CREATION** with automatic optimization triggers, **REVOLUTIONARY COLBERT MULTIVECTOR EMBEDDINGS INTEGRATION**, and **ADVANCED HYBRID SEARCH CAPABILITIES**. The enhanced singleton pattern ensures efficient resource utilization through centralized management, while comprehensive error handling, text truncation, user experience features, SQLite database integration, llama.cpp integration, document-scoped retrieval functionality, application lifecycle management, module-level singleton pattern, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, metadata formatting, AsyncQdrantRetriever null checks, enhanced error handling, sparse embeddings support, resource factory pattern, collection management, CATEGORY_HINTS integration, **COMPREHENSIVE HYBRID SEARCH SYSTEM**, **ENHANCED ASYNC QDRANT RETRIEVER**, **COLLECTION OPTIMIZATION**, **SEGMENT OPTIMIZATION**, **INTELLIGENT COLLECTION CREATION**, **REVOLUTIONARY COLBERT EMBEDDING ADAPTER**, **ASYNC HYBRID RERANK RETRIEVER**, **NAMED VECTOR SPACES CONFIGURATION**, **MULTIVECTOR SCORING OPTIMIZATION**, and **AUTOMATIC OPTIMIZATION TRIGGERS** provide reliability, improved user satisfaction, and maximum flexibility for local and cloud deployments. The addition of intelligent GPU detection for macOS Apple Silicon and NVIDIA GPUs enables optimal performance across different hardware architectures, making the system suitable for enterprise environments with strict data privacy requirements. The comprehensive document storage system with SQLite provides reliable metadata management, complete test coverage with enhanced GPU detection validation, document-specific QA testing, global experts prompt testing, streaming response testing, application lifecycle testing, UX helper testing, cache invalidation testing, k-estimation testing, metadata formatting testing, async operations testing, sparse embeddings testing, collection management testing, category-aware prompting system testing, **COLBERT EMBEDDINGS TESTING**, **HYBRID RERANK RETRIEVER TESTING**, **COLLECTION OPTIMIZATION TESTING**, and **SEGMENT OPTIMIZATION TESTING** that form the backbone of the document lifecycle management system. The new multi-provider orchestration via run_admin.sh script with interactive selection, comprehensive health checking, and intelligent GPU detection provides operational excellence for production deployments, while the specialized deployment scripts offer granular control over LLM and embedding server management with CPU detection capabilities and automated model downloading with GPU optimization. The document-specific question answering functionality through the admin interface provides administrators with powerful tools for expert-level document analysis and knowledge extraction, significantly enhancing the HR assistance capabilities of the Cafetera bot. The revolutionary category-aware global experts prompt system now enables cross-document knowledge synthesis and comprehensive question answering across the entire knowledge base through the CATEGORY_HINTS dictionary, representing a major advancement in RAG technology that allows users to ask complex questions that require insights from multiple HR documents simultaneously, providing a truly comprehensive HR assistance experience that goes far beyond traditional document retrieval systems. The enhanced application lifecycle management with centralized resource sharing, proper cleanup procedures, module-level singleton pattern, UX helper functions, character limit enforcement, cache invalidation system, k-estimation functionality, metadata formatting, AsyncQdrantRetriever null checks, enhanced error handling, sparse embeddings support, resource factory pattern, collection management, CATEGORY_HINTS integration, **COMPREHENSIVE HYBRID SEARCH SYSTEM**, **ENHANCED ASYNC QDRANT RETRIEVER**, **COLLECTION OPTIMIZATION**, **SEGMENT OPTIMIZATION**, **INTELLIGENT COLLECTION CREATION**, **REVOLUTIONARY COLBERT EMBEDDING ADAPTER**, **ASYNC HYBRID RERANK RETRIEVER**, **NAMED VECTOR SPACES CONFIGURATION**, **MULTIVECTOR SCORING OPTIMIZATION**, **AUTOMATIC OPTIMIZATION TRIGGERS**, and **INTELLIGENT COLLECTION CREATION** ensures reliable operation and backward compatibility across all deployment scenarios, while the comprehensive testing framework validates all enhancements and provides confidence in production readiness. The fully asynchronous architecture with AsyncQdrantClient throughout the pipeline provides improved performance, scalability, and reliability for production deployments, with comprehensive error handling, resource management, testing infrastructure, and category-aware prompting system supporting enterprise-grade RAG capabilities with specialized HR domain expertise across six major HR categories, **COMPREHENSIVE HYBRID SEARCH SYSTEM**, **REVOLUTIONARY COLBERT MULTIVECTOR EMBEDDINGS INTEGRATION**, **INTELLIGENT COLLECTION OPTIMIZATION**, and **AUTOMATIC SEGMENT OPTIMIZATION**.

@@ -1,14 +1,16 @@
 """Qdrant chunk indexing and management operations.
 
-Provides per-document operations: index, delete, toggle search, count.
+Provides per-document operations: index, delete, toggle search, count,
+and collection optimization.
 Used by ``DocumentService`` in the domain layer and by ``scripts/ingest.py``.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from qdrant_client import models
 from qdrant_client.async_qdrant_client import AsyncQdrantClient
@@ -52,10 +54,15 @@ async def index_chunks(
     collection_name: str,
     chunks: list[LCDocument],
     sparse_embedding=None,
+    colbert_embedding=None,
 ) -> int:
     """Add pre-prepared chunks to the Qdrant collection.
 
     The collection must already exist.  Returns the number of indexed chunks.
+
+    When ``colbert_embedding`` is provided, each point stores three vector
+    spaces: ``"dense"``, ``"bm25"``, and ``"colbert"``.  Otherwise stores
+    ``"dense"`` + optional ``"bm25"`` sparse.
     """
     if not chunks:
         return 0
@@ -69,7 +76,15 @@ async def index_chunks(
     if sparse_embedding is not None:
         sparse_vectors = sparse_embedding.embed_documents(texts)
 
-    # Build points for upsert (dense + sparse in one point)
+    # Compute ColBERT embeddings if provided
+    colbert_vectors = None
+    if colbert_embedding is not None:
+        colbert_vectors = colbert_embedding.embed_documents(texts)
+
+    # Build points for upsert — collection always uses named vectors:
+    # "dense" + optional "bm25" + optional "colbert"
+    use_colbert = colbert_vectors is not None
+    use_sparse = sparse_vectors is not None
     points = []
     for i, chunk in enumerate(chunks):
         point_id = chunk.metadata.get("chunk_id", uuid.uuid4().hex)
@@ -82,16 +97,23 @@ async def index_chunks(
             "metadata": clean_meta,
             "is_search_enabled": is_search_enabled,
         }
-        vector: dict | list = vectors[i]
-        if sparse_vectors is not None:
+
+        # Always use named vector layout matching collection's vectors_config
+        vector: dict[str, Any] = {
+            "dense": vectors[i],
+        }
+        if use_sparse:
             sv = sparse_vectors[i]
-            vector = {
-                "": vectors[i],
-                "text-sparse": models.SparseVector(
-                    indices=sv.indices,
-                    values=sv.values,
-                ),
-            }
+            indices = sv.indices.tolist() if hasattr(sv.indices, "tolist") else sv.indices
+            values = sv.values.tolist() if hasattr(sv.values, "tolist") else sv.values
+            vector["bm25"] = models.SparseVector(
+                indices=indices,
+                values=values,
+            )
+        if use_colbert:
+            assert colbert_vectors is not None  # guaranteed by use_colbert
+            vector["colbert"] = colbert_vectors[i]
+
         points.append(
             models.PointStruct(
                 id=point_id,
@@ -188,3 +210,60 @@ async def count_document_chunks(
         ),
     )
     return result.count
+
+
+async def optimize_collection(
+    client: AsyncQdrantClient,
+    collection_name: str,
+    *,
+    indexing_threshold: int = 10000,
+) -> None:
+    """Trigger segment optimization on a Qdrant collection.
+
+    Temporarily sets ``indexing_threshold`` to 0 to force the optimizer
+    to merge all small segments into fewer larger ones.  This reduces
+    storage overhead (especially for sparse BM25 vectors which allocate
+    a full ``page_0.dat`` per segment) and improves query performance.
+
+    After optimization completes, the original ``indexing_threshold`` is
+    restored so that future writes do not trigger unnecessary merges.
+    """
+    # Force optimization by setting indexing_threshold to 0
+    # Note: vacuum_min_vector_number has a hard minimum of 100 in Qdrant,
+    # so optimization only works for collections with 100+ vectors.
+    await client.update_collection(
+        collection_name=collection_name,
+        optimizers_config=models.OptimizersConfigDiff(
+            indexing_threshold=0,
+        ),
+    )
+    logger.info(
+        "Triggered segment optimization for '%s' (indexing_threshold=0)",
+        collection_name,
+    )
+
+    # Wait for optimization to complete by polling collection info
+    for _ in range(60):  # max 60 seconds
+        info = await client.get_collection(collection_name)
+        if info.status == "green" and info.optimizer_status == "ok":
+            break
+        await asyncio.sleep(1)
+    else:
+        logger.warning(
+            "Optimization of '%s' did not complete within 60s",
+            collection_name,
+        )
+
+    # Restore original indexing_threshold
+    # Note: vacuum_min_vector_number stays at its default (100)
+    await client.update_collection(
+        collection_name=collection_name,
+        optimizers_config=models.OptimizersConfigDiff(
+            indexing_threshold=indexing_threshold,
+        ),
+    )
+    logger.info(
+        "Restored indexing_threshold=%d for '%s'",
+        indexing_threshold,
+        collection_name,
+    )

@@ -29,7 +29,8 @@ from qdrant_client import AsyncQdrantClient, models
 sys.path.insert(0, ".")
 
 from app.config import Settings, configure_logging
-from app.rag.indexer import index_chunks, prepare_chunks
+from app.rag.colbert_embeddings import build_colbert_embeddings
+from app.rag.indexer import index_chunks, optimize_collection, prepare_chunks
 from app.rag.parser import load_document
 from app.rag.retriever import build_embeddings, build_qdrant_client, build_sparse_embeddings
 from app.storage.database import init_db
@@ -78,6 +79,7 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
         # Build embeddings (needed for semantic chunking)
         embeddings = build_embeddings(settings)
         sparse = build_sparse_embeddings(settings)
+        colbert = build_colbert_embeddings(settings)
 
         for path in all_files:
             logger.info("Processing %s ...", path.name)
@@ -133,23 +135,111 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
             # Create collection with proper vector configuration
             test_embedding = embeddings.embed_documents(["test"])
             vector_size = len(test_embedding[0])
-            vectors_config = models.VectorParams(
-                size=vector_size,
-                distance=models.Distance.COSINE,
+
+            use_reranking = (
+                settings.reranking_enabled
+                and colbert is not None
             )
-            sparse_vectors_config = None
-            if sparse is not None:
-                sparse_vectors_config = {
-                    "text-sparse": models.SparseVectorParams(
-                        index=models.SparseIndexParams(on_disk=False),
-                    )
+
+            if use_reranking:
+                colbert_dim = colbert.dimension
+                vectors_config = {
+                    "dense": models.VectorParams(
+                        size=vector_size,
+                        distance=models.Distance.COSINE,
+                        quantization_config=models.ScalarQuantization(
+                            scalar=models.ScalarQuantizationConfig(
+                                type=models.ScalarType.INT8,
+                                quantile=0.99,
+                                always_ram=False,
+                            ),
+                        ),
+                    ),
+                    "colbert": models.VectorParams(
+                        size=colbert_dim,
+                        distance=models.Distance.COSINE,
+                        multivector_config=models.MultiVectorConfig(
+                            comparator=models.MultiVectorComparator.MAX_SIM,
+                        ),
+                        hnsw_config=models.HnswConfigDiff(m=0),
+                        on_disk=True,
+                        quantization_config=models.ScalarQuantization(
+                            scalar=models.ScalarQuantizationConfig(
+                                type=models.ScalarType.INT8,
+                                quantile=0.99,
+                                always_ram=False,
+                            ),
+                        ),
+                    ),
                 }
+                sparse_vectors_config = {
+                    "bm25": models.SparseVectorParams(
+                        modifier=models.Modifier.IDF,
+                        index=models.SparseIndexParams(on_disk=True),
+                    ),
+                }
+                logger.info(
+                    "Created collection '%s' with reranking config "
+                    "(dense_dim=%d, colbert_dim=%d, bm25, INT8 quantization)",
+                    collection,
+                    vector_size,
+                    colbert_dim,
+                )
+            else:
+                vectors_config = {
+                    "dense": models.VectorParams(
+                        size=vector_size,
+                        distance=models.Distance.COSINE,
+                        quantization_config=models.ScalarQuantization(
+                            scalar=models.ScalarQuantizationConfig(
+                                type=models.ScalarType.INT8,
+                                quantile=0.99,
+                                always_ram=False,
+                            ),
+                        ),
+                    ),
+                }
+                sparse_vectors_config = None
+                if sparse is not None:
+                    sparse_vectors_config = {
+                        "bm25": models.SparseVectorParams(
+                            modifier=models.Modifier.IDF,
+                            index=models.SparseIndexParams(on_disk=True),
+                        )
+                    }
+                logger.info(
+                    "Created collection '%s' with vector_size=%d, INT8 quantization",
+                    collection,
+                    vector_size,
+                )
+
             await client.create_collection(
                 collection_name=collection,
                 vectors_config=vectors_config,
                 sparse_vectors_config=sparse_vectors_config,
+                optimizers_config=models.OptimizersConfigDiff(
+                    indexing_threshold=10000,
+                    deleted_threshold=0.2,
+                ),
+                quantization_config=models.ScalarQuantization(
+                    scalar=models.ScalarQuantizationConfig(
+                        type=models.ScalarType.INT8,
+                        quantile=0.99,
+                        always_ram=False,
+                    ),
+                ),
             )
-            logger.info("Created collection '%s' with vector_size=%d", collection, vector_size)
+
+            # Create payload index for frequently filtered boolean field
+            await client.create_payload_index(
+                collection_name=collection,
+                field_name="is_search_enabled",
+                field_schema=models.PayloadSchemaType.BOOL,
+            )
+            logger.info(
+                "Created BOOL payload index on '%s.is_search_enabled'",
+                collection,
+            )
 
             # Index chunks using async indexer
             await index_chunks(
@@ -158,12 +248,23 @@ async def ingest(docs_dir: Path, settings: Settings) -> int:
                 collection_name=collection,
                 chunks=all_docs,
                 sparse_embedding=sparse,
+                colbert_embedding=colbert,
             )
             logger.info(
                 "Ingestion complete: %d chunk(s) stored in '%s'",
                 len(all_docs),
                 collection,
             )
+
+            # Merge segments to reduce BM25 storage overhead
+            try:
+                await optimize_collection(client, collection)
+            except Exception:
+                logger.warning(
+                    "Post-ingest optimization failed for '%s'",
+                    collection,
+                    exc_info=True,
+                )
 
             # Update document records with results
             now = datetime.now(UTC)

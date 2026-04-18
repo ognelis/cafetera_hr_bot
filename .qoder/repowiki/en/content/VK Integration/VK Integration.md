@@ -20,6 +20,8 @@
 - [chain.py](file://app/rag/chain.py)
 - [retriever.py](file://app/rag/retriever.py)
 - [indexer.py](file://app/rag/indexer.py)
+- [prompts.py](file://app/rag/prompts.py)
+- [topic_hints.py](file://app/domain/topic_hints.py)
 - [polling_vk.py](file://scripts/polling_vk.py)
 - [resources.py](file://app/resources.py)
 - [config.py](file://app/config.py)
@@ -29,6 +31,7 @@
 - [test_keyboards.py](file://tests/test_keyboards.py)
 - [test_states.py](file://tests/test_states.py)
 - [test_ask_block9.py](file://tests/test_ask_block9.py)
+- [test_category_hints.py](file://tests/test_category_hints.py)
 - [category_file_service.py](file://app/domain/category_file_service.py)
 - [category_files.py](file://app/api/category_files.py)
 - [s3.py](file://app/storage/s3.py)
@@ -43,15 +46,20 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced fire handler with entity-based resignation flow and improved error handling using decorators
-- Integrated document attachment system for delivering company-specific templates
-- Improved error handling with decorators (@catch_entity_error) and require_entity functions
-- Implemented AsyncQdrant client integration for fully asynchronous operations
-- Enhanced resource management with graceful degradation and comprehensive lifecycle management
-- Added hybrid search capabilities with sparse embeddings for enhanced retrieval
-- Updated legal entity definitions with full company names for accurate template generation
-- Implemented send_document_or_fallback helper for consistent document delivery patterns
-- Enhanced keyboard system with entity selection for multi-step workflows
+- Enhanced category-aware functionality with scenario ID passing for RAG queries
+- Added category parameter specification for targeted content delivery
+- Implemented category hint system for scenario-specific RAG processing
+- Updated RAG chain building to support category-based filtering and system prompts
+- Enhanced ask handler with scenario ID detection and category parameter passing
+- Added category parameter support to centralized QA service access layer
+- Updated sections handler to use category-aware RAG queries for specific HR domains
+- Enhanced topic hints system with scenario ID detection for navigation
+- Implemented category hint injection into RAG system prompts for focused responses
+- Enhanced error handling system with require_entity functions and @catch_entity_error decorators
+- Integrated AsyncQdrantClient for fully asynchronous operations
+- Added hybrid search capabilities with sparse embeddings
+- Implemented intelligent timeout handling for RAG responses
+- Enhanced fire handler with entity-based resignation flow and document template delivery
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -61,24 +69,26 @@
 5. [Centralized State Management](#centralized-state-management)
 6. [Centralized QA Service Access Layer](#centralized-qa-service-access-layer)
 7. [Enhanced RAG Response Handling](#enhanced-rag-response-handling)
-8. [Document Template Management System](#document-template-management-system)
-9. [QA Service and RAG Integration](#qa-service-and-rag-integration)
-10. [Enhanced Fire Handler with Entity-Based Resignation Flow](#enhanced-fire-handler-with-entity-based-resignation-flow)
-11. [Enhanced Error Handling with Decorators](#enhanced-error-handling-with-decorators)
-12. [Async Qdrant Client Integration](#async-qdrant-client-integration)
-13. [Improved Resource Management](#improved-resource-management)
-14. [Hybrid Search Capabilities](#hybrid-search-capabilities)
-15. [Detailed Component Analysis](#detailed-component-analysis)
-16. [Dependency Analysis](#dependency-analysis)
-17. [Performance Considerations](#performance-considerations)
-18. [Troubleshooting Guide](#troubleshooting-guide)
-19. [Conclusion](#conclusion)
-20. [Appendices](#appendices)
+8. [Category-Aware RAG Processing](#category-aware-rag-processing)
+9. [Scenario ID Detection and Navigation](#scenario-id-detection-and-navigation)
+10. [Document Template Management System](#document-template-management-system)
+11. [QA Service and RAG Integration](#qa-service-and-rag-integration)
+12. [Enhanced Fire Handler with Entity-Based Resignation Flow](#enhanced-fire-handler-with-entity-based-resignation-flow)
+13. [Enhanced Error Handling with Decorators](#enhanced-error-handling-with-decorators)
+14. [Async Qdrant Client Integration](#async-qdrant-client-integration)
+15. [Improved Resource Management](#improved-resource-management)
+16. [Hybrid Search Capabilities](#hybrid-search-capabilities)
+17. [Detailed Component Analysis](#detailed-component-analysis)
+18. [Dependency Analysis](#dependency-analysis)
+19. [Performance Considerations](#performance-considerations)
+20. [Troubleshooting Guide](#troubleshooting-guide)
+21. [Conclusion](#conclusion)
+22. [Appendices](#appendices)
 
 ## Introduction
-This document explains the VKontakte integration system built with the vkbottle framework, featuring a comprehensive QA service integration for Retrieval-Augmented Generation (RAG) processing across all HR-related handlers. The system implements a bot factory pattern with centralized state dispenser sharing, advanced handler registration and ordering, payload-based navigation, and sophisticated VK API integration patterns. It covers bot initialization, message routing, RAG-powered content delivery, and practical guidance for extending the bot with new handlers, customizing behavior, and integrating with VK's webhook system. Common integration challenges, robust error handling, and best practices for VK bot development are addressed.
+This document explains the VKontakte integration system built with the vkbottle framework, featuring a comprehensive QA service integration for Retrieval-Augmented Generation (RAG) processing across all HR-related handlers. The system implements a bot factory pattern with centralized state dispenser sharing, advanced handler registration and ordering, payload-based navigation, and sophisticated VK API integration patterns. It covers bot initialization, message routing, category-aware RAG-powered content delivery, and practical guidance for extending the bot with new handlers, customizing behavior, and integrating with VK's webhook system. Common integration challenges, robust error handling, and best practices for VK bot development are addressed.
 
-**Updated** The system now features enhanced domain services with async Qdrant client integration and improved resource management, providing better performance, reliability, and scalability for RAG operations. The new async patterns eliminate sync client overhead and enable fully asynchronous operations throughout the system. The enhanced error handling system provides consistent patterns across all handlers using require_entity functions and @catch_entity_error decorators.
+**Updated** The system now features enhanced category-aware functionality with scenario ID passing and category parameter specification for RAG queries. This allows for targeted content delivery based on user intent detection, enabling more precise and relevant responses for different HR scenarios such as hiring, firing, vacations, pay, sick leave, and probation periods. The system integrates AsyncQdrantClient for fully asynchronous operations, hybrid search capabilities with sparse embeddings, and intelligent timeout handling for improved user experience.
 
 ## Project Structure
 The VK integration resides under app/integrations/vk and includes:
@@ -86,7 +96,7 @@ The VK integration resides under app/integrations/vk and includes:
 - Handler modules for start/main menu, section entry points, dedicated ask-a-question functionality, and HR request workflows
 - Keyboard builders for consistent UI and payload-driven navigation
 - State definitions for multi-step dialogs using centralized state dispenser
-- A domain-level QA service that provides RAG processing capabilities with async Qdrant client integration
+- A domain-level QA service that provides RAG processing capabilities with async Qdrant client integration and category-aware filtering
 - Enhanced fire handler with entity-based resignation flow and improved error handling
 - A new document attachment system for delivering company-specific templates
 - Tests validating factory wiring, keyboard layouts, state definitions, QA service integration, and enhanced handler functionality
@@ -113,9 +123,11 @@ end
 subgraph "Enhanced Domain Services"
 RESOURCES["resources.py<br/>Async resource management"]
 QA_SERVICE["domain/qa_service.py<br/>Async Qdrant integration"]
-CHAIN["rag/chain.py<br/>RAG implementation"]
+CHAIN["rag/chain.py<br/>RAG implementation with category hints"]
 RETRIEVER["rag/retriever.py<br/>Async Qdrant retriever"]
 INDEXER["rag/indexer.py<br/>Async document indexing"]
+PROMPTS["rag/prompts.py<br/>Category hints system prompts"]
+TOPIC_HINTS["domain/topic_hints.py<br/>Scenario ID detection"]
 end
 subgraph "Enhanced Error Handling"
 REQUIRE_ENTITY["require_entity<br/>Entity validation function"]
@@ -131,6 +143,7 @@ RESOURCES --> SCRIPT["scripts/polling_vk.py<br/>Async runner"]
 RESOURCES --> MAIN["app/main.py<br/>FastAPI lifespan"]
 RESOURCES --> QA_SERVICE
 QA_SERVICE --> RETRIEVER
+QA_SERVICE --> PROMPTS
 RETRIEVER --> INDEXER
 UTILS --> QA_SERVICE
 UTILS --> STATES
@@ -161,6 +174,8 @@ TESTS["tests/<br/>Enhanced integration tests"]
 - [chain.py:1-80](file://app/rag/chain.py#L1-L80)
 - [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
 - [indexer.py:13-49](file://app/rag/indexer.py#L13-49)
+- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
 - [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
 - [config.py:1-9](file://app/config.py#L1-L9)
 - [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
@@ -176,7 +191,7 @@ TESTS["tests/<br/>Enhanced integration tests"]
 - Centralized state management: Uses BuiltinStateDispenser singleton pattern shared between bot and handlers for consistent state persistence
 - Handlers: Define message routes for start, main menu navigation, section entry points, dedicated ask-a-question functionality, and multi-step HR request workflows
 - Centralized QA utilities: Provide unified access patterns for QA service initialization, retrieval, and error handling across all handlers
-- QA Service: Provides centralized RAG processing with proper resource management, error handling, and VK message length truncation
+- QA Service: Provides centralized RAG processing with proper resource management, error handling, VK message length truncation, and category-aware filtering
 - Enhanced fire handler: Implements entity-based resignation flow with document template attachment and improved error handling using decorators
 - Document attachment system: Provides helper functions for sending S3-stored documents as VK message attachments
 - Keyboard builders: Provide consistent UI and payload constants for navigation, including new entity selection flows
@@ -184,9 +199,14 @@ TESTS["tests/<br/>Enhanced integration tests"]
 - Legal entities: Manage company information with updated names and centralized entity lookup
 - Local runner: Initializes Settings and starts the bot in Long Poll mode with proper resource management
 - Resource management: Handles graceful initialization and cleanup of RAG resources and enhanced service components
-- **New** Async Qdrant client integration: Provides fully asynchronous operations with AsyncQdrantClient for improved performance
+- **New** Category-aware RAG processing: Enables targeted content delivery based on scenario detection and category parameter specification
+- **New** Scenario ID detection: Automatically identifies user intent and provides navigation shortcuts to relevant HR sections
+- **New** Category hint system: Injects scenario-specific context into RAG system prompts for focused responses
 - **New** Enhanced error handling system: Provides consistent entity validation and error handling across all handlers using require_entity functions and @catch_entity_error decorators
+- **New** Async Qdrant client integration: Provides fully asynchronous operations with AsyncQdrantClient for improved performance
 - **New** Hybrid search capabilities: Supports both dense and sparse embedding retrieval for enhanced document search
+- **New** Intelligent timeout handling: Automatically manages slow RAG responses with "please wait" notifications
+- **New** Automatic question context prepending: Ensures user questions remain visible in conversation history
 - **New** Resource lifecycle management: Implements proper async resource initialization and cleanup with graceful degradation
 
 Key implementation references:
@@ -206,9 +226,15 @@ Key implementation references:
 - Local runner with resource management: [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
 - Settings: [config.py:4-9](file://app/config.py#L4-L9)
 - Resource management: [resources.py:51-165](file://app/resources.py#L51-L165)
+- **New** Category-aware RAG processing: [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153), [chain.py:104-109](file://app/rag/chain.py#L104-L109)
+- **New** Scenario ID detection: [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- **New** Category hint system: [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- **New** Category parameter passing: [ask.py:76](file://app/integrations/vk/handlers/ask.py#L76), [sections.py:26](file://app/integrations/vk/handlers/sections.py#L26)
 - **New** Async Qdrant client integration: [retriever.py:20-53](file://app/rag/retriever.py#L20-L53), [resources.py:167-189](file://app/resources.py#L167-L189)
 - **New** Enhanced error handling system: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
 - **New** Hybrid search capabilities: [retriever.py:135-151](file://app/rag/retriever.py#L135-L151), [resources.py:191-202](file://app/resources.py#L191-L202)
+- **New** Intelligent timeout handling: [handlers/__init__.py:58-88](file://app/integrations/vk/handlers/__init__.py#L58-88)
+- **New** Automatic question context prepending: [handlers/__init__.py:90-99](file://app/integrations/vk/handlers/__init__.py#L90-99)
 
 **Section sources**
 - [bot.py:24-59](file://app/integrations/vk/bot.py#L24-L59)
@@ -229,6 +255,8 @@ Key implementation references:
 - [attachments.py:1-121](file://app/integrations/vk/attachments.py#L1-121)
 - [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
 - [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
+- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
 
 ## Architecture Overview
 The VK bot follows a modular architecture with integrated RAG capabilities and centralized service management:
@@ -239,9 +267,14 @@ The VK bot follows a modular architecture with integrated RAG capabilities and c
 - Optional state groups enable multi-step dialogs with sophisticated HR workflows
 - Enhanced fire handler implements entity-based resignation flow with document template attachment and improved error handling
 - Resource management handles graceful initialization and cleanup of RAG components and enhanced service components
+- **New** Category-aware RAG processing enables targeted content delivery based on scenario detection and category parameter specification
+- **New** Scenario ID detection automatically identifies user intent and provides navigation shortcuts to relevant HR sections
+- **New** Category hint system injects scenario-specific context into RAG system prompts for focused responses
 - **New** Async Qdrant client integration provides fully asynchronous operations with improved performance and reduced overhead
 - **New** Enhanced error handling system provides consistent entity validation and error handling across all handlers using require_entity functions and @catch_entity_error decorators
 - **New** Hybrid search capabilities support both dense and sparse embedding retrieval for enhanced document search
+- **New** Intelligent timeout handling prevents blocking operations and improves perceived performance
+- **New** Automatic question context prepending reduces user confusion and improves conversation clarity
 
 ```mermaid
 sequenceDiagram
@@ -257,6 +290,8 @@ participant QA as "QA Service"
 participant Attachments as "attachments.send_category_document()"
 participant Entities as "Legal Entities"
 participant Qdrant as "AsyncQdrantClient"
+participant TopicHints as "detect_topic_hint()"
+participant Prompts as "CATEGORY_HINTS"
 participant VK as "VK API"
 Dev->>Script : Run long poll
 Script->>Resources : build_resources(Settings)
@@ -274,8 +309,12 @@ Utils->>Qdrant : Connect async client
 Utils->>Entities : Load legal entities
 Labelers->>Utils : get_state_dispenser()
 Utils-->>Labelers : Shared BuiltinStateDispenser
-Labelers->>Utils : get_qa_service().ask()
-Utils->>QA : Query RAG for HR-related questions
+Labelers->>TopicHints : detect_topic_hint(question)
+TopicHints-->>Labelers : scenario_id, disclaimer
+Labelers->>Utils : get_qa_service().ask(question, category=scenario_id)
+Utils->>Prompts : CATEGORY_HINTS.get(category)
+Prompts-->>Utils : category_hint
+Utils->>QA : Query RAG with category hint
 Labelers->>Attachments : send_category_document()
 Attachments->>Entities : Get entity by ID
 Entities-->>Attachments : Legal entity info
@@ -297,6 +336,8 @@ Bot-->>VK : Send response
 - [qa_service.py:51-105](file://app/domain/qa_service.py#L51-L105)
 - [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
 - [entities.py:16-21](file://app/domain/entities.py#L16-L21)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
 
 ## Centralized State Management
 
@@ -390,7 +431,8 @@ class VKHandlersUtils {
 + get_qa_service() QAService
 + set_state_dispenser(sd) None
 + get_state_dispenser() BuiltinStateDispenser
-+ send_rag_answer(message, question, back_payload) None
++ send_rag_answer(message, question, back_payload, category) None
++ query_rag_with_wait(message, question, timeout, category) str
 + get_entity_or_error(message, entity_id, back_payload) Entity | None
 + require_entity(message, entity_id, back_payload) Entity
 + catch_entity_error(handler) decorator
@@ -403,7 +445,8 @@ class Holder {
 + category_file_service : CategoryFileService | None
 }
 class QAService {
-+ask(question) str
++ask(question, category) str
++stream_ask(question, category) AsyncGenerator
 +close_qa() None
 +_truncate(text) str
 }
@@ -455,8 +498,8 @@ participant Utils as "query_rag_with_wait()"
 participant QA as "QA Service"
 participant Task as "Async Task"
 User->>Handler : Ask question
-Handler->>Utils : query_rag_with_wait(message, question, timeout=3.0)
-Utils->>Task : Create async task for QA.ask()
+Handler->>Utils : query_rag_with_wait(message, question, timeout=3.0, category=scenario_id)
+Utils->>Task : Create async task for QA.ask(question, category)
 Utils->>Task : Create delay task (3 seconds)
 Utils->>Task : Wait for first completion
 alt RAG completes within 3 seconds
@@ -481,8 +524,8 @@ The enhanced `send_rag_answer()` function automatically prepends user question c
 
 ```mermaid
 flowchart TD
-Start(["send_rag_answer(message, question, back_payload)"]) --> Typing["Set typing indicator"]
-Typing --> Wait["Call query_rag_with_wait()"]
+Start(["send_rag_answer(message, question, back_payload, category)"]) --> Typing["Set typing indicator"]
+Typing --> Wait["Call query_rag_with_wait() with category"]
 Wait --> CheckTimeout{"RAG completed within 3s?"}
 CheckTimeout --> |Yes| Answer["Get answer from RAG"]
 CheckTimeout --> |No| WaitMsg["Send 'please wait' message"]
@@ -503,6 +546,7 @@ Send --> End(["Complete"])
 - **Automatic Context Preservation**: Ensures user questions remain visible in the conversation history
 - **Consistent Formatting**: Maintains standardized answer presentation across all handlers
 - **Graceful Degradation**: Continues processing even when RAG responses are delayed
+- **Category Parameter Support**: Enables targeted content delivery based on scenario detection
 
 **Updated** The new timeout handling system provides a seamless user experience by automatically managing slow RAG responses, while the automatic question context prepending ensures users always have clear reference to their original questions. All RAG-enabled handlers now use the enhanced `send_rag_answer()` function for consistent user experience.
 
@@ -510,6 +554,153 @@ Send --> End(["Complete"])
 - [handlers/__init__.py:46-86](file://app/integrations/vk/handlers/__init__.py#L46-L86)
 - [ask.py:75-90](file://app/integrations/vk/handlers/ask.py#L75-L90)
 - [test_ask_block9.py:94-112](file://tests/test_ask_block9.py#L94-L112)
+
+## Category-Aware RAG Processing
+
+### Category Parameter Specification
+The enhanced RAG system now supports category-aware processing through the category parameter specification:
+
+```mermaid
+classDiagram
+class QAService {
++ask(question, category) str
++stream_ask(question, category) AsyncGenerator
++_build_global_chain(k, category) Runnable | None
+}
+class CategoryHintSystem {
++CATEGORY_HINTS : dict[str, str]
++build_global_chain(k, category) Runnable | None
+}
+class AsyncQdrantRetriever {
++client : AsyncQdrantClient
++collection_name : str
++embeddings : Any
++k : int
++filter : Filter | None
++_aget_relevant_documents(query, run_manager) Coroutine[list[Document]]
+}
+class CategoryAwareChain {
++build_rag_chain(retriever, llm, system_prompt, include_metadata, category_hint) Runnable
++inject_category_hint(system_prompt, category_hint) str
+}
+QAService --> CategoryHintSystem : uses
+QAService --> AsyncQdrantRetriever : uses
+CategoryAwareChain --> CategoryHintSystem : injects
+```
+
+**Diagram sources**
+- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
+- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [chain.py:98-124](file://app/rag/chain.py#L98-L124)
+
+### Category Hint Injection
+The category hint system provides scenario-specific context injection into RAG system prompts:
+
+```mermaid
+flowchart TD
+Start(["User Question with Scenario ID"]) --> Detect["Detect Topic Hint (scenario_id)"]
+Detect --> Category{"Category Detected?"}
+Category --> |Yes| GetHint["Get CATEGORY_HINTS[scenario_id]"]
+Category --> |No| NoHint["Use None for category_hint"]
+GetHint --> Inject["Inject category_hint into system prompt"]
+NoHint --> Inject
+Inject --> BuildChain["Build RAG chain with category hint"]
+BuildChain --> Retrieve["Retrieve documents with category filter"]
+Retrieve --> Answer["Generate focused answer"]
+Answer --> End(["Send to User"])
+```
+
+**Diagram sources**
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [chain.py:104-109](file://app/rag/chain.py#L104-L109)
+
+### Key Features of Category-Aware Processing
+- **Scenario Detection**: Automatically identifies user intent through keyword-based detection
+- **Category Parameter Passing**: Passes scenario IDs as category parameters to RAG queries
+- **Category Hint Injection**: Injects scenario-specific context into system prompts for focused responses
+- **Targeted Content Delivery**: Enables HR-specific responses for different scenarios (hire, fire, vacation, pay, sick, probation)
+- **Enhanced User Experience**: Provides more relevant and precise answers based on user intent
+- **Navigation Integration**: Links scenario detections to relevant HR section navigation
+
+**Updated** The category-aware RAG processing system represents a significant enhancement to the HR bot's intelligence. By detecting scenario IDs from user questions and passing them as category parameters to the QA service, the system can inject scenario-specific context into RAG system prompts, resulting in more focused and relevant responses. The CATEGORY_HINTS dictionary provides scenario-specific guidance for different HR domains.
+
+**Section sources**
+- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
+- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [chain.py:98-124](file://app/rag/chain.py#L98-L124)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+
+## Scenario ID Detection and Navigation
+
+### Automatic Scenario ID Detection
+The topic hints system now provides automatic scenario ID detection for navigation:
+
+```mermaid
+classDiagram
+class TopicHint {
++scenario_id : str | None
++disclaimer : str | None
+}
+class TopicDetection {
++detect_topic_hint(question) TopicHint
++_SCENARIO_KEYWORDS : dict[str, list[str]]
++_BACKGROUND_TOPICS : list[tuple[list[str], str]]
+}
+class ScenarioNavigation {
++_SCENARIO_BUTTONS : dict[str, tuple[str, dict]]
++ask_result_kb(scenario_id) Keyboard
+}
+TopicDetection --> TopicHint : creates
+ScenarioNavigation --> TopicHint : uses scenario_id
+```
+
+**Diagram sources**
+- [topic_hints.py:14-26](file://app/domain/topic_hints.py#L14-L26)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [keyboards.py:236-243](file://app/integrations/vk/keyboards.py#L236-L243)
+
+### Scenario-Based Navigation
+The ask handler now uses scenario ID detection for intelligent navigation:
+
+```mermaid
+flowchart TD
+Start(["User asks question"]) --> Detect["detect_topic_hint(question)"]
+Detect --> HasScenario{"scenario_id detected?"}
+HasScenario --> |Yes| ScenarioID["Get scenario_id"]
+HasScenario --> |No| NoScenario["Use None"]
+ScenarioID --> Query["Query RAG with category=scenario_id"]
+NoScenario --> Query
+Query --> Answer["Get RAG answer"]
+Answer --> Disclaimer{"Has disclaimer?"}
+Disclaimer --> |Yes| AddDisclaimer["Add background-topic disclaimer"]
+Disclaimer --> |No| Prepend["Prepend question context"]
+AddDisclaimer --> Prepend
+Prepend --> Keyboard["Build ask_result_kb(scenario_id)"]
+Keyboard --> Send["Send answer with navigation"]
+Send --> End(["Complete"])
+```
+
+**Diagram sources**
+- [ask.py:72-89](file://app/integrations/vk/handlers/ask.py#L72-L89)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [keyboards.py:252-262](file://app/integrations/vk/keyboards.py#L252-L262)
+
+### Key Features of Scenario Detection
+- **Keyword-Based Detection**: Uses predefined keyword lists to identify scenario intents
+- **Background Topic Priority**: Background topics take priority over clickable scenarios
+- **Navigation Integration**: Automatically generates scenario-specific navigation buttons
+- **Disclaimer Support**: Provides additional context for sensitive HR topics
+- **Backward Compatibility**: Maintains existing functionality while adding new capabilities
+- **Extensible Design**: Easy to add new scenarios and keywords
+
+**Updated** The scenario ID detection system provides intelligent navigation by automatically analyzing user questions for HR scenario keywords. When detected, the system passes the scenario ID as a category parameter to RAG queries and generates scenario-specific navigation buttons. This creates a more intuitive user experience by connecting questions to relevant HR sections.
+
+**Section sources**
+- [topic_hints.py:14-26](file://app/domain/topic_hints.py#L14-L26)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [ask.py:72-89](file://app/integrations/vk/handlers/ask.py#L72-L89)
+- [keyboards.py:236-262](file://app/integrations/vk/keyboards.py#L236-L262)
 
 ## Document Template Management System
 
@@ -575,7 +766,7 @@ Fallback --> End
 ### Key Features of Enhanced Document Management
 - **Entity-Specific Templates**: Company-specific resignation templates delivered based on legal entity selection
 - **Document Attachment Delivery**: Direct document attachment to VK messages with proper MIME type handling
-- **Fallback Mechanism**: Automatic fallback to RAG-generated content when templates are unavailable
+- **Fallback Mechanism**: Automatic fallback to RAG responses when templates are unavailable
 - **Error Handling**: Comprehensive error handling for S3 connectivity, VK API failures, and template validation
 - **Template Validation**: Ensures templates exist before attempting delivery
 - **Upload Server Integration**: Proper VK API integration for document upload and saving
@@ -598,13 +789,14 @@ class QAService {
 -_chain : Runnable | None
 -_qdrant_client : AsyncQdrantClient | None
 +init_qa(settings) None
-+ask(question) str
++ask(question, category) str
++stream_ask(question, category) AsyncGenerator
 +close_qa() None
 +_truncate(text) str
 }
 class RAGChain {
 +build_llm(settings) BaseChatModel
-+build_rag_chain(retriever, llm) Runnable
++build_rag_chain(retriever, llm, system_prompt, include_metadata, category_hint) Runnable
 }
 class ErrorHandler {
 +ERR_NO_ANSWER : str
@@ -629,7 +821,8 @@ Detect --> Utils["Centralized QA Access"]
 Utils --> QAService["QA Service.ask()"]
 QAService --> CheckChain{"Chain Available?"}
 CheckChain --> |No| NoAnswer["Return ERR_NO_ANSWER"]
-CheckChain --> |Yes| Invoke["Invoke RAG Chain"]
+CheckChain --> |Yes| BuildChain["Build chain with category_hint"]
+BuildChain --> Invoke["Invoke RAG Chain"]
 Invoke --> HandleError{"Exception?"}
 HandleError --> |Yes| DocUnavailable["Return ERR_DOCUMENT_UNAVAILABLE"]
 HandleError --> |No| CheckAnswer{"Empty Answer?"}
@@ -815,9 +1008,9 @@ class AsyncQdrantRetriever {
 }
 class QAService {
 +_qdrant_client : AsyncQdrantClient | None
-+_build_global_chain(k) Runnable | None
++_build_global_chain(k, category) Runnable | None
 +_build_document_chain(document_id) Runnable | None
-+ask(question) Coroutine[str]
++ask(question, category) Coroutine[str]
 +ask_about_document(question, document_id) Coroutine[str]
 }
 AsyncQdrantClient --> AsyncQdrantRetriever : provides async operations
@@ -977,6 +1170,7 @@ The hybrid search system provides flexible configuration for different retrieval
 - The QA service is initialized during bot creation and registered with the centralized utilities module for consistent access patterns
 - Enhanced fire handler is now included in the handler registration process with improved error handling patterns
 - **New** Async resource management ensures proper initialization of Qdrant clients and embeddings before handler registration
+- **New** Category-aware RAG processing is integrated into the QA service initialization for scenario-based content delivery
 
 **Updated** The factory now registers 27 total handlers across all VK integration modules, with the enhanced fire handler providing comprehensive entity-based resignation flow and improved error handling using decorators. The handler registration order ensures proper routing precedence with fallback as the last handler. The new async resource management ensures Qdrant clients and embeddings are properly initialized before any handlers attempt to use them.
 
@@ -1009,8 +1203,12 @@ Log --> ReturnBot(["Return Bot"])
 - Enhanced fire workflow provides two-step entity selection process for resignation flow
 - Document attachment system delivers company-specific templates based on entity selection
 - QA service integration provides fallback content when templates are unavailable
+- **New** Category-aware RAG processing enables scenario-specific content delivery through category parameter passing
+- **New** Scenario ID detection automatically identifies user intent and provides navigation shortcuts
+- **New** Category hint injection enhances RAG responses with scenario-specific context
 - **New** Async Qdrant client integration enables fully asynchronous RAG operations
 - **New** Enhanced error handling system provides consistent entity validation across all handlers using require_entity functions and @catch_entity_error decorators
+- **New** Hybrid search capabilities support both dense and sparse embedding retrieval for enhanced document search
 
 ```mermaid
 sequenceDiagram
@@ -1078,6 +1276,8 @@ Fallback-->>User : Prompt to use menu
 - Enhanced fire workflow keyboards support two-step entity selection process
 - Document attachment system enables dynamic template loading based on entity selection
 - Entity selection keyboards provide company-specific template delivery
+- **New** Scenario ID detection integrates with keyboard builders for intelligent navigation
+- **New** Category hint system enhances keyboard buttons with scenario-specific context
 
 ```mermaid
 classDiagram
@@ -1170,6 +1370,7 @@ BotStates --> BuiltinStateDispenser : uses
 - Resource management handles graceful initialization and cleanup of RAG components
 - Logging is configured for development visibility with RAG processing metrics
 - **New** Async resource management ensures proper initialization of Qdrant clients and embeddings before bot creation
+- **New** Category-aware RAG processing is integrated into the QA service initialization for scenario-based content delivery
 
 ```mermaid
 sequenceDiagram
@@ -1220,7 +1421,7 @@ Valid --> |Yes| Retry["Prompt for question again"]
 Valid --> |No| ClearState["Clear state"]
 ClearState --> Typing["Show typing indicator"]
 Typing --> Detect["Detect topic hints"]
-Detect --> Query["Query RAG with wait"]
+Detect --> Query["Query RAG with wait and category"]
 Query --> Hint{"Has disclaimer?"}
 Hint --> |Yes| AddDisclaimer["Add background topic disclaimer"]
 Hint --> |No| Prepend["Prepend question context"]
@@ -1306,6 +1507,9 @@ External dependencies relevant to VK integration:
 - **New** qdrant-client provides AsyncQdrantClient for fully asynchronous vector database operations
 - **New** langchain-qdrant provides integration with Qdrant vector database
 - **New** fastembed provides sparse embedding support for hybrid search
+- **New** category-aware RAG processing with scenario ID detection and category hint injection
+- **New** topic hints system for automatic scenario identification
+- **New** category hint system for scenario-specific RAG context
 - aiobotocore provides async S3/MinIO client for cloud storage
 - aiosqlite provides async SQLite access for metadata storage
 
@@ -1324,6 +1528,8 @@ CFService --> S3["S3Storage"]
 QA --> LangChain["LangChain"]
 QA --> AsyncQdrant["AsyncQdrantClient"]
 QA --> FastEmbed["FastEmbed (hybrid)"]
+QA --> Prompts["CATEGORY_HINTS (prompts.py)"]
+QA --> TopicHints["detect_topic_hint (topic_hints.py)"]
 Resources["Resources (resources.py)"] --> VKBot
 Resources --> QA
 Resources --> Attachments
@@ -1346,6 +1552,8 @@ Tests --> Cfg
 - [category_repo.py:47-52](file://app/storage/category_repo.py#L47-L52)
 - [s3.py:14-37](file://app/storage/s3.py#L14-L37)
 - [resources.py:51-165](file://app/resources.py#L51-L165)
+- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
 - [pyproject.toml:17-21](file://pyproject.toml#L17-L21)
 
 **Section sources**
@@ -1359,6 +1567,8 @@ Tests --> Cfg
 - [category_repo.py:47-52](file://app/storage/category_repo.py#L47-L52)
 - [s3.py:14-37](file://app/storage/s3.py#L14-L37)
 - [resources.py:51-165](file://app/resources.py#L51-L165)
+- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
 
 ## Performance Considerations
 - Handler order minimizes unnecessary evaluations; keep fallback last
@@ -1372,6 +1582,9 @@ Tests --> Cfg
 - Centralized utilities provide consistent error handling and fallback responses for QA service failures
 - Shared state dispenser reduces memory overhead across handlers
 - Resource management handles graceful initialization and cleanup of RAG components
+- **New** Category-aware RAG processing reduces retrieval scope through category parameter filtering
+- **New** Scenario ID detection improves response relevance by focusing on specific HR domains
+- **New** Category hint injection enhances RAG responses with scenario-specific context without additional retrieval costs
 - **New** Async Qdrant client integration eliminates sync client overhead and improves performance
 - **New** Fully asynchronous operations reduce latency and resource consumption
 - **New** Async resource management ensures proper initialization order and cleanup
@@ -1425,6 +1638,21 @@ Common issues and resolutions:
   - Verify BuiltinStateDispenser is properly shared between bot and handlers
   - Check that set_state_dispenser() is called during bot creation
   - Ensure get_state_dispenser() is used consistently across all handlers
+- **New** Category-aware RAG processing issues:
+  - Verify category parameter is properly passed from topic detection
+  - Check that CATEGORY_HINTS contains the expected scenario IDs
+  - Ensure category_hint injection is working correctly in RAG chain building
+  - Verify scenario ID detection is returning expected values
+- **New** Scenario ID detection issues:
+  - Check that _SCENARIO_KEYWORDS contains expected keywords for each scenario
+  - Verify topic_hints.detect_topic_hint() is properly imported and used
+  - Ensure scenario buttons are properly mapped in _SCENARIO_BUTTONS
+  - Check that ask_result_kb() is receiving scenario_id correctly
+- **New** Category hint system issues:
+  - Verify CATEGORY_HINTS dictionary contains all expected scenario IDs
+  - Check that category_hint injection is working in build_rag_chain()
+  - Ensure scenario-specific context is being added to system prompts
+  - Verify category parameter is being passed correctly through the QA service
 - **New** Async Qdrant client issues:
   - Verify AsyncQdrantClient is properly initialized with correct URL and API key
   - Check for async resource initialization order in build_resources()
@@ -1485,6 +1713,9 @@ Validation references:
 - Enhanced fire handler functionality: [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
 - Document attachment system: [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
 - State dispenser sharing: [test_bot_factory.py:82-86](file://tests/test_bot_factory.py#L82-L86)
+- **New** Category-aware RAG processing: [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
+- **New** Scenario ID detection: [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- **New** Category hint system: [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
 - **New** Async Qdrant client integration: [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
 - **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
 - **New** Fire handler with decorators: [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
@@ -1492,6 +1723,8 @@ Validation references:
 - **New** Vacation handler with backward compatibility: [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
 - **New** Hybrid search capabilities: [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
 - **New** Resource lifecycle management: [resources.py:127-303](file://app/resources.py#L127-L303)
+- **New** Intelligent timeout handling: [handlers/__init__.py:58-88](file://app/integrations/vk/handlers/__init__.py#L58-88)
+- **New** Automatic question context prepending: [handlers/__init__.py:90-99](file://app/integrations/vk/handlers/__init__.py#L90-99)
 
 **Section sources**
 - [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -1509,11 +1742,25 @@ Validation references:
 - [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
 - [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
 - [resources.py:127-303](file://app/resources.py#L127-L303)
+- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
+- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [handlers/__init__.py:58-88](file://app/integrations/vk/handlers/__init__.py#L58-88)
+- [handlers/__init__.py:90-99](file://app/integrations/vk/handlers/__init__.py#L90-99)
 
 ## Conclusion
 The VK integration leverages a clean factory pattern with centralized state dispenser sharing, deterministic handler ordering, payload-driven navigation, and comprehensive RAG integration with centralized service management to deliver a sophisticated, extensible bot. The system now includes significant user experience improvements through intelligent timeout handling for RAG responses, automatic question context prepending, enhanced fire workflow with entity-based resignation flow, document template attachment capabilities, and updated legal entity definitions with new company names.
 
-**Updated** The system now features enhanced domain services with async Qdrant client integration and improved resource management, providing better performance, reliability, and scalability for RAG operations. The new async patterns eliminate sync client overhead and enable fully asynchronous operations throughout the system. The enhanced error handling consistency with new require_entity decorators and @catch_entity_error decorators provides improved reliability and user experience across all HR-related handlers.
+**Updated** The system now features enhanced category-aware functionality with scenario ID passing and category parameter specification for RAG queries. This represents a major advancement in HR bot intelligence, enabling targeted content delivery based on user intent detection. The category-aware RAG processing system automatically detects scenario IDs from user questions, passes them as category parameters to the QA service, and injects scenario-specific context into system prompts for focused responses. The scenario ID detection system provides intelligent navigation by generating scenario-specific buttons and maintaining backward compatibility with existing functionality.
+
+The new category-aware RAG processing system provides several key benefits:
+- **Enhanced User Experience**: More relevant and precise answers based on detected user intent
+- **Intelligent Navigation**: Automatic scenario-based navigation to relevant HR sections
+- **Targeted Content Delivery**: Scenario-specific responses for different HR domains
+- **Improved Accuracy**: Category hint injection focuses RAG responses on relevant content
+- **Backward Compatibility**: Maintains existing functionality while adding new capabilities
+
+The system now features enhanced domain services with async Qdrant client integration and improved resource management, providing better performance, reliability, and scalability for RAG operations. The new async patterns eliminate sync client overhead and enable fully asynchronous operations throughout the system. The enhanced error handling consistency with new require_entity decorators and @catch_entity_error decorators provides improved reliability and user experience across all HR-related handlers.
 
 The new `query_rag_with_wait()` function provides intelligent timeout detection that automatically sends "please wait" notifications when RAG responses take longer than 3 seconds, while the `send_rag_answer()` helper function standardizes RAG response handling across all handlers by automatically setting typing indicators, querying RAG with timeout handling, prepending question context, truncating responses to VK limits, and adding appropriate navigation keyboards.
 
@@ -1542,6 +1789,8 @@ Steps to add a new section:
 - Update handler count expectations in tests
 - **New** Implement proper error handling using require_entity and @catch_entity_error patterns
 - **New** Ensure async resource initialization order if using Qdrant or other async resources
+- **New** Consider implementing category-aware RAG processing for scenario-specific content delivery
+- **New** Integrate scenario ID detection for intelligent navigation capabilities
 
 **Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `app.integrations.vk.handlers` and using the provided utility functions for consistent error handling and resource management. Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. For multi-step workflows with template attachment, consider implementing document attachment system integration using the provided helper functions. Implement proper error handling using require_entity and @catch_entity_error patterns for consistent error handling across all handlers. Ensure proper async resource initialization order if using Qdrant or other async resources.
 
@@ -1553,6 +1802,9 @@ References:
 - Keyboard service row: [keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
 - Enhanced fire handler integration: [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
 - Document attachment system: [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- **New** Category-aware RAG processing: [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
+- **New** Scenario ID detection: [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- **New** Category hint system: [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
 - **New** Async Qdrant client integration: [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
 - **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
 - **New** Fire handler with decorators: [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
@@ -1570,6 +1822,9 @@ References:
 - [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
 - [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
 - [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
+- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
+- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
 
 ### Integrating with VK Webhook System
 Guidance:
@@ -1582,6 +1837,8 @@ Guidance:
 - Ensure state dispenser is properly shared between bot and handlers in webhook mode
 - **New** Implement consistent error handling patterns using require_entity and @catch_entity_error decorators in webhook mode
 - **New** Ensure async resource initialization order for Qdrant clients and embeddings in webhook mode
+- **New** Consider implementing category-aware RAG processing for webhook-based scenario detection
+- **New** Ensure scenario ID detection and category hint injection work correctly in webhook mode
 
 References:
 - Bot initialization and token forwarding: [bot.py:45-58](file://app/integrations/vk/bot.py#L45-L58), [test_bot_factory.py:75-81](file://tests/test_bot_factory.py#L75-L81)
@@ -1590,6 +1847,7 @@ References:
 - Centralized QA service initialization: [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
 - **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
 - **New** Async resource management: [resources.py:127-303](file://app/resources.py#L127-L303)
+- **New** Category-aware RAG processing: [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
 
 **Section sources**
 - [bot.py:45-58](file://app/integrations/vk/bot.py#L45-L58)
@@ -1597,6 +1855,7 @@ References:
 - [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
 - [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
 - [resources.py:127-303](file://app/resources.py#L127-L303)
+- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
 
 ### Best Practices for VK Bot Development
 - Keep handler order explicit and documented
@@ -1619,7 +1878,7 @@ References:
 - **New** Implement state management for multi-step workflows using the centralized BuiltinStateDispenser
 - **New** Leverage the enhanced fire workflow patterns for improved user experience with entity-based resignation
 - **New** Access updated legal entity definitions through the centralized utilities module for accurate content generation
-- **New** Use document attachment system for all template-related operations with proper validation and error handling
+- **New** Use document attachment system for all template operations with proper validation and error handling
 - **New** Implement comprehensive error handling for document upload failures and template availability
 - **New** Provide administrative UI for template management with proper validation and security measures
 - **New** Use require_entity functions and @catch_entity_error decorators for consistent error handling across all handlers
@@ -1629,6 +1888,9 @@ References:
 - **New** Implement graceful degradation for async resource failures
 - **New** Use hybrid search capabilities for enhanced document retrieval performance
 - **New** Configure retrieval_mode appropriately for dense or hybrid search requirements
+- **New** Implement category-aware RAG processing for scenario-specific content delivery
+- **New** Use scenario ID detection for intelligent navigation and user experience enhancement
+- **New** Integrate category hint system for enhanced RAG response focus and accuracy
 
 ### Centralized State and Service Integration Patterns
 - Initialize state dispenser during bot creation and register with centralized utilities for immediate state management capabilities
@@ -1661,6 +1923,9 @@ References:
 - **New** Implement graceful degradation for async resource failures
 - **New** Use hybrid search capabilities for enhanced document retrieval performance
 - **New** Configure retrieval_mode appropriately for dense or hybrid search requirements
+- **New** Implement category-aware RAG processing for scenario-specific content delivery
+- **New** Use scenario ID detection for intelligent navigation and user experience enhancement
+- **New** Integrate category hint system for enhanced RAG response focus and accuracy
 
 **Section sources**
 - [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
@@ -1681,3 +1946,6 @@ References:
 - [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
 - [resources.py:127-303](file://app/resources.py#L127-L303)
 - [config.py:59-62](file://app/config.py#L59-L62)
+- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
+- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)

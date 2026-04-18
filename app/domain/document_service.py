@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from app.rag.indexer import (
     delete_document_chunks,
     index_chunks,
+    optimize_collection,
     prepare_chunks,
     set_search_enabled,
 )
@@ -48,12 +49,14 @@ class DocumentService:
         embeddings: Embeddings,
         collection_name: str = "hr_documents",
         sparse_embedding: object | None = None,
+        colbert_embedding: object | None = None,
     ) -> None:
         self._repo = repo
         self._qdrant = qdrant_client
         self._embeddings = embeddings
         self._collection = collection_name
         self._sparse_embedding = sparse_embedding
+        self._colbert_embedding = colbert_embedding
 
     # ── S3 key helpers ─────────────────────────────────────────────
 
@@ -135,7 +138,19 @@ class DocumentService:
                 self._collection,
                 enriched,
                 sparse_embedding=self._sparse_embedding,
+                colbert_embedding=self._colbert_embedding,
             )
+
+            # Merge segments to reduce BM25 storage overhead
+            try:
+                await optimize_collection(self._qdrant, self._collection)
+            except Exception:
+                logger.warning(
+                    "Post-index optimization failed for '%s'",
+                    self._collection,
+                    exc_info=True,
+                )
+
             return await self._repo.update(
                 document_id,
                 status=DocumentStatus.completed,
@@ -238,7 +253,19 @@ class DocumentService:
                 self._collection,
                 enriched,
                 sparse_embedding=self._sparse_embedding,
+                colbert_embedding=self._colbert_embedding,
             )
+
+            # Merge segments to reduce BM25 storage overhead
+            try:
+                await optimize_collection(self._qdrant, self._collection)
+            except Exception:
+                logger.warning(
+                    "Post-reindex optimization failed for '%s'",
+                    self._collection,
+                    exc_info=True,
+                )
+
             return await self._repo.update(
                 document_id,
                 status=DocumentStatus.completed,

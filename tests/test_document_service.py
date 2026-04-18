@@ -135,8 +135,14 @@ class TestCreateDocument:
 
 
 class TestIndexDocument:
+    @patch(
+        "app.domain.document_service.optimize_collection",
+        new_callable=AsyncMock,
+    )
     @patch("app.domain.document_service.index_chunks", new_callable=AsyncMock, return_value=3)
-    async def test_indexes_and_updates_metadata(self, mock_index, service, repo):
+    async def test_indexes_and_updates_metadata(
+        self, mock_index, mock_optimize, service, repo
+    ):
         rec = _make_record()
         await repo.create(rec)
 
@@ -148,13 +154,20 @@ class TestIndexDocument:
         assert result.indexed_at is not None
         assert result.error is None
         mock_index.assert_called_once()
+        mock_optimize.assert_called_once()
 
+    @patch(
+        "app.domain.document_service.optimize_collection",
+        new_callable=AsyncMock,
+    )
     @patch(
         "app.domain.document_service.index_chunks",
         new_callable=AsyncMock,
         side_effect=RuntimeError("Qdrant down"),
     )
-    async def test_marks_failed_on_error(self, mock_index, service, repo):
+    async def test_marks_failed_on_error(
+        self, mock_index, mock_optimize, service, repo
+    ):
         rec = _make_record()
         await repo.create(rec)
 
@@ -163,13 +176,20 @@ class TestIndexDocument:
         assert result is not None
         assert result.status == DocumentStatus.failed
         assert "Qdrant down" in result.error
+        mock_optimize.assert_not_called()
 
     async def test_nonexistent_returns_none(self, service):
         result = await service.index_document("nonexistent", _make_chunks())
         assert result is None
 
+    @patch(
+        "app.domain.document_service.optimize_collection",
+        new_callable=AsyncMock,
+    )
     @patch("app.domain.document_service.index_chunks", new_callable=AsyncMock, return_value=2)
-    async def test_passes_is_search_enabled_to_chunks(self, mock_index, service, repo):
+    async def test_passes_is_search_enabled_to_chunks(
+        self, mock_index, mock_optimize, service, repo
+    ):
         rec = _make_record(is_search_enabled=False)
         await repo.create(rec)
 
@@ -257,10 +277,14 @@ class TestToggleSearch:
 
 
 class TestReindexDocument:
+    @patch(
+        "app.domain.document_service.optimize_collection",
+        new_callable=AsyncMock,
+    )
     @patch("app.domain.document_service.index_chunks", new_callable=AsyncMock, return_value=5)
     @patch("app.domain.document_service.delete_document_chunks", new_callable=AsyncMock)
     async def test_reindexes_successfully(
-        self, mock_delete, mock_index, service, repo
+        self, mock_delete, mock_index, mock_optimize, service, repo
     ):
         rec = _make_record(
             status=DocumentStatus.completed,
@@ -277,7 +301,12 @@ class TestReindexDocument:
         assert result.indexed_at is not None
         mock_delete.assert_called_once()
         mock_index.assert_called_once()
+        mock_optimize.assert_called_once()
 
+    @patch(
+        "app.domain.document_service.optimize_collection",
+        new_callable=AsyncMock,
+    )
     @patch(
         "app.domain.document_service.index_chunks",
         new_callable=AsyncMock,
@@ -285,7 +314,7 @@ class TestReindexDocument:
     )
     @patch("app.domain.document_service.delete_document_chunks", new_callable=AsyncMock)
     async def test_marks_failed_on_error(
-        self, mock_delete, mock_index, service, repo
+        self, mock_delete, mock_index, mock_optimize, service, repo
     ):
         rec = _make_record(status=DocumentStatus.completed)
         await repo.create(rec)
@@ -295,6 +324,7 @@ class TestReindexDocument:
         assert result is not None
         assert result.status == DocumentStatus.failed
         assert result.error is not None
+        mock_optimize.assert_not_called()
 
     async def test_nonexistent_returns_none(self, service):
         result = await service.reindex_document("nonexistent", _make_chunks())

@@ -3,34 +3,37 @@
 <cite>
 **Referenced Files in This Document**
 - [app/config.py](file://app/config.py)
-- [scripts/run_admin.sh](file://scripts/run_admin.sh)
+- [app/rag/colbert_embeddings.py](file://app/rag/colbert_embeddings.py)
+- [app/rag/retriever.py](file://app/rag/retriever.py)
+- [app/resources.py](file://app/resources.py)
 - [pyproject.toml](file://pyproject.toml)
+- [scripts/run_admin.sh](file://scripts/run_admin.sh)
+- [scripts/ingest.py](file://scripts/ingest.py)
 - [tests/test_config.py](file://tests/test_config.py)
+- [tests/test_colbert_embeddings.py](file://tests/test_colbert_embeddings.py)
+- [tests/test_hybrid_search.py](file://tests/test_hybrid_search.py)
+- [tests/test_hybrid_rerank_retriever.py](file://tests/test_hybrid_rerank_retriever.py)
 - [app/storage/s3.py](file://app/storage/s3.py)
 - [app/main.py](file://app/main.py)
 - [app/api/deps.py](file://app/api/deps.py)
 - [app/api/documents.py](file://app/api/documents.py)
-- [app/rag/retriever.py](file://app/rag/retriever.py)
 - [app/domain/qa_service.py](file://app/domain/qa_service.py)
 - [app/rag/parser.py](file://app/rag/parser.py)
 - [app/resources.py](file://app/resources.py)
 - [scripts/admin_server.py](file://scripts/admin_server.py)
 - [scripts/run_admin.sh](file://scripts/run_admin.sh)
-- [scripts/ingest.py](file://scripts/ingest.py)
-- [tests/test_api_documents.py](file://tests/test_api_documents.py)
-- [tests/test_hybrid_search.py](file://tests/test_hybrid_search.py)
-- [tests/test_semantic_chunker.py](file://tests/test_semantic_chunker.py)
 - [templates/login.html](file://templates/login.html)
+- [.env.example](file://.env.example)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced configuration system with comprehensive .env file integration capabilities
-- Added intelligent environment variable loading mechanism through load_env_var() function
-- Expanded support for LLM providers, embedding models, Qdrant connections, S3 storage, and Ollama configurations
-- Implemented fallback behavior for configuration resolution with environment variables taking precedence
-- Added GPU layer configuration variables for Ollama models (LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, OLLAMA_NUM_GPU)
-- Integrated provider-specific dependency management with uv extras system
+- Updated hybrid search configuration to reflect the simplified hybrid-only approach with direct sparse_embedding_model configuration
+- Removed all references to retrieval_mode configuration field and associated conditional logic
+- Updated architecture overview to show hybrid search as the primary and default mode
+- Revised hybrid search documentation to reflect the streamlined configuration approach
+- Updated environment variable examples to reflect the new direct sparse embedding configuration
+- Enhanced troubleshooting guide to address hybrid-only search configuration
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -46,23 +49,24 @@
 11. [Logging Configuration](#logging-configuration)
 12. [Chunking Configuration](#chunking-configuration)
 13. [Hybrid Search Configuration](#hybrid-search-configuration)
-14. [Storage Configuration](#storage-configuration)
-15. [S3 Storage Configuration](#s3-storage-configuration)
-16. [Admin Authentication Configuration](#admin-authentication-configuration)
-17. [LLM Provider Configuration](#llm-provider-configuration)
-18. [Embedding Provider Configuration](#embedding-provider-configuration)
-19. [Resource Management and Cleanup](#resource-management-and-cleanup)
-20. [Environment File Integration](#environment-file-integration)
-21. [GPU Configuration](#gpu-configuration)
-22. [Provider-Specific Dependencies](#provider-specific-dependencies)
-23. [Troubleshooting Guide](#troubleshooting-guide)
-24. [Conclusion](#conclusion)
+14. [Reranking Configuration](#reranking-configuration)
+15. [Storage Configuration](#storage-configuration)
+16. [S3 Storage Configuration](#s3-storage-configuration)
+17. [Admin Authentication Configuration](#admin-authentication-configuration)
+18. [LLM Provider Configuration](#llm-provider-configuration)
+19. [Embedding Provider Configuration](#embedding-provider-configuration)
+20. [Resource Management and Cleanup](#resource-management-and-cleanup)
+21. [Environment File Integration](#environment-file-integration)
+22. [GPU Configuration](#gpu-configuration)
+23. [Provider-Specific Dependencies](#provider-specific-dependencies)
+24. [Troubleshooting Guide](#troubleshooting-guide)
+25. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains the enhanced configuration management system used in cafetera_hr_bot. The system now features comprehensive .env file integration capabilities with intelligent fallback behavior, supporting LLM providers, embedding models, Qdrant connections, S3 storage, and Ollama configurations. The configuration system centers around a Pydantic Settings class that loads environment variables from a .env file with UTF-8 encoding, providing type-safe configuration for VK integration, separate LLM and embedding provider support, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, configurable document chunking parameters with support for both recursive and semantic strategies, hybrid search functionality with sparse embeddings, and centralized logging configuration ensuring consistent log formatting across all application components.
+This document explains the enhanced configuration management system used in cafetera_hr_bot. The system now features comprehensive .env file integration capabilities with intelligent fallback behavior, supporting LLM providers, embedding models, Qdrant connections, S3 storage, Ollama configurations, and advanced reranking functionality with ColBERT embeddings. The configuration system centers around a Pydantic Settings class that loads environment variables from a .env file with UTF-8 encoding, providing type-safe configuration for VK integration, separate LLM and embedding provider support, SQLite database integration for document storage, S3-compatible storage for document files, admin authentication with API key-based security, configurable document chunking parameters with support for both recursive and semantic strategies, simplified hybrid search functionality with direct sparse embeddings configuration, conditional ColBERT reranking with per-token embeddings, centralized logging configuration ensuring consistent log formatting across all application components, and comprehensive dependency management through uv extras system.
 
 ## Project Structure
-The enhanced configuration system features a multi-layered approach with .env file integration, environment variable precedence, and intelligent fallback mechanisms. The system now supports comprehensive configuration loading through both Pydantic Settings and custom shell-based environment variable loading with the load_env_var() function. The configuration architecture includes separate LLM and embedding provider configurations with multiple LLM providers (ollama, openai, llama.cpp), embedding providers (ollama, openai), VK API integration, Qdrant vector storage, SQLite database integration for document metadata, S3-compatible storage for document files, admin authentication with API key security, configurable document chunking parameters with support for both recursive and semantic strategies, hybrid search functionality with sparse embeddings, centralized logging configuration with consistent formatting and level control, GPU layer configuration for Ollama models, and provider-specific dependency management through uv extras system.
+The enhanced configuration system features a multi-layered approach with .env file integration, environment variable precedence, and intelligent fallback mechanisms. The system now supports comprehensive configuration loading through both Pydantic Settings and custom shell-based environment variable loading with the load_env_var() function. The configuration architecture includes separate LLM and embedding provider configurations with multiple LLM providers (ollama, openai, llama.cpp), embedding providers (ollama, openai), VK API integration, Qdrant vector storage, SQLite database integration for document metadata, S3-compatible storage for document files, admin authentication with API key security, configurable document chunking parameters with support for both recursive and semantic strategies, simplified hybrid search functionality with direct sparse embeddings configuration, conditional ColBERT reranking with per-token embeddings, centralized logging configuration with consistent formatting and level control, GPU layer configuration for Ollama models, and provider-specific dependency management through uv extras system.
 
 ```mermaid
 graph TB
@@ -78,6 +82,7 @@ S3Config["S3 Storage Configuration"]
 AdminConfig["Admin Authentication"]
 ChunkingConfig["Chunking Configuration"]
 HybridSearchConfig["Hybrid Search Configuration"]
+RerankingConfig["Reranking Configuration"]
 GPUCfg["GPU Configuration"]
 DepMgmt["Dependency Management"]
 CleanupMechanism["Resource Cleanup Mechanism"]
@@ -90,6 +95,8 @@ ParserModule["Document Parser Module"]
 StorageLayer["Storage Layer"]
 AdminAuth["Admin Authentication"]
 CleanupServer["Admin Server Cleanup"]
+ColbertAdapter["ColBERT Embeddings Adapter"]
+HybridRetriever["Hybrid Rerank Retriever"]
 end
 subgraph "Testing"
 TestConfig["Test Suite"]
@@ -98,6 +105,7 @@ TestAuth["Authentication Tests"]
 TestEmbeddings["Embedding Tests"]
 TestChunking["Chunking Tests"]
 TestHybrid["Hybrid Search Tests"]
+TestReranking["Reranking Tests"]
 TestLogging["Logging Configuration Tests"]
 end
 EnvFile --> SettingsClass
@@ -113,23 +121,27 @@ SettingsClass --> S3Config
 SettingsClass --> AdminConfig
 SettingsClass --> ChunkingConfig
 SettingsClass --> HybridSearchConfig
+SettingsClass --> RerankingConfig
 SettingsClass --> GPUCfg
 SettingsClass --> CleanupMechanism
 SettingsClass --> StorageLayer
 SettingsClass --> AdminAuth
 SettingsClass --> CleanupServer
 SettingsClass --> ParserModule
+SettingsClass --> ColberAdapter
+SettingsClass --> HybridRetriever
 TestConfig --> SettingsClass
 TestStorage --> StorageLayer
 TestAuth --> AdminAuth
 TestEmbeddings --> EmbeddingProvider
 TestChunking --> ChunkingConfig
 TestHybrid --> HybridSearchConfig
+TestReranking --> RerankingConfig
 TestLogging --> LoggingConfig
 ```
 
 **Diagram sources**
-- [app/config.py:4-62](file://app/config.py#L4-L62)
+- [app/config.py:4-67](file://app/config.py#L4-L67)
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
@@ -138,15 +150,18 @@ TestLogging --> LoggingConfig
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 - [app/rag/parser.py:16-17](file://app/rag/parser.py#L16-L17)
 - [app/resources.py:96-131](file://app/resources.py#L96-L131)
+- [app/rag/colbert_embeddings.py:19-121](file://app/rag/colbert_embeddings.py#L19-L121)
 - [scripts/admin_server.py:42-68](file://scripts/admin_server.py#L42-L68)
 - [scripts/ingest.py:78-82](file://scripts/ingest.py#L78-L82)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
-- [tests/test_hybrid_search.py:1-169](file://tests/test_hybrid_search.py#L1-L169)
+- [tests/test_hybrid_search.py:1-231](file://tests/test_hybrid_search.py#L1-L231)
 - [tests/test_semantic_chunker.py:1-237](file://tests/test_semantic_chunker.py#L1-L237)
+- [tests/test_colbert_embeddings.py:1-89](file://tests/test_colbert_embeddings.py#L1-L89)
+- [tests/test_hybrid_rerank_retriever.py:1-273](file://tests/test_hybrid_rerank_retriever.py#L1-L273)
 
 **Section sources**
-- [app/config.py:4-62](file://app/config.py#L4-L62)
+- [app/config.py:4-67](file://app/config.py#L4-L67)
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/main.py:30-47](file://app/main.py#L30-L47)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
@@ -154,33 +169,35 @@ TestLogging --> LoggingConfig
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Core Components
-- **Enhanced Settings class**: Defines typed configuration fields with .env file binding and default values for all system components, now supporting comprehensive environment variable loading through load_env_var() function with fallback behavior.
+- **Enhanced Settings class**: Defines typed configuration fields with .env file binding and default values for all system components, now supporting comprehensive environment variable loading through load_env_var() function with fallback behavior and new reranking configuration settings.
 - **Intelligent Environment Loading**: Implements load_env_var() function that reads variables from .env file only when they're not already set in the environment, with proper quoting and escaping support.
 - **Centralized Logging Configuration**: Provides unified logging setup via configure_logging() function ensuring consistent log formatting and level control across all application components.
 - **LLM Provider System**: Supports multiple providers (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, enhanced with GPU layer configuration.
 - **Embedding Provider System**: Supports separate embedding providers (ollama, openai) with independent configuration from LLM providers and GPU optimization.
 - **Chunking Configuration**: Provides explicit control over document processing behavior with default values of 500 for chunk_size and 50 for chunk_overlap, plus new semantic chunking parameters for embedding-based breakpoint detection.
-- **Hybrid Search Configuration**: Enables dense vector search and hybrid search modes with sparse embeddings support for BM25-based retrieval.
+- **Hybrid Search Configuration**: Simplified to directly expose sparse_embedding_model with "Qdrant/bm25" as the default, eliminating retrieval_mode conditional logic and supporting hybrid search as the primary mode.
+- **Reranking Configuration**: Provides advanced ColBERT-based reranking functionality with conditional initialization, per-token embeddings, and configurable prefetch limits.
 - **GPU Configuration**: Adds comprehensive GPU layer configuration for Ollama models including LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, and OLLAMA_NUM_GPU variables.
 - **Provider-Specific Dependencies**: Integrates with uv extras system for dynamic dependency management based on selected providers.
 - **VK integration**: Uses Settings to configure the VK bot token and handler registration.
-- **RAG Components**: Build LLM chains and embeddings based on provider selection with separate embedding configuration and hybrid search support.
+- **RAG Components**: Build LLM chains and embeddings based on provider selection with separate embedding configuration, simplified hybrid search support, and conditional ColBERT reranking.
 - **Storage System**: Manages SQLite database for document metadata with comprehensive CRUD operations.
 - **S3 Storage System**: Provides S3-compatible file storage using MinIO/AWS S3 with async operations.
 - **Admin Authentication**: Implements API key-based authentication with secure cookie management.
 - **Resource Cleanup**: Enhanced cleanup mechanisms for admin server and QA service resources.
-- **Tests**: Verify defaults, environment variable precedence, provider-specific behavior, storage functionality, authentication security, embedding configuration, chunking parameter validation, hybrid search functionality, logging configuration, and environment file integration.
-- **Scripts**: Demonstrate runtime initialization using Settings for different providers, storage operations, admin access, cleanup procedures, configurable chunking behavior, hybrid search configuration, centralized logging configuration, and environment file loading.
+- **Tests**: Verify defaults, environment variable precedence, provider-specific behavior, storage functionality, authentication security, embedding configuration, chunking parameter validation, simplified hybrid search functionality, reranking configuration, logging configuration, and environment file integration.
+- **Scripts**: Demonstrate runtime initialization using Settings for different providers, storage operations, admin access, cleanup procedures, configurable chunking behavior, simplified hybrid search configuration, reranking functionality, centralized logging configuration, and environment file loading.
 
 Key implementation details:
 - Settings class inherits from Pydantic BaseSettings and binds to a .env file with UTF-8 encoding.
 - Enhanced environment loading through load_env_var() function with intelligent fallback behavior.
 - Centralized logging configuration uses configure_logging() function with INFO level and standardized format.
-- Current fields include VK access token, group ID, Qdrant configuration, separate LLM and embedding provider settings, comprehensive storage configuration, S3 storage settings, admin authentication settings, chunking configuration parameters with semantic chunking support, hybrid search configuration with sparse embeddings, GPU configuration variables, and centralized logging configuration.
+- Current fields include VK access token, group ID, Qdrant configuration, separate LLM and embedding provider settings, comprehensive storage configuration, S3 storage settings, admin authentication settings, chunking configuration parameters with semantic chunking support, simplified hybrid search configuration with direct sparse embedding model, new reranking configuration with ColBERT embeddings, GPU configuration variables, and centralized logging configuration.
 - The LLM system automatically selects providers based on LLM_PROVIDER environment variable with sensible defaults and GPU optimization.
 - The embedding system automatically selects providers based on EMBEDDING_PROVIDER environment variable with independent configuration and GPU optimization.
 - The chunking system provides configurable chunk_size (default: 500), chunk_overlap (default: 50), chunk_strategy (default: 'recursive'), semantic_breakpoint_threshold_type (default: 'percentile'), and semantic_breakpoint_threshold_amount (default: 95) parameters for document processing optimization.
-- The hybrid search system supports dense vector-only search and hybrid dense+sparse BM25 search modes with configurable sparse embedding model.
+- The hybrid search system now directly supports hybrid dense+sparse BM25 search modes with configurable sparse embedding model, eliminating retrieval_mode conditional logic.
+- The reranking system provides conditional ColBERT-based reranking with per-token embeddings, configurable prefetch limits, and graceful fallback when ColBERT is unavailable.
 - The storage system uses db_path to configure SQLite database location with automatic table initialization.
 - The S3 storage system uses endpoint_url, access_key, secret_key, and bucket to configure S3-compatible storage.
 - The admin authentication system uses admin_api_key for secure access to administrative functions.
@@ -189,9 +206,10 @@ Key implementation details:
 - The document parser module uses both hardcoded defaults and configurable settings for chunking behavior, supporting both recursive and semantic strategies.
 - All scripts and modules use centralized logging configuration for consistent log formatting.
 - GPU configuration variables enable optimized model loading with appropriate GPU layer allocation.
+- ColBERT embeddings are conditionally loaded based on reranking_enabled settings.
 
 **Section sources**
-- [app/config.py:4-62](file://app/config.py#L4-L62)
+- [app/config.py:4-67](file://app/config.py#L4-L67)
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/s3.py:14-109](file://app/storage/s3.py#L14-L109)
@@ -200,15 +218,16 @@ Key implementation details:
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 - [app/rag/parser.py:16-17](file://app/rag/parser.py#L16-L17)
 - [app/resources.py:96-131](file://app/resources.py#L96-L131)
+- [app/rag/colbert_embeddings.py:19-121](file://app/rag/colbert_embeddings.py#L19-L121)
 - [scripts/admin_server.py:42-68](file://scripts/admin_server.py#L42-L68)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 
 ## Architecture Overview
-The enhanced configuration architecture follows a layered approach with provider-aware components, integrated storage, configurable chunking parameters with semantic support, hybrid search functionality, centralized logging configuration, secure admin access with enhanced cleanup mechanisms, and comprehensive environment file integration with intelligent fallback behavior:
-- **Configuration layer**: Settings class encapsulates environment-driven configuration with separate provider selections, storage settings, S3 configuration, admin authentication, chunking parameters with semantic strategies, hybrid search configuration, GPU configuration, centralized logging configuration, and environment file integration with load_env_var() function.
-- **Application layer**: Integrations consume Settings to initialize services with appropriate provider backends, database connections, S3 storage, configurable chunking behavior with semantic support, hybrid search modes, centralized logging configuration, authentication mechanisms, and GPU optimization.
-- **Runtime layer**: Scripts and handlers access Settings at startup or during operation with automatic provider detection, storage initialization, authentication verification, configurable chunking parameters with semantic strategies, hybrid search configuration, centralized logging configuration, proper resource cleanup, and environment file loading with fallback behavior.
+The enhanced configuration architecture follows a layered approach with provider-aware components, integrated storage, configurable chunking parameters with semantic support, simplified hybrid search functionality, conditional ColBERT reranking, centralized logging configuration, secure admin access with enhanced cleanup mechanisms, and comprehensive environment file integration with intelligent fallback behavior:
+- **Configuration layer**: Settings class encapsulates environment-driven configuration with separate provider selections, storage settings, S3 configuration, admin authentication, chunking parameters with semantic strategies, simplified hybrid search configuration with direct sparse embedding model, new reranking configuration with ColBERT embeddings, GPU configuration, centralized logging configuration, and environment file integration with load_env_var() function.
+- **Application layer**: Integrations consume Settings to initialize services with appropriate provider backends, database connections, S3 storage, configurable chunking behavior with semantic support, simplified hybrid search modes, conditional ColBERT reranking, centralized logging configuration, authentication mechanisms, and GPU optimization.
+- **Runtime layer**: Scripts and handlers access Settings at startup or during operation with automatic provider detection, storage initialization, authentication verification, configurable chunking parameters with semantic strategies, simplified hybrid search configuration, conditional ColBERT reranking, centralized logging configuration, proper resource cleanup, and environment file loading with fallback behavior.
 
 ```mermaid
 sequenceDiagram
@@ -220,6 +239,7 @@ participant Provider as "LLM Provider"
 participant EmbeddingProvider as "Embedding Provider"
 participant Chunking as "Chunking Parameters"
 participant HybridSearch as "Hybrid Search Configuration"
+participant Reranking as "Reranking Configuration"
 participant GPUCfg as "GPU Configuration"
 participant Storage as "SQLite Database"
 participant S3Storage as "S3 Storage"
@@ -235,8 +255,10 @@ Script->>Logging : configure_logging()
 Logging-->>Script : Centralized logging ready
 Settings->>Chunking : Configure chunk_size, chunk_overlap, chunk_strategy
 Chunking-->>Script : Chunking parameters ready
-Settings->>HybridSearch : Configure retrieval_mode, sparse_embedding_model
+Settings->>HybridSearch : Configure sparse_embedding_model (direct)
 HybridSearch-->>Script : Hybrid search configuration ready
+Settings->>Reranking : Configure reranking_enabled, colbert_rerank_model, colbert_prefetch_limit
+Reranking-->>Script : Reranking configuration ready
 Settings->>GPUCfg : Configure GPU layers
 GPUCfg-->>Script : GPU configuration ready
 Settings->>Storage : Configure db_path
@@ -260,25 +282,27 @@ Script->>VK : run_polling()
 **Diagram sources**
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/main.py:23-82](file://app/main.py#L23-L82)
-- [app/config.py:15-62](file://app/config.py#L15-L62)
+- [app/config.py:15-67](file://app/config.py#L15-L67)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/s3.py:38-48](file://app/storage/s3.py#L38-L48)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 - [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 - [app/resources.py:96-131](file://app/resources.py#L96-L131)
+- [app/rag/colbert_embeddings.py:83-121](file://app/rag/colbert_embeddings.py#L83-L121)
 - [scripts/admin_server.py:64-68](file://scripts/admin_server.py#L64-L68)
 
 ## Detailed Component Analysis
 
 ### Enhanced Settings Class
-The Settings class defines the comprehensive configuration contract with separate provider configurations, centralized logging configuration, chunking parameters with semantic support, hybrid search configuration, and GPU configuration:
+The Settings class defines the comprehensive configuration contract with separate provider configurations, centralized logging configuration, chunking parameters with semantic support, simplified hybrid search configuration, reranking configuration with ColBERT embeddings, and GPU configuration:
 - **Environment file binding**: Loads variables from .env with UTF-8 encoding.
-- **Fields**: vk_access_token (str), vk_group_id (int), Qdrant configuration, LLM settings, separate embedding configuration, storage configuration, S3 storage configuration, admin authentication settings, chunking configuration parameters with semantic chunking support, hybrid search configuration with sparse embeddings, GPU configuration variables, and centralized logging configuration.
+- **Fields**: vk_access_token (str), vk_group_id (int), Qdrant configuration, LLM settings, separate embedding configuration, storage configuration, S3 storage configuration, admin authentication settings, chunking configuration parameters with semantic chunking support, simplified hybrid search configuration with direct sparse embedding model, new reranking configuration with ColBERT embeddings, GPU configuration variables, and centralized logging configuration.
 - **Type safety**: Pydantic ensures type conversion and validation.
 - **Provider awareness**: LLM_PROVIDER and EMBEDDING_PROVIDER fields control which backend to use independently.
 - **Chunking awareness**: chunk_size (int), chunk_overlap (int), chunk_strategy (str), semantic_breakpoint_threshold_type (str), and semantic_breakpoint_threshold_amount (float) control document processing behavior with sensible defaults.
-- **Hybrid search awareness**: retrieval_mode (str) and sparse_embedding_model (str) control dense vs hybrid search modes with sparse embeddings.
+- **Hybrid search awareness**: sparse_embedding_model (str) directly controls sparse embeddings with "Qdrant/bm25" as the default for hybrid search.
+- **Reranking awareness**: reranking_enabled (bool), colbert_rerank_model (str), colbert_prefetch_limit (int), and colbert_rerank_limit (int) control conditional ColBERT-based reranking functionality.
 - **GPU configuration awareness**: LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, and OLLAMA_NUM_GPU control model optimization.
 - **Storage awareness**: db_path field controls SQLite database location.
 - **S3 awareness**: s3_endpoint_url, s3_access_key, s3_secret_key, and s3_bucket control S3-compatible storage configuration.
@@ -304,7 +328,7 @@ class Settings {
 +embedding_base_url : str
 +embedding_api_key : str
 +embedding_n_gpu_layers : int
-+db_path : str
++database_url : str
 +s3_endpoint_url : str
 +s3_access_key : str
 +s3_secret_key : str
@@ -316,17 +340,20 @@ class Settings {
 +chunk_strategy : str
 +semantic_breakpoint_threshold_type : str
 +semantic_breakpoint_threshold_amount : float
-+retrieval_mode : str
 +sparse_embedding_model : str
++reranking_enabled : bool
++colbert_rerank_model : str
++colbert_prefetch_limit : int
++colbert_rerank_limit : int
 +ollama_num_gpu : int
 }
 ```
 
 **Diagram sources**
-- [app/config.py:4-62](file://app/config.py#L4-L62)
+- [app/config.py:4-67](file://app/config.py#L4-L67)
 
 **Section sources**
-- [app/config.py:4-62](file://app/config.py#L4-L62)
+- [app/config.py:4-67](file://app/config.py#L4-L67)
 
 ### Intelligent Environment Loading
 The load_env_var() function provides comprehensive environment variable loading with intelligent fallback behavior:
@@ -335,10 +362,10 @@ The load_env_var() function provides comprehensive environment variable loading 
 - **Pattern Matching**: Uses regex pattern matching (`^${var_name}=`) to find exact variable definitions.
 - **Value Extraction**: Extracts quoted values with proper escaping support.
 - **Export Behavior**: Exports loaded values to the current shell environment.
-- **Variable Coverage**: Supports LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL, LLM_API_KEY, EMBEDDING_PROVIDER, EMBEDDING_MODEL, EMBEDDING_BASE_URL, EMBEDDING_API_KEY, QDRANT_URL, S3_ENDPOINT_URL, OLLAMA_URL, LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, and OLLAMA_NUM_GPU.
+- **Variable Coverage**: Supports LLM_PROVIDER, LLM_MODEL, LLM_BASE_URL, LLM_API_KEY, EMBEDDING_PROVIDER, EMBEDDING_MODEL, EMBEDDING_BASE_URL, EMBEDDING_API_KEY, QDRANT_URL, S3_ENDPOINT_URL, OLLAMA_URL, LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, OLLAMA_NUM_GPU, and new reranking configuration variables.
 - **Default Resolution**: Applies URL defaults after loading (.env overrides lower priority than environment variables).
 
-**Updated** Added comprehensive environment variable loading mechanism through load_env_var() function with intelligent fallback behavior, supporting LLM providers, embedding models, Qdrant connections, S3 storage, and Ollama configurations.
+**Updated** Added comprehensive environment variable loading mechanism through load_env_var() function with intelligent fallback behavior, supporting LLM providers, embedding models, Qdrant connections, S3 storage, Ollama configurations, and new reranking configuration variables.
 
 **Section sources**
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
@@ -374,26 +401,47 @@ The chunking configuration provides explicit control over document processing be
 **Updated** Added new chunking strategy configuration with chunk_strategy (default 'recursive'), semantic_breakpoint_threshold_type and semantic_breakpoint_threshold_amount for semantic chunking, and enhanced chunking parameters for embedding-based breakpoint detection.
 
 **Section sources**
-- [app/config.py:50-62](file://app/config.py#L50-L62)
+- [app/config.py:50-67](file://app/config.py#L50-L67)
 - [app/rag/parser.py:58-175](file://app/rag/parser.py#L58-L175)
 
 ### Hybrid Search Configuration
-The hybrid search configuration enables advanced retrieval modes with sparse embeddings support:
+The hybrid search configuration enables advanced retrieval modes with direct sparse embeddings support:
 
-- **Default Values**: retrieval_mode defaults to 'dense', sparse_embedding_model defaults to 'Qdrant/bm25'.
-- **Dense Mode**: Vector-only search using embeddings for similarity matching.
-- **Hybrid Mode**: Combines dense vector search with sparse BM25-based lexical matching for improved recall and precision.
+- **Default Values**: sparse_embedding_model defaults to 'Qdrant/bm25' (direct configuration, no retrieval_mode field).
+- **Hybrid Mode**: Simplified to directly support hybrid dense + sparse BM25-based lexical matching for improved recall and precision.
 - **Sparse Embeddings**: Uses FastEmbedSparse model for BM25-like sparse representations.
 - **Performance Benefits**: Hybrid search can improve recall for keyword-rich queries while maintaining semantic similarity for content-based queries.
 - **Dependency Management**: Requires 'hybrid' extra installation for FastEmbedSparse support.
+- **Simplified Architecture**: Eliminated retrieval_mode conditional logic, making hybrid search the primary and default mode.
 
-**Updated** Added hybrid search functionality with retrieval_mode settings and sparse_embedding_model configuration for dense vs hybrid search modes with sparse embeddings support.
+**Updated** Simplified hybrid search functionality with direct sparse_embedding_model configuration, removing retrieval_mode field and associated conditional logic. The configuration now directly exposes sparse_embedding_model as 'Qdrant/bm25' by default, indicating hybrid search is the primary and default mode.
 
 **Section sources**
-- [app/config.py:59-62](file://app/config.py#L59-L62)
+- [app/config.py:59-67](file://app/config.py#L59-L67)
 - [app/rag/retriever.py:88-103](file://app/rag/retriever.py#L88-L103)
 - [app/resources.py:120-131](file://app/resources.py#L120-L131)
 - [tests/test_hybrid_search.py:17-41](file://tests/test_hybrid_search.py#L17-L41)
+
+### Reranking Configuration
+The reranking configuration provides advanced ColBERT-based reranking functionality with conditional initialization and per-token embeddings:
+
+- **Default Values**: reranking_enabled defaults to False, colbert_rerank_model defaults to 'colbert-ir/colbertv2.0', colbert_prefetch_limit defaults to 20, colbert_rerank_limit defaults to 10.
+- **Conditional Activation**: ColBERT embeddings are only loaded when reranking_enabled is True.
+- **Per-Token Embeddings**: ColBERT generates per-token embeddings for multivector storage in Qdrant.
+- **Graceful Degradation**: Falls back to hybrid search when ColBERT is unavailable or fails to load.
+- **Prefetch Limiting**: Controls the number of documents pre-fetched for ColBERT reranking to optimize performance.
+- **Model Configuration**: Uses fastembed's LateInteractionTextEmbedding for ColBERT model loading.
+- **Dependency Management**: Requires 'hybrid' extra installation for fastembed support.
+- **Performance Impact**: ColBERT reranking provides superior semantic ranking but requires additional computational resources.
+
+**New** Added comprehensive ColBERT-based reranking functionality with conditional initialization, per-token embeddings, graceful fallback, and configurable prefetch limits.
+
+**Section sources**
+- [app/config.py:62-67](file://app/config.py#L62-L67)
+- [app/rag/colbert_embeddings.py:19-121](file://app/rag/colbert_embeddings.py#L19-L121)
+- [app/rag/retriever.py:45-80](file://app/rag/retriever.py#L45-L80)
+- [tests/test_colbert_embeddings.py:19-89](file://tests/test_colbert_embeddings.py#L19-L89)
+- [tests/test_hybrid_rerank_retriever.py:40-176](file://tests/test_hybrid_rerank_retriever.py#L40-L176)
 
 ### GPU Configuration
 The GPU configuration system provides comprehensive control over model optimization for Ollama providers:
@@ -445,7 +493,8 @@ The enhanced test suite validates:
 - Admin authentication configuration behavior.
 - Separate embedding provider configuration defaults and validation.
 - **Chunking configuration defaults and validation** for new chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount parameters.
-- **Hybrid search configuration defaults and validation** for retrieval_mode and sparse_embedding_model parameters.
+- **Simplified hybrid search configuration defaults and validation** for sparse_embedding_model parameter.
+- **Reranking configuration defaults and validation** for reranking_enabled, colbert_rerank_model, colbert_prefetch_limit, and colbert_rerank_limit parameters.
 - **GPU configuration defaults and validation** for LLM_N_GPU_LAYERS, EMBED_N_GPU_LAYERS, and OLLAMA_NUM_GPU parameters.
 - **Centralized logging configuration** for consistent log formatting across all components.
 - **Environment file integration** with load_env_var() function and fallback behavior.
@@ -459,8 +508,9 @@ EnvOverride --> |Yes| ApplyEnv["Apply environment values"]
 EnvOverride --> |No| KeepDefaults["Keep defaults"]
 ApplyEnv --> ChunkingConfig["Configure chunk_size, chunk_overlap, chunk_strategy"]
 ChunkingConfig --> SemanticConfig["Configure semantic chunking parameters"]
-SemanticConfig --> HybridConfig["Configure retrieval_mode, sparse_embedding_model"]
-HybridConfig --> GPUCfg["Configure GPU layers"]
+SemanticConfig --> HybridConfig["Configure sparse_embedding_model (direct)"]
+HybridConfig --> RerankingConfig["Configure reranking_enabled, colbert_rerank_model, colbert_prefetch_limit"]
+RerankingConfig --> GPUCfg["Configure GPU layers"]
 GPUCfg --> ProviderSelect["Select LLM Provider"]
 ProviderSelect --> EmbeddingSelect["Select Embedding Provider"]
 EmbeddingSelect --> StorageConfig["Configure Storage"]
@@ -471,7 +521,8 @@ LoggingConfig --> Validate["Type validation"]
 KeepDefaults --> ChunkingConfig
 ChunkingConfig --> SemanticConfig
 SemanticConfig --> HybridConfig
-HybridConfig --> GPUCfg
+HybridConfig --> RerankingConfig
+RerankingConfig --> GPUCfg
 GPUCfg --> ProviderSelect
 Validate --> Done(["Settings ready"])
 ```
@@ -479,21 +530,25 @@ Validate --> Done(["Settings ready"])
 **Diagram sources**
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
-- [app/config.py:4-62](file://app/config.py#L4-L62)
+- [app/config.py:4-67](file://app/config.py#L4-L67)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 - [tests/test_hybrid_search.py:164-169](file://tests/test_hybrid_search.py#L164-L169)
 - [tests/test_semantic_chunker.py:223-237](file://tests/test_semantic_chunker.py#L223-L237)
+- [tests/test_colbert_embeddings.py:19-89](file://tests/test_colbert_embeddings.py#L19-L89)
+- [tests/test_hybrid_rerank_retriever.py:135-273](file://tests/test_hybrid_rerank_retriever.py#L135-L273)
 
 **Section sources**
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
-- [app/config.py:4-62](file://app/config.py#L4-L62)
+- [app/config.py:4-67](file://app/config.py#L4-L67)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
 - [tests/test_hybrid_search.py:164-169](file://tests/test_hybrid_search.py#L164-L169)
 - [tests/test_semantic_chunker.py:223-237](file://tests/test_semantic_chunker.py#L223-L237)
+- [tests/test_colbert_embeddings.py:19-89](file://tests/test_colbert_embeddings.py#L19-L89)
+- [tests/test_hybrid_rerank_retriever.py:135-273](file://tests/test_hybrid_rerank_retriever.py#L135-L273)
 
 ## Dependency Analysis
-The enhanced configuration system has minimal external dependencies with provider-specific extras, storage modules, authentication components, chunking utilities with semantic support, hybrid search dependencies, GPU optimization libraries, centralized logging configuration, and intelligent environment loading:
+The enhanced configuration system has minimal external dependencies with provider-specific extras, storage modules, authentication components, chunking utilities with semantic support, simplified hybrid search dependencies, ColBERT reranking dependencies, GPU optimization libraries, centralized logging configuration, and intelligent environment loading:
 - **Pydantic Settings**: Provides environment file loading and type validation.
 - **Enhanced Environment Loading**: load_env_var() function with intelligent fallback behavior.
 - **Centralized Logging**: Universal logging configuration via configure_logging() function.
@@ -506,7 +561,8 @@ The enhanced configuration system has minimal external dependencies with provide
 - **Admin Authentication**: Secure API key-based authentication with cookie management.
 - **Resource Cleanup**: Enhanced cleanup mechanisms for proper resource management.
 - **Chunking Utilities**: RecursiveCharacterTextSplitter and SemanticChunker for document processing with configurable parameters.
-- **Hybrid Search Dependencies**: FastEmbedSparse for BM25-based sparse embeddings.
+- **Simplified Hybrid Search Dependencies**: FastEmbedSparse for BM25-based sparse embeddings.
+- **ColBERT Reranking Dependencies**: fastembed for ColBERT-based per-token embeddings.
 - **GPU Optimization**: Hardware detection and GPU layer configuration for Ollama models.
 - **Provider-Specific Dependencies**: uv extras system for dynamic dependency management.
 - **Storage Dependencies**: aiosqlite for asynchronous database operations, aiobotocore for S3 operations.
@@ -533,6 +589,8 @@ RecursiveSplitter["RecursiveCharacterTextSplitter"]
 SemanticChunker["SemanticChunker"]
 HybridSearch["Hybrid Search"]
 FastEmbedSparse["FastEmbedSparse"]
+Reranking["ColBERT Reranking"]
+Fastembed["fastembed"]
 GPUDetection["GPU Detection"]
 UvExtras["uv Extras System"]
 Pyproject["pyproject.toml"]
@@ -547,11 +605,13 @@ Settings --> AdminAuth
 Settings --> Cleanup
 Settings --> ChunkingUtils
 Settings --> HybridSearch
+Settings --> Reranking
 Settings --> GPUDetection
 Settings --> UvExtras
 ChunkingUtils --> RecursiveSplitter
 ChunkingUtils --> SemanticChunker
 HybridSearch --> FastEmbedSparse
+Reranking --> Fastembed
 VKIntegration --> VKLib
 Qdrant --> Settings
 SQLite --> Aiosqlite
@@ -564,12 +624,14 @@ Pyproject --> Aiobotocore
 Pyproject --> RecursiveSplitter
 Pyproject --> SemanticChunker
 Pyproject --> FastEmbedSparse
+Pyproject --> Fastembed
 ```
 
 **Diagram sources**
 - [pyproject.toml:10-11](file://pyproject.toml#L10-L11)
 - [pyproject.toml:23](file://pyproject.toml#L23)
 - [pyproject.toml:24](file://pyproject.toml#L24)
+- [pyproject.toml:39-41](file://pyproject.toml#L39-L41)
 - [app/config.py:1](file://app/config.py#L1)
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/integrations/vk/bot.py:7](file://app/integrations/vk/bot.py#L7)
@@ -578,11 +640,13 @@ Pyproject --> FastEmbedSparse
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 - [app/rag/parser.py:14](file://app/rag/parser.py#L14)
 - [app/resources.py:96-131](file://app/resources.py#L96-L131)
+- [app/rag/colbert_embeddings.py:34-40](file://app/rag/colbert_embeddings.py#L34-L40)
 
 **Section sources**
 - [pyproject.toml:10-11](file://pyproject.toml#L10-L11)
 - [pyproject.toml:23](file://pyproject.toml#L23)
 - [pyproject.toml:24](file://pyproject.toml#L24)
+- [pyproject.toml:39-41](file://pyproject.toml#L39-L41)
 - [app/config.py:1](file://app/config.py#L1)
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [app/integrations/vk/bot.py:7](file://app/integrations/vk/bot.py#L7)
@@ -591,6 +655,7 @@ Pyproject --> FastEmbedSparse
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 - [app/rag/parser.py:14](file://app/rag/parser.py#L14)
 - [app/resources.py:96-131](file://app/resources.py#L96-L131)
+- [app/rag/colbert_embeddings.py:34-40](file://app/rag/colbert_embeddings.py#L34-L40)
 
 ## Performance Considerations
 - Environment file loading occurs at import-time when Settings is instantiated. This is lightweight and suitable for application startup.
@@ -603,7 +668,9 @@ Pyproject --> FastEmbedSparse
 - **Local model performance**: Default chunk_size of 500 characters balances processing speed and context preservation for local LLMs.
 - **Memory management**: Proper chunk_overlap configuration prevents context loss while managing memory usage effectively.
 - **Semantic chunking performance**: Embedding-based breakpoint detection adds computational overhead but improves chunk quality.
-- **Hybrid search performance**: Sparse embeddings add minimal overhead while improving search effectiveness.
+- **Simplified hybrid search performance**: Direct sparse embedding configuration eliminates conditional logic overhead while improving search effectiveness.
+- **ColBERT reranking performance**: Per-token embeddings provide superior semantic ranking but require additional computational resources and memory.
+- **Prefetch optimization**: colbert_prefetch_limit controls the balance between search quality and performance in reranking scenarios.
 - **Centralized logging performance**: Single logging configuration reduces overhead compared to multiple ad-hoc logging setups.
 - **Dependency management**: uv extras system optimizes dependency loading based on selected providers.
 - SQLite database operations use asynchronous connections to minimize blocking.
@@ -618,7 +685,8 @@ Pyproject --> FastEmbedSparse
 - Chunking parameters significantly impact processing time and memory usage in document ingestion pipelines.
 - **GPU layer optimization**: Appropriate GPU layer allocation can dramatically improve model response times.
 - **Logging consistency**: Centralized logging configuration ensures uniform logging behavior across all development and production environments.
-- **Hybrid search efficiency**: Dense vectors provide fast similarity search, while sparse embeddings offer complementary lexical matching capabilities.
+- **Simplified hybrid search efficiency**: Direct sparse embedding configuration provides fast hybrid search with minimal conditional overhead.
+- **Reranking efficiency**: ColBERT-based reranking provides superior ranking quality but requires careful tuning of prefetch limits and model selection.
 
 ## Security Best Practices
 - Never hardcode secrets. Use environment variables and the .env file.
@@ -638,14 +706,15 @@ Pyproject --> FastEmbedSparse
 - **Resource Cleanup Security**: Ensure proper cleanup mechanisms prevent resource leaks and unauthorized access.
 - **Provider Isolation**: Separate LLM and embedding providers to minimize security impact if one provider is compromised.
 - **Chunking Security**: Ensure chunk_size, chunk_overlap, and semantic chunking parameters don't expose sensitive data through improper context boundaries.
-- **Hybrid Search Security**: Validate sparse embedding model configuration and ensure proper dependency management.
+- **Simplified Hybrid Search Security**: Validate sparse embedding model configuration and ensure proper dependency management.
+- **Reranking Security**: Ensure ColBERT model downloads and per-token embeddings are properly secured and monitored.
 - **Logging Security**: Centralized logging configuration ensures consistent log formatting and level control across all components.
 - **GPU Configuration Security**: Ensure GPU layer allocation doesn't expose system resources unnecessarily.
 - **Dependency Security**: Use uv extras system to minimize unnecessary dependencies and potential security risks.
 
 ## Development vs Production Configurations
-- **Development**: Use local LLM providers (ollama, llama.cpp) with localhost URLs and local SQLite database. Use local S3-compatible storage with MinIO for development. The VK polling script initializes Settings and runs the bot locally. Separate embedding provider can use Ollama for development. Chunking parameters can be tuned for faster local processing. Hybrid search can be disabled for development simplicity. Centralized logging configuration provides consistent log formatting across all development scripts. GPU configuration can be optimized for local hardware capabilities.
-- **Production**: Use cloud LLM providers with proper authentication and managed database services. Use production S3-compatible storage with proper IAM policies and HTTPS endpoints. Use strong admin API keys with rotation policies. Separate embedding provider can use OpenAI for production quality embeddings. Chunking parameters should be optimized for production workload characteristics. Hybrid search can be enabled with appropriate sparse embedding models. Centralized logging configuration ensures consistent log formatting across all production components. GPU configuration should be optimized for production hardware specifications.
+- **Development**: Use local LLM providers (ollama, llama.cpp) with localhost URLs and local SQLite database. Use local S3-compatible storage with MinIO for development. The VK polling script initializes Settings and runs the bot locally. Separate embedding provider can use Ollama for development. Chunking parameters can be tuned for faster local processing. Simplified hybrid search can be enabled with sparse_embedding_model set to "Qdrant/bm25". ColBERT reranking can be disabled for development efficiency. Centralized logging configuration provides consistent log formatting across all development scripts. GPU configuration can be optimized for local hardware capabilities.
+- **Production**: Use cloud LLM providers with proper authentication and managed database services. Use production S3-compatible storage with proper IAM policies and HTTPS endpoints. Use strong admin API keys with rotation policies. Separate embedding provider can use OpenAI for production quality embeddings. Chunking parameters should be optimized for production workload characteristics. Simplified hybrid search can be enabled with appropriate sparse embedding models. ColBERT reranking can be enabled with proper model management and resource allocation. Centralized logging configuration ensures consistent log formatting across all production components. GPU configuration should be optimized for production hardware specifications.
 
 Operational differences:
 - VK polling script demonstrates Settings usage at runtime with centralized logging configuration.
@@ -659,14 +728,15 @@ Operational differences:
 - S3 storage should use managed services with proper backup and disaster recovery.
 - Resource cleanup mechanisms ensure proper shutdown in production environments.
 - **Chunking optimization**: Production environments may require different chunk_size, chunk_overlap, chunk_strategy, and semantic chunking parameters based on document types and performance requirements.
-- **Hybrid search optimization**: Production environments should enable hybrid search with appropriate sparse embedding models for improved search effectiveness.
+- **Simplified hybrid search optimization**: Production environments should enable hybrid search with appropriate sparse embedding models for improved search effectiveness.
+- **ColBERT reranking optimization**: Production environments should enable reranking with proper model selection and resource allocation for superior ranking quality.
 - **GPU optimization**: Production environments should configure appropriate GPU layer allocation based on available hardware resources.
 - **Logging consistency**: Centralized logging configuration ensures uniform logging behavior across all development and production environments.
 - **Dependency management**: Production should use optimized uv extras configuration to minimize dependency footprint.
 
 **Section sources**
 - [app/main.py:23-82](file://app/main.py#L23-L82)
-- [app/config.py:26-62](file://app/config.py#L26-L62)
+- [app/config.py:26-67](file://app/config.py#L26-L67)
 - [app/api/deps.py:54-66](file://app/api/deps.py#L54-L66)
 - [scripts/run_admin.sh:119-121](file://scripts/run_admin.sh#L119-L121)
 
@@ -682,10 +752,11 @@ To add new configuration variables:
 8. For security-sensitive configurations, implement proper validation and error handling.
 9. For cleanup-related configurations, ensure proper resource management and error handling.
 10. **For chunking-related configurations**, consider performance implications and provide sensible defaults.
-11. **For hybrid search configurations**, ensure proper dependency management and error handling for sparse embeddings.
-12. **For logging-related configurations**, consider centralized logging integration and ensure consistent formatting.
-13. **For GPU-related configurations**, ensure proper hardware detection and optimization.
-14. **For environment file integration**, ensure the variable is covered by load_env_var() function.
+11. **For simplified hybrid search configurations**, ensure proper dependency management and error handling for sparse embeddings.
+12. **For reranking configurations**, ensure proper dependency management and error handling for ColBERT embeddings.
+13. **For logging-related configurations**, consider centralized logging integration and ensure consistent formatting.
+14. **For GPU-related configurations**, ensure proper hardware detection and optimization.
+15. **For environment file integration**, ensure the variable is covered by load_env_var() function.
 
 Example steps:
 - Add a new field to the Settings class.
@@ -697,12 +768,13 @@ Example steps:
 - For admin authentication, implement proper cookie security and rate limiting.
 - For resource cleanup, implement proper error handling and logging.
 - **For chunking parameters**, ensure they integrate with document processing pipelines and consider performance trade-offs.
-- **For hybrid search parameters**, ensure proper dependency management and error handling for sparse embeddings.
+- **For simplified hybrid search parameters**, ensure proper dependency management and error handling for sparse embeddings.
+- **For reranking parameters**, ensure proper dependency management and error handling for ColBERT embeddings.
 - **For logging configuration**, ensure centralized logging integration and consistent formatting across all components.
 - **For GPU configuration**, ensure proper hardware detection and optimization strategies.
 
 **Section sources**
-- [app/config.py:4-62](file://app/config.py#L4-L62)
+- [app/config.py:4-67](file://app/config.py#L4-L67)
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
 
@@ -721,7 +793,7 @@ The centralized logging configuration provides unified logging setup across all 
 Logging configuration options:
 
 - **LOG_LEVEL**: Environment variable to control logging level (default: INFO)
-- **LOG_FORMAT**: Standardized format string for log messages
+- **Log Format**: Standardized format string for log messages
 - **Logger Names**: Each component uses logging.getLogger(__name__) for consistent naming
 - **Centralized Control**: Single function to configure logging across all components
 
@@ -757,6 +829,8 @@ All major components use centralized logging configuration:
 - **Document Service**: app/domain/document_service.py uses logger = logging.getLogger(__name__)
 - **QA Service**: app/domain/qa_service.py uses logger = logging.getLogger(__name__)
 - **API Documents**: app/api/documents.py uses logger = logging.getLogger(__name__)
+- **ColBERT Embeddings**: app/rag/colbert_embeddings.py uses logger = logging.getLogger(__name__)
+- **Hybrid Retriever**: app/rag/retriever.py uses logger = logging.getLogger(__name__)
 
 **Section sources**
 - [app/config.py:6-11](file://app/config.py#L6-L11)
@@ -768,6 +842,8 @@ All major components use centralized logging configuration:
 - [app/domain/document_service.py:32](file://app/domain/document_service.py#L32)
 - [app/domain/qa_service.py:22](file://app/domain/qa_service.py#L22)
 - [app/api/documents.py:64](file://app/api/documents.py#L64)
+- [app/rag/colbert_embeddings.py:16](file://app/rag/colbert_embeddings.py#L16)
+- [app/rag/retriever.py:45](file://app/rag/retriever.py#L45)
 
 ## Chunking Configuration
 
@@ -841,7 +917,7 @@ Chunking parameters are used throughout the document processing pipeline:
 - **API endpoints**: Use chunking parameters for document processing in REST API operations
 
 **Section sources**
-- [app/config.py:50-62](file://app/config.py#L50-L62)
+- [app/config.py:50-67](file://app/config.py#L50-L67)
 - [app/rag/parser.py:58-175](file://app/rag/parser.py#L58-L175)
 - [app/api/documents.py:566-570](file://app/api/documents.py#L566-L570)
 - [app/api/documents.py:756-760](file://app/api/documents.py#L756-L760)
@@ -851,31 +927,26 @@ Chunking parameters are used throughout the document processing pipeline:
 ## Hybrid Search Configuration
 
 ### Hybrid Search Parameters Overview
-The hybrid search configuration enables advanced retrieval modes with sparse embeddings support:
+The hybrid search configuration enables advanced retrieval modes with direct sparse embeddings support:
 
-- **retrieval_mode**: Search mode - "dense" (vector-only) or "hybrid" (dense + sparse BM25) (default: "dense")
 - **sparse_embedding_model**: Model name for sparse embeddings (default: "Qdrant/bm25")
+- **Simplified Architecture**: Direct configuration eliminates retrieval_mode conditional logic and supports hybrid search as the primary mode.
 
 ### Default Values and Rationale
-- **retrieval_mode**: "dense" - Default to vector-only search for simplicity and performance
-- **sparse_embedding_model**: "Qdrant/bm25" - High-quality BM25 model for lexical matching
-- **Performance balance**: Dense search provides fast similarity matching, while hybrid adds complementary lexical matching
+- **sparse_embedding_model**: "Qdrant/bm25" - High-quality BM25 model for lexical matching, directly exposed as default
+- **Simplified Design**: Direct sparse embedding configuration eliminates complexity of retrieval_mode conditional logic
+- **Performance balance**: Hybrid search provides fast similarity matching with complementary lexical matching
 
 ### Configuration Options
 Hybrid search configuration options:
 
-- **RETRIEVAL_MODE**: String value controlling search mode ("dense" or "hybrid")
 - **SPARSE_EMBEDDING_MODEL**: String value controlling sparse embedding model name
-- **Environment variable mapping**: RETRIEVAL_MODE and SPARSE_EMBEDDING_MODEL environment variables map to respective settings
+- **Environment variable mapping**: SPARSE_EMBEDDING_MODEL environment variable maps to sparse_embedding_model setting
 
 ### Environment Variable Configuration
 
 ```bash
-# Dense search configuration (default)
-RETRIEVAL_MODE=dense
-
-# Hybrid search configuration
-RETRIEVAL_MODE=hybrid
+# Hybrid search configuration (default)
 SPARSE_EMBEDDING_MODEL=Qdrant/bm25
 
 # Alternative sparse model
@@ -883,25 +954,94 @@ SPARSE_EMBEDDING_MODEL=avsolatorio/GIST-Embedding-v0
 ```
 
 ### Hybrid Search Modes
-- **Dense Mode**: Vector-only similarity search using embeddings for semantic matching
-- **Hybrid Mode**: Combines dense vector search with sparse BM25-based lexical matching for improved recall and precision
+- **Hybrid Mode**: Directly supports hybrid dense + sparse BM25-based lexical matching for improved recall and precision
+- **Direct Configuration**: Simplified to eliminate retrieval_mode conditional logic and support hybrid search as default
 - **Sparse Embeddings**: Uses FastEmbedSparse for BM25-like sparse representations
 - **Performance Benefits**: Hybrid search can improve recall for keyword-rich queries while maintaining semantic similarity for content-based queries
 
 ### Integration Points
 Hybrid search parameters are used throughout the RAG pipeline:
 
-- **Retriever construction**: Use settings.retrieval_mode and settings.sparse_embedding_model to configure search behavior
-- **Sparse embeddings**: Build sparse embeddings only when retrieval_mode is "hybrid"
+- **Retriever construction**: Use settings.sparse_embedding_model to configure hybrid search behavior
+- **Sparse embeddings**: Build sparse embeddings directly for hybrid search
 - **Vector store configuration**: Pass sparse embeddings to QdrantVectorStore for hybrid search
 - **Indexing operations**: Include sparse embeddings during document indexing for hybrid search capability
 - **QA service**: Store sparse embeddings for hybrid search in question answering workflows
 
 **Section sources**
-- [app/config.py:59-62](file://app/config.py#L59-L62)
+- [app/config.py:59-67](file://app/config.py#L59-L67)
 - [app/rag/retriever.py:88-103](file://app/rag/retriever.py#L88-L103)
 - [app/resources.py:120-131](file://app/resources.py#L120-L131)
 - [tests/test_hybrid_search.py:17-41](file://tests/test_hybrid_search.py#L17-L41)
+
+## Reranking Configuration
+
+### Reranking Parameters Overview
+The reranking configuration provides advanced ColBERT-based reranking functionality with conditional initialization and per-token embeddings:
+
+- **reranking_enabled**: Boolean flag to enable/disable ColBERT-based reranking (default: False)
+- **colbert_rerank_model**: HuggingFace model identifier for ColBERT embeddings (default: "colbert-ir/colbertv2.0")
+- **colbert_prefetch_limit**: Number of documents to pre-fetch for ColBERT reranking (default: 20)
+- **colbert_rerank_limit**: Number of final results to return after reranking (default: 10)
+
+### Default Values and Rationale
+- **reranking_enabled**: False - Default to disable reranking for performance and cost considerations
+- **colbert_rerank_model**: "colbert-ir/colbertv2.0" - High-quality ColBERT model for semantic ranking
+- **colbert_prefetch_limit**: 20 - Balance between search quality and performance in reranking
+- **colbert_rerank_limit**: 10 - Reasonable number of final results for user experience
+- **Performance considerations**: ColBERT reranking provides superior ranking quality but requires additional computational resources
+
+### Configuration Options
+Reranking configuration options:
+
+- **RERANKING_ENABLED**: Boolean value controlling ColBERT reranking activation
+- **COLBERT_RERANK_MODEL**: String value controlling ColBERT model identifier
+- **COLBERT_PREFETCH_LIMIT**: Integer value controlling pre-fetch limit for reranking
+- **COLBERT_RERANK_LIMIT**: Integer value controlling final result limit after reranking
+- **Environment variable mapping**: RERANKING_ENABLED, COLBERT_RERANK_MODEL, COLBERT_PREFETCH_LIMIT, and COLBERT_RERANK_LIMIT environment variables map to respective settings
+
+### Environment Variable Configuration
+
+```bash
+# Reranking configuration (disabled by default)
+RERANKING_ENABLED=false
+
+# Enable ColBERT reranking
+RERANKING_ENABLED=true
+COLBERT_RERANK_MODEL=colbert-ir/colbertv2.0
+COLBERT_PREFETCH_LIMIT=20
+COLBERT_RERANK_LIMIT=10
+
+# Alternative ColBERT model
+COLBERT_RERANK_MODEL=colbert-ir/colbertv2.0
+
+# Adjust prefetch and result limits
+COLBERT_PREFETCH_LIMIT=50
+COLBERT_RERANK_LIMIT=5
+```
+
+### Reranking Behavior
+- **Conditional Activation**: ColBERT embeddings are only loaded when reranking_enabled is True
+- **Per-Token Embeddings**: ColBERT generates per-token embeddings stored as multivectors in Qdrant
+- **Late Interaction Scoring**: Qdrant performs late-interaction scoring during reranking for superior semantic ranking
+- **Graceful Degradation**: Falls back to hybrid search when ColBERT is unavailable or fails to load
+- **Performance Impact**: ColBERT reranking provides superior ranking quality but requires additional computational resources and memory
+
+### Integration Points
+Reranking parameters are used throughout the ColBERT-based RAG pipeline:
+
+- **ColBERT adapter construction**: Use settings.reranking_enabled, settings.colbert_rerank_model, and settings.colbert_prefetch_limit to configure ColBERT embeddings
+- **Hybrid retriever construction**: Use settings.colbert_prefetch_limit to configure pre-fetch limits for hybrid search
+- **Vector store configuration**: Include ColBERT embeddings in Qdrant collections for reranking capability
+- **Indexing operations**: Generate and store per-token ColBERT embeddings during document indexing
+- **QA service**: Use ColBERT embeddings for document-scoped retrieval with reranking
+
+**Section sources**
+- [app/config.py:62-67](file://app/config.py#L62-L67)
+- [app/rag/colbert_embeddings.py:83-121](file://app/rag/colbert_embeddings.py#L83-L121)
+- [app/rag/retriever.py:45-80](file://app/rag/retriever.py#L45-L80)
+- [tests/test_colbert_embeddings.py:19-89](file://tests/test_colbert_embeddings.py#L19-L89)
+- [tests/test_hybrid_rerank_retriever.py:40-176](file://tests/test_hybrid_rerank_retriever.py#L40-L176)
 
 ## Storage Configuration
 
@@ -942,7 +1082,7 @@ The DocumentRepository provides comprehensive CRUD operations:
 ### Configuration Options
 Storage configuration options:
 
-- **DB_PATH**: SQLite database file path (default: "data/cafetera.db")
+- **DATABASE_URL**: SQLite database connection string (default: "postgresql://cafetera:cafetera@localhost:5432/cafetera")
 - **Directory Creation**: Automatically creates parent directories if they don't exist
 - **Connection Management**: Asynchronous connections with proper resource cleanup
 
@@ -950,7 +1090,7 @@ Storage configuration options:
 
 ```bash
 # Storage configuration
-DB_PATH=data/cafetera.db
+DATABASE_URL=postgresql://cafetera:cafetera@localhost:5432/cafetera
 ```
 
 ### Storage Initialization Process
@@ -972,7 +1112,7 @@ Log --> End(["Database ready"])
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 
 **Section sources**
-- [app/config.py:37-38](file://app/config.py#L37-L38)
+- [app/config.py:37-42](file://app/config.py#L37-L42)
 - [app/storage/database.py:12-28](file://app/storage/database.py#L12-L28)
 - [app/storage/database.py:31-37](file://app/storage/database.py#L31-L37)
 - [app/storage/document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
@@ -1167,7 +1307,7 @@ LLM_BASE_URL=http://localhost:11434
 LLM_N_GPU_LAYERS=99
 
 # Storage configuration
-DB_PATH=data/cafetera.db
+DATABASE_URL=postgresql://cafetera:cafetera@localhost:5432/cafetera
 
 # S3 storage configuration
 S3_ENDPOINT_URL=http://localhost:9000
@@ -1359,8 +1499,8 @@ The enhanced configuration system provides comprehensive .env file integration w
 - **Fallback Priority**: Only loads variables if they're not already set in the environment.
 - **Pattern Matching**: Uses regex pattern matching to find exact variable definitions.
 - **Quoted Value Support**: Handles quoted values with proper escaping.
-- **Variable Coverage**: Supports comprehensive variable loading including LLM, embedding, Qdrant, S3, and Ollama configurations.
-- **URL Default Resolution**: Applies sensible defaults after loading from .env file.
+- **Variable Coverage**: Supports comprehensive variable loading including LLM, embedding, Qdrant, S3, Ollama, and new reranking configurations.
+- **Default Resolution**: Applies sensible defaults after loading from .env file.
 - **Interactive Provider Selection**: Integrates with provider selection dialogs for user-friendly configuration.
 
 ### Environment Variable Coverage
@@ -1369,6 +1509,7 @@ The load_env_var() function supports the following variables:
 - **Embedding Configuration**: EMBEDDING_PROVIDER, EMBEDDING_MODEL, EMBEDDING_BASE_URL, EMBEDDING_API_KEY, EMBED_N_GPU_LAYERS
 - **Infrastructure Configuration**: QDRANT_URL, S3_ENDPOINT_URL, OLLAMA_URL
 - **GPU Configuration**: OLLAMA_NUM_GPU
+- **Reranking Configuration**: RERANKING_ENABLED, COLBERT_RERANK_MODEL, COLBERT_PREFETCH_LIMIT, COLBERT_RERANK_LIMIT
 
 ### Environment Loading Process
 
@@ -1393,6 +1534,7 @@ Skip --> Done
 - **Fallback Behavior**: Ensures configuration precedence (environment variables > .env > defaults).
 - **Provider Optimization**: Supports GPU layer configuration for hardware-accelerated inference.
 - **Infrastructure Configuration**: Handles complex URL and credential management.
+- **Reranking Configuration**: Supports conditional ColBERT-based reranking setup.
 
 **Section sources**
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
@@ -1478,6 +1620,7 @@ The enhanced configuration system integrates with uv extras for dynamic dependen
 - **Ollama Support**: Installs langchain-ollama for Ollama provider support.
 - **OpenAI Compatibility**: Installs langchain-openai for OpenAI provider support.
 - **Hybrid Search**: Installs fastembed for sparse embeddings support.
+- **ColBERT Reranking**: Installs fastembed for ColBERT-based per-token embeddings.
 - **Conditional Installation**: Only installs dependencies that are actually needed.
 - **Dependency Resolution**: Resolves conflicts between different provider dependencies.
 
@@ -1508,6 +1651,7 @@ Install --> End(["Dependencies Installed"])
 - **Ollama**: langchain-ollama (optional dependency)
 - **OpenAI**: langchain-openai (optional dependency)
 - **Hybrid Search**: fastembed (optional dependency)
+- **ColBERT Reranking**: fastembed (conditional dependency)
 
 #### Dependency Installation
 - **Automatic Detection**: uv extras system automatically detects required dependencies.
@@ -1549,7 +1693,10 @@ Common issues and resolutions:
 - **Document processing errors**: Check chunking parameters for documents that fail processing.
 - **Memory issues with chunking**: Adjust chunk_size and chunk_overlap for memory-constrained environments.
 - **Semantic chunking errors**: Verify embedding provider is available and properly configured for semantic chunking.
-- **Hybrid search errors**: Check sparse embedding model availability and hybrid search dependencies.
+- **Simplified hybrid search errors**: Check sparse embedding model availability and hybrid search dependencies.
+- **Reranking configuration errors**: Verify ColBERT model availability, fastembed installation, and reranking dependencies.
+- **ColBERT model loading errors**: Check model download permissions, disk space, and fastembed installation.
+- **Prefetch limit issues**: Adjust colbert_prefetch_limit based on available memory and performance requirements.
 - **Logging configuration issues**: Verify centralized logging setup and log formatting consistency.
 - **Log level problems**: Check LOG_LEVEL environment variable and logging configuration.
 - **Cross-component logging inconsistencies**: Ensure all components use centralized logging configuration.
@@ -1557,6 +1704,8 @@ Common issues and resolutions:
 - **GPU configuration problems**: Check hardware detection and GPU layer allocation for Ollama models.
 - **Dependency installation failures**: Verify uv extras system is working correctly and dependencies are compatible.
 - **Provider-specific dependency conflicts**: Check for conflicting provider dependencies and resolve using uv extras.
+- **Simplified hybrid search performance issues**: Monitor sparse embedding resource usage and adjust model selection accordingly.
+- **Reranking performance issues**: Monitor ColBERT model resource usage and adjust prefetch limits accordingly.
 
 Validation tips:
 - Use the test suite to verify defaults and environment precedence.
@@ -1573,7 +1722,9 @@ Validation tips:
 - Validate concurrent indexing limits with system capabilities.
 - **Test chunking parameters**: Validate chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount combinations with representative documents.
 - **Test semantic chunking**: Verify embedding provider availability and semantic breakpoint detection accuracy.
-- **Test hybrid search**: Validate retrieval_mode configuration and sparse embedding model availability.
+- **Test simplified hybrid search**: Validate sparse_embedding_model configuration and sparse embedding model availability.
+- **Test reranking parameters**: Validate reranking_enabled, colbert_rerank_model, colbert_prefetch_limit, and colbert_rerank_limit combinations with representative queries.
+- **Test ColBERT embeddings**: Verify fastembed installation and ColBERT model loading with proper error handling.
 - **Monitor processing performance**: Track ingestion time and memory usage with different chunking configurations.
 - **Verify logging consistency**: Ensure centralized logging configuration provides uniform log formatting across all components.
 - **Test log level configuration**: Validate LOG_LEVEL environment variable effects on logging output.
@@ -1583,13 +1734,15 @@ Validation tips:
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
-- [app/config.py:4-62](file://app/config.py#L4-L62)
+- [app/config.py:4-67](file://app/config.py#L4-L67)
 - [tests/test_api_documents.py:141-174](file://tests/test_api_documents.py#L141-L174)
-- [tests/test_hybrid_search.py:1-169](file://tests/test_hybrid_search.py#L1-L169)
+- [tests/test_hybrid_search.py:1-231](file://tests/test_hybrid_search.py#L1-L231)
 - [tests/test_semantic_chunker.py:1-237](file://tests/test_semantic_chunker.py#L1-L237)
+- [tests/test_colbert_embeddings.py:19-89](file://tests/test_colbert_embeddings.py#L19-L89)
+- [tests/test_hybrid_rerank_retriever.py:135-273](file://tests/test_hybrid_rerank_retriever.py#L135-L273)
 - [app/storage/s3.py:71-77](file://app/storage/s3.py#L71-L77)
 - [app/domain/qa_service.py:113-125](file://app/domain/qa_service.py#L113-L125)
 - [scripts/run_admin.sh:96-121](file://scripts/run_admin.sh#L96-L121)
 
 ## Conclusion
-The enhanced configuration management system in cafetera_hr_bot provides comprehensive .env file integration capabilities with intelligent fallback behavior, supporting LLM providers, embedding models, Qdrant connections, S3 storage, and Ollama configurations. The system now features a multi-layered approach with Pydantic Settings for type-safe configuration, load_env_var() function for intelligent environment variable loading, GPU optimization for hardware-accelerated inference, provider-specific dependency management through uv extras, and comprehensive configuration validation. The system supports separate LLM and embedding provider configurations (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, covering VK API credentials, Qdrant database connections, flexible provider-specific behaviors, robust storage management, secure S3 file operations, comprehensive admin access control, enhanced resource cleanup mechanisms, explicit control over document processing behavior through chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount parameters, hybrid search modes with dense vector-only and hybrid dense+sparse BM25 approaches, sparse embeddings support with configurable models, centralized logging configuration that provides uniform logging behavior across all development and production environments, GPU layer configuration for optimized model performance, and dynamic dependency management for provider-specific packages. By following the documented patterns and security practices, teams can safely manage configuration across development and production environments while maintaining flexibility for different LLM and embedding backends, reliable operation with clear provider-specific behaviors, comprehensive document metadata persistence with proper storage configuration and security measures, secure S3 file storage with proper access controls, robust admin authentication with proper security protocols, proper resource management with enhanced cleanup mechanisms, optimized document processing through configurable chunking parameters that balance performance and context preservation, hybrid search functionality that improves search effectiveness with sparse embeddings, centralized logging behavior through centralized logging configuration that ensures uniform log formatting across all application components, and comprehensive GPU optimization that maximizes hardware utilization for improved performance.
+The enhanced configuration management system in cafetera_hr_bot provides comprehensive .env file integration capabilities with intelligent fallback behavior, supporting LLM providers, embedding models, Qdrant connections, S3 storage, Ollama configurations, and advanced reranking functionality with ColBERT embeddings. The system now features a multi-layered approach with Pydantic Settings for type-safe configuration, load_env_var() function for intelligent environment variable loading, GPU optimization for hardware-accelerated inference, provider-specific dependency management through uv extras, and comprehensive configuration validation. The system supports separate LLM and embedding provider configurations (ollama, openai, llama.cpp) with automatic fallback and backward compatibility, covering VK API credentials, Qdrant database connections, flexible provider-specific behaviors, robust storage management, secure S3 file operations, comprehensive admin access control, enhanced resource cleanup mechanisms, explicit control over document processing behavior through chunk_size, chunk_overlap, chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount parameters, simplified hybrid search functionality with direct sparse embeddings configuration, conditional ColBERT-based reranking with per-token embeddings and configurable prefetch limits, centralized logging configuration that provides uniform logging behavior across all development and production environments, GPU layer configuration for optimized model performance, and dynamic dependency management for provider-specific packages. By following the documented patterns and security practices, teams can safely manage configuration across development and production environments while maintaining flexibility for different LLM and embedding backends, reliable operation with clear provider-specific behaviors, comprehensive document metadata persistence with proper storage configuration and security measures, secure S3 file storage with proper access controls, robust admin authentication with proper security protocols, proper resource management with enhanced cleanup mechanisms, optimized document processing through configurable chunking parameters that balance performance and context preservation, simplified hybrid search functionality that improves search effectiveness with direct sparse embedding configuration, conditional ColBERT reranking that provides superior semantic ranking quality, centralized logging behavior through centralized logging configuration that ensures uniform log formatting across all application components, and comprehensive GPU optimization that maximizes hardware utilization for improved performance.

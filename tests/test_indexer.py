@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from langchain_core.documents import Document as LCDocument
 
-from app.rag.indexer import index_chunks, prepare_chunks
+from app.rag.indexer import index_chunks, optimize_collection, prepare_chunks
 
 # ── prepare_chunks ────────────────────────────────────────────────
 
@@ -219,3 +219,72 @@ class TestIndexChunks:
 
         assert result == 0
         assert not client.upsert.called
+
+
+# ── optimize_collection ─────────────────────────────────────────────
+
+
+class TestOptimizeCollection:
+    @pytest.mark.asyncio
+    async def test_sets_threshold_to_zero_then_restores(self):
+        """Verify optimize_collection sets threshold=0 then restores it."""
+        client = AsyncMock()
+        # Simulate a green collection that is done optimizing
+        mock_info = MagicMock()
+        mock_info.status = "green"
+        mock_info.optimizer_status = "ok"
+        client.get_collection = AsyncMock(return_value=mock_info)
+
+        await optimize_collection(client, "test-collection", indexing_threshold=10000)
+
+        # Should have called update_collection twice:
+        # 1st: set threshold=0 to force optimization
+        # 2nd: restore threshold=10000
+        assert client.update_collection.call_count == 2
+        first_call = client.update_collection.call_args_list[0]
+        second_call = client.update_collection.call_args_list[1]
+        assert first_call.kwargs["optimizers_config"].indexing_threshold == 0
+        assert second_call.kwargs["optimizers_config"].indexing_threshold == 10000
+        assert first_call.kwargs["collection_name"] == "test-collection"
+        assert second_call.kwargs["collection_name"] == "test-collection"
+
+    @pytest.mark.asyncio
+    async def test_polls_until_green(self):
+        """Verify optimize_collection polls until status is green."""
+        client = AsyncMock()
+        # First poll: still optimizing, second: done
+        optimizing_info = MagicMock()
+        optimizing_info.status = "yellow"
+        optimizing_info.optimizer_status = "optimizing"
+        done_info = MagicMock()
+        done_info.status = "green"
+        done_info.optimizer_status = "ok"
+        client.get_collection = AsyncMock(
+            side_effect=[optimizing_info, done_info]
+        )
+
+        await optimize_collection(client, "test-collection")
+
+        # Should have polled twice
+        assert client.get_collection.call_count == 2
+        # Still restores threshold after completion
+        assert client.update_collection.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_restores_threshold_even_on_timeout(self):
+        """Verify threshold is restored even if optimization doesn't complete."""
+        client = AsyncMock()
+        # Always return yellow — will hit the poll limit
+        optimizing_info = MagicMock()
+        optimizing_info.status = "yellow"
+        optimizing_info.optimizer_status = "optimizing"
+        client.get_collection = AsyncMock(return_value=optimizing_info)
+
+        # Patch asyncio.sleep inside the indexer module to run instantly
+        with patch("app.rag.indexer.asyncio.sleep", new_callable=AsyncMock):
+            await optimize_collection(client, "test-collection")
+
+        # Even though optimization never completed, threshold should be restored
+        assert client.update_collection.call_count == 2
+        restore_call = client.update_collection.call_args_list[-1]
+        assert restore_call.kwargs["optimizers_config"].indexing_threshold == 10000

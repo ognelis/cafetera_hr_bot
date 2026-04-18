@@ -33,12 +33,10 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced Main Application Entry Point section with modern async resource management using lifespan context managers
-- Updated Frontend Architecture section to document Vue.js-like Alpine.js components and comprehensive CSS styling system
-- Added new section on Streamlined Template Architecture with HTMX partials for client-side rendering
-- Updated Development Environment Setup to include the modernized run_admin.sh script with interactive provider selection
-- Enhanced Configuration Management section with intelligent .env integration and provider selection workflow
-- Added comprehensive documentation for the new frontend architecture with Alpine.js, HTMX, and custom CSS design system
+- Enhanced Testing Procedures section to include the critical `uv sync --extra test --extra dev` step before running tests
+- Updated Development Environment Setup to reflect the new testing workflow with proper dependency synchronization
+- Added comprehensive documentation for the uv package manager workflow and optional dependency management
+- Updated Validation Commands section to emphasize the importance of dependency synchronization for consistent testing
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -53,7 +51,7 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the development workflow and best practices for cafetera_hr_bot. It covers environment setup, code quality tools (Ruff, MyPy), testing procedures, validation commands, and code review guidelines. It also documents development standards, commit conventions, and contribution workflow, with practical examples for local development, running checks, executing tests, and preparing changes for review. Debugging techniques, performance profiling, and maintaining code quality throughout the lifecycle are addressed.
+This document describes the development workflow and best practices for cafetera_hr_bot. It covers environment setup, code quality tools (Ruff, MyPy), testing procedures, validation commands, and code review guidelines. It also documents development standards, commit conventions, and contribution workflow, with practical examples for local development, running checks, executing tests, and preparing changes for review. Debugging techniques, performance profiling, and maintaining code quality throughout the development lifecycle are addressed.
 
 **Updated** Enhanced with comprehensive documentation for the modernized application entry point with async resource management, Vue.js-like frontend architecture with Alpine.js, and streamlined template architecture for client-side rendering.
 
@@ -154,14 +152,14 @@ PYTOML -. config .-> LLM
 - [tests/test_config.py:1-27](file://tests/test_config.py#L1-L27)
 - [tests/test_keyboards.py:1-192](file://tests/test_keyboards.py#L1-L192)
 - [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
-- [pyproject.toml:1-66](file://pyproject.toml#L1-L66)
+- [pyproject.toml:1-72](file://pyproject.toml#L1-L72)
 - [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
 
 **Section sources**
-- [pyproject.toml:1-66](file://pyproject.toml#L1-L66)
+- [pyproject.toml:1-72](file://pyproject.toml#L1-L72)
 - [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
 - [PLAN.md:1-295](file://PLAN.md#L1-L295)
-- [AGENTS.md:1-95](file://AGENTS.md#L1-L95)
+- [AGENTS.md:1-177](file://AGENTS.md#L1-L177)
 
 ## Core Components
 - Settings loader: Loads environment variables into a typed Settings model with .env file integration and UTF-8 encoding support.
@@ -518,6 +516,11 @@ Key endpoints:
 - Admin interface testing includes authentication, upload validation, and document management.
 - Configuration tests validate environment variable precedence and .env file loading.
 
+**Critical Update**: The testing workflow now requires explicit dependency synchronization before running tests. The proper sequence is:
+1. `uv sync --extra test --extra dev` - Install test and development dependencies
+2. `uv run pytest` - Run tests relevant to changed code
+3. Additional validation steps as specified in AGENTS.md
+
 Recommended test coverage:
 - Handler logic for each section
 - State transitions and persistence
@@ -528,13 +531,14 @@ Recommended test coverage:
 - Configuration loading with environment variable precedence
 - Alpine.js component state management and HTMX partials
 
-**Updated** Added testing recommendations for Alpine.js components, HTMX partials, and modernized frontend architecture.
+**Updated** Added critical dependency synchronization step and enhanced testing recommendations for modernized frontend architecture.
 
 **Section sources**
-- [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
+- [pyproject.toml:45-58](file://pyproject.toml#L45-L58)
 - [tests/test_config.py:1-27](file://tests/test_config.py#L1-L27)
 - [tests/test_keyboards.py:49-191](file://tests/test_keyboards.py#L49-L191)
 - [tests/test_states.py:8-30](file://tests/test_states.py#L8-L30)
+- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
 
 ### Code Quality Tools: Ruff and MyPy
 - Ruff configuration enforces style and lint rules with a line length limit and target Python version.
@@ -544,8 +548,8 @@ Validation commands:
 - Run linter and type checker before review per AGENTS.md.
 
 **Section sources**
-- [pyproject.toml:49-66](file://pyproject.toml#L49-L66)
-- [AGENTS.md:82-88](file://AGENTS.md#L82-L88)
+- [pyproject.toml:60-72](file://pyproject.toml#L60-L72)
+- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
 
 ### Local Infrastructure: Docker Compose
 - Qdrant and MinIO services are defined with healthchecks and persistent volumes.
@@ -653,6 +657,8 @@ Common issues and remedies:
 - Alpine.js component not responding: Check Alpine.js initialization and data binding.
 - HTMX partial not updating: Verify partial endpoint and data attributes.
 - CSS styling issues: Check custom design tokens and theme configuration.
+- **New**: Test dependency installation failures: Ensure `uv sync --extra test --extra dev` completes successfully before running tests.
+- **New**: uv package manager issues: Verify uv installation and proper handling of optional dependencies.
 
 Validation checklist:
 - Run tests for affected modules.
@@ -665,22 +671,24 @@ Validation checklist:
 - Test Alpine.js component state management.
 - Verify HTMX partial functionality and data updates.
 - Validate custom CSS design system and responsive behavior.
+- **New**: Verify test dependencies are properly installed via uv sync.
+- **New**: Confirm uv package manager workflow with optional dependencies.
 
-**Updated** Added troubleshooting guidance for Alpine.js components, HTMX partials, and custom CSS design system.
+**Updated** Added troubleshooting guidance for uv package manager workflow, test dependency installation, and modernized frontend component validation.
 
 **Section sources**
 - [app/config.py:14-15](file://app/config.py#L14-L15)
 - [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
 - [app/integrations/vk/keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
 - [tests/test_keyboards.py:49-150](file://tests/test_keyboards.py#L49-L150)
-- [AGENTS.md:82-88](file://AGENTS.md#L82-L88)
+- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
 - [scripts/admin_server.py:40-42](file://scripts/admin_server.py#L40-L42)
 - [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
 
 ## Conclusion
-This guide consolidates the development workflow for cafetera_hr_bot, from environment setup to validation and code review. The modernization of the main application entry point with async resource management, the enhanced frontend architecture with Vue.js-like Alpine.js components and comprehensive CSS styling system, and the streamlined template architecture for client-side rendering significantly enhance the development experience. The addition of the admin server with hot reloading capabilities and comprehensive .env integration with interactive provider selection provides a robust development environment. The intelligent configuration loading with environment variable precedence offers flexible deployment scenarios while maintaining robust defaults. By following the documented standards, using the provided scripts and configurations, and adhering to the validation commands, contributors can maintain high-quality code and a smooth development lifecycle.
+This guide consolidates the development workflow for cafetera_hr_bot, from environment setup to validation and code review. The modernization of the main application entry point with async resource management, the enhanced frontend architecture with Vue.js-like Alpine.js components and comprehensive CSS styling system, and the streamlined template architecture for client-side rendering significantly enhance the development experience. The addition of the admin server with hot reloading capabilities and comprehensive .env integration with interactive provider selection provides a robust development environment. The intelligent configuration loading with environment variable precedence offers flexible deployment scenarios while maintaining robust defaults. The critical update to the testing workflow with explicit dependency synchronization ensures consistent and reliable test execution. By following the documented standards, using the provided scripts and configurations, and adhering to the validation commands, contributors can maintain high-quality code and a smooth development lifecycle.
 
-**Updated** Enhanced conclusion to reflect the modernized application architecture with async resource management, Vue.js-like frontend components, and streamlined template architecture.
+**Updated** Enhanced conclusion to reflect the modernized application architecture with async resource management, Vue.js-like frontend components, streamlined template architecture, and critical testing workflow improvements.
 
 ## Appendices
 
@@ -703,7 +711,7 @@ Practical steps:
 
 **Section sources**
 - [AGENTS.md:7-14](file://AGENTS.md#L7-L14)
-- [pyproject.toml:31-43](file://pyproject.toml#L31-L43)
+- [pyproject.toml:30-53](file://pyproject.toml#L30-L53)
 - [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
 - [scripts/admin_server.py:37-60](file://scripts/admin_server.py#L37-L60)
 - [scripts/run_admin.sh:81-92](file://scripts/run_admin.sh#L81-L92)
@@ -713,8 +721,8 @@ Practical steps:
 - Type-check: run the type checker as specified in AGENTS.md.
 
 **Section sources**
-- [AGENTS.md:82-88](file://AGENTS.md#L82-L88)
-- [pyproject.toml:49-66](file://pyproject.toml#L49-L66)
+- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
+- [pyproject.toml:60-72](file://pyproject.toml#L60-L72)
 
 ### Executing Tests
 - Run the test suite with the configured pytest settings.
@@ -723,14 +731,16 @@ Practical steps:
 - **Enhanced**: Include configuration tests for .env file loading and environment variable precedence.
 - **New**: Include Alpine.js component tests for frontend state management.
 - **New**: Include HTMX partial tests for client-side rendering functionality.
+- **Critical Update**: Always run `uv sync --extra test --extra dev` before executing tests to ensure proper dependency installation.
 
-**Updated** Added recommendation for admin interface testing, configuration testing, and modernized frontend testing.
+**Updated** Added critical dependency synchronization requirement and enhanced testing recommendations for modernized frontend architecture.
 
 **Section sources**
-- [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
+- [pyproject.toml:45-58](file://pyproject.toml#L45-L58)
 - [tests/test_config.py:1-27](file://tests/test_config.py#L1-L27)
 - [tests/test_keyboards.py:49-150](file://tests/test_keyboards.py#L49-L150)
 - [tests/test_states.py:8-30](file://tests/test_states.py#L8-L30)
+- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
 
 ### Preparing Changes for Review
 - Implement small, reviewable changes aligned with the development plan.
@@ -740,13 +750,14 @@ Practical steps:
 - **Enhanced**: Validate .env integration and configuration precedence behavior.
 - **New**: Ensure Alpine.js component changes include proper state management and data binding.
 - **New**: Validate HTMX partial functionality and client-side rendering behavior.
+- **Critical Update**: Verify that test dependencies are properly synchronized before submission.
 
-**Updated** Added requirement for admin interface security validation, .env integration testing, and modernized frontend component validation.
+**Updated** Added requirement for admin interface security validation, .env integration testing, modernized frontend component validation, and critical dependency synchronization requirement.
 
 **Section sources**
 - [PLAN.md:113-120](file://PLAN.md#L113-L120)
 - [AGENTS.md:62-64](file://AGENTS.md#L62-L64)
-- [AGENTS.md:82-95](file://AGENTS.md#L82-L95)
+- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
 
 ### Debugging Techniques
 - Enable INFO logs for the bot and handlers.
@@ -757,8 +768,9 @@ Practical steps:
 - **Enhanced**: Debug .env loading issues and configuration precedence problems.
 - **New**: Debug Alpine.js component state management and reactive data binding.
 - **New**: Debug HTMX partials and client-side rendering functionality.
+- **Critical Update**: Debug test dependency installation issues using uv sync verification.
 
-**Updated** Added debugging techniques for Alpine.js components, HTMX partials, and modernized frontend architecture.
+**Updated** Added debugging techniques for Alpine.js components, HTMX partials, modernized frontend architecture, and critical test dependency debugging.
 
 **Section sources**
 - [scripts/polling_vk.py:18-22](file://scripts/polling_vk.py#L18-L22)
@@ -773,8 +785,9 @@ Practical steps:
 - **Enhanced**: Configuration changes should include .env integration and environment variable precedence validation.
 - **New**: Frontend changes should include Alpine.js component validation and HTMX partial testing.
 - **New**: Resource management changes should include async context manager validation and graceful degradation testing.
+- **Critical Update**: Ensure test dependencies are properly synchronized in CI/CD pipelines.
 
-**Updated** Added security validation requirement for admin interface contributions, configuration validation requirements, and modernized frontend component validation.
+**Updated** Added security validation requirement for admin interface contributions, configuration validation requirements, modernized frontend component validation, and critical dependency synchronization requirement for CI/CD.
 
 **Section sources**
 - [AGENTS.md:58-74](file://AGENTS.md#L58-L74)
@@ -837,3 +850,23 @@ Frontend development workflow:
 - [static/css/style.css:1-171](file://static/css/style.css#L1-L171)
 - [templates/base.html:1-213](file://templates/base.html#L1-L213)
 - [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
+
+### uv Package Manager Workflow
+- **Critical Update**: The project uses uv as the sole package manager with explicit optional dependencies.
+- Optional dependencies are managed through extras: `test` and `dev`.
+- The testing workflow requires `uv sync --extra test --extra dev` to install all necessary dependencies.
+- pyproject.toml defines optional dependency groups for different development needs.
+- uv run is used for executing commands with proper environment isolation.
+
+Key workflow:
+1. `uv sync --extra test --extra dev` - Install test and development dependencies
+2. `uv run pytest` - Execute test suite with proper environment
+3. `uv run ruff check .` - Run linter with development tools
+4. `uv run mypy app/` - Run type checker with development configuration
+
+**New Section**
+
+**Section sources**
+- [AGENTS.md:7](file://AGENTS.md#L7)
+- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
+- [pyproject.toml:30-53](file://pyproject.toml#L30-L53)

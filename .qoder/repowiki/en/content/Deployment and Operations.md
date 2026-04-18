@@ -29,7 +29,10 @@
 - [app/rag/chain.py](file://app/rag/chain.py)
 - [app/rag/indexer.py](file://app/rag/indexer.py)
 - [app/rag/parser.py](file://app/rag/parser.py)
+- [app/rag/colbert_embeddings.py](file://app/rag/colbert_embeddings.py)
 - [tests/conftest.py](file://tests/conftest.py)
+- [tests/test_hybrid_search.py](file://tests/test_hybrid_search.py)
+- [tests/test_hybrid_rerank_retriever.py](file://tests/test_hybrid_rerank_retriever.py)
 - [AGENTS.md](file://AGENTS.md)
 - [PLAN.md](file://PLAN.md)
 - [README.md](file://README.md)
@@ -37,10 +40,10 @@
 
 ## Update Summary
 **Changes Made**
-- Updated VK bot startup process documentation to reflect enhanced resource management with proper event loop integration using loop_wrapper.on_startup/on_shutdown hooks
-- Added comprehensive coverage of centralized resource initialization patterns and proper event loop binding
-- Enhanced production deployment documentation with improved resource lifecycle management
-- Updated operational procedures to include proper resource cleanup and graceful shutdown handling
+- Updated Docker containerization documentation to reflect removal of --extra hybrid flag from dependency installation commands
+- Updated deployment documentation to reflect streamlined dependency management where hybrid features are now included by default
+- Enhanced containerization section to clarify that hybrid functionality is no longer conditionally activated
+- Updated troubleshooting section to reflect simplified dependency management approach
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -902,7 +905,7 @@ PostgresService --> AppConnections
 ## Dependency Analysis
 External dependencies include FastAPI, Hypercorn, LangChain stack, Qdrant client, VK and Telegram adapters, PostgreSQL asyncpg driver, and testing tools. Optional extras enable Ollama or OpenAI-compatible LLMs. The system now supports llama.cpp with optimized embedding server flags and uses Hypercorn as the production ASGI server instead of Uvicorn. PostgreSQL integration adds asyncpg driver for database connectivity. **Updated**: Containerization dependencies include uv package manager for optimized dependency installation and multi-stage Docker builds. The hybrid search capability requires fastembed>=0.8.0 for sparse embeddings support. **Enhanced**: The VK bot now depends on vkbottle's loop_wrapper system for proper event loop integration and resource lifecycle management.
 
-**Updated**: The centralized orchestrator manages dependency installation through uv sync with provider-specific extras, eliminates manual dependency management complexity, and includes comprehensive error handling for dependency resolution failures. The PostgreSQL integration adds asyncpg driver for production database connectivity. Containerization support uses uv for efficient dependency management in Docker images. The hybrid search feature requires the 'hybrid' extra for FastEmbed sparse embeddings. **Enhanced**: The VK bot integration with loop_wrapper ensures proper event loop binding for all resources, preventing resource binding issues and improving performance.
+**Updated**: The centralized orchestrator manages dependency installation through uv sync with provider-specific extras, eliminates manual dependency management complexity, and includes comprehensive error handling for dependency resolution failures. The PostgreSQL integration adds asyncpg driver for production database connectivity. Containerization support uses uv for efficient dependency management in Docker images. The hybrid search feature no longer requires conditional activation - it is now included by default in the base installation. **Enhanced**: The VK bot integration with loop_wrapper ensures proper event loop binding for all resources, preventing resource binding issues and improving performance.
 
 ```mermaid
 graph LR
@@ -1197,6 +1200,8 @@ The project implements comprehensive containerization support through multi-stag
 - Single CMD instruction for long-polling bot execution
 - Non-root user execution for security compliance
 - **Updated**: Pre-downloaded FastEmbed sparse embeddings cache for hybrid search support
+
+**Updated**: The Dockerfiles now reflect streamlined dependency management where hybrid functionality is included by default. The `--extra hybrid` flag has been removed from the uv sync commands, simplifying the dependency installation process.
 
 ```mermaid
 flowchart TD

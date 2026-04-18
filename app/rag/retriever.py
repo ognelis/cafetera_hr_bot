@@ -16,8 +16,86 @@ from pydantic import ConfigDict
 from qdrant_client import AsyncQdrantClient, models
 
 
+def _to_list(value) -> list:
+    """Convert numpy array or passthrough plain list to Python list."""
+    return value.tolist() if hasattr(value, "tolist") else value
+
+
 class CollectionNotFoundError(Exception):
     """Raised when the target Qdrant collection does not exist yet."""
+
+
+class AsyncHybridRerankRetriever(BaseRetriever):
+    """Async retriever using dense + sparse prefetch with ColBERT reranking.
+
+    Uses Qdrant's ``query_points`` with ``prefetch`` for parallel dense
+    and sparse retrieval, then reranks candidates via ColBERT late
+    interaction (multivector similarity).
+    """
+
+    client: AsyncQdrantClient
+    collection_name: str
+    embeddings: Any
+    sparse_embedding: Any
+    colbert_embedding: Any
+    k: int = 5
+    prefetch_limit: int = 20
+    filter: models.Filter | None = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    async def _aget_relevant_documents(
+        self, query: str, *, run_manager: AsyncCallbackManagerForRetrieverRun
+    ) -> list[Document]:
+        """Retrieve and rerank documents using hybrid + ColBERT."""
+        from qdrant_client.models import Prefetch, SparseVector
+
+        # 1. Compute dense embedding
+        dense_vec = await self.embeddings.aembed_query(query)
+
+        # 2. Compute sparse embedding
+        sparse_result = self.sparse_embedding.embed_query(query)
+        sparse_vec = SparseVector(
+            indices=_to_list(sparse_result.indices),
+            values=_to_list(sparse_result.values),
+        )
+
+        # 3. Compute ColBERT query embedding
+        colbert_vec = self.colbert_embedding.embed_query(query)
+
+        # 4. Build prefetch list and execute rerank query
+        prefetch = [
+            Prefetch(query=dense_vec, using="dense", limit=self.prefetch_limit),
+            Prefetch(query=sparse_vec, using="bm25", limit=self.prefetch_limit),
+        ]
+
+        results = await self.client.query_points(
+            collection_name=self.collection_name,
+            prefetch=prefetch,
+            query=colbert_vec,
+            using="colbert",
+            limit=self.k,
+            query_filter=self.filter,
+            with_payload=True,
+        )
+
+        # 5. Convert to LangChain Documents
+        docs: list[Document] = []
+        for r in results.points:
+            if r.payload is not None:
+                docs.append(
+                    Document(
+                        page_content=r.payload.get("page_content", ""),
+                        metadata=r.payload.get("metadata", {}) or {},
+                    )
+                )
+        return docs
+
+    def _get_relevant_documents(
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+    ) -> list[Document]:
+        """Sync retrieval is not supported - use async API only."""
+        raise NotImplementedError("Use async API only")
 
 
 class AsyncQdrantRetriever(BaseRetriever):
@@ -25,12 +103,18 @@ class AsyncQdrantRetriever(BaseRetriever):
 
     Replaces LangChain's QdrantVectorStore for retrieval to enable
     fully async operations without sync client overhead.
+
+    When ``sparse_embedding`` is provided, performs hybrid search
+    using dense + BM25 prefetch fused by Reciprocal Rank Fusion (RRF).
+    Otherwise falls back to dense-only.
     """
 
     client: AsyncQdrantClient
     collection_name: str
     embeddings: Any
+    sparse_embedding: Any = None
     k: int = 5
+    prefetch_limit: int = 20
     filter: models.Filter | None = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -40,12 +124,37 @@ class AsyncQdrantRetriever(BaseRetriever):
     ) -> list[Document]:
         """Retrieve relevant documents asynchronously."""
         query_vector = await self.embeddings.aembed_query(query)
-        results = await self.client.query_points(
-            collection_name=self.collection_name,
-            query=query_vector,
-            limit=self.k,
-            query_filter=self.filter,
-        )
+
+        if self.sparse_embedding is not None:
+            # Hybrid search: dense + BM25 prefetch, fused by RRF
+            from qdrant_client.models import Prefetch, Rrf, RrfQuery, SparseVector
+
+            sparse_result = self.sparse_embedding.embed_query(query)
+            sparse_vec = SparseVector(
+                indices=_to_list(sparse_result.indices),
+                values=_to_list(sparse_result.values),
+            )
+            prefetch = [
+                Prefetch(query=query_vector, using="dense", limit=self.prefetch_limit),
+                Prefetch(query=sparse_vec, using="bm25", limit=self.prefetch_limit),
+            ]
+            results = await self.client.query_points(
+                collection_name=self.collection_name,
+                prefetch=prefetch,
+                query=RrfQuery(rrf=Rrf()),
+                limit=self.k,
+                query_filter=self.filter,
+            )
+        else:
+            # Dense-only search
+            results = await self.client.query_points(
+                collection_name=self.collection_name,
+                query=query_vector,
+                using="dense",
+                limit=self.k,
+                query_filter=self.filter,
+            )
+
         docs: list[Document] = []
         for r in results.points:
             if r.payload is not None:
@@ -138,20 +247,18 @@ def build_embeddings(settings: Settings) -> Embeddings:
 
 
 def build_sparse_embeddings(settings: Settings):
-    """Build sparse embeddings for hybrid search. Returns None if mode is dense."""
-    if settings.retrieval_mode != "hybrid":
-        return None
+    """Build sparse embeddings for hybrid search."""
     try:
         from langchain_qdrant import FastEmbedSparse
     except ImportError as exc:
         raise ImportError(
-            "Install the 'hybrid' extra: uv sync --extra hybrid"
+            "fastembed is not installed. Run: uv sync"
         ) from exc
     try:
         return FastEmbedSparse(model_name=settings.sparse_embedding_model)
     except (ImportError, ValueError) as exc:
         raise ImportError(
-            "Install the 'hybrid' extra: uv sync --extra hybrid"
+            "Failed to load sparse embedding model. Run: uv sync"
         ) from exc
 
 
@@ -200,15 +307,19 @@ def build_retriever(
     collection_name: str = COLLECTION_NAME,
     k: int = 4,
     sparse_embedding=None,
-) -> AsyncQdrantRetriever:
-    """Build an async dense retriever over the given Qdrant collection.
+    colbert_embedding=None,
+) -> AsyncQdrantRetriever | AsyncHybridRerankRetriever:
+    """Build an async retriever over the given Qdrant collection.
+
+    When ``settings.reranking_enabled`` and ``colbert_embedding`` is
+    provided, returns an ``AsyncHybridRerankRetriever`` that performs
+    dense + sparse prefetch with ColBERT reranking.
+
+    Otherwise returns a hybrid ``AsyncQdrantRetriever`` (dense + sparse).
 
     Only chunks where ``is_search_enabled`` is not explicitly ``False``
     are returned.  Chunks that predate the metadata enrichment (no field)
     are still included for backward compatibility.
-
-    Note: sparse_embedding is accepted for API compatibility but is not
-    used by AsyncQdrantRetriever (dense retrieval only).
     """
     if qdrant_client is None:
         qdrant_client = build_qdrant_client(settings)
@@ -223,10 +334,25 @@ def build_retriever(
             )
         ]
     )
+
+    # Dispatch to hybrid reranker when reranking is enabled
+    if settings.reranking_enabled and colbert_embedding is not None:
+        return AsyncHybridRerankRetriever(
+            client=qdrant_client,
+            collection_name=collection_name,
+            embeddings=embeddings,
+            sparse_embedding=sparse_embedding,
+            colbert_embedding=colbert_embedding,
+            k=k,
+            prefetch_limit=settings.colbert_prefetch_limit,
+            filter=search_filter,
+        )
+
     return AsyncQdrantRetriever(
         client=qdrant_client,
         collection_name=collection_name,
         embeddings=embeddings,
+        sparse_embedding=sparse_embedding,
         k=k,
         filter=search_filter,
     )
@@ -241,14 +367,18 @@ def build_retriever_for_document(
     collection_name: str = COLLECTION_NAME,
     k: int = 4,
     sparse_embedding=None,
-) -> AsyncQdrantRetriever:
-    """Build an async dense retriever scoped to a single document.
+    colbert_embedding=None,
+) -> AsyncQdrantRetriever | AsyncHybridRerankRetriever:
+    """Build an async retriever scoped to a single document.
+
+    When ``settings.reranking_enabled`` and ``colbert_embedding`` is
+    provided, returns an ``AsyncHybridRerankRetriever`` that performs
+    dense + sparse prefetch with ColBERT reranking.
+
+    Otherwise returns a hybrid ``AsyncQdrantRetriever`` (dense + sparse).
 
     Returns only chunks that belong to ``document_id``
     (``metadata.document_id`` must match).
-
-    Note: sparse_embedding is accepted for API compatibility but is not
-    used by AsyncQdrantRetriever (dense retrieval only).
     """
     if qdrant_client is None:
         qdrant_client = build_qdrant_client(settings)
@@ -263,10 +393,25 @@ def build_retriever_for_document(
             )
         ]
     )
+
+    # Dispatch to hybrid reranker when reranking is enabled
+    if settings.reranking_enabled and colbert_embedding is not None:
+        return AsyncHybridRerankRetriever(
+            client=qdrant_client,
+            collection_name=collection_name,
+            embeddings=embeddings,
+            sparse_embedding=sparse_embedding,
+            colbert_embedding=colbert_embedding,
+            k=k,
+            prefetch_limit=settings.colbert_prefetch_limit,
+            filter=search_filter,
+        )
+
     return AsyncQdrantRetriever(
         client=qdrant_client,
         collection_name=collection_name,
         embeddings=embeddings,
+        sparse_embedding=sparse_embedding,
         k=k,
         filter=search_filter,
     )

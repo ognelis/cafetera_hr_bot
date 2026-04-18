@@ -19,6 +19,7 @@ from app.domain.category_file_service import CategoryFileService
 from app.domain.document_service import DocumentService
 from app.domain.qa_service import QAService
 from app.rag.chain import build_llm, build_rag_chain
+from app.rag.colbert_embeddings import build_colbert_embeddings
 from app.rag.prompts import GLOBAL_EXPERTS_PROMPT, SYSTEM_PROMPT
 from app.rag.retriever import (
     CollectionNotFoundError,
@@ -42,6 +43,7 @@ async def _ensure_collection(
     embeddings: Embeddings,
     settings: Settings,
     sparse_embedding=None,
+    colbert_embedding=None,
 ) -> None:
     """Ensure the Qdrant collection exists, creating it if necessary.
 
@@ -49,6 +51,10 @@ async def _ensure_collection(
     correct vector configuration if it doesn't. This allows the QA service
     to initialize properly even on first startup before any documents are
     indexed.
+
+    When reranking is enabled, the collection uses named vector spaces:
+    ``"dense"``, ``"colbert"``, and ``"bm25"``.  Otherwise it uses
+    named dense + ``"bm25"`` sparse layout.
     """
     from qdrant_client import models
 
@@ -70,32 +76,103 @@ async def _ensure_collection(
         logger.warning("Failed to get embedding dimensions: %s", exc)
         raise
 
-    # Build vector parameters
-    vectors_config = models.VectorParams(
-        size=vector_size,
-        distance=models.Distance.COSINE,
+    use_reranking = (
+        settings.reranking_enabled
+        and colbert_embedding is not None
     )
 
-    # Build sparse vector config for hybrid search if enabled
-    sparse_vectors_config = None
-    if settings.retrieval_mode == "hybrid" and sparse_embedding is not None:
-        sparse_vectors_config = {
-            "text-sparse": models.SparseVectorParams(
-                index=models.SparseIndexParams(
-                    on_disk=False,
-                ),
-            )
-        }
-        logger.info("Hybrid search enabled - adding sparse vector configuration")
+    if use_reranking:
+        # Named vector config for hybrid reranking
+        colbert_dim = colbert_embedding.dimension
 
-    # Create the collection
+        vectors_config: dict[str, models.VectorParams] | models.VectorParams = {
+            "dense": models.VectorParams(
+                size=vector_size,
+                distance=models.Distance.COSINE,
+                quantization_config=models.ScalarQuantization(
+                    scalar=models.ScalarQuantizationConfig(
+                        type=models.ScalarType.INT8,
+                        quantile=0.99,
+                        always_ram=False,
+                    ),
+                ),
+            ),
+            "colbert": models.VectorParams(
+                size=colbert_dim,
+                distance=models.Distance.COSINE,
+                multivector_config=models.MultiVectorConfig(
+                    comparator=models.MultiVectorComparator.MAX_SIM,
+                ),
+                hnsw_config=models.HnswConfigDiff(m=0),
+                on_disk=True,
+                quantization_config=models.ScalarQuantization(
+                    scalar=models.ScalarQuantizationConfig(
+                        type=models.ScalarType.INT8,
+                        quantile=0.99,
+                        always_ram=False,
+                    ),
+                ),
+            ),
+        }
+        sparse_vectors_config = {
+            "bm25": models.SparseVectorParams(
+                modifier=models.Modifier.IDF,
+                index=models.SparseIndexParams(on_disk=True),
+            ),
+        }
+        logger.info(
+            "Creating collection '%s' with reranking config "
+            "(dense_dim=%d, colbert_dim=%d, bm25, INT8 quantization)",
+            collection_name,
+            vector_size,
+            colbert_dim,
+        )
+    else:
+        # Hybrid search: dense + sparse (bm25)
+        dense_vector_config = models.VectorParams(
+            size=vector_size,
+            distance=models.Distance.COSINE,
+            quantization_config=models.ScalarQuantization(
+                scalar=models.ScalarQuantizationConfig(
+                    type=models.ScalarType.INT8,
+                    quantile=0.99,
+                    always_ram=False,
+                ),
+            ),
+        )
+        sparse_vectors_config = None
+        if sparse_embedding is not None:
+            sparse_vectors_config = {
+                "bm25": models.SparseVectorParams(
+                    modifier=models.Modifier.IDF,
+                    index=models.SparseIndexParams(on_disk=True),
+                ),
+            }
+            logger.info("Hybrid search enabled - adding sparse vector configuration")
+
+        vectors_config = {
+            "dense": dense_vector_config,
+        }
+
+    # Create the collection with INT8 scalar quantization
     await client.create_collection(
         collection_name=collection_name,
         vectors_config=vectors_config,
         sparse_vectors_config=sparse_vectors_config,
+        optimizers_config=models.OptimizersConfigDiff(
+            indexing_threshold=10000,
+            deleted_threshold=0.2,
+        ),
+        quantization_config=models.ScalarQuantization(
+            scalar=models.ScalarQuantizationConfig(
+                type=models.ScalarType.INT8,
+                quantile=0.99,
+                always_ram=False,
+            ),
+        ),
     )
     logger.info(
-        "Created Qdrant collection '%s' with vector_size=%d",
+        "Created Qdrant collection '%s' with vector_size=%d, INT8 scalar quantization",
         collection_name,
         vector_size,
     )
@@ -133,6 +210,7 @@ class AppResources:
     qa_service: QAService | None = None
     vk_qa_service: QAService | None = None
     sparse_embeddings: object | None = None
+    colbert_embeddings: object | None = None
     category_file_repo: CategoryFileRepository | None = None
     category_file_service: CategoryFileService | None = None
 
@@ -214,6 +292,19 @@ async def build_resources(
             )
             res.sparse_embeddings = None
 
+    # 2c. ColBERT embeddings for reranking (optional, degrades gracefully)
+    if res.embeddings is not None:
+        try:
+            res.colbert_embeddings = build_colbert_embeddings(settings)
+            if res.colbert_embeddings is not None:
+                logger.info("ColBERT embeddings initialized (reranking enabled)")
+        except Exception:
+            logger.warning(
+                "ColBERT embeddings not available — falling back to dense+sparse",
+                exc_info=True,
+            )
+            res.colbert_embeddings = None
+
     # 3. Document repository and service (if requested)
     if with_db:
         try:
@@ -238,6 +329,7 @@ async def build_resources(
                     embeddings=embeddings,
                     collection_name=settings.qdrant_collection,
                     sparse_embedding=res.sparse_embeddings,
+                    colbert_embedding=res.colbert_embeddings,
                 )
                 res.doc_service = doc_service
                 logger.info("DocumentService initialized")
@@ -269,6 +361,7 @@ async def build_resources(
                 embeddings,
                 settings,
                 sparse_embedding=res.sparse_embeddings,
+                colbert_embedding=res.colbert_embeddings,
             )
 
             llm = build_llm(settings)
@@ -279,6 +372,7 @@ async def build_resources(
                 qdrant_client=qdrant_client,
                 embeddings=embeddings,
                 sparse_embedding=res.sparse_embeddings,
+                colbert_embedding=res.colbert_embeddings,
             )
             chain = build_rag_chain(retriever, llm, system_prompt=GLOBAL_EXPERTS_PROMPT)
 
@@ -291,6 +385,7 @@ async def build_resources(
                 global_system_prompt=GLOBAL_EXPERTS_PROMPT,
                 include_metadata=True,
                 sparse_embedding=res.sparse_embeddings,
+                colbert_embedding=res.colbert_embeddings,
             )
             res.qa_service = qa_service
 
@@ -302,6 +397,7 @@ async def build_resources(
                 settings=settings,
                 global_system_prompt=SYSTEM_PROMPT,
                 sparse_embedding=res.sparse_embeddings,
+                colbert_embedding=res.colbert_embeddings,
             )
             res.vk_qa_service = vk_qa_service
             logger.info("QA service initialized successfully")
@@ -365,6 +461,7 @@ async def close_resources(res: AppResources) -> None:
     res.qdrant_client = None
     res.embeddings = None
     res.sparse_embeddings = None
+    res.colbert_embeddings = None
     res.llm = None
     res.doc_repo = None
     res.doc_service = None

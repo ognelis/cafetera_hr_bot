@@ -14,17 +14,9 @@ from app.rag.retriever import build_sparse_embeddings, build_vectorstore
 # ── build_sparse_embeddings ───────────────────────────────────────
 
 
-def test_build_sparse_embeddings_dense_mode():
-    """When retrieval_mode="dense", build_sparse_embeddings() returns None."""
-    settings = Settings(retrieval_mode="dense", _env_file=None)
-    result = build_sparse_embeddings(settings)
-    assert result is None
-
-
-def test_build_sparse_embeddings_hybrid_mode():
-    """When retrieval_mode="hybrid", build_sparse_embeddings() returns FastEmbedSparse."""
+def test_build_sparse_embeddings_returns_fastembed():
+    """build_sparse_embeddings() returns FastEmbedSparse."""
     settings = Settings(
-        retrieval_mode="hybrid",
         sparse_embedding_model="Qdrant/bm25",
         _env_file=None,
     )
@@ -41,10 +33,9 @@ def test_build_sparse_embeddings_hybrid_mode():
     assert result is mock_sparse
 
 
-def test_build_sparse_embeddings_hybrid_missing_dependency():
-    """When retrieval_mode="hybrid" but FastEmbedSparse import fails, raises ImportError."""
+def test_build_sparse_embeddings_missing_dependency():
+    """When FastEmbedSparse import fails, raises ImportError."""
     settings = Settings(
-        retrieval_mode="hybrid",
         sparse_embedding_model="Qdrant/bm25",
         _env_file=None,
     )
@@ -64,7 +55,7 @@ def test_build_sparse_embeddings_hybrid_missing_dependency():
         with pytest.raises(ImportError) as exc_info:
             build_sparse_embeddings(settings)
 
-    assert "uv sync --extra hybrid" in str(exc_info.value)
+    assert "fastembed" in str(exc_info.value)
 
 
 # ── build_vectorstore ─────────────────────────────────────────────
@@ -120,7 +111,7 @@ def test_build_vectorstore_with_sparse():
 
 async def test_index_chunks_uses_sparse_embedding():
     """index_chunks() with sparse_embedding produces combined dense+sparse
-    points in a single upsert.
+    points in a single upsert using named vectors.
     """
     mock_client = AsyncMock()
     mock_embeddings = MagicMock()
@@ -145,13 +136,60 @@ async def test_index_chunks_uses_sparse_embedding():
         sparse_embedding=mock_sparse,
     )
 
-    # Single upsert with combined dense + sparse vectors
+    # Single upsert with named dense + bm25 sparse vectors
     assert mock_client.upsert.call_count == 1
     call_kwargs = mock_client.upsert.call_args.kwargs
     assert call_kwargs["collection_name"] == "test_collection"
     point = call_kwargs["points"][0]
-    assert "" in point.vector
-    assert "text-sparse" in point.vector
+    assert "dense" in point.vector
+    assert "bm25" in point.vector
+
+
+async def test_index_chunks_with_colbert_uses_named_vectors():
+    """index_chunks() with colbert_embedding produces named vectors
+    (dense + bm25 + colbert) in a single upsert.
+    """
+    import numpy as np
+
+    mock_client = AsyncMock()
+    mock_embeddings = MagicMock()
+    mock_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]]
+
+    mock_sparse = MagicMock()
+    idx_arr = np.array([1, 2])
+    val_arr = np.array([0.5, 0.5], dtype=np.float32)
+    mock_sparse_result = MagicMock()
+    mock_sparse_result.indices = MagicMock(spec=np.ndarray)
+    mock_sparse_result.indices.tolist.return_value = idx_arr.tolist()
+    mock_sparse_result.values = MagicMock(spec=np.ndarray)
+    mock_sparse_result.values.tolist.return_value = val_arr.tolist()
+    mock_sparse.embed_documents.return_value = [mock_sparse_result]
+
+    mock_colbert = MagicMock()
+    mock_colbert.embed_documents.return_value = [[[0.1, 0.2], [0.3, 0.4]]]
+
+    from langchain_core.documents import Document as LCDocument
+
+    mock_chunk = LCDocument(
+        page_content="test content",
+        metadata={"chunk_id": "test-chunk-id-456"},
+    )
+
+    await index_chunks(
+        client=mock_client,
+        embeddings=mock_embeddings,
+        collection_name="test_collection",
+        chunks=[mock_chunk],
+        sparse_embedding=mock_sparse,
+        colbert_embedding=mock_colbert,
+    )
+
+    assert mock_client.upsert.call_count == 1
+    call_kwargs = mock_client.upsert.call_args.kwargs
+    point = call_kwargs["points"][0]
+    assert "dense" in point.vector
+    assert "bm25" in point.vector
+    assert "colbert" in point.vector
 
 
 # ── QAService ─────────────────────────────────────────────────────
@@ -164,11 +202,29 @@ def test_qa_service_stores_sparse_embedding():
     assert service._sparse_embedding is mock_sparse
 
 
+def test_qa_service_stores_colbert_embedding():
+    """QAService(colbert_embedding=mock_colbert) stores it as _colbert_embedding."""
+    mock_colbert = MagicMock()
+    service = QAService(colbert_embedding=mock_colbert)
+    assert service._colbert_embedding is mock_colbert
+
+
 # ── Settings defaults ─────────────────────────────────────────────
 
 
 def test_settings_defaults():
-    """Default retrieval_mode is 'dense', default sparse_embedding_model is 'Qdrant/bm25'."""
+    """Default sparse_embedding_model is 'Qdrant/bm25'."""
     settings = Settings(_env_file=None)
-    assert settings.retrieval_mode == "dense"
     assert settings.sparse_embedding_model == "Qdrant/bm25"
+
+
+# ── Reranking settings ────────────────────────────────────────────
+
+
+def test_reranking_settings_defaults():
+    """Default reranking settings are disabled with sensible defaults."""
+    settings = Settings(_env_file=None)
+    assert settings.reranking_enabled is False
+    assert settings.colbert_rerank_model == "colbert-ir/colbertv2.0"
+    assert settings.colbert_prefetch_limit == 20
+    assert settings.colbert_rerank_limit == 10

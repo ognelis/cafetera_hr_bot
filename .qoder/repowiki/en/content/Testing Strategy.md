@@ -23,6 +23,7 @@
 - [tests/test_api_documents_bulk.py](file://tests/test_api_documents_bulk.py)
 - [tests/test_document_service.py](file://tests/test_document_service.py)
 - [tests/test_indexer.py](file://tests/test_indexer.py)
+- [tests/test_category_hints.py](file://tests/test_category_hints.py)
 - [tests/conftest.py](file://tests/conftest.py)
 - [tests/test_category_file_service.py](file://tests/test_category_file_service.py)
 - [tests/test_category_files.py](file://tests/test_category_files.py)
@@ -50,6 +51,7 @@
 - [app/rag/retriever.py](file://app/rag/retriever.py)
 - [app/rag/parser.py](file://app/rag/parser.py)
 - [app/rag/indexer.py](file://app/rag/indexer.py)
+- [app/rag/prompts.py](file://app/rag/prompts.py)
 - [app/storage/models.py](file://app/storage/models.py)
 - [app/storage/database.py](file://app/storage/database.py)
 - [app/storage/document_repo.py](file://app/storage/document_repo.py)
@@ -71,6 +73,9 @@
 - **Async Database Operations**: Proper async database connection handling with asyncpg driver
 - **Modular Test Organization**: Enhanced admin document API testing with specialized test modules for authentication, upload, and bulk operations
 - **Advanced Mocking Infrastructure**: Comprehensive AsyncMock usage for Qdrant client mocking and S3 storage operations
+- **Category-Aware Functionality Testing**: Established comprehensive testing infrastructure for new category-aware RAG prompts with CATEGORY_HINTS validation, chain building with category hints, QA service parameter passing, and global chain construction
+- **Enhanced Indexer Testing**: Added comprehensive tests for proper handling of the is_search_enabled flag during document indexing with top-level field storage validation
+- **Expanded Test Coverage**: Enhanced test coverage for all new category-aware features and functionality across multiple test modules
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -87,7 +92,7 @@
 ## Introduction
 This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly enhanced with modern async testing patterns, comprehensive AsyncMock usage for Qdrant client mocking, expanded test coverage for the new async operations and combined vector embedding approach in hybrid search functionality, and a complete migration from SQLite to PostgreSQL for production-like testing environments using Testcontainers.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, expanded test coverage for new async operations and combined vector embedding approach, and **complete migration from SQLite to PostgreSQL for production-like testing environments using Testcontainers**. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive mocking capabilities, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, expanded test coverage for new async operations and combined vector embedding approach, **complete migration from SQLite to PostgreSQL for production-like testing environments using Testcontainers**, **comprehensive category-aware functionality testing with CATEGORY_HINTS validation and chain building**, **enhanced indexer testing for is_search_enabled flag handling**, and **expanded test coverage for all new category-aware features and functionality**.
 
 ## Project Structure
 The testing effort is organized under the tests/ directory with a modernized approach featuring comprehensive AsyncMock usage, PostgreSQL database testing, and Docker container integration:
@@ -116,6 +121,8 @@ The testing effort is organized under the tests/ directory with a modernized app
 - **Comprehensive hybrid search testing** with AsyncMock for sparse embeddings and vector store integration
 - **Extended configuration testing** for semantic chunking and hybrid search settings
 - **AsyncMock-based test infrastructure** for comprehensive async operation validation
+- **Category hints testing** with comprehensive validation of CATEGORY_HINTS integration and chain building
+- **Enhanced indexer testing** with comprehensive validation of is_search_enabled flag handling
 
 ```mermaid
 graph TB
@@ -136,6 +143,7 @@ T_ASK["test_ask_block9.py"]
 T_STORAGE["test_storage.py"]
 T_CATEGORY_FILE["test_category_file_service.py"]
 T_CATEGORY_FILES["test_category_files.py"]
+T_CATEGORY_HINTS["test_category_hints.py"]
 T_DOCS_MAIN["test_api_documents.py"]
 T_DOCS_AUTH["test_api_documents_auth.py"]
 T_DOCS_UPLOAD["test_api_documents_upload.py"]
@@ -164,6 +172,7 @@ PARSER["parser.py"]
 CHAIN["chain.py"]
 RETRIEVER["retriever.py"]
 INDEXER["indexer.py"]
+PROMPTS["prompts.py"]
 RESOURCES["resources.py"]
 API["app/api/"]
 DOCS_API["documents.py"]
@@ -191,6 +200,7 @@ T --> T_ASK
 T --> T_STORAGE
 T --> T_CATEGORY_FILE
 T --> T_CATEGORY_FILES
+T --> T_CATEGORY_HINTS
 T --> T_DOCS_MAIN
 T --> T_DOCS_AUTH
 T --> T_DOCS_UPLOAD
@@ -216,6 +226,7 @@ RAG --> PARSER
 RAG --> CHAIN
 RAG --> RETRIEVER
 RAG --> INDEXER
+RAG --> PROMPTS
 RAG --> RESOURCES
 API --> DOCS_API
 API --> DOCS_DEPS
@@ -246,12 +257,13 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [tests/test_category_file_service.py:1-422](file://tests/test_category_file_service.py#L1-L422)
 - [tests/test_category_files.py:1-553](file://tests/test_category_files.py#L1-L553)
+- [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
 - [tests/test_api_documents.py:1-479](file://tests/test_api_documents.py#L1-L479)
 - [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
-- [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
+- [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
 - [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
 
 **Section sources**
@@ -272,12 +284,13 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [tests/test_category_file_service.py:1-422](file://tests/test_category_file_service.py#L1-L422)
 - [tests/test_category_files.py:1-553](file://tests/test_category_files.py#L1-L553)
+- [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
 - [tests/test_api_documents.py:1-479](file://tests/test_api_documents.py#L1-L479)
 - [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
-- [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
+- [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
 - [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
 
 ## Core Components
@@ -308,8 +321,10 @@ SCRIPTS --> RUN_LLAMA
 - **Extended configuration testing** validates new semantic chunking and hybrid search settings including chunk_strategy, semantic_breakpoint_threshold_type, semantic_breakpoint_threshold_amount, retrieval_mode, and sparse_embedding_model.
 - **Resource management testing** validates sparse embeddings initialization and cleanup in AppResources with graceful degradation for hybrid search mode.
 - **AsyncMock-based test infrastructure** provides comprehensive async operation validation with proper await semantics and async fixtures.
+- **Category hints testing** validates CATEGORY_HINTS integration, chain building with category hints, QA service parameter passing, and global chain construction with comprehensive test coverage of 248 lines.
+- **Enhanced indexer testing** validates proper handling of the is_search_enabled flag during document indexing with comprehensive validation of top-level field storage and metadata preservation.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, **improved test isolation through table dropping and recreation**, **comprehensive category-aware functionality testing with CATEGORY_HINTS validation**, **enhanced indexer testing for is_search_enabled flag handling**, and **expanded test coverage for all new category-aware features and functionality**.
 
 Key testing characteristics:
 - Uses pytest with asyncio_mode set to auto for async-friendly tests.
@@ -334,7 +349,7 @@ Key testing characteristics:
 - **Admin document API testing** validates authentication mechanisms, authorization enforcement, Russian localization, and filtering/sorting functionality across specialized modules.
 - **Auth client fixture** provides authenticated TestClient instances with pre-set admin_session cookies for comprehensive admin functionality testing.
 - **Document service testing** validates complete document lifecycle including indexing, reindexing, and metadata management.
-- **Indexer testing** validates chunk preparation, metadata enrichment, and search enablement handling.
+- **Indexer testing** validates chunk preparation, metadata enrichment, and search enablement handling with comprehensive validation of is_search_enabled flag.
 - **Filtering and sorting API testing** validates comprehensive filtering by status, source type, and sorting by multiple fields.
 - **Updated architectural testing patterns** validate the new query_rag_with_wait function for asynchronous RAG querying with timeout handling.
 - **Handler imports testing** validates that P0+P1 handlers use send_rag_answer helper instead of direct QA service calls.
@@ -344,7 +359,9 @@ Key testing characteristics:
 - **Hybrid search testing** validates sparse embedding creation with FastEmbedSparse, vector store construction with sparse embeddings, index chunking functionality, and settings configuration defaults using AsyncMock.
 - **Configuration testing** validates new semantic chunking settings including chunk_strategy, semantic_breakpoint_threshold_type, semantic_breakpoint_threshold_amount, and hybrid search settings retrieval_mode and sparse_embedding_model.
 - **Resource management testing** validates sparse embeddings initialization and cleanup in AppResources with graceful degradation for hybrid search mode.
-- **AsyncMock-based test infrastructure** provides comprehensive async operation validation with proper await semantics and async fixtures for Qdrant client lifecycle management.
+- **AsyncMock usage testing** validates comprehensive async operation validation across all test modules.
+- **Category hints testing** validates CATEGORY_HINTS keys against known scenarios, chain building with category hints, QA service parameter passing, and global chain construction with comprehensive test coverage.
+- **Indexer testing** validates is_search_enabled flag handling with top-level field storage validation and metadata preservation.
 
 **Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**.
 
@@ -366,16 +383,17 @@ Key testing characteristics:
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [tests/test_category_file_service.py:1-422](file://tests/test_category_file_service.py#L1-L422)
 - [tests/test_category_files.py:1-553](file://tests/test_category_files.py#L1-L553)
+- [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
 - [tests/test_api_documents.py:1-479](file://tests/test_api_documents.py#L1-L479)
 - [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
-- [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
+- [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
 - [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
 
 ## Architecture Overview
-The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with simplified breakdown by functional area. The streamlined testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing with AsyncMock validation**, **enhanced semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings using AsyncMock**, and **extended configuration testing for semantic chunking and hybrid search settings**.
+The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with simplified breakdown by functional area. The streamlined testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing with AsyncMock validation**, **enhanced semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings using AsyncMock**, **extended configuration testing for semantic chunking and hybrid search settings**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with is_search_enabled flag handling**, and **expanded test coverage for all new category-aware features and functionality**.
 
 ```mermaid
 sequenceDiagram
@@ -460,7 +478,7 @@ Purpose:
 - Validate main menu layout and payloads.
 - Validate service-row behavior (Home, Back, Contact HR).
 - Validate Block 2 keyboard builders and new payload constants.
-- Validate Block 9 ask-specific keyboard builders and scenario navigation.
+- Validate Block 9 keyboard builders and scenario navigation.
 - Validate stub keyboard composition.
 - Ensure payload constants are well-formed and unique.
 
@@ -480,7 +498,7 @@ Testing patterns:
 - Comprehensive validation of payload structure and entity IDs.
 - Scenario-based keyboard validation ensures proper navigation flow.
 
-**Updated** Enhanced with comprehensive Block 2 keyboard testing covering entity selection, hire actions, fire menu, vacation menu, HR-request keyboards, payload validation, and Block 9 ask-specific keyboard builders with scenario navigation functionality.
+**Updated** Enhanced with comprehensive Block 2 keyboard testing covering entity selection, hire actions, fire menu, vacation menu, HR-request keyboards, payload validation, and Block 9 keyboard builders with scenario navigation functionality.
 
 **Section sources**
 - [tests/test_keyboards.py:24-222](file://tests/test_keyboards.py#L24-L222)
@@ -698,7 +716,7 @@ Testing patterns:
 - **Use auth_client fixture for authenticated requests across all modules.**
 - **Validate cookie-based authentication mechanism with pre-set admin_session cookies.**
 - **Test localization strings in HTML templates with Russian UI validation.**
-- **Validate partial rendering with HTMX requests and authentication requirements.**
+- **Test partial rendering with HTMX requests and authentication requirements.**
 - **Test pagination with authentication and localization across all modules.**
 - **Use parameterized tests for filtering and sorting scenarios across modules.**
 - **Validate URL parameter construction and HTMX integration.**
@@ -929,6 +947,7 @@ Purpose:
 - Validate chunk preparation edge cases and error conditions.
 - **Validate sparse embeddings integration in chunk preparation.**
 - **Validate AsyncMock usage for Qdrant client operations in indexer tests.**
+- **Validate comprehensive is_search_enabled flag handling with top-level field storage.**
 
 Methodology:
 - Test prepare_chunks function with metadata enrichment.
@@ -939,6 +958,8 @@ Methodology:
 - Test empty input validation and edge cases.
 - **Validate chunk preparation does not mutate original documents.**
 - **Test sparse embeddings parameter handling in chunk preparation.**
+- **Test comprehensive is_search_enabled flag handling with top-level field storage validation.**
+- **Validate metadata preservation in nested metadata dict while storing is_search_enabled at top level.**
 - **Validate AsyncMock usage for Qdrant client operations in indexer tests.**
 
 Testing patterns:
@@ -948,13 +969,14 @@ Testing patterns:
 - Test boolean metadata handling and type preservation.
 - **Use parameterized tests for different metadata scenarios.**
 - **Validate sparse embeddings parameter passing.**
+- **Validate is_search_enabled flag storage at top level vs nested metadata.**
 - **Validate AsyncMock usage for Qdrant client operations with proper await semantics.**
 
-**Updated** Added comprehensive indexer testing with 100 lines of new test coverage validating chunk preparation, metadata enrichment, search enablement handling, edge case validation, and **sparse embeddings integration in chunk preparation**. The testing infrastructure now includes **AsyncMock usage for Qdrant client operations in indexer tests**.
+**Updated** Added comprehensive indexer testing with 222 lines of new test coverage validating chunk preparation, metadata enrichment, search enablement handling, edge case validation, **sparse embeddings integration in chunk preparation**, and **comprehensive is_search_enabled flag handling with top-level field storage validation**. The testing infrastructure now includes **AsyncMock usage for Qdrant client operations in indexer tests**.
 
 **Section sources**
-- [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
-- [app/rag/indexer.py:1-100](file://app/rag/indexer.py#L1-L100)
+- [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
+- [app/rag/indexer.py:1-191](file://app/rag/indexer.py#L1-L191)
 
 ### Semantic Chunking Testing Infrastructure
 **New Section** - Comprehensive testing coverage for semantic chunking functionality
@@ -1001,7 +1023,6 @@ Purpose:
 - Validate sparse embedding creation for hybrid search mode.
 - Test FastEmbedSparse integration and model configuration.
 - Validate vector store construction with sparse embeddings.
-- Test index chunking functionality with sparse embeddings.
 - Validate QAService integration with sparse embeddings.
 - Test configuration defaults for hybrid search settings.
 - Test graceful degradation for missing sparse embeddings.
@@ -1060,6 +1081,8 @@ Current coverage:
 - **Extended configuration testing validates semantic chunking and hybrid search settings.**
 - **Resource management testing validates sparse embeddings initialization and cleanup.**
 - **AsyncMock usage testing validates Qdrant client lifecycle management across all handler tests.**
+- **Category hints testing validates CATEGORY_HINTS integration and chain building with comprehensive test coverage.**
+- **Enhanced indexer testing validates is_search_enabled flag handling and metadata preservation.**
 
 Testing approach:
 - Since handlers are async and depend on message events, tests focus on wiring and keyboard payloads.
@@ -1088,6 +1111,8 @@ Testing approach:
 - **Configuration testing validates new semantic chunking and hybrid search settings.**
 - **Resource management testing validates sparse embeddings initialization and cleanup.**
 - **AsyncMock usage testing validates comprehensive async operation validation across all handler tests.**
+- **Category hints testing validates comprehensive CATEGORY_HINTS integration and chain building functionality.**
+- **Enhanced indexer testing validates comprehensive is_search_enabled flag handling and metadata preservation.**
 
 Mocking external dependencies:
 - Replace VK API calls with mocks or fakes in higher-level integration tests.
@@ -1122,6 +1147,10 @@ Mocking external dependencies:
 - **Validate Docker availability detection and graceful skipping of container-based tests.**
 - **Validate PostgreSQL database initialization and table creation with proper error handling.**
 - **Validate asyncpg driver usage for optimal database performance.**
+- **Validate comprehensive category hints testing with CATEGORY_HINTS validation.**
+- **Validate enhanced indexer testing with is_search_enabled flag handling.**
+- **Validate comprehensive CATEGORY_HINTS integration and chain building functionality.**
+- **Validate comprehensive is_search_enabled flag handling with top-level field storage.**
 
 Validation tips:
 - Use keyboard payload assertions to confirm routing correctness.
@@ -1141,7 +1170,6 @@ Validation tips:
 - **Validate parser section extraction and chunking logic.**
 - **Validate dispatcher functionality for file extension-based routing.**
 - **Test error handling for unsupported file formats.**
-- **Validate metadata handling for source and section information.**
 - **Validate llama.cpp provider selection logic and configuration parameter handling.**
 - **Test import error scenarios and fallback mechanisms.**
 - **Validate integration with existing RAG components (chain.py, retriever.py).**
@@ -1149,7 +1177,7 @@ Validation tips:
 - **Test Russian localization strings throughout admin interface.**
 - **Validate partial rendering with authentication requirements.**
 - **Validate document service lifecycle management and Qdrant integration.**
-- **Test indexer chunk preparation and metadata enrichment.**
+- **Validate indexer chunk preparation and metadata enrichment.**
 - **Validate comprehensive filtering and sorting API functionality.**
 - **Test pagination with filtering and sorting parameters.**
 - **Validate filter metadata in API responses.**
@@ -1169,8 +1197,12 @@ Validation tips:
 - **Validate Docker container lifecycle management and cleanup.**
 - **Validate PostgreSQL container startup and connection URL generation.**
 - **Validate asyncpg driver usage for optimal database performance.**
+- **Validate comprehensive category hints testing with CATEGORY_HINTS validation.**
+- **Validate enhanced indexer testing with comprehensive is_search_enabled flag handling.**
+- **Validate comprehensive CATEGORY_HINTS integration and chain building functionality.**
+- **Validate comprehensive is_search_enabled flag handling with top-level field storage.**
 
-**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation using query_rag_with_wait, document storage system testing for comprehensive database operations, category file service testing for PostgreSQL integration, enhanced admin document API testing for authentication and localization, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **extended configuration testing for semantic chunking and hybrid search settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure with PostgreSQL integration**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, and **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**.
+**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation using query_rag_with_wait, document storage system testing for comprehensive database operations, category file service testing for PostgreSQL integration, enhanced admin document API testing for authentication and localization, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **extended configuration testing for semantic chunking and hybrid search settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure with PostgreSQL integration**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with is_search_enabled flag handling**, and **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**.
 
 **Section sources**
 - [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
@@ -1191,7 +1223,7 @@ Validation tips:
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
-- [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
+- [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
 - [tests/test_semantic_chunker.py:1-246](file://tests/test_semantic_chunker.py#L1-L246)
 - [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
 - [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
@@ -1434,6 +1466,80 @@ Testing patterns:
 **Section sources**
 - [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
 
+### Category Hints Testing Infrastructure
+**New Section** - Comprehensive testing coverage for category-aware functionality
+
+Purpose:
+- Validate CATEGORY_HINTS integration with known scenario IDs.
+- Test build_rag_chain() with category_hint parameter for prompt enhancement.
+- Validate QAService.ask() parameter passing for category-based chain building.
+- Test _build_global_chain() integration with CATEGORY_HINTS lookup.
+- Validate comprehensive test coverage of 248 lines for category-aware functionality.
+
+Methodology:
+- Test CATEGORY_HINTS keys against _SCENARIO_KEYWORDS to ensure subset relationship.
+- Test build_rag_chain() with category_hint includes 'Дополнительный контекст' marker and hint text.
+- Test build_rag_chain() without category_hint excludes context marker.
+- Test QAService.ask() passes category parameter to _build_global_chain.
+- Test _build_global_chain() uses CATEGORY_HINTS lookup for category-based hints.
+- Test unknown category handling with None hint fallback.
+- Validate comprehensive scenario coverage: pay, sick, probation, hire, fire, vacation.
+- Test actual CATEGORY_HINTS values integration with build_rag_chain.
+
+Testing patterns:
+- Use AsyncMock for QA service testing to simulate chain responses.
+- Test category hint integration with system prompt enhancement.
+- Validate category parameter passing throughout QAService methods.
+- Test CATEGORY_HINTS lookup with proper dictionary access.
+- Use comprehensive parameterization for different category scenarios.
+- Validate prompt template construction with category hints.
+- Test empty string hint handling and falsy value validation.
+
+**Updated** Added comprehensive category hints testing infrastructure with 248 lines of new test coverage validating CATEGORY_HINTS integration, chain building with category hints, QA service parameter passing, and global chain construction. The testing infrastructure validates comprehensive category-aware functionality including scenario detection, prompt enhancement, and parameter passing throughout the RAG pipeline.
+
+**Section sources**
+- [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
+- [app/rag/prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [app/rag/chain.py:98-124](file://app/rag/chain.py#L98-L124)
+- [app/domain/qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
+- [app/domain/topic_hints.py:30-67](file://app/domain/topic_hints.py#L30-L67)
+
+### Enhanced Indexer Testing Infrastructure
+**New Section** - Comprehensive testing coverage for is_search_enabled flag handling
+
+Purpose:
+- Validate comprehensive is_search_enabled flag handling during document indexing.
+- Test top-level field storage validation to avoid Qdrant's inconsistent dot interpretation.
+- Validate metadata preservation in nested metadata dict while storing is_search_enabled at top level.
+- Test comprehensive test coverage of 222 lines for indexer functionality.
+- Validate sparse embeddings integration in chunk preparation.
+
+Methodology:
+- Test is_search_enabled stored as top-level field, not nested in metadata.
+- Test is_search_enabled=False handling with proper top-level storage.
+- Test other metadata fields preserved in nested metadata dict.
+- Test comprehensive metadata validation including document_id, filename, s3_key.
+- Test chunk_id generation and uniqueness validation.
+- Test empty input handling and zero return without Qdrant calls.
+- Validate chunk preparation does not mutate original documents.
+- Test sparse embeddings parameter handling in chunk preparation.
+
+Testing patterns:
+- Use AsyncMock for Qdrant client operations to avoid real database calls.
+- Test payload construction with proper field placement validation.
+- Validate metadata preservation and enrichment patterns.
+- Use parameterized tests for different metadata scenarios.
+- Test edge cases with empty chunk lists and single chunk validation.
+- Validate Qdrant dot notation vs top-level field handling.
+- Test sparse embeddings integration with proper vector construction.
+
+**Updated** Added comprehensive enhanced indexer testing infrastructure with 222 lines of new test coverage validating is_search_enabled flag handling, top-level field storage validation, metadata preservation, and sparse embeddings integration. The testing infrastructure validates comprehensive indexer functionality including chunk preparation, metadata enrichment, and Qdrant payload construction.
+
+**Section sources**
+- [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
+- [app/rag/indexer.py:23-110](file://app/rag/indexer.py#L23-L110)
+- [app/rag/indexer.py:139-191](file://app/rag/indexer.py#L139-L191)
+
 ## Dependency Analysis
 The test suite depends on:
 - pytest and pytest-asyncio for async-friendly test execution.
@@ -1467,6 +1573,8 @@ The test suite depends on:
 - **Docker availability detection and graceful skipping of container-based tests.**
 - **PostgreSQL database testing with asyncpg driver.**
 - **TEST_DATABASE_URL environment variable integration for database configuration.**
+- **Category hints testing infrastructure with comprehensive CATEGORY_HINTS validation.**
+- **Enhanced indexer testing infrastructure with is_search_enabled flag handling.**
 
 ```mermaid
 graph TB
@@ -1490,7 +1598,7 @@ AD["Enhanced Admin Document API Testing"]
 AC["Auth Client Fixture"]
 EM["Embedding Model Testing"]
 DOC_SERVICE["Document Service Testing"]
-INDEXER["Indexer Testing"]
+INDEXER["Enhanced Indexer Testing"]
 FS["Filtering & Sorting Testing"]
 ARCH["Architectural Testing Patterns"]
 QAS["QAService Resource Management Testing"]
@@ -1505,6 +1613,7 @@ ENV["TEST_DATABASE_URL"]
 DOCKER["Docker Integration"]
 DAV["Docker Availability Detection"]
 ASYNC_PG["Asyncpg Driver"]
+CH["Category Hints Testing"]
 PY --> P
 PY --> PA
 PY --> VK
@@ -1539,6 +1648,7 @@ PY --> ENV
 PY --> DOCKER
 PY --> DAV
 PY --> ASYNC_PG
+PY --> CH
 ```
 
 **Diagram sources**
@@ -1591,8 +1701,11 @@ PY --> ASYNC_PG
 - **Docker availability detection should gracefully skip container-based tests when Docker is not available.**
 - **PostgreSQL database testing should leverage asyncpg driver for optimal performance.**
 - **TEST_DATABASE_URL environment variable should be properly formatted for database connections.**
+- **Category hints testing should validate comprehensive CATEGORY_HINTS integration efficiently.**
+- **Enhanced indexer testing should validate is_search_enabled flag handling performance.**
+- **Category hints integration testing should validate prompt enhancement performance.**
 
-**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing optimization, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing optimization for new settings**, **resource management testing optimization for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, and **TEST_DATABASE_URL environment variable integration for database configuration**.
+**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing optimization, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing optimization for new settings**, **resource management testing optimization for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing optimization with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing optimization with is_search_enabled flag handling**, and **TEST_DATABASE_URL environment variable integration for database configuration**.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -1660,6 +1773,13 @@ Common issues and resolutions:
 - **PostgreSQL database failures: Validate asyncpg driver usage and table initialization.**
 - **TEST_DATABASE_URL failures: Validate environment variable configuration and connection string formatting.**
 - **PostgreSQL container failures: Validate container startup and connection URL generation.**
+- **Category hints failures: Validate CATEGORY_HINTS integration and chain building functionality.**
+- **Category hints validation failures: Test scenario keys against known scenarios.**
+- **Category hints chain building failures: Test prompt enhancement with category hints.**
+- **Category hints parameter passing failures: Test category parameter passing through QAService.**
+- **Enhanced indexer failures: Validate is_search_enabled flag handling and top-level field storage.**
+- **Enhanced indexer metadata failures: Test metadata preservation in nested dict.**
+- **Enhanced indexer sparse embedding failures: Test sparse embeddings parameter handling.**
 
 Debugging tips:
 - Print or log parsed keyboard JSON during development to validate structure.
@@ -1710,8 +1830,12 @@ Debugging tips:
 - **Validate Docker availability detection and graceful skipping of container-based tests.**
 - **Validate PostgreSQL container startup and connection URL generation.**
 - **Validate asyncpg driver usage for optimal database performance.**
+- **Validate comprehensive category hints testing with CATEGORY_HINTS validation.**
+- **Validate enhanced indexer testing with comprehensive is_search_enabled flag handling.**
+- **Validate comprehensive CATEGORY_HINTS integration and chain building functionality.**
+- **Validate comprehensive is_search_enabled flag handling with top-level field storage.**
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, category file service testing with PostgreSQL integration, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **semantic chunking testing with FakeEmbeddings mock**, **hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, and **TEST_DATABASE_URL environment variable integration for database configuration**.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, category file service testing with PostgreSQL integration, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **semantic chunking testing with FakeEmbeddings mock**, **hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with is_search_enabled flag handling**, and **TEST_DATABASE_URL environment variable integration for database configuration**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1732,7 +1856,8 @@ Debugging tips:
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
-- [tests/test_indexer.py:1-100](file://tests/test_indexer.py#L1-L100)
+- [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
+- [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
 - [tests/test_semantic_chunker.py:1-246](file://tests/test_semantic_chunker.py#L1-L246)
 - [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
 - [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
@@ -1757,7 +1882,7 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter handling, and error scenarios.**
 - **Comprehensive parser testing validates document ingestion pipeline with section extraction, chunking, and metadata handling, including semantic chunking validation with FakeEmbeddings mock.**
 - **Document service testing validates complete document lifecycle management with proper error handling and Qdrant integration.**
-- **Indexer testing validates chunk preparation with metadata enrichment and search enablement handling.**
+- **Indexer testing validates chunk preparation with metadata enrichment and search enablement handling with comprehensive validation of is_search_enabled flag.**
 - **Comprehensive filtering and sorting API testing validates status, source type, and sort field functionality with 140+ lines of new test coverage.**
 - **Comprehensive embedding model configuration testing validates the new default 'qwen3-embedding:4b-q4_K_M' and provider-specific model selection.**
 - **Updated architectural testing patterns validate the new query_rag_with_wait and send_rag_answer approach across all handlers, replacing the old get_qa_service pattern.**
@@ -1771,6 +1896,8 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - **Docker availability detection testing validates graceful skipping of container-based tests when Docker is not available.**
 - **PostgreSQL database testing with asyncpg driver validates optimal database performance.**
 - **TEST_DATABASE_URL environment variable testing validates database configuration and connection string formatting.**
+- **Category hints testing validates comprehensive CATEGORY_HINTS integration and chain building functionality with 248 lines of new test coverage.**
+- **Enhanced indexer testing validates comprehensive is_search_enabled flag handling with top-level field storage and metadata preservation with 222 lines of new test coverage.**
 
 To evolve the test suite:
 - Introduce event-driven tests for handlers to validate async behavior.
@@ -1803,7 +1930,7 @@ To evolve the test suite:
 - **Test error handling for unsupported file formats.**
 - **Add comprehensive document service testing for complete lifecycle management with sparse embeddings.**
 - **Test Qdrant integration and error handling scenarios.**
-- **Add comprehensive indexer testing for chunk preparation and metadata enrichment with sparse embeddings.**
+- **Add comprehensive enhanced indexer testing for chunk preparation and metadata enrichment with comprehensive is_search_enabled flag handling.**
 - **Validate chunk preparation edge cases and metadata validation.**
 - **Add comprehensive filtering and sorting API testing for comprehensive functionality validation.**
 - **Test pagination with filtering and sorting parameters.**
@@ -1828,8 +1955,12 @@ To evolve the test suite:
 - **Validate PostgreSQL container startup and connection URL generation.**
 - **Validate asyncpg driver usage for optimal PostgreSQL performance.**
 - **Validate TEST_DATABASE_URL environment variable usage for database configuration.**
+- **Add comprehensive category hints testing for CATEGORY_HINTS integration and chain building validation.**
+- **Validate comprehensive CATEGORY_HINTS integration and chain building functionality.**
+- **Add comprehensive enhanced indexer testing for comprehensive is_search_enabled flag handling and metadata preservation.**
+- **Validate comprehensive is_search_enabled flag handling with top-level field storage.**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, **category file service testing with 422 lines of new coverage**, **category files API testing with 553 lines of new coverage**, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive semantic chunking testing with 246 lines of new coverage**, **comprehensive hybrid search testing with 173 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 235 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing validating Qdrant client lifecycle ownership using AsyncMock**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **TEST_DATABASE_URL environment variable integration for database configuration**, and **AsyncMock usage testing validating comprehensive async operation validation**.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, **category file service testing with 422 lines of new coverage**, **category files API testing with 553 lines of new coverage**, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive semantic chunking testing with 246 lines of new coverage**, **comprehensive hybrid search testing with 173 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 235 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing validating Qdrant client lifecycle ownership using AsyncMock**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **TEST_DATABASE_URL environment variable integration for database configuration**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, and **AsyncMock usage testing validating comprehensive async operation validation**.
 
 ## Appendices
 
@@ -1851,7 +1982,7 @@ To evolve the test suite:
 - **Run auth client fixture tests for authenticated TestClient validation across modules (e.g., `pytest tests/test_api_documents_auth.py::TestAuth::test_login_with_valid_key`).**
 - **Run embedding model configuration tests for provider-specific model validation (e.g., `pytest tests/test_rag_block6.py::TestSettingsFromEnv::test_defaults_for_embeddings`).**
 - **Run document service tests for complete lifecycle management validation (e.g., `pytest tests/test_document_service.py`).**
-- **Run indexer tests for chunk preparation validation (e.g., `pytest tests/test_indexer.py`).**
+- **Run enhanced indexer tests for comprehensive is_search_enabled flag handling validation (e.g., `pytest tests/test_indexer.py`).**
 - **Run filtering and sorting API tests for comprehensive filtering/sorting functionality validation (e.g., `pytest tests/test_api_documents.py::TestFilterSortAPI`).**
 - **Run architectural testing patterns tests for query_rag_with_wait and send_rag_answer validation (e.g., `pytest tests/test_ask_block9.py::TestAskHandlerImports`).**
 - **Run handler imports tests for the new architectural patterns (e.g., `pytest tests/test_qa_service.py::TestHandlerImports`).**
@@ -1863,6 +1994,8 @@ To evolve the test suite:
 - **Run Docker availability detection tests for graceful skipping of container-based tests (e.g., `pytest tests/conftest.py::TestDockerAvailability`).**
 - **Run PostgreSQL database tests for asyncpg driver usage validation (e.g., `pytest tests/conftest.py::TestPostgreSQLConnection`).**
 - **Run TEST_DATABASE_URL environment variable tests for database configuration validation (e.g., `pytest tests/test_storage.py::TestInitDb::test_creates_database_tables`).**
+- **Run category hints tests for comprehensive CATEGORY_HINTS validation (e.g., `pytest tests/test_category_hints.py`).**
+- **Run enhanced indexer tests for comprehensive is_search_enabled flag handling (e.g., `pytest tests/test_indexer.py::TestPrepareChunks::test_search_disabled`).**
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1929,6 +2062,8 @@ To evolve the test suite:
 - **Validate PostgreSQL container startup and connection URL generation.**
 - **Validate asyncpg driver usage for optimal database performance.**
 - **Validate TEST_DATABASE_URL environment variable usage for database configuration.**
+- **Validate comprehensive category hints testing with CATEGORY_HINTS validation.**
+- **Validate enhanced indexer testing with comprehensive is_search_enabled flag handling.**
 - **Validate timeout handling and unified RAG answer delivery across all handlers.**
 
-**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, and **TEST_DATABASE_URL environment variable integration for database configuration**.
+**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, and **TEST_DATABASE_URL environment variable integration for database configuration**.

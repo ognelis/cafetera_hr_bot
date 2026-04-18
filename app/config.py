@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     semantic_breakpoint_threshold_type: str = "percentile"
     semantic_breakpoint_threshold_amount: float = 95
 
-    # Retrieval mode: "dense" (vector only) or "hybrid" (dense + sparse BM25)
-    retrieval_mode: str = "dense"  # "dense" | "hybrid"
+    # Hybrid search (sparse BM25 embeddings)
     sparse_embedding_model: str = "Qdrant/bm25"
+
+    # Reranking
+    reranking_enabled: bool = False
+    colbert_rerank_model: str = "colbert-ir/colbertv2.0"
+    colbert_prefetch_limit: int = 20
+    colbert_rerank_limit: int = 10
