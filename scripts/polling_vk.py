@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from app.config import Settings, configure_logging
 from app.integrations.vk.bot import create_bot
 from app.integrations.vk.handlers import set_category_file_service, set_qa_service
-from app.resources import AppResources, build_resources, close_resources
+from app.resources import build_resources, close_resources
 
 logger = logging.getLogger(__name__)
 

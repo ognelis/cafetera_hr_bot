@@ -2,7 +2,7 @@
 
 Provides per-document operations: index, delete, toggle search, count,
 and collection optimization.
-Used by ``DocumentService`` in the domain layer and by ``scripts/ingest.py``.
+Used by ``DocumentService`` in the domain layer.
 """
 
 from __future__ import annotations

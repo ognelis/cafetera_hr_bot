@@ -1,7 +1,7 @@
 """Document parsing and chunking for the RAG pipeline.
 
 Extracts text from .docx, .doc, and .xlsx files, splits into sections, and chunks
-for embedding.  Used by both ``scripts/ingest.py`` and the admin upload flow.
+for embedding.  Used by the admin upload flow.
 """
 
 from __future__ import annotations

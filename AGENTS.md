@@ -31,11 +31,6 @@ class Settings(BaseSettings):
     vk_confirmation_token: str
     vk_webhook_url: str
 
-    # Telegram (Post-MVP)
-    telegram_bot_token: str
-    telegram_secret_token: str
-    telegram_webhook_url: str
-
     # RAG
     qdrant_url: str
     qdrant_api_key: str | None = None
