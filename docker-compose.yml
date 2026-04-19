@@ -17,6 +17,7 @@ services:
 
   minio:
     image: minio/minio
+    container_name: rag-bot-minio
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"   # S3 API
