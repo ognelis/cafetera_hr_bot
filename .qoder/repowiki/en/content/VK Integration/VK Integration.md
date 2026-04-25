@@ -42,16 +42,16 @@
 - [parser.py](file://packages/admin/src/cafetera_admin/parser.py)
 - [admin_server.py](file://scripts/admin_server.py)
 - [pyproject.toml](file://packages/vk_bot/pyproject.toml)
+- [pyproject.toml](file://pyproject.toml)
+- [Dockerfile.polling_vk](file://Dockerfile.polling_vk)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated to reflect new architecture where VK bot creates its own QA service using shared resources with package-specific prompts
-- Eliminated separate vk_qa_service initialization from core resources
-- Introduced package-specific SYSTEM_PROMPT for VK bot QA service
-- Enhanced resource management with build_qa_service() method in AppResources
-- Updated bot initialization process to use package-specific system prompts
-- Enhanced QA service architecture with shared resource utilization
+- Updated to reflect Applied Changes: Added httpx>=0.28.1 dependency to maintain consistent HTTP client capabilities across packages and ensure VK bot functionality remains aligned with core package standards
+- Enhanced HTTP client integration documentation for document attachment system
+- Updated dependency management and containerization considerations for httpx version alignment
+- Added HTTP client timeout configuration documentation for VK document uploads
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -87,6 +87,8 @@ This document explains the VKontakte integration system built with the vkbottle 
 
 The VK integration now resides under the `packages/vk_bot/src/cafetera_vk_bot/` namespace, providing better separation of concerns and integration with the shared `cafetera_core` package that manages domain services, RAG processing, and resource management. The system has been restructured to move shared domain functionality from the core package to the VK bot package, creating a more modular and maintainable architecture.
 
+**Updated** The system now includes enhanced HTTP client capabilities through the httpx>=0.28.1 dependency, which provides improved async HTTP client functionality for document attachment operations and ensures consistent HTTP client capabilities across all packages. This dependency is critical for the document attachment system that uploads files to VK's document API using HTTP requests.
+
 ## Project Structure
 The VK integration now resides under `packages/vk_bot/src/cafetera_vk_bot/` and includes:
 - A bot factory that wires a vkbottle Bot with labeled handlers, shared state management, and centralized QA service access
@@ -95,12 +97,13 @@ The VK integration now resides under `packages/vk_bot/src/cafetera_vk_bot/` and 
 - State definitions for multi-step dialogs using centralized state dispenser
 - A domain-level QA service that provides RAG processing capabilities with async Qdrant client integration and category-aware filtering
 - Enhanced fire handler with entity-based resignation flow and document template delivery
-- A new document attachment system for delivering company-specific templates
+- A new document attachment system for delivering company-specific templates using httpx>=0.28.1 for reliable HTTP client operations
 - **New** Package-specific SYSTEM_PROMPT for HR-focused QA responses
 - **New** Enhanced resource management with build_qa_service() method for package-specific QA initialization
 - **New** Static content management system with shared error constants moved to core package
 - **New** Legal entity definitions module with comprehensive company information
 - **New** Administrative API integration with updated parser location
+- **New** HTTP client integration with httpx>=0.28.1 for reliable document upload operations
 - Tests validating factory wiring, keyboard layouts, state definitions, QA service integration, and enhanced handler functionality
 
 ```mermaid
@@ -116,7 +119,7 @@ PAY["handlers/pay.py<br/>Pay & bonus flows (RAG)"]
 VACATION["handlers/vacation.py<br/>Enhanced vacation flows (templates)"]
 FALLBACK["handlers/fallback.py<br/>Unmatched messages"]
 KEYBOARDS["keyboards.py<br/>Enhanced keyboard builders & payloads"]
-ATTACHMENTS["attachments.py<br/>Document attachment helper"]
+ATTACHMENTS["attachments.py<br/>Document attachment helper (httpx>=0.28.1)"]
 STATES["states.py<br/>Dialog states"]
 UTILS["handlers/__init__.py<br/>Centralized state & QA access"]
 RULES["rules.py<br/>Custom payload rules"]
@@ -147,7 +150,10 @@ subgraph "Enhanced Error Handling"
 SHARED_ERRORS["errors.py<br/>Shared error constants"]
 CATCH_ERROR["@catch_entity_error<br/>Error handling decorator"]
 ENTITY_NOT_FOUND["EntityNotFoundError<br/>Exception class"]
-END
+end
+subgraph "HTTP Client Integration"
+HTTPX["httpx>=0.28.1<br/>Async HTTP client for document uploads"]
+end
 RESOURCES --> POLLING
 RESOURCES --> BOT
 RESOURCES --> QA_SERVICE
@@ -169,6 +175,7 @@ DOMAIN_ENTITIES --> FIRE
 DOMAIN_ENTITIES --> VACATION
 ADMIN_PARSER --> ADMIN_SERVER
 CONFIG --> POLLING
+ATTACHMENTS --> HTTPX
 TESTS["tests/<br/>Enhanced integration tests"]
 ```
 
@@ -198,12 +205,14 @@ TESTS["tests/<br/>Enhanced integration tests"]
 - [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
 - [parser.py:1-649](file://packages/admin/src/cafetera_admin/parser.py#L1-L649)
 - [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
+- [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
 
 **Section sources**
 - [bot.py:1-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L1-L56)
 - [polling.py:1-79](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L1-L79)
 - [config.py:1-16](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L1-L16)
 - [prompts.py:1-28](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L1-L28)
+- [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
 
 ## Core Components
 - Bot factory: Creates a vkbottle Bot with shared state dispenser, loads handler labelers in strict order, and integrates the QA service for RAG processing
@@ -212,7 +221,7 @@ TESTS["tests/<br/>Enhanced integration tests"]
 - Centralized QA utilities: Provide unified access patterns for QA service initialization, retrieval, and error handling across all handlers
 - QA Service: Provides centralized RAG processing with proper resource management, error handling, VK message length truncation, and category-aware filtering
 - Enhanced fire handler: Implements entity-based resignation flow with document template attachment and improved error handling using decorators
-- Document attachment system: Provides helper functions for sending S3-stored documents as VK message attachments
+- Document attachment system: Provides helper functions for sending S3-stored documents as VK message attachments using httpx>=0.28.1 for reliable HTTP client operations
 - Keyboard builders: Provide consistent UI and payload constants for navigation, including new entity selection flows
 - States: Define multi-step dialog states for complex HR workflows using centralized state dispenser
 - Local runner: Initializes Settings and starts the bot in Long Poll mode with proper resource management
@@ -231,13 +240,14 @@ TESTS["tests/<br/>Enhanced integration tests"]
 - **New** Legal entity definitions: Comprehensive company information for accurate HR content generation
 - **New** Shared error constants: Centralized error response messages for consistent user experience
 - **New** Administrative API integration: Updated parser location for document processing and chunking
+- **New** HTTP client integration: Enhanced HTTP client capabilities through httpx>=0.28.1 for reliable document upload operations
 
 Key implementation references:
 - Factory and handler loading order with centralized state sharing: [bot.py:49-52](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L49-L52)
 - Centralized state dispenser sharing pattern: [bot.py:50-52](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L50-L52), [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
 - Centralized QA service access patterns: [handlers/__init__.py:22-29](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L29)
 - Enhanced fire handler with entity-based flow: [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
-- Document attachment helper: [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
+- Document attachment helper with httpx>=0.28.1: [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
 - Enhanced keyboard system with entity selection: [keyboards.py:42-44](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L42-L44)
 - QA service initialization and RAG processing: [qa_service.py:51-105](file://packages/core/src/cafetera_core/domain/qa_service.py#L51-L105)
 - Ask-a-question handler with RAG integration: [ask.py:40-45](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L40-L45)
@@ -263,6 +273,7 @@ Key implementation references:
 - **New** Legal entity definitions: [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
 - **New** Shared error constants: [errors.py:1-20](file://packages/core/src/cafetera_core/domain/errors.py#L1-L20)
 - **New** Administrative API integration: [parser.py:1-649](file://packages/admin/src/cafetera_admin/parser.py#L1-L649), [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
+- **New** HTTP client integration with httpx>=0.28.1: [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
 
 **Section sources**
 - [bot.py:24-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L24-L56)
@@ -291,6 +302,7 @@ Key implementation references:
 - [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
 - [prompts.py:1-28](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L1-L28)
 - [resources.py:213-252](file://packages/core/src/cafetera_core/resources.py#L213-L252)
+- [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
 
 ## Architecture Overview
 The VK bot follows a modular architecture with integrated RAG capabilities and centralized service management:
@@ -318,6 +330,7 @@ The VK bot follows a modular architecture with integrated RAG capabilities and c
 - **New** Legal entity definitions provide comprehensive company information for accurate content generation
 - **New** Shared error constants ensure consistent error messaging across the system
 - **New** Administrative API integration reflects updated parser location for document processing
+- **New** HTTP client integration with httpx>=0.28.1 ensures reliable document upload operations with proper timeout configuration
 
 ```mermaid
 sequenceDiagram
@@ -336,6 +349,7 @@ participant TopicHints as "detect_topic_hint()"
 participant Prompts as "SYSTEM_PROMPT"
 participant Errors as "shared errors"
 participant VK as "VK API"
+participant HTTPX as "httpx>=0.28.1"
 Dev->>Script : Run long poll
 Script->>Resources : build_resources(Settings, with_s3=True, with_db=True)
 Resources-->>Script : AppResources
@@ -357,6 +371,8 @@ Labelers->>Utils : get_qa_service().ask(question, category=scenario_id)
 Utils->>Prompts : Use SYSTEM_PROMPT for HR-focused responses
 Utils->>QA : Query RAG with category hint
 Labelers->>Attachments : send_category_document()
+Attachments->>HTTPX : AsyncClient(timeout=60.0)
+HTTPX-->>Attachments : Reliable HTTP client operations
 Attachments-->>Labelers : Document attachment or fallback
 Labelers->>Errors : ERR_NO_ANSWER or ERR_DOCUMENT_UNAVAILABLE
 Errors-->>Labelers : Consistent error message
@@ -380,6 +396,7 @@ Bot-->>VK : Send response
 - [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
 - [errors.py:1-20](file://packages/core/src/cafetera_core/domain/errors.py#L1-L20)
 - [prompts.py:5-28](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L5-L28)
+- [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
 
 ## Centralized State Management
 
@@ -793,10 +810,16 @@ class VKDocumentAPI {
 class CategoryFileRepository {
 +get_file(category, subcategory, entity_id) CategoryFileRecord | None
 }
+class HTTPXClient {
++AsyncClient(timeout) AsyncClient
++post(url, files) Response
++raise_for_status() None
+}
 FireHandler --> DocumentAttachmentHelper : uses
 DocumentAttachmentHelper --> CategoryFileService : queries
 DocumentAttachmentHelper --> VKDocumentAPI : uploads
 DocumentAttachmentHelper --> CategoryFileRepository : validates
+DocumentAttachmentHelper --> HTTPXClient : uses
 ```
 
 **Diagram sources**
@@ -814,7 +837,7 @@ EntityOK --> |No| Error["Send error message"]
 EntityOK --> |Yes| Caption["Build template caption"]
 Caption --> SendDoc["send_category_document()"]
 SendDoc --> Found{"Template found?"}
-Found --> |Yes| Upload["Upload to VK docs"]
+Found --> |Yes| Upload["Upload to VK docs using httpx>=0.28.1"]
 Upload --> Success["Send document attachment"]
 Found --> |No| Fallback["send_rag_answer() fallback"]
 Success --> End(["Complete"])
@@ -828,14 +851,15 @@ Fallback --> End
 
 ### Key Features of Enhanced Document Management
 - **Entity-Specific Templates**: Company-specific resignation templates delivered based on legal entity selection
-- **Document Attachment Delivery**: Direct document attachment to VK messages with proper MIME type handling
+- **Document Attachment Delivery**: Direct document attachment to VK messages with proper MIME type handling using httpx>=0.28.1
 - **Fallback Mechanism**: Automatic fallback to RAG responses when templates are unavailable
 - **Error Handling**: Comprehensive error handling for S3 connectivity, VK API failures, and template validation
 - **Template Validation**: Ensures templates exist before attempting delivery
 - **Upload Server Integration**: Proper VK API integration for document upload and saving
 - **Shared Error Integration**: Uses centralized error constants for consistent error messaging
+- **HTTP Client Reliability**: Enhanced HTTP client operations with proper timeout configuration for reliable document uploads
 
-**Updated** The enhanced fire handler now provides company-specific resignation templates through the document attachment system, with automatic fallback to RAG responses when templates are unavailable. This demonstrates the system's commitment to providing accurate, company-specific HR documentation. The integration with SharedErrors ensures consistent error messaging across all document attachment operations.
+**Updated** The enhanced fire handler now provides company-specific resignation templates through the document attachment system, with automatic fallback to RAG responses when templates are unavailable. The system now uses httpx>=0.28.1 for reliable HTTP client operations during document uploads, ensuring consistent and dependable document attachment functionality. This demonstrates the system's commitment to providing accurate, company-specific HR documentation while maintaining backward compatibility with RAG-based fallback responses.
 
 **Section sources**
 - [fire.py:1-76](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L1-L76)
@@ -974,7 +998,7 @@ Entity4 --> Full4["Full: ООО «СМАРТ ПИТАНИЕ»"]
 - **Structured Data Model**: Comprehensive legal entity information with ID, short name, and full name
 - **Entity Lookup**: Efficient entity lookup by ID for accurate content generation
 - **Company-Specific Content**: Enables company-specific HR content delivery
-- **Consistent Naming**: Full legal names displayed in user interfaces for transparency
+- **Full Legal Names**: Full legal names displayed in user interfaces for transparency
 - **Extensible Design**: Easy to add new legal entities as the company grows
 - **Integration Ready**: Seamlessly integrates with all HR-related workflows
 
@@ -1163,7 +1187,7 @@ Valid --> |No| Error["Send error message"]
 Valid --> |Yes| Caption["Build resignation caption"]
 Caption --> Template["Attempt document template delivery"]
 Template --> Found{"Template found?"}
-Found --> |Yes| Upload["Upload to VK docs"]
+Found --> |Yes| Upload["Upload to VK docs using httpx>=0.28.1"]
 Upload --> Success["Send document attachment"]
 Found --> |No| Fallback["Fallback to RAG answer"]
 Success --> End(["Complete"])
@@ -1206,13 +1230,13 @@ EntitySelectionKeyboard --> PayloadConstants : uses
 ### Key Features of Enhanced Fire Handler
 - **Entity-Based Resignation**: Users can select their legal entity for company-specific resignation templates
 - **Two-Step Flow**: Clear separation between fire menu selection and entity selection
-- **Document Template Integration**: Direct template delivery through document attachment system
+- **Document Template Integration**: Direct template delivery through document attachment system using httpx>=0.28.1
 - **Fallback Mechanisms**: Automatic fallback to RAG responses when templates are unavailable
 - **Entity Validation**: Proper validation of entity selection with error handling
 - **Company-Specific Content**: Templates tailored to individual legal entities
 - **Shared Error Integration**: Uses centralized error constants for consistent error messaging
 
-**Updated** The fire handler now provides a comprehensive entity-based resignation flow with document template delivery, representing a significant enhancement to the HR workflow capabilities. The system maintains backward compatibility while adding sophisticated company-specific template support. The integration with SharedErrors ensures consistent error messaging across all fire workflow operations.
+**Updated** The fire handler now provides a comprehensive entity-based resignation flow with document template delivery, representing a significant enhancement to the HR workflow capabilities. The system maintains backward compatibility while adding sophisticated company-specific template support. The integration with SharedErrors ensures consistent error messaging across all fire workflow operations. The enhanced HTTP client reliability through httpx>=0.28.1 ensures dependable document upload operations.
 
 **Section sources**
 - [fire.py:1-76](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L1-L76)
@@ -1480,8 +1504,9 @@ The hybrid search system provides flexible configuration for different retrieval
 - **New** Shared error constants are integrated into the centralized utilities for consistent error messaging
 - **New** Static content management system is integrated for centralized content delivery
 - **New** Legal entity definitions are integrated for accurate company-specific content generation
+- **New** HTTP client integration with httpx>=0.28.1 ensures reliable document upload operations
 
-**Updated** The factory now registers 25 total handlers across all VK integration modules, with the enhanced fire handler providing comprehensive entity-based resignation flow and improved error handling using decorators. The handler registration order ensures proper routing precedence with fallback as the last handler. The new async resource management ensures Qdrant clients and embeddings are properly initialized before any handlers attempt to use them. The integration with SharedErrors, StaticContentManager, and LegalEntity definitions provides comprehensive error messaging, content management, and entity information.
+**Updated** The factory now registers 25 total handlers across all VK integration modules, with the enhanced fire handler providing comprehensive entity-based resignation flow and improved error handling using decorators. The handler registration order ensures proper routing precedence with fallback as the last handler. The new async resource management ensures Qdrant clients and embeddings are properly initialized before any handlers attempt to use them. The integration with SharedErrors, StaticContentManager, and LegalEntity definitions provides comprehensive error messaging, content management, and entity information. The httpx>=0.28.1 dependency ensures reliable HTTP client operations for document attachment functionality.
 
 ```mermaid
 flowchart TD
@@ -1514,7 +1539,7 @@ Log --> ReturnBot(["Return Bot"])
 - Fallback handler ensures users stay within the menu-driven interface
 - HR request handlers manage complex multi-step workflows with state persistence through centralized state dispenser
 - Enhanced fire workflow provides two-step entity selection process for resignation flow
-- Document attachment system delivers company-specific templates based on entity selection
+- Document attachment system delivers company-specific templates based on entity selection using httpx>=0.28.1
 - QA service integration provides fallback content when templates are unavailable
 - **New** Package-specific SYSTEM_PROMPT provides HR-focused context for all QA responses
 - **New** Category-aware RAG processing enables scenario-specific content delivery through category parameter passing
@@ -1526,6 +1551,7 @@ Log --> ReturnBot(["Return Bot"])
 - **New** Static content management system provides centralized long-form content delivery
 - **New** Legal entity definitions provide comprehensive company information for accurate content generation
 - **New** Shared error constants ensure consistent error messaging across the system
+- **New** HTTP client integration with httpx>=0.28.1 ensures reliable document upload operations
 
 ```mermaid
 sequenceDiagram
@@ -1543,6 +1569,8 @@ participant SD as "BuiltinStateDispenser"
 participant Attachments as "attachments.send_category_document()"
 participant Fallback as "fallback.on_fallback"
 participant Errors as "SharedErrors"
+participant VK as "VK API"
+participant HTTPX as "httpx>=0.28.1"
 User->>Bot : "/start" or "Start" or "Начать"
 Bot->>Start : Match text route
 Start->>SD : _clear_state(peer_id)
@@ -1555,6 +1583,8 @@ SD-->>Fire : State set
 Fire->>Utils : require_entity()
 Utils-->>Fire : Entity validation
 Fire->>Attachments : send_category_document()
+Attachments->>HTTPX : AsyncClient(timeout=60.0)
+HTTPX-->>Attachments : Reliable HTTP client operations
 Attachments-->>Fire : Template delivery or fallback
 Attachments->>Errors : ERR_DOCUMENT_UNAVAILABLE
 Errors-->>Attachments : Consistent error message
@@ -1577,6 +1607,7 @@ Fallback-->>User : Prompt to use menu
 - [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
 - [fallback.py:15-17](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py#L15-L17)
 - [errors.py:1-20](file://packages/core/src/cafetera_core/domain/errors.py#L1-L20)
+- [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
 
 **Section sources**
 - [start.py:14-50](file://packages/vk_bot/src/cafetera_vk_bot/handlers/start.py#L14-L50)
@@ -1596,7 +1627,7 @@ Fallback-->>User : Prompt to use menu
 - The main menu keyboard organizes seven sections plus a dedicated "Contact HR" button
 - Specialized keyboards support multi-step dialog flows and RAG-powered content presentation
 - Enhanced fire workflow keyboards support two-step entity selection process
-- Document attachment system enables dynamic template loading based on entity selection
+- Document attachment system enables dynamic template loading based on entity selection using httpx>=0.28.1
 - **New** Scenario ID detection integrates with keyboard builders for intelligent navigation
 - **New** Category hint system enhances keyboard buttons with scenario-specific context
 - **New** Static content management integrates with keyboard builders for content delivery
@@ -1703,6 +1734,7 @@ BotStates --> BuiltinStateDispenser : uses
 - **New** Shared error constants are integrated for consistent error messaging across all components
 - **New** Static content management system is integrated for centralized content delivery
 - **New** Legal entity definitions are integrated for accurate company-specific content generation
+- **New** HTTP client integration with httpx>=0.28.1 ensures reliable document upload operations
 
 ```mermaid
 sequenceDiagram
@@ -1718,6 +1750,7 @@ participant Attachments as "attachments Module"
 participant Errors as "SharedErrors"
 participant StaticContent as "StaticContentManager"
 participant Entities as "LegalEntity definitions"
+participant HTTPX as "httpx>=0.28.1"
 CLI->>Runner : Execute script
 Runner->>Resources : build_resources(Settings, with_s3=True, with_db=True)
 Resources-->>Runner : AppResources
@@ -1735,6 +1768,7 @@ Utils->>Attachments : Load module
 Utils->>Errors : Initialize shared error constants
 Utils->>StaticContent : Initialize static content manager
 Utils->>Entities : Initialize legal entity definitions
+Utils->>HTTPX : Initialize AsyncClient(timeout=60.0)
 Runner->>Bot : run_forever()
 Bot-->>Runner : Running
 ```
@@ -1746,6 +1780,7 @@ Bot-->>Runner : Running
 - [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
 - [qa_service.py:51-81](file://packages/core/src/cafetera_core/domain/qa_service.py#L51-L81)
 - [prompts.py:5-28](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L5-L28)
+- [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
 
 **Section sources**
 - [polling.py:17-31](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L17-L31)
@@ -1793,7 +1828,7 @@ EntitySelect --> EntityKB["Display entity selection keyboard"]
 EntityKB --> Template["Generate vacation template"]
 Template --> CFService["CategoryFileService.get_file()"]
 CFService --> S3Download["Download template from S3"]
-S3Download --> SendAttachment["Send document attachment"]
+S3Download --> SendAttachment["Send document attachment using httpx>=0.28.1"]
 SendAttachment --> End(["Complete"])
 Template --> SendText["Fallback to text template"]
 SendText --> End
@@ -1802,7 +1837,7 @@ SendText --> End
 **Diagram sources**
 - [vacation.py:50-116](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L50-L116)
 
-**Updated** The vacation workflow now features a two-step selection process: first selecting the vacation type (paid/unpaid), then selecting the legal entity for template generation. The system attempts to send document attachments first, falling back to text templates if no template is available. This provides better user experience and ensures accurate template generation based on company-specific policies. The integration with StaticContentManager and LegalEntity definitions ensures accurate content generation and entity-specific messaging.
+**Updated** The vacation workflow now features a two-step selection process: first selecting the vacation type (paid/unpaid), then selecting the legal entity for template generation. The system attempts to send document attachments first, falling back to text templates if no template is available. This provides better user experience and ensures accurate template generation based on company-specific policies. The integration with StaticContentManager and LegalEntity definitions ensures accurate content generation and entity-specific messaging. The enhanced HTTP client reliability through httpx>=0.28.1 ensures dependable document upload operations.
 
 **Section sources**
 - [vacation.py:1-134](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L1-L134)
@@ -1848,6 +1883,7 @@ External dependencies relevant to VK integration:
 - **New** qdrant-client provides AsyncQdrantClient for fully asynchronous vector database operations
 - **New** langchain-qdrant provides integration with Qdrant vector database
 - **New** fastembed provides sparse embedding support for hybrid search
+- **New** httpx>=0.28.1 provides enhanced async HTTP client capabilities for document attachment operations
 - **New** package-specific SYSTEM_PROMPT provides HR-focused context for QA responses
 - **New** category-aware RAG processing with scenario ID detection and category hint injection
 - **New** topic hints system for automatic scenario identification
@@ -1874,6 +1910,7 @@ Utils --> StaticContent["Static Content (content.py)"]
 Utils --> Entities["Legal Entities (entities.py)"]
 Attachments --> CategoryRepo["CategoryFileRepository"]
 Attachments --> S3["S3Storage"]
+Attachments --> HTTPX["httpx>=0.28.1"]
 QA --> LangChain["LangChain"]
 QA --> AsyncQdrant["AsyncQdrantClient"]
 QA --> FastEmbed["FastEmbed (hybrid)"]
@@ -1917,9 +1954,11 @@ RAG --> VKBot
 - [parser.py:1-649](file://packages/admin/src/cafetera_admin/parser.py#L1-L649)
 - [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
 - [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
+- [pyproject.toml:1-49](file://pyproject.toml#L1-L49)
 
 **Section sources**
 - [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
+- [pyproject.toml:1-49](file://pyproject.toml#L1-L49)
 - [bot.py:7-10](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L7-L10)
 - [config.py:4-16](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L4-L16)
 - [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
@@ -1940,7 +1979,7 @@ RAG --> VKBot
 - Handler order minimizes unnecessary evaluations; keep fallback last
 - Centralized state dispenser sharing provides consistent resource management with connection pooling and graceful degradation
 - Centralized QA service access provides consistent resource management with connection pooling and graceful degradation
-- Enhanced document attachment system provides efficient template delivery with proper error handling and fallback mechanisms
+- Enhanced document attachment system provides efficient template delivery with proper error handling and fallback mechanisms using httpx>=0.28.1
 - RAG responses are truncated to VK message limits to prevent API errors
 - Keyboard construction is lightweight; reuse shared keyboards and payloads to reduce overhead
 - Long Poll mode is suitable for small to medium workloads; consider webhooks for higher throughput
@@ -1964,7 +2003,7 @@ RAG --> VKBot
 - **New** The `send_rag_answer()` helper function standardizes RAG response handling across all handlers, reducing code duplication and improving consistency
 - **New** Enhanced fire workflow with entity-based resignation flow improves user experience and reduces errors
 - **New** Updated legal entity definitions with full company names improve accuracy and professionalism
-- **New** Document attachment system provides scalable template delivery with lazy initialization and proper error handling
+- **New** Document attachment system provides scalable template delivery with lazy initialization and proper error handling using httpx>=0.28.1
 - **New** Enhanced keyboard system with entity selection provides better user experience for multi-step workflows
 - **New** Improved test infrastructure validates enhanced handler functionality and handler count expectations
 - **New** Enhanced error handling system provides consistent patterns across all handlers using require_entity functions and @catch_entity_error decorators
@@ -1973,6 +2012,7 @@ RAG --> VKBot
 - **New** Static content management system provides centralized content delivery with fallback mechanisms
 - **New** Shared error constants ensure consistent error messaging across the entire system
 - **New** Administrative API integration reflects updated parser location for document processing
+- **New** HTTP client integration with httpx>=0.28.1 ensures reliable document upload operations with proper timeout configuration
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -1999,6 +2039,8 @@ Common issues and resolutions:
   - Ensure CategoryFileService is properly initialized before handlers are loaded
   - Monitor for S3 client initialization warnings
   - Verify document upload server integration with VK API
+  - **New** Verify httpx>=0.28.1 is properly installed and available for document upload operations
+  - **New** Check AsyncClient timeout configuration (60.0 seconds) for reliable document uploads
 - Multi-step dialogs:
   - Use state groups to track user progress and avoid ambiguous replies
   - Verify state dispenser is properly shared between bot and handlers
@@ -2073,7 +2115,7 @@ Common issues and resolutions:
   - Check that entity selection keyboard is properly generated
   - Ensure template generation uses correct entity information
   - Verify CategoryFileService is properly initialized for template attachment
-  - Check document attachment system for proper template delivery
+  - Check document attachment system for proper template delivery using httpx>=0.28.1
 - **New** Handler count validation issues:
   - Verify factory registers all 25 handlers correctly
   - Check test expectations for updated handler counts
@@ -2099,6 +2141,11 @@ Common issues and resolutions:
   - Verify parser location is correct in admin package
   - Check that admin server wrapper is properly configured
   - Ensure document processing pipeline is working correctly
+- **New** HTTP client integration issues:
+  - Verify httpx>=0.28.1 is properly installed and available
+  - Check AsyncClient timeout configuration (60.0 seconds) for reliable operations
+  - Ensure proper error handling for HTTP client failures
+  - Verify document upload operations are working correctly
 
 Validation references:
 - Handler order and counts: [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -2128,6 +2175,7 @@ Validation references:
 - **New** Legal entity definitions: [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
 - **New** Shared error constants: [errors.py:1-20](file://packages/core/src/cafetera_core/domain/errors.py#L1-L20)
 - **New** Administrative API integration: [parser.py:1-649](file://packages/admin/src/cafetera_admin/parser.py#L1-L649), [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
+- **New** HTTP client integration with httpx>=0.28.1: [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
 
 **Section sources**
 - [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -2157,21 +2205,24 @@ Validation references:
 - [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
 - [prompts.py:5-28](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L5-L28)
 - [resources.py:213-252](file://packages/core/src/cafetera_core/resources.py#L213-L252)
+- [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
 
 ## Conclusion
-The VK integration leverages a clean factory pattern with centralized state dispenser sharing, deterministic handler ordering, payload-driven navigation, and comprehensive RAG integration with centralized service management to deliver a sophisticated, extensible bot. The system now includes significant user experience improvements through intelligent timeout handling for RAG responses, automatic question context prepending, enhanced fire workflow with entity-based resignation flow, document template attachment capabilities, and updated legal entity definitions with new company names.
+The VK integration leverages a clean factory pattern with centralized state dispenser sharing, deterministic handler ordering, payload-driven navigation, and comprehensive RAG integration with centralized service management to deliver a sophisticated, extensible bot. The system now includes significant user experience improvements through intelligent timeout handling for RAG responses, automatic question context prepending, enhanced fire workflow with entity-based resignation flow, document template attachment capabilities using httpx>=0.28.1, and updated legal entity definitions with new company names.
 
 **Updated** The system now features a new architecture where the VK bot creates its own QA service using shared resources with package-specific prompts, eliminating the separate vk_qa_service initialization from core resources. This represents a major architectural improvement that enhances modularity and allows for package-specific customization while maintaining shared resource efficiency. The VK bot now uses a dedicated SYSTEM_PROMPT from the prompts.py module, providing HR-focused context and guidelines for employee interactions.
 
 The VK integration now resides under the `packages/vk_bot/src/cafetera_vk_bot/` namespace, providing better separation of concerns and integration with the shared `cafetera_core` package that manages domain services, RAG processing, and resource management. The system has been restructured to move shared domain functionality from the core package to the VK bot package, creating a more modular and maintainable architecture.
 
-The new package-specific SYSTEM_PROMPT provides HR-focused context for QA responses, improving response quality and relevance. The enhanced resource management with build_qa_service() method enables efficient package-specific QA initialization using shared resources. The enhanced fire handler with entity-based resignation flow represents a significant advancement in HR workflow automation, providing company-specific templates and seamless document delivery. The document attachment system ensures accurate, company-specific HR documentation while maintaining backward compatibility with RAG-based fallback responses.
+The new package-specific SYSTEM_PROMPT provides HR-focused context for QA responses, improving response quality and relevance. The enhanced resource management with build_qa_service() method enables efficient package-specific QA initialization using shared resources. The enhanced fire handler with entity-based resignation flow represents a significant advancement in HR workflow automation, providing company-specific templates and seamless document delivery using httpx>=0.28.1 for reliable HTTP client operations. The document attachment system ensures accurate, company-specific HR documentation while maintaining backward compatibility with RAG-based fallback responses.
 
 The new async Qdrant client integration eliminates sync client overhead and enables fully asynchronous operations throughout the RAG pipeline, while the comprehensive resource management system provides proper initialization and cleanup with graceful degradation. The hybrid search capabilities support both dense and sparse embedding retrieval for enhanced document search performance.
 
 The new static content management system provides centralized management of long-form HR content with fallback mechanisms, while the legal entity definitions module provides comprehensive company information for accurate content generation. The shared error constants ensure consistent error messaging across the entire system, and the administrative API integration reflects the updated parser location for document processing.
 
 The new enhanced error handling system provides consistent patterns across all handlers using require_entity functions and @catch_entity_error decorators, with EntityNotFoundError class providing clear error semantics for entity validation failures. The system maintains backward compatibility with the vacation handler's use of get_entity_or_error pattern while adopting the new patterns in fire and hire handlers.
+
+The addition of httpx>=0.28.1 dependency ensures consistent HTTP client capabilities across packages and reliable document upload operations for the document attachment system. This dependency is critical for maintaining VK bot functionality and aligns with core package standards for HTTP client operations.
 
 By following the established patterns—registering labelers in order, using shared keyboard builders, implementing centralized state management, integrating the centralized QA service access layer, following the centralized initialization process with package-specific SYSTEM_PROMPT, and implementing consistent error handling patterns—the system supports easy extension and maintenance. For production, consider migrating to VK webhooks, adding structured error handling and logging, and implementing proper QA service lifecycle management.
 
@@ -2201,8 +2252,9 @@ Steps to add a new section:
 - **New** Use legal entity definitions for company-specific content generation
 - **New** Use shared error constants for consistent error messaging
 - **New** Verify SYSTEM_PROMPT is properly loaded and accessible for package-specific QA initialization
+- **New** Ensure httpx>=0.28.1 is available for document attachment operations if needed
 
-**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `cafetera_vk_bot.handlers` and using the provided utility functions for consistent error handling and resource management. Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. For multi-step workflows with template attachment, consider implementing document attachment system integration using the provided helper functions. Implement proper error handling using require_entity and @catch_entity_error patterns for consistent error handling across all handlers. Ensure proper async resource initialization order if using Qdrant or other async resources. Use static content management for long-form content delivery and legal entity definitions for company-specific content generation. Use shared error constants for consistent error messaging across all handlers. Verify that SYSTEM_PROMPT is properly loaded and accessible for package-specific QA initialization.
+**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `cafetera_vk_bot.handlers` and using the provided utility functions for consistent error handling and resource management. Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. For multi-step workflows with template attachment, consider implementing document attachment system integration using the provided helper functions with httpx>=0.28.1 for reliable HTTP client operations. Implement proper error handling using require_entity and @catch_entity_error patterns for consistent error handling across all handlers. Ensure proper async resource initialization order if using Qdrant or other async resources. Use static content management for long-form content delivery and legal entity definitions for company-specific content generation. Use shared error constants for consistent error messaging across all handlers. Verify that SYSTEM_PROMPT is properly loaded and accessible for package-specific QA initialization. Ensure httpx>=0.28.1 is properly installed and available for document upload operations.
 
 References:
 - Payload constants: [keyboards.py:13-24](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L13-L24)
@@ -2227,6 +2279,7 @@ References:
 - **New** Hire handler with decorators: [hire.py:51-59](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L51-L59)
 - **New** Vacation handler with backward compatibility: [vacation.py:79-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L79-L86)
 - **New** Administrative API integration: [parser.py:1-649](file://packages/admin/src/cafetera_admin/parser.py#L1-L649), [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
+- **New** HTTP client integration with httpx>=0.28.1: [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
 
 **Section sources**
 - [keyboards.py:13-50](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L13-L50)
@@ -2249,6 +2302,7 @@ References:
 - [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
 - [prompts.py:5-28](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L5-L28)
 - [resources.py:213-252](file://packages/core/src/cafetera_core/resources.py#L213-L252)
+- [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
 
 ### Integrating with VK Webhook System
 Guidance:
@@ -2269,6 +2323,7 @@ Guidance:
 - **New** Use legal entity definitions for webhook-based company-specific content
 - **New** Use shared error constants for webhook-based error messaging
 - **New** Verify SYSTEM_PROMPT is properly loaded and accessible for webhook-based QA initialization
+- **New** Ensure httpx>=0.28.1 is available for document attachment operations in webhook mode
 
 References:
 - Bot initialization and token forwarding: [bot.py:45-58](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L45-L58), [test_bot_factory.py:75-81](file://tests/test_bot_factory.py#L75-L81)
@@ -2283,6 +2338,7 @@ References:
 - **New** Legal entity definitions: [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
 - **New** Shared error constants: [errors.py:1-20](file://packages/core/src/cafetera_core/domain/errors.py#L1-L20)
 - **New** SYSTEM_PROMPT validation: [prompts.py:5-28](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L5-L28)
+- **New** HTTP client integration with httpx>=0.28.1: [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
 
 **Section sources**
 - [bot.py:45-58](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L45-L58)
@@ -2295,6 +2351,7 @@ References:
 - [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
 - [errors.py:1-20](file://packages/core/src/cafetera_core/domain/errors.py#L1-L20)
 - [prompts.py:5-28](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L5-L28)
+- [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
 
 ### Best Practices for VK Bot Development
 - Keep handler order explicit and documented
@@ -2319,7 +2376,7 @@ References:
 - **New** Implement state management for multi-step workflows using the centralized BuiltinStateDispenser
 - **New** Leverage the enhanced fire workflow patterns for improved user experience with entity-based resignation
 - **New** Access updated legal entity definitions through the centralized utilities module for accurate content generation
-- **New** Use document attachment system for all template operations with proper validation and error handling
+- **New** Use document attachment system for all template operations with proper validation and error handling using httpx>=0.28.1
 - **New** Implement comprehensive error handling for document upload failures and template availability
 - **New** Provide administrative UI for template management with proper validation and security measures
 - **New** Use require_entity functions and @catch_entity_error decorators for consistent error handling across all handlers
@@ -2336,6 +2393,7 @@ References:
 - **New** Use legal entity definitions for comprehensive company information
 - **New** Use shared error constants for consistent error messaging across the system
 - **New** Integrate administrative API for document processing and chunking
+- **New** Ensure httpx>=0.28.1 is properly installed and available for reliable HTTP client operations
 
 ### Centralized State and Service Integration Patterns
 - Initialize state dispenser during bot creation and register with centralized utilities for immediate state management capabilities
@@ -2361,7 +2419,7 @@ References:
 - **New** Implement state management patterns for multi-step workflows using the centralized BuiltinStateDispenser
 - **New** Utilize the enhanced fire workflow patterns for improved user experience with entity-based resignation
 - **New** Access legal entity definitions through the centralized utilities module for accurate content generation
-- **New** Use document attachment system for all template operations with proper validation and error handling
+- **New** Use document attachment system for all template operations with proper validation and error handling using httpx>=0.28.1
 - **New** Implement comprehensive error handling for document upload failures and template availability
 - **New** Provide administrative UI for template management with proper validation and security measures
 - **New** Use require_entity functions and @catch_entity_error decorators for consistent error handling across all handlers
@@ -2378,6 +2436,7 @@ References:
 - **New** Use legal entity definitions for comprehensive company information
 - **New** Use shared error constants for consistent error messaging across the system
 - **New** Integrate administrative API for document processing and chunking
+- **New** Ensure httpx>=0.28.1 is properly installed and available for reliable HTTP client operations
 
 **Section sources**
 - [handlers/__init__.py:22-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L39)
@@ -2408,3 +2467,4 @@ References:
 - [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
 - [prompts.py:5-28](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L5-L28)
 - [resources.py:213-252](file://packages/core/src/cafetera_core/resources.py#L213-L252)
+- [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)

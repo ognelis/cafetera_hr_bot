@@ -13,17 +13,17 @@ from cafetera_core.storage.models import DocumentRecord
 
 _COOKIE_NAME = "admin_session"
 _MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-_ALLOWED_EXTENSIONS = {".docx", ".doc", ".xlsx"}
+_ALLOWED_EXTENSIONS = {".docx", ".pdf", ".xlsx"}
 _ALLOWED_MIMES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
-    "application/msword",  # .doc
+    "application/pdf",  # .pdf
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # .xlsx
     "application/octet-stream",  # browsers sometimes send this
 }
 
 _EXT_TO_MIME = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".doc": "application/msword",
+    ".pdf": "application/pdf",
     ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 

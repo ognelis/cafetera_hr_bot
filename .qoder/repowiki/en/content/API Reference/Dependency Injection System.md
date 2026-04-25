@@ -2,32 +2,24 @@
 
 <cite>
 **Referenced Files in This Document**
-- [app/main.py](file://app/main.py)
-- [app/api/deps.py](file://app/api/deps.py)
-- [app/config.py](file://app/config.py)
-- [app/domain/qa_service.py](file://app/domain/qa_service.py)
-- [app/integrations/vk/handlers/__init__.py](file://app/integrations/vk/handlers/__init__.py)
-- [app/integrations/vk/handlers/sections.py](file://app/integrations/vk/handlers/sections.py)
-- [app/api/documents.py](file://app/api/documents.py)
-- [app/storage/database.py](file://app/storage/database.py)
-- [app/storage/document_repo.py](file://app/storage/document_repo.py)
-- [app/storage/s3.py](file://app/storage/s3.py)
-- [app/storage/models.py](file://app/storage/models.py)
-- [app/domain/document_service.py](file://app/domain/document_service.py)
-- [app/rag/retriever.py](file://app/rag/retriever.py)
-- [app/rag/indexer.py](file://app/rag/indexer.py)
-- [app/rag/parser.py](file://app/rag/parser.py)
-- [app/resources.py](file://app/resources.py)
+- [packages/core/src/cafetera_core/config.py](file://packages/core/src/cafetera_core/config.py)
+- [packages/admin/src/cafetera_admin/config.py](file://packages/admin/src/cafetera_admin/config.py)
+- [packages/core/src/cafetera_core/domain/qa_service.py](file://packages/core/src/cafetera_core/domain/qa_service.py)
+- [packages/admin/src/cafetera_admin/api/deps.py](file://packages/admin/src/cafetera_admin/api/deps.py)
+- [packages/admin/src/cafetera_admin/main.py](file://packages/admin/src/cafetera_admin/main.py)
+- [packages/core/src/cafetera_core/storage/document_repo.py](file://packages/core/src/cafetera_core/storage/document_repo.py)
+- [packages/core/src/cafetera_core/domain/category_file_service.py](file://packages/core/src/cafetera_core/domain/category_file_service.py)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py](file://packages/vk_bot/src/cafetera_vk_bot/bot.py)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Modernized dependency injection system with simplified state access using getattr() calls instead of complex AppState dataclass pattern
-- **Updated**: Eliminated TYPE_CHECKING imports throughout the dependency injection system for improved runtime performance
-- **Updated**: Removed centralized AppState dataclass in favor of direct attribute access on app.state
-- **Updated**: Simplified dependency provider functions with robust getattr() fallback mechanisms
-- **Updated**: Maintained backward compatibility through module-level singleton pattern for VK handlers
+- Enhanced dependency management with consolidated dependencies in core package
+- Added new dependencies in admin package for improved modularity and reduced coupling
+- Implemented shared core configuration system with package-specific extensions
+- Established clear separation between core RAG services and admin-specific services
+- Maintained backward compatibility through shared QA service interface
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -42,571 +34,598 @@
 
 ## Introduction
 
-The Cafetera HR Bot project implements a modernized dependency injection system built on top of FastAPI's dependency management framework. This system enables clean separation of concerns, testability, and modular architecture by managing the lifecycle and provisioning of application services and resources through simplified state access patterns.
+The Cafetera HR Bot project implements a modernized dependency injection system built on top of FastAPI's dependency management framework within a monorepo architecture. This system enables clean separation of concerns, testability, and modular architecture by managing the lifecycle and provisioning of application services and resources through consolidated core dependencies and package-specific extensions.
 
 The dependency injection pattern in this project follows a streamlined approach where:
-- Application-wide resources are managed in the FastAPI lifespan context
+- Shared core services are managed in the consolidated core package with unified configuration
+- Package-specific services extend core functionality through inheritance and composition
 - Service dependencies are provided through FastAPI dependency functions with robust getattr() fallback mechanisms
-- Configuration-driven instantiation ensures flexibility across different environments
-- **Updated**: Direct state attribute access eliminates complex AppState dataclass patterns while maintaining backward compatibility
+- Configuration-driven instantiation ensures flexibility across different deployment scenarios
+- **Updated**: Consolidated core package provides shared dependencies for all transport handlers
+- **Updated**: Admin package extends core configuration with package-specific settings
 
 ## Project Structure
 
-The project follows a layered architecture with clear separation between presentation, domain, infrastructure, and integration layers:
+The project follows a monorepo architecture with clear separation between shared core functionality and package-specific implementations:
 
 ```mermaid
 graph TB
-subgraph "Presentation Layer"
-A[FastAPI App]
-B[API Routes]
-C[Admin Pages]
-D[VK Bot Handlers]
+subgraph "Monorepo Root"
+A[pyproject.toml Workspace]
+B[packages/]
 end
-subgraph "Domain Layer"
-E[DocumentService]
-F[QA Service]
-G[Content Processing]
+subgraph "Core Package"
+C[cafetera_core/]
+C1[domain/]
+C2[storage/]
+C3[rag/]
+C4[config.py]
+C5[resources.py]
 end
-subgraph "Infrastructure Layer"
+subgraph "Admin Package"
+D[cafetera_admin/]
+D1[api/]
+D2[domain/]
+D3[config.py]
+D4[main.py]
+end
+subgraph "VK Bot Package"
+E[cafetera_vk_bot/]
+E1[handlers/]
+E2[domain/]
+E3[config.py]
+E4[bot.py]
+end
+subgraph "Shared Dependencies"
+F[CoreSettings]
+G[QAService]
 H[DocumentRepository]
-I[Database]
-J[S3 Storage]
-K[Qdrant Vector Store]
-end
-subgraph "Integration Layer"
-L[VK Bot Integration]
-M[RAG Pipeline]
-end
-subgraph "Configuration & Management"
-N[Settings]
-O[Direct State Access]
-P[Module-Level Singleton]
-Q[Simplified Type Safety]
+I[S3Storage]
+J[QdrantClient]
+K[Embeddings]
+L[LLM]
 end
 A --> B
-A --> D
+B --> C
+B --> D
 B --> E
+C --> F
+C --> G
+C --> H
+C --> I
+C --> J
+C --> K
+C --> L
 D --> F
+D --> G
+D --> H
+D --> I
+D --> J
+D --> K
+D --> L
+E --> F
+E --> G
 E --> H
 E --> I
 E --> J
 E --> K
-H --> I
-J --> L
-E --> M
-N --> A
-N --> E
-N --> F
-O --> P
-P --> F
-Q --> A
-Q --> B
-Q --> D
+E --> L
 ```
 
 **Diagram sources**
-- [app/main.py:34-51](file://app/main.py#L34-L51)
-- [app/api/deps.py:15-16](file://app/api/deps.py#L15-L16)
-- [app/config.py:4-33](file://app/config.py#L4-L33)
-- [app/main.py:117-144](file://app/main.py#L117-L144)
+- [pyproject.toml:22-28](file://pyproject.toml#L22-L28)
+- [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
 
 **Section sources**
-- [app/main.py:1-194](file://app/main.py#L1-L194)
-- [app/api/deps.py:1-123](file://app/api/deps.py#L1-L123)
-- [app/config.py:1-39](file://app/config.py#L1-L39)
+- [pyproject.toml:1-49](file://pyproject.toml#L1-L49)
+- [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
 
 ## Core Components
 
-The dependency injection system consists of several key components that work together to manage application resources through simplified state access patterns:
+The dependency injection system consists of several key components that work together to manage application resources through consolidated core dependencies and package-specific extensions:
 
-### Application Lifecycle Management
+### Consolidated Core Configuration
 
-The FastAPI lifespan context manages the application's startup and shutdown procedures, ensuring proper initialization and cleanup of external resources through direct state attribute assignment.
+The core package provides a unified configuration system that defines shared settings for all transport handlers:
 
-### Simplified Dependency Providers
+- **Shared Settings**: RAG configuration, database connections, storage settings, and indexing parameters
+- **Inheritance Pattern**: Package-specific configurations extend core settings with minimal overrides
+- **Environment-Based Loading**: Settings are loaded from environment variables with sensible defaults
+- **Type Safety**: Pydantic-based configuration validation ensures runtime safety
 
-The system uses FastAPI's dependency injection mechanism through annotated dependency functions that provide instances of services and repositories to route handlers, utilizing robust getattr() fallback mechanisms for missing components.
+### Package-Specific Extensions
 
-### Configuration Management
+Each package extends the core configuration system with package-specific dependencies:
 
-Settings are loaded from environment variables and provide runtime configuration for all components, including centralized QA service configuration and resource sharing.
+- **Admin Package**: Extends core settings with admin-specific authentication and UI configuration
+- **VK Bot Package**: Extends core settings with VK-specific bot configuration and handler registration
+- **Transport-Specific**: Each package manages its own service dependencies while sharing core resources
 
-### **Updated**: Direct State Attribute Access
+### Shared Service Dependencies
 
-The system now uses direct attribute access on app.state for all dependencies, eliminating the need for complex AppState dataclass patterns while maintaining backward compatibility through module-level singletons for VK handlers.
+The core package provides essential services that are shared across all transport handlers:
+
+- **DocumentRepository**: Centralized document metadata management with PostgreSQL persistence
+- **QAService**: Unified RAG service with caching and streaming capabilities
+- **Storage Services**: S3 integration for file operations and Qdrant for vector storage
+- **CategoryFileService**: Manages document templates for VK bot categories
+
+### **Updated**: Consolidated Dependency Management
+
+The system now uses consolidated dependency management where:
+- Core dependencies are defined once in the core package
+- Package-specific dependencies extend core functionality
+- Shared services are accessed through unified interfaces
+- Backward compatibility is maintained through inheritance patterns
 
 **Section sources**
-- [app/main.py:53-166](file://app/main.py#L53-L166)
-- [app/api/deps.py:107-122](file://app/api/deps.py#L107-L122)
-- [app/config.py:4-39](file://app/config.py#L4-L39)
-- [app/domain/qa_service.py:42-211](file://app/domain/qa_service.py#L42-L211)
+- [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+- [packages/core/src/cafetera_core/domain/qa_service.py:43-302](file://packages/core/src/cafetera_core/domain/qa_service.py#L43-L302)
+- [packages/core/src/cafetera_core/storage/document_repo.py:64-305](file://packages/core/src/cafetera_core/storage/document_repo.py#L64-L305)
 
 ## Architecture Overview
 
-The dependency injection architecture follows a streamlined pattern where resources flow from the application level down to individual route handlers, with direct state attribute access providing unified access throughout the system:
+The dependency injection architecture follows a hierarchical pattern where core services are shared across all packages while maintaining package-specific customization:
 
 ```mermaid
 sequenceDiagram
 participant Client as "Client Request"
-participant App as "FastAPI App"
+participant AdminApp as "Admin FastAPI App"
+participant VKBot as "VK Bot"
 participant Lifespan as "Lifespan Manager"
-participant Deps as "Dependency Provider"
-participant QAService as "QA Service"
-participant Handler as "Route Handler"
-participant VKHandler as "VK Bot Handler"
-participant Service as "Business Service"
-participant Repo as "Repository"
-participant Storage as "External Storage"
-Client->>App : HTTP Request
-App->>Lifespan : Initialize Resources
-Lifespan->>Storage : Create S3 Client
-Lifespan->>QAService : Build QA Service Instance
-Lifespan->>Service : Build Document Service
+participant CoreSettings as "CoreSettings"
+participant AdminSettings as "AdminSettings"
+participant QAService as "QAService"
+participant DocService as "DocumentService"
+participant Repo as "DocumentRepository"
+participant S3 as "S3Storage"
+Client->>AdminApp : HTTP Request
+Client->>VKBot : VK Message
+AdminApp->>Lifespan : Initialize Resources
+VKBot->>Lifespan : Initialize Resources
+Lifespan->>CoreSettings : Load Shared Settings
+Lifespan->>AdminSettings : Extend with Admin Settings
+Lifespan->>QAService : Build Shared QA Service
+Lifespan->>DocService : Build Document Service
 Lifespan->>Repo : Create Repository
-Lifespan-->>App : Direct State Assignment
-App->>Deps : Resolve Dependencies via getattr()
-Deps->>QAService : Direct State Access
-Deps->>Service : Direct State Access
-Deps->>Repo : Direct State Access
-Deps-->>Handler : Injected Dependencies
-Handler->>QAService : Execute Global Query
-VKHandler->>QAService : Execute Scoped Query via Module Singleton
-QAService->>Service : Coordinate Operations
-Service->>Repo : Data Access
-Service->>Storage : External Operations
-Service-->>QAService : Complete
-QAService-->>Handler : Response
-QAService-->>VKHandler : Response
+Lifespan->>S3 : Initialize Storage
+Lifespan-->>AdminApp : Store in app.state
+Lifespan-->>VKBot : Store in app.state
+AdminApp->>QAService : Direct State Access
+VKBot->>QAService : Direct State Access
+QAService->>DocService : Coordinate Operations
+DocService->>Repo : Data Access
+DocService->>S3 : External Operations
+QAService-->>AdminApp : Response
+QAService-->>VKBot : Response
 ```
 
 **Diagram sources**
-- [app/main.py:53-166](file://app/main.py#L53-L166)
-- [app/api/deps.py:107-122](file://app/api/deps.py#L107-L122)
-- [app/api/documents.py:791-855](file://app/api/documents.py#L791-L855)
-- [app/integrations/vk/handlers/sections.py:25-45](file://app/integrations/vk/handlers/sections.py#L25-L45)
+- [packages/admin/src/cafetera_admin/main.py:40-82](file://packages/admin/src/cafetera_admin/main.py#L40-L82)
+- [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+- [packages/core/src/cafetera_core/domain/qa_service.py:43-302](file://packages/core/src/cafetera_core/domain/qa_service.py#L43-L302)
 
 ## Detailed Component Analysis
 
-### Application Lifecycle and Resource Management
+### Consolidated Configuration System
 
-The application lifecycle is managed through FastAPI's lifespan context, which handles initialization and cleanup of external resources through direct state attribute assignment:
-
-```mermaid
-flowchart TD
-Start([Application Startup]) --> LoadConfig["Load Settings"]
-LoadConfig --> InitDB["Initialize SQLite Database"]
-InitDB --> InitS3["Initialize S3 Storage"]
-InitS3 --> InitQdrant["Initialize Qdrant Client"]
-InitQdrant --> InitEmbeddings["Initialize Embeddings"]
-InitEmbeddings --> BuildDocService["Build Document Service"]
-BuildDocService --> InitSemaphore["Initialize Indexing Semaphore"]
-InitSemaphore --> BuildQAService["Build QA Service"]
-BuildQAService --> DirectStateAssignment["Direct State Attribute Assignment"]
-DirectStateAssignment --> Ready([Application Ready])
-Ready --> Request[HTTP Request]
-Request --> Process[Process Request]
-Process --> Cleanup[Application Shutdown]
-Cleanup --> CloseQAService["Close QA Service (Shared Resources)"]
-CloseQAService --> CloseQdrant["Close Qdrant Client"]
-CloseQdrant --> CloseS3["Close S3 Client"]
-CloseS3 --> End([Application Terminated])
-```
-
-**Diagram sources**
-- [app/main.py:53-166](file://app/main.py#L53-L166)
-- [app/main.py:117-144](file://app/main.py#L117-L144)
-
-The lifespan manager creates and maintains instances of:
-- SQLite database connection for document metadata
-- S3 storage client for file operations
-- Qdrant vector database client for RAG operations
-- Document service with all its dependencies
-- **Updated**: Direct state attribute assignment eliminates AppState dataclass complexity
-- **Updated**: Module-level singleton for backward compatibility with VK handlers
-
-**Section sources**
-- [app/main.py:53-166](file://app/main.py#L53-L166)
-- [app/main.py:117-144](file://app/main.py#L117-L144)
-
-### Simplified Dependency Provider Functions
-
-The dependency injection system uses FastAPI's dependency functions to provide services to route handlers, utilizing robust getattr() fallback mechanisms for missing components:
+The configuration system provides a unified approach to managing settings across all packages:
 
 ```mermaid
 classDiagram
-class DependencyProvider {
-+get_settings(request) Settings
+class CoreSettings {
++qdrant_url : str
++qdrant_api_key : str | None
++database_url : str
++s3_endpoint_url : str
++llm_provider : str
++embedding_provider : str
++max_concurrent_indexing : int
++chunk_size : int
++chunk_overlap : int
+}
+class AdminSettings {
++admin_api_key : str
+}
+class VKSettings {
++vk_access_token : str
++vk_group_id : int
+}
+class SettingsDep {
+<<Annotation>>
++CoreSettings
+}
+class AdminDep {
+<<Annotation>>
++AdminSettings
+}
+class VKDep {
+<<Annotation>>
++VKSettings
+}
+CoreSettings <|-- AdminSettings : "extends"
+CoreSettings <|-- VKSettings : "extends"
+SettingsDep --> CoreSettings : "depends on"
+AdminDep --> AdminSettings : "depends on"
+VKDep --> VKSettings : "depends on"
+```
+
+**Diagram sources**
+- [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+
+**Section sources**
+- [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+
+### Package-Specific Dependency Providers
+
+The admin package extends the core dependency injection system with package-specific providers:
+
+```mermaid
+classDiagram
+class AdminDependencyProvider {
++get_settings(request) AdminSettings
 +get_templates(request) Jinja2Templates
 +get_doc_repo(request) DocumentRepository
 +get_doc_service(request) DocumentService
 +get_s3(request) S3Storage
 +get_qa_service(request) QAService
++get_category_file_service(request) CategoryFileService
 +get_indexing_semaphore(request) asyncio.Semaphore
 +require_admin(request, admin_session) void
 }
-class Settings {
-+vk_access_token : str
-+vk_group_id : int
-+qdrant_url : str
-+llm_provider : str
-+db_path : str
-+s3_* : str
+class AdminSettings {
 +admin_api_key : str
-+max_concurrent_indexing : int
-}
-class DocumentRepository {
-+create(record) DocumentRecord
-+get(document_id) DocumentRecord
-+list_all() list[DocumentRecord]
-+update(document_id, **kwargs) DocumentRecord
-+delete(document_id) bool
 }
 class DocumentService {
 +create_document(**kwargs) DocumentRecord
 +index_document(document_id, chunks) DocumentRecord
 +update_metadata(document_id, **kwargs) DocumentRecord
 +toggle_search(document_id, enabled) DocumentRecord
-+reindex_document(document_id, chunks) DocumentRecord
-+delete_document(document_id, file_deleter) bool
 }
-class QAService {
-+ask(question) str
-+ask_about_document(question, document_id) str
-+stream_ask(question) AsyncGenerator
-+stream_about_document(question, document_id) AsyncGenerator
-+close() None
+class CategoryFileService {
++upload_file(category, subcategory, entity_id, filename, data, content_type) CategoryFileRecord
++get_file(category, subcategory, entity_id) CategoryFileRecord | None
++delete_file(file_id) None
 }
-class QAServiceDep {
-<<Annotation>>
-+QAService
-}
-DependencyProvider --> Settings : "direct access via getattr()"
-DependencyProvider --> DocumentRepository : "direct access via getattr()"
-DependencyProvider --> DocumentService : "direct access via getattr()"
-DependencyProvider --> QAService : "direct access via getattr()"
-DependencyProvider --> S3Storage : "direct access via getattr()"
-DependencyProvider --> asyncio.Semaphore : "direct access via getattr()"
+AdminDependencyProvider --> AdminSettings : "direct access"
+AdminDependencyProvider --> DocumentService : "direct access"
+AdminDependencyProvider --> CategoryFileService : "direct access"
+AdminDependencyProvider --> S3Storage : "direct access"
+AdminDependencyProvider --> QAService : "direct access"
 DocumentService --> DocumentRepository : "uses"
 DocumentService --> QdrantClient : "uses"
 DocumentService --> Embeddings : "uses"
-QAService --> QdrantClient : "uses"
-QAService --> Embeddings : "uses"
-QAService --> Runnable : "uses"
-QAService --> BaseChatModel : "uses"
-QAServiceDep --> QAService : "depends on"
+CategoryFileService --> CategoryFileRepository : "uses"
+CategoryFileService --> S3Storage : "uses"
 ```
 
 **Diagram sources**
-- [app/api/deps.py:107-122](file://app/api/deps.py#L107-L122)
-- [app/config.py:4-39](file://app/config.py#L4-L39)
-- [app/storage/document_repo.py:61-202](file://app/storage/document_repo.py#L61-L202)
-- [app/domain/document_service.py:35-280](file://app/domain/document_service.py#L35-L280)
-- [app/domain/qa_service.py:42-211](file://app/domain/qa_service.py#L42-L211)
+- [packages/admin/src/cafetera_admin/api/deps.py:40-121](file://packages/admin/src/cafetera_admin/api/deps.py#L40-L121)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+- [packages/core/src/cafetera_core/domain/category_file_service.py:22-116](file://packages/core/src/cafetera_core/domain/category_file_service.py#L22-L116)
 
 **Section sources**
-- [app/api/deps.py:107-122](file://app/api/deps.py#L107-L122)
-- [app/config.py:4-39](file://app/config.py#L4-L39)
+- [packages/admin/src/cafetera_admin/api/deps.py:40-121](file://packages/admin/src/cafetera_admin/api/deps.py#L40-L121)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+- [packages/core/src/cafetera_core/domain/category_file_service.py:22-116](file://packages/core/src/cafetera_core/domain/category_file_service.py#L22-L116)
 
-### Direct State Attribute Access Architecture
+### Shared Service Architecture
 
-The system now uses direct state attribute access patterns, eliminating complex AppState dataclass patterns while maintaining backward compatibility:
+The core package provides shared services that are accessed consistently across all transport handlers:
 
 ```mermaid
-classDiagram
-class DirectStateAccess {
-+getattr(request.app.state, "doc_service", None) DocumentService
-+getattr(request.app.state, "s3", None) S3Storage
-+getattr(request.app.state, "qa_service", None) QAService
-+getattr(request.app.state, "settings", None) Settings
-}
-class AppState {
-<<Removed>>
-+settings : Settings
-+templates : Jinja2Templates | None
-+s3 : S3Storage | None
-+qdrant_client : QdrantClient | None
-+embeddings : Embeddings | None
-+doc_repo : DocumentRepository | None
-+doc_service : DocumentService | None
-+qa_service : QAService | None
-+indexing_semaphore : asyncio.Semaphore | None
-}
-class ModuleLevelSingleton {
-+_qa : QAService | None
-+set_qa_service(service) None
-+get_qa_service() QAService
-}
-class APIEndpoints {
-+ask_global_question(qa : QAServiceDep) StreamingResponse
-+ask_about_document(qa : QAServiceDep) StreamingResponse
-}
-class VKHandlers {
-+send_rag_answer(message, question, back_payload) None
-+get_qa_service() QAService
-}
-DirectStateAccess --> DocumentService : "direct access"
-DirectStateAccess --> S3Storage : "direct access"
-DirectStateAccess --> QAService : "direct access"
-DirectStateAccess --> Settings : "direct access"
-ModuleLevelSingleton --> QAService : "backward compatibility"
-APIEndpoints --> QAServiceDep : "dependency injection"
-VKHandlers --> ModuleLevelSingleton : "module-level access"
+flowchart TD
+Start([Application Startup]) --> LoadCoreSettings["Load CoreSettings"]
+LoadCoreSettings --> InitDB["Initialize Database Connection"]
+InitDB --> InitS3["Initialize S3 Storage"]
+InitS3 --> InitQdrant["Initialize Qdrant Client"]
+InitQdrant --> InitEmbeddings["Initialize Embeddings"]
+InitEmbeddings --> BuildDocService["Build DocumentService"]
+BuildDocService --> InitSemaphore["Initialize Indexing Semaphore"]
+InitSemaphore --> BuildQAService["Build Shared QAService"]
+BuildQAService --> StoreInAppState["Store in app.state"]
+StoreInAppState --> Ready([Services Available])
+Ready --> AdminRequest[Admin Request]
+Ready --> VKRequest[VK Bot Request]
+AdminRequest->>QAService : Direct State Access
+VKRequest->>QAService : Direct State Access
+QAService->>DocService : Coordinate Operations
+DocService->>Repo : Data Access
+DocService->>S3 : External Operations
+QAService --> >AdminRequest : Response
+QAService --> >VKRequest : Response
 ```
 
 **Diagram sources**
-- [app/domain/qa_service.py:42-211](file://app/domain/qa_service.py#L42-L211)
-- [app/main.py:34-51](file://app/main.py#L34-L51)
-- [app/integrations/vk/handlers/__init__.py:9-20](file://app/integrations/vk/handlers/__init__.py#L9-L20)
-- [app/api/documents.py:791-855](file://app/api/documents.py#L791-L855)
+- [packages/admin/src/cafetera_admin/main.py:40-82](file://packages/admin/src/cafetera_admin/main.py#L40-L82)
+- [packages/core/src/cafetera_core/domain/qa_service.py:43-302](file://packages/core/src/cafetera_core/domain/qa_service.py#L43-L302)
 
 **Section sources**
-- [app/domain/qa_service.py:42-211](file://app/domain/qa_service.py#L42-L211)
-- [app/main.py:34-51](file://app/main.py#L34-L51)
-- [app/integrations/vk/handlers/__init__.py:9-20](file://app/integrations/vk/handlers/__init__.py#L9-L20)
+- [packages/admin/src/cafetera_admin/main.py:40-82](file://packages/admin/src/cafetera_admin/main.py#L40-L82)
+- [packages/core/src/cafetera_core/domain/qa_service.py:43-302](file://packages/core/src/cafetera_core/domain/qa_service.py#L43-L302)
 
-### Route Handler Integration
+### Transport Handler Integration
 
-Route handlers integrate dependencies through FastAPI's dependency injection system using simplified getattr() access patterns:
+Both admin and VK bot handlers integrate dependencies through the unified dependency injection system:
 
 ```mermaid
 sequenceDiagram
-participant Client as "Admin Client"
-participant Router as "Documents Router"
+participant AdminClient as "Admin Client"
+participant VKClient as "VK User"
+participant AdminRouter as "Admin Router"
+participant VKHandler as "VK Handler"
 participant Deps as "Dependency Functions"
-participant QAService as "QA Service"
-participant Service as "DocumentService"
+participant QAService as "Shared QAService"
+participant DocService as "DocumentService"
 participant Repo as "DocumentRepository"
 participant S3 as "S3Storage"
-Client->>Router : POST /api/qa/ask-global
-Router->>Deps : Resolve Dependencies via getattr()
+AdminClient->>AdminRouter : GET /admin/documents
+AdminRouter->>Deps : Resolve Admin Dependencies
 Deps->>QAService : Direct State Access
-Deps-->>Router : Injected Dependencies
-Router->>QAService : Execute stream_ask(question)
-QAService->>Service : Coordinate Operations
-Service->>Repo : Data Access
-Service->>S3 : External Operations
-Service-->>QAService : Complete
-QAService-->>Router : Stream Tokens
-Router-->>Client : SSE Response
-Note over Router,QAService : Unified error handling and resource management
+Deps->>DocService : Direct State Access
+Deps-->>AdminRouter : Injected Dependencies
+AdminRouter->>QAService : Execute Query
+QAService->>DocService : Coordinate Operations
+DocService->>Repo : Data Access
+DocService->>S3 : External Operations
+DocService-->>QAService : Complete
+QAService-->>AdminRouter : Response
+AdminRouter-->>AdminClient : HTML Response
+VKClient->>VKHandler : Message
+VKHandler->>QAService : Direct State Access
+QAService->>DocService : Coordinate Operations
+DocService->>Repo : Data Access
+DocService->>S3 : External Operations
+DocService-->>QAService : Complete
+QAService-->>VKHandler : Response
+VKHandler-->>VKClient : Answer
 ```
 
 **Diagram sources**
-- [app/api/documents.py:791-855](file://app/api/documents.py#L791-L855)
-- [app/api/deps.py:107-122](file://app/api/deps.py#L107-L122)
+- [packages/admin/src/cafetera_admin/api/deps.py:40-121](file://packages/admin/src/cafetera_admin/api/deps.py#L40-L121)
+- [packages/core/src/cafetera_core/domain/qa_service.py:43-302](file://packages/core/src/cafetera_core/domain/qa_service.py#L43-L302)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py:42-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L42-L56)
 
 **Section sources**
-- [app/api/documents.py:791-855](file://app/api/documents.py#L791-L855)
-- [app/api/deps.py:107-122](file://app/api/deps.py#L107-L122)
+- [packages/admin/src/cafetera_admin/api/deps.py:40-121](file://packages/admin/src/cafetera_admin/api/deps.py#L40-L121)
+- [packages/core/src/cafetera_core/domain/qa_service.py:43-302](file://packages/core/src/cafetera_core/domain/qa_service.py#L43-L302)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py:42-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L42-L56)
 
 ## Dependency Analysis
 
-The dependency injection system creates a clear dependency graph with well-defined relationships, utilizing simplified state access patterns:
+The dependency injection system creates a clear hierarchical dependency graph with well-defined relationships:
 
 ```mermaid
 graph TB
 subgraph "Configuration Layer"
-Settings[Settings]
-Settings --> MaxConcurrentIndexing[max_concurrent_indexing]
+CoreSettings[CoreSettings]
+AdminSettings[AdminSettings]
+VKSettings[VKSettings]
+CoreSettings --> AdminSettings
+CoreSettings --> VKSettings
 end
-subgraph "Infrastructure Layer"
-DB[(SQLite Database)]
+subgraph "Core Infrastructure"
+DB[(PostgreSQL Database)]
 S3[(S3 Storage)]
 Qdrant[(Qdrant Vector Store)]
 Embeddings[(Embeddings)]
 LLM[(Language Model)]
 end
-subgraph "Domain Services"
+subgraph "Core Services"
 Repo[DocumentRepository]
 DocService[DocumentService]
-QAService[QAService]
+QAService[Shared QAService]
+CategoryFileService[CategoryFileService]
+end
+subgraph "Package Services"
+AdminDocService[Admin DocumentService]
+AdminQAService[Admin QAService]
 end
 subgraph "Presentation Layer"
-Router[API Router]
-Templates[Jinja2 Templates]
+AdminRouter[Admin Router]
 VKHandlers[VK Handlers]
 end
-subgraph "Management Layer"
+subgraph "Dependency Management"
+ConsolidatedDeps[Consolidated Dependencies]
+PackageExtensions[Package Extensions]
 DirectStateAccess[Direct State Access]
-ModuleLevelSingleton[Module Level Singleton]
-SimplifiedTypeSafety[Simplified Type Safety]
-end
-Settings --> DocService
-Settings --> Repo
-Settings --> S3
-Settings --> Qdrant
-Settings --> QAService
-Settings --> Embeddings
-Settings --> LLM
+End
+CoreSettings --> DocService
+CoreSettings --> Repo
+CoreSettings --> S3
+CoreSettings --> Qdrant
+CoreSettings --> QAService
+CoreSettings --> Embeddings
+CoreSettings --> LLM
+CoreSettings --> CategoryFileService
+AdminSettings --> AdminDocService
+AdminSettings --> AdminQAService
 DB --> Repo
 S3 --> DocService
+S3 --> CategoryFileService
 Qdrant --> DocService
 Qdrant --> QAService
 Embeddings --> DocService
 Embeddings --> QAService
 LLM --> QAService
 Repo --> DocService
-Templates --> Router
-DirectStateAccess --> QAService
-DirectStateAccess --> DocService
-DirectStateAccess --> S3
-DirectStateAccess --> Settings
-ModuleLevelSingleton --> QAService
-SimplifiedTypeSafety --> Settings
-SimplifiedTypeSafety --> DocumentRepository
-SimplifiedTypeSafety --> DocumentService
-SimplifiedTypeSafety --> QAService
-SimplifiedTypeSafety --> S3Storage
-SimplifiedTypeSafety --> asyncio.Semaphore
-Router --> DirectStateAccess
-VKHandlers --> ModuleLevelSingleton
+CategoryFileService --> AdminDocService
+AdminDocService --> AdminQAService
+AdminRouter --> DirectStateAccess
+VKHandlers --> DirectStateAccess
+ConsolidatedDeps --> DirectStateAccess
+PackageExtensions --> ConsolidatedDeps
 ```
 
 **Diagram sources**
-- [app/main.py:53-166](file://app/main.py#L53-L166)
-- [app/api/deps.py:107-122](file://app/api/deps.py#L107-L122)
-- [app/config.py:4-39](file://app/config.py#L4-L39)
+- [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+- [packages/admin/src/cafetera_admin/main.py:40-82](file://packages/admin/src/cafetera_admin/main.py#L40-L82)
 
 The dependency relationships demonstrate:
-- **Hierarchical dependency**: Services depend on repositories, which depend on databases
-- **External service integration**: S3, Qdrant, and LLM clients are injected into services
-- **Configuration-driven instantiation**: All dependencies are created based on settings
-- **Resource sharing**: Database connections and shared QA resources are shared through the repository pattern
-- **Updated**: **Direct state access**: Simplified getattr() access eliminates AppState complexity
-- **Updated**: **Backward compatibility**: Module-level singleton maintains compatibility with existing VK handlers
-- **Updated**: **Eliminated TYPE_CHECKING**: Runtime performance improvements through simplified imports
+- **Hierarchical Configuration**: CoreSettings serves as the foundation for all package-specific settings
+- **Shared Infrastructure**: Core services are shared across all transport handlers
+- **Package Extension**: Each package extends core functionality with minimal overrides
+- **Unified Access**: All packages access shared services through direct state attribute access
+- ****Updated**: **Consolidated Dependencies**: Core package manages shared dependencies for improved modularity
+- **Updated**: **Package-Specific Extensions**: Admin package extends core with package-specific services
+- **Updated**: **Reduced Coupling**: Clear separation between core and package-specific functionality
 
 **Section sources**
-- [app/main.py:53-166](file://app/main.py#L53-L166)
-- [app/api/deps.py:107-122](file://app/api/deps.py#L107-L122)
-- [app/config.py:4-39](file://app/config.py#L4-L39)
+- [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+- [packages/admin/src/cafetera_admin/main.py:40-82](file://packages/admin/src/cafetera_admin/main.py#L40-L82)
 
 ## Performance Considerations
 
-The dependency injection system provides several performance benefits through simplified state access patterns:
+The dependency injection system provides several performance benefits through consolidated core dependencies and package-specific optimizations:
 
-### Resource Reuse
-- Database connections are reused through the repository pattern
-- S3 client instances are maintained throughout application lifecycle
-- Qdrant client connections are pooled and reused
-- **Updated**: Direct state attribute access eliminates dictionary lookup overhead
-- **Updated**: Module-level singleton provides backward compatibility without duplicating resources
+### Resource Sharing Benefits
+- **Shared QA Service**: Single QAService instance shared across all transport handlers
+- **Database Connection Pooling**: PostgreSQL connections pooled and reused efficiently
+- **S3 Client Reuse**: S3 client instances maintained throughout application lifecycle
+- **Qdrant Connection Pooling**: Qdrant client connections pooled for optimal performance
+- ****Updated**: **Consolidated Resource Management**: Core package manages shared resources centrally
+- **Updated**: **Reduced Memory Footprint**: Shared services eliminate duplicate resource instances
 
-### Lazy Initialization
-- Optional services (S3, Qdrant) are initialized conditionally
-- Background tasks handle heavy operations asynchronously
-- Dependencies are only created when needed
-- **Updated**: getattr() fallback mechanism prevents unnecessary exception handling
+### Lazy Initialization Strategy
+- **Optional Services**: Admin-specific services initialized only when needed
+- **Conditional Dependencies**: Services check availability before initialization
+- **Background Task Integration**: Heavy operations handled asynchronously
+- ****Updated**: **Efficient State Access**: Direct getattr() calls minimize overhead
+- **Updated**: **Optimized Import Patterns**: Package-specific imports reduce startup time
 
-### Memory Management
-- Proper cleanup in lifespan context prevents resource leaks
-- Async context managers ensure proper resource disposal
-- Background tasks use temporary files efficiently
-- **Updated**: Simplified state management reduces memory overhead
+### Memory Management Optimizations
+- **Service Caching**: QAService maintains LRU cache for document chains
+- **Connection Pooling**: Database and external service connections pooled efficiently
+- **Resource Cleanup**: Proper cleanup in lifespan context prevents memory leaks
+- ****Updated**: **Centralized Cleanup**: Core package manages shared resource cleanup
+- **Updated**: **Efficient Resource Disposal**: Proper async context management
 
-### **Updated**: Simplified Type Safety Benefits
-- **Runtime Performance**: Eliminated TYPE_CHECKING imports improve runtime performance
-- **Reduced Complexity**: Direct getattr() calls are more efficient than AppState lookups
-- **Backward Compatibility**: Maintained existing interfaces while improving internals
-- **Development Experience**: Cleaner code with fewer imports and simpler patterns
-
-### **Updated**: Direct State Access Benefits
-- **Performance**: Direct attribute access is faster than dictionary-style AppState
-- **Simplicity**: Eliminates the need for complex dataclass patterns
-- **Robustness**: getattr() fallback mechanisms handle missing components gracefully
-- **Maintainability**: Reduced code complexity improves long-term maintainability
+### **Updated**: Enhanced Modularity Benefits
+- ****Performance**: Consolidated core package reduces duplication and improves efficiency
+- ****Maintainability**: Clear separation between core and package-specific functionality
+- ****Scalability**: Modular design supports easy addition of new transport handlers
+- ****Compatibility**: Backward compatibility maintained through inheritance patterns
+- ****Development**: Simplified dependency management improves development workflow
 
 **Section sources**
-- [app/main.py:117-144](file://app/main.py#L117-L144)
-- [app/main.py:155-165](file://app/main.py#L155-L165)
-- [app/domain/qa_service.py:198-211](file://app/domain/qa_service.py#L198-L211)
+- [packages/core/src/cafetera_core/domain/qa_service.py:72-121](file://packages/core/src/cafetera_core/domain/qa_service.py#L72-L121)
+- [packages/admin/src/cafetera_admin/main.py:77-82](file://packages/admin/src/cafetera_admin/main.py#L77-L82)
+- [packages/core/src/cafetera_core/domain/category_file_service.py:22-116](file://packages/core/src/cafetera_core/domain/category_file_service.py#L22-L116)
 
 ## Troubleshooting Guide
 
-Common dependency injection issues and their solutions, utilizing simplified state access patterns:
+Common dependency injection issues and their solutions, leveraging the consolidated core package architecture:
 
-### Service Unavailable Errors
-When services are not available during application startup:
+### Configuration Resolution Issues
+When settings are not properly resolved across packages:
 
 ```mermaid
 flowchart TD
-Start([Service Resolution]) --> CheckAvailable{"Service Available?"}
-CheckAvailable --> |Yes| ReturnService["Return Service Instance via getattr()"]
-CheckAvailable --> |No| CheckType{"Which Service?"}
-CheckType --> |Document Service| RaiseDocError["Raise HTTPException 503"]
-CheckType --> |QA Service| SetToNone["Direct State Access Returns None"]
-CheckType --> |S3 Storage| RaiseS3Error["Raise HTTPException 503"]
-RaiseDocError --> LogWarning["Log Warning Message"]
-RaiseS3Error --> LogWarning
-SetToNone --> LogWarning
+Start([Settings Resolution]) --> CheckCore{"CoreSettings Available?"}
+CheckCore --> |Yes| CheckAdmin{"AdminSettings Extends Core?"}
+CheckCore --> |No| LoadCore["Load CoreSettings from Environment"]
+LoadCore --> CheckAdmin
+CheckAdmin --> |Yes| CheckEnv{"Environment Variables Present?"}
+CheckAdmin --> |No| ErrorAdmin["AdminSettings Cannot Extend Core"]
+CheckEnv --> |Yes| Success["Settings Resolved Successfully"]
+CheckEnv --> |No| ErrorEnv["Missing Environment Variables"]
+ErrorAdmin --> ErrorResolution["Configuration Resolution Failed"]
+ErrorEnv --> ErrorResolution
+Success --> Continue["Continue with Application Startup"]
+```
+
+**Diagram sources**
+- [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+
+### Service Availability Problems
+When shared services are not available during application startup:
+
+```mermaid
+flowchart TD
+Start([Service Resolution]) --> CheckQA{"QAService Available?"}
+CheckQA --> |Yes| CheckDoc{"DocumentService Available?"}
+CheckQA --> |No| CheckType{"Which Service?"}
+CheckDoc --> |Yes| CheckRepo{"DocumentRepository Available?"}
+CheckDoc --> |No| ErrorDoc["DocumentService Initialization Failed"]
+CheckRepo --> |Yes| Success["All Services Available"]
+CheckRepo --> |No| ErrorRepo["DocumentRepository Initialization Failed"]
+CheckType --> |DocumentService| ErrorDoc
+CheckType --> |QAService| ErrorQA["QAService Initialization Failed"]
+CheckType --> |S3 Storage| ErrorS3["S3 Storage Initialization Failed"]
+ErrorDoc --> LogWarning["Log Warning Message"]
+ErrorQA --> LogWarning
+ErrorS3 --> LogWarning
+ErrorRepo --> LogWarning
 LogWarning --> ReturnNone["Return None/Unavailable"]
 ```
 
 **Diagram sources**
-- [app/api/deps.py:60-79](file://app/api/deps.py#L60-L79)
-- [app/api/deps.py:107-112](file://app/api/deps.py#L107-L112)
+- [packages/admin/src/cafetera_admin/api/deps.py:52-99](file://packages/admin/src/cafetera_admin/api/deps.py#L52-L99)
+- [packages/admin/src/cafetera_admin/main.py:52-76](file://packages/admin/src/cafetera_admin/main.py#L52-L76)
 
-### Configuration Issues
-Missing or incorrect configuration values:
+### **Updated**: Consolidated Dependency Issues
+Consolidated dependency-related problems and solutions:
 
-1. **Admin Authentication**: Missing admin API key causes authentication failures
-2. **Database Path**: Incorrect database path prevents repository initialization
-3. **External Services**: Wrong URLs or credentials break S3/Qdrant connections
-4. **Concurrency Settings**: Incorrect `max_concurrent_indexing` value affects throttling behavior
-5. **Direct State Access**: Missing state attributes cause getattr() fallback to None
+1. **Core Configuration Conflicts**: Ensure AdminSettings properly extends CoreSettings
+2. **Shared Service Initialization**: Verify QAService initializes before package-specific services
+3. **Resource Availability**: Check that shared resources are available in app.state
+4. **Package-Specific Dependencies**: Ensure package-specific services inherit from core interfaces
+5. **State Attribute Access**: Verify getattr() fallback mechanisms work correctly
 
-### **Updated**: Direct State Access Issues
-Direct state access-related problems and solutions:
+### **Updated**: Package-Specific Issues
+Package-specific dependency problems and solutions:
 
-1. **Missing State Attributes**: getattr() fallback returns None for uninitialized components
-2. **Runtime Attribute Errors**: Direct state access bypasses compile-time validation
-3. **Component Availability**: Simplified access patterns require proper initialization order
-4. **Backward Compatibility**: Module-level singleton maintains existing handler interfaces
-5. **Error Handling**: getattr() fallback provides graceful degradation
+1. **Admin Authentication**: Missing admin_api_key causes authentication failures
+2. **Template Resolution**: Ensure templates directory resolves correctly in monorepo structure
+3. **Static File Serving**: Verify static files mount correctly from repository root
+4. **Route Registration**: Check that package routers are properly included
+5. **Dependency Injection**: Ensure package-specific dependencies use correct annotations
 
-### **Updated**: Simplified Type Safety Issues
-Simplified type safety-related problems and solutions:
-
-1. **Import Optimization**: Eliminated unused TYPE_CHECKING imports reduce module loading time
-2. **Runtime Performance**: Direct state access is faster than complex dataclass patterns
-3. **Code Clarity**: Simplified patterns improve code readability and maintainability
-4. **Backward Compatibility**: Existing interfaces remain unchanged despite internal improvements
-5. **Development Workflow**: Cleaner imports improve IDE performance and responsiveness
-
-### Resource Cleanup
+### Resource Cleanup and Lifecycle
 Proper shutdown requires:
-- Closing S3 client connections
-- **Updated**: Proper QA service cleanup with direct state management
-- Ensuring database transactions are committed
-- **Updated**: Preventing double-closing of shared Qdrant client
-- **Updated**: Simplified resource cleanup through direct state access
+- **Shared Resource Cleanup**: Core package manages cleanup of shared resources
+- **Package-Specific Cleanup**: Each package cleans up its own resources
+- **Connection Pooling**: Ensure database and external service connections are properly closed
+- ****Updated**: **Centralized Cleanup**: Core package coordinates cleanup of shared resources
+- ****Updated**: **Proper Resource Disposal**: Async context managers ensure proper cleanup
 
 **Section sources**
-- [app/api/deps.py:60-79](file://app/api/deps.py#L60-L79)
-- [app/api/deps.py:107-112](file://app/api/deps.py#L107-L112)
-- [app/main.py:155-165](file://app/main.py#L155-L165)
+- [packages/admin/src/cafetera_admin/api/deps.py:52-99](file://packages/admin/src/cafetera_admin/api/deps.py#L52-L99)
+- [packages/admin/src/cafetera_admin/main.py:77-82](file://packages/admin/src/cafetera_admin/main.py#L77-L82)
+- [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
 
 ## Conclusion
 
-The dependency injection system in the Cafetera HR Bot project demonstrates a modernized approach to managing application complexity through simplified state access patterns and direct attribute management. The system successfully balances:
+The dependency injection system in the Cafetera HR Bot project demonstrates a modernized approach to managing application complexity through consolidated core dependencies and package-specific extensions. The system successfully balances:
 
-- **Testability**: Services can be easily mocked and tested independently
-- **Maintainability**: Clear dependency boundaries make code modifications safer
-- **Scalability**: Hierarchical dependency management supports growth
-- **Reliability**: Proper resource lifecycle management prevents memory leaks
-- **Updated**: **Direct State Access**: Simplified getattr() patterns eliminate complex AppState dataclass overhead
-- **Updated**: **Backward Compatibility**: Module-level singleton maintains compatibility with existing VK handlers
-- **Updated**: **Performance Optimization**: Eliminated TYPE_CHECKING imports improve runtime performance
-- **Updated**: **Code Clarity**: Simplified patterns improve readability and maintainability
-- **Updated**: **Development Experience**: Cleaner imports and simpler patterns enhance developer productivity
+- **Modularity**: Clear separation between core functionality and package-specific implementations
+- **Maintainability**: Shared core services reduce code duplication and improve consistency
+- **Scalability**: Hierarchical dependency management supports easy addition of new transport handlers
+- **Reliability**: Proper resource lifecycle management prevents memory leaks and connection issues
+- ****Updated**: **Consolidated Core Package**: Unified dependency management reduces complexity
+- ****Updated**: **Package Extensions**: Minimal overrides enable package-specific customization
+- ****Updated**: **Shared Services**: Centralized services improve performance and resource utilization
+- ****Updated**: **Reduced Coupling**: Clear separation between core and package-specific functionality
+- ****Updated**: **Enhanced Developer Experience**: Simplified dependency management improves productivity
 
-The implementation leverages FastAPI's built-in dependency injection capabilities while adding custom providers for specialized services, utilizing direct state attribute access patterns. This creates a robust foundation for the RAG-based document management system with proper resource control, performance optimization, and consistent access patterns throughout the application.
+The implementation leverages FastAPI's built-in dependency injection capabilities while adding custom providers for specialized services, utilizing direct state attribute access patterns. This creates a robust foundation for multiple transport handlers (admin web UI and VK bot) with proper resource control, performance optimization, and consistent access patterns throughout the application.
 
-The modernized type safety improvements provide:
-- **Better Performance**: Eliminated TYPE_CHECKING imports reduce module loading time
-- **Improved Code Quality**: Simplified patterns are easier to understand and maintain
-- **Enhanced Developer Experience**: Cleaner imports and straightforward access patterns
-- **Runtime Efficiency**: Direct getattr() calls are faster than complex dataclass lookups
-- **Future-Proof Architecture**: Simplified patterns support easy evolution and maintenance
+The enhanced dependency management provides:
+- **Better Performance**: Consolidated core package reduces duplication and improves efficiency
+- **Improved Code Quality**: Clear separation between core and package-specific functionality
+- **Enhanced Developer Experience**: Simplified dependency management and clear interfaces
+- **Future-Proof Architecture**: Modular design supports easy evolution and maintenance
+- ****Updated**: **Reduced Coupling**: Package-specific dependencies minimize inter-package dependencies
+- ****Updated**: **Shared Infrastructure**: Core package manages common infrastructure efficiently
+- ****Updated**: **Flexible Configuration**: Inheritance-based settings enable easy customization
 
-This creates a production-ready dependency injection system that balances functionality, performance, and developer experience through modernized state access patterns and streamlined resource management.
+This creates a production-ready dependency injection system that balances functionality, performance, and developer experience through modernized state access patterns, consolidated core dependencies, and package-specific extensions within a monorepo architecture.

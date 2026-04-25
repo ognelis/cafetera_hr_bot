@@ -48,6 +48,14 @@ RUN .venv/bin/python -c "from langchain_qdrant import FastEmbedSparse; FastEmbed
 # Pre-download ColBERT rerank model during build
 RUN .venv/bin/python -c "from fastembed import LateInteractionTextEmbedding; LateInteractionTextEmbedding(model_name='colbert-ir/colbertv2.0')"
 
+# Pre-download Docling ML models during build (layout analysis, TableFormer)
+ENV HF_HOME=/app/.cache/huggingface
+RUN .venv/bin/python -c "from docling.document_converter import DocumentConverter; DocumentConverter()"
+
+# Pre-download HybridChunker tokenizer (must match CHUNKER_TOKENIZER_MODEL) during build
+ENV CHUNKER_TOKENIZER_MODEL=Qwen/Qwen3-Embedding-0.6B
+RUN .venv/bin/python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('$CHUNKER_TOKENIZER_MODEL')"
+
 # Cleanup: remove test files and caches to reduce image size
 RUN find /app/.venv/lib/python3.13/site-packages \
         \( -type d -name 'tests' -o -type d -name 'test' \
@@ -76,13 +84,15 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Bind to all interfaces inside container (local dev still defaults to 127.0.0.1)
 ENV BIND_HOST=0.0.0.0
 
-# Set FastEmbed cache path for runtime
+# Set model cache paths for runtime
 ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
+ENV HF_HOME=/app/.cache/huggingface
 
-# Copy pre-downloaded FastEmbed model cache
+# Copy pre-downloaded model caches
 COPY --from=builder /app/.cache/fastembed /app/.cache/fastembed
+COPY --from=builder /app/.cache/huggingface /app/.cache/huggingface
 
-# Ensure cache directory is accessible by appuser
+# Ensure cache directories are accessible by appuser
 RUN chown -R appuser:appuser /app/.cache
 
 # Switch to non-root user

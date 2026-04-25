@@ -18,16 +18,23 @@
 - [packages/admin/src/cafetera_admin/parser.py](file://packages/admin/src/cafetera_admin/parser.py)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Updated dependency analysis section to reflect new langchain-text-splitters, langchain-experimental, and tiktoken dependencies
+- Enhanced document parsing and chunking section to explain the new semantic chunking capabilities
+- Updated architecture diagrams to show the enhanced text processing pipeline
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
+6. [Enhanced Text Processing Capabilities](#enhanced-text-processing-capabilities)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
 
 ## Introduction
 This document explains how the Admin Package integrates with the broader Cafetera HR Bot ecosystem. It covers the FastAPI-based admin web UI, its routing, authentication, document lifecycle management, vector indexing, and integration with shared infrastructure (Qdrant, MinIO, PostgreSQL) through the core package. It also describes the Dockerized deployment and local development workflow.
@@ -73,7 +80,7 @@ CORE --> PG
 - Indexer: Handles chunk preparation, embedding computation, upsert to Qdrant, deletion, toggling search visibility, and collection optimization.
 - API routers: Provide HTML pages, JSON endpoints, and HTMX partials for document management and category file administration.
 - Authentication: Session cookie validation against the admin API key.
-- Parser: Loads and chunks .docx, .doc, and .xlsx files for indexing.
+- Parser: Loads and chunks .docx, .doc, and .xlsx files for indexing with enhanced semantic chunking capabilities.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/main.py:85-114](file://packages/admin/src/cafetera_admin/main.py#L85-L114)
@@ -258,8 +265,22 @@ Restore --> End
 **Section sources**
 - [packages/admin/src/cafetera_admin/indexer.py:25-251](file://packages/admin/src/cafetera_admin/indexer.py#L25-L251)
 
-### Document Parsing and Chunking
-The parser extracts text from .docx, .doc, and .xlsx files, preserves headings and tables, and applies either recursive or semantic chunking strategies. It tracks section paths and column headers for context.
+## Enhanced Text Processing Capabilities
+
+### Advanced Document Parsing and Chunking
+The parser now provides enhanced text processing capabilities through three distinct chunking strategies:
+
+#### Recursive Character Text Splitting
+Uses `RecursiveCharacterTextSplitter.from_tiktoken_encoder()` with `tiktoken>=0.12.0` for token-aware splitting based on the `cl100k_base` encoding. This ensures chunks align with token boundaries for optimal embedding efficiency.
+
+#### Semantic Chunking
+Powered by `langchain-experimental>=0.4.1` and `SemanticChunker`, this approach analyzes text semantics to create meaningful chunks that preserve contextual coherence, automatically detecting natural breakpoints in the content.
+
+#### Enhanced Text Processing Pipeline
+The parser processes .docx, .doc, and .xlsx files with sophisticated handling:
+- **.docx files**: Extract sections with heading preservation, table formatting, and hierarchical breadcrumb paths
+- **.doc files**: Convert legacy Microsoft Word format using `sharepoint-to-text>=1.1.1`
+- **.xlsx files**: Transform spreadsheets into structured markdown tables with column header preservation
 
 ```mermaid
 flowchart TD
@@ -267,38 +288,41 @@ Load([Load Document]) --> Detect["Detect file type"]
 Detect --> Docx[".docx: Extract sections + tables"]
 Detect --> Doc[".doc: Extract text via sharepoint2text"]
 Detect --> Xlsx[".xlsx: Iterate sheets, collect rows"]
-Docx --> Strategy{"Strategy"}
+Docx --> Strategy{"Chunking Strategy"}
 Doc --> Strategy
 Xlsx --> Strategy
-Strategy --> |Recursive| Split["RecursiveCharacterTextSplitter"]
-Strategy --> |Semantic| Semantic["SemanticChunker with embeddings"]
-Split --> Output([Chunked Documents])
+Strategy --> |Recursive| TikToken["RecursiveCharacterTextSplitter<br/>with tiktoken encoder"]
+Strategy --> |Semantic| Semantic["SemanticChunker<br/>from langchain-experimental"]
+TikToken --> Output([Chunked Documents])
 Semantic --> Output
 ```
 
 **Diagram sources**
 - [packages/admin/src/cafetera_admin/parser.py:585-649](file://packages/admin/src/cafetera_admin/parser.py#L585-L649)
+- [packages/admin/src/cafetera_admin/parser.py:229-235](file://packages/admin/src/cafetera_admin/parser.py#L229-L235)
+- [packages/admin/src/cafetera_admin/parser.py:275-281](file://packages/admin/src/cafetera_admin/parser.py#L275-L281)
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/parser.py:102-420](file://packages/admin/src/cafetera_admin/parser.py#L102-L420)
+- [packages/admin/src/cafetera_admin/parser.py:585-649](file://packages/admin/src/cafetera_admin/parser.py#L585-L649)
 
 ## Dependency Analysis
-The admin package depends on cafetera-core for shared domain services, storage, and configuration. The workspace configuration ensures consistent dependency resolution across packages.
+The admin package depends on cafetera-core for shared domain services, storage, and configuration. The enhanced workspace configuration ensures consistent dependency resolution across packages with the latest text processing capabilities.
 
 ```mermaid
 graph LR
 ADMIN["cafetera-admin"]
 CORE["cafetera-core"]
-FASTAPI["fastapi"]
-HYPERCORN["hypercorn"]
-JINJA["jinja2"]
-MULTIPART["python-multipart"]
-DOCX["python-docx"]
-XLSX["openpyxl"]
-SHAREPOINT["sharepoint-to-text"]
-SPLITTERS["langchain-text-splitters"]
-EXPERIMENTAL["langchain-experimental"]
-TIKTOKEN["tiktoken"]
+FASTAPI["fastapi>=0.135.3"]
+HYPERCORN["hypercorn>=0.18.0"]
+JINJA["jinja2>=3.1.6"]
+MULTIPART["python-multipart>=0.0.24"]
+DOCX["python-docx>=1.2.0"]
+XLSX["openpyxl>=3.1.5"]
+SHAREPOINT["sharepoint-to-text>=1.1.1"]
+SPLITTERS["langchain-text-splitters>=1.1.1"]
+EXPERIMENTAL["langchain-experimental>=0.4.1"]
+TIKTOKEN["tiktoken>=0.12.0"]
 ADMIN --> CORE
 ADMIN --> FASTAPI
 ADMIN --> HYPERCORN
@@ -311,6 +335,11 @@ ADMIN --> SPLITTERS
 ADMIN --> EXPERIMENTAL
 ADMIN --> TIKTOKEN
 ```
+
+**Updated** Added three new dependencies for enhanced text processing:
+- `langchain-text-splitters>=1.1.1`: Provides `RecursiveCharacterTextSplitter.from_tiktoken_encoder()` for token-aware splitting
+- `langchain-experimental>=0.4.1`: Enables `SemanticChunker` for intelligent semantic chunking
+- `tiktoken>=0.12.0`: Supports tokenization with `cl100k_base` encoding for optimal embedding alignment
 
 **Diagram sources**
 - [packages/admin/pyproject.toml:6-18](file://packages/admin/pyproject.toml#L6-L18)
@@ -325,6 +354,7 @@ ADMIN --> TIKTOKEN
 - Collection optimization: Post-index optimization temporarily lowers the indexing threshold to merge segments, reducing storage overhead and improving query performance.
 - Embedding caching: The Dockerfile pre-downloads FastEmbed models to speed up cold starts.
 - HTTP/2: Production server uses Hypercorn with HTTP/2 enabled for improved throughput.
+- Token-aware chunking: Enhanced text processing ensures optimal chunk sizes aligned with token boundaries for better embedding efficiency.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/main.py:78-79](file://packages/admin/src/cafetera_admin/main.py#L78-L79)
@@ -337,6 +367,7 @@ ADMIN --> TIKTOKEN
 - Resource unavailability: If S3, Qdrant, or DocumentService is missing from app state, handlers return HTTP 503.
 - Port conflicts: The admin server binds to port 8000 by default; override with ADMIN_PORT if needed.
 - Docker services failing: Check health checks for Qdrant and MinIO; verify ports 6333 and 9000 are free.
+- Text processing errors: Ensure `langchain-text-splitters`, `langchain-experimental`, and `tiktoken` dependencies are properly installed for semantic chunking functionality.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/api/deps.py:82-89](file://packages/admin/src/cafetera_admin/api/deps.py#L82-L89)
@@ -345,4 +376,4 @@ ADMIN --> TIKTOKEN
 - [README.md:287-307](file://README.md#L287-L307)
 
 ## Conclusion
-The Admin Package provides a cohesive FastAPI-based interface for managing documents and category files within the Cafetera HR Bot ecosystem. It leverages shared infrastructure and domain services from cafetera-core, integrates HTMX for responsive UI updates, and ensures secure access via cookie-based authentication. The Dockerized deployment and workspace configuration simplify local development and production operations.
+The Admin Package provides a cohesive FastAPI-based interface for managing documents and category files within the Cafetera HR Bot ecosystem. It leverages shared infrastructure and domain services from cafetera-core, integrates HTMX for responsive UI updates, and ensures secure access via cookie-based authentication. The enhanced text processing capabilities through `langchain-text-splitters`, `langchain-experimental`, and `tiktoken` enable sophisticated document parsing and chunking strategies, supporting both token-aware recursive splitting and intelligent semantic chunking for improved RAG performance. The Dockerized deployment and workspace configuration simplify local development and production operations.

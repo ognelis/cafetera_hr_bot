@@ -4,31 +4,14 @@ from __future__ import annotations
 
 import sys
 import types
-from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
-from docx import Document as DocxDocument
 from langchain_core.documents import Document as LCDocument
 
 from cafetera_core.config import CoreSettings
 from cafetera_core.rag.chain import _format_docs, _format_docs_with_metadata, build_rag_chain
 from cafetera_core.rag.retriever import COLLECTION_NAME, build_vectorstore, estimate_k
 from cafetera_vk_bot.prompts import SYSTEM_PROMPT
-
-# ── Helpers ────────────────────────────────────────────────────────
-
-
-def _make_docx(path: Path, paragraphs: list[tuple[str | None, str]]) -> None:
-    """Create a .docx with paragraphs; if style is given, apply it."""
-    doc = DocxDocument()
-    for style, text in paragraphs:
-        if style:
-            doc.add_paragraph(text, style=style)
-        else:
-            doc.add_paragraph(text)
-    doc.save(str(path))
-
 
 # ── 6.0 — Config / Settings ───────────────────────────────────────
 
@@ -80,120 +63,6 @@ class TestRagSettings:
         s = CoreSettings()
         assert s.llm_provider == "llamacpp"
         assert s.llm_base_url == "http://localhost:8080/v1"
-
-
-# ── 6.1 — Ingestion: docx parsing ─────────────────────────────────
-
-
-class TestExtractSections:
-    def test_single_section_no_heading(self):
-        from cafetera_admin.parser import _extract_sections
-
-        with TemporaryDirectory() as tmp:
-            path = Path(tmp) / "test.docx"
-            _make_docx(path, [(None, "Hello world"), (None, "Second line")])
-            sections = _extract_sections(path)
-
-        assert len(sections) == 1
-        heading, body, level, section_path = sections[0]
-        assert heading == ""
-        assert "Hello world" in body
-        assert "Second line" in body
-        assert level == 0
-        assert section_path == ""
-
-    def test_multiple_headings(self):
-        from cafetera_admin.parser import _extract_sections
-
-        with TemporaryDirectory() as tmp:
-            path = Path(tmp) / "test.docx"
-            _make_docx(
-                path,
-                [
-                    ("Heading 1", "Chapter One"),
-                    (None, "Body of chapter one."),
-                    ("Heading 2", "Section Two"),
-                    (None, "Body of section two."),
-                ],
-            )
-            sections = _extract_sections(path)
-
-        assert len(sections) == 2
-        assert sections[0][0] == "Chapter One"
-        assert "Body of chapter one." in sections[0][1]
-        assert sections[0][2] == 1  # level
-        assert sections[0][3] == "Chapter One"  # section_path
-        assert sections[1][0] == "Section Two"
-        assert "Body of section two." in sections[1][1]
-        assert sections[1][2] == 2  # level
-        assert sections[1][3] == "Chapter One > Section Two"  # section_path
-
-    def test_empty_paragraphs_skipped(self):
-        from cafetera_admin.parser import _extract_sections
-
-        with TemporaryDirectory() as tmp:
-            path = Path(tmp) / "test.docx"
-            _make_docx(path, [(None, "Text"), (None, "   "), (None, "More text")])
-            sections = _extract_sections(path)
-
-        assert len(sections) == 1
-        assert "   " not in sections[0][1]
-        assert sections[0][2] == 0  # level
-        assert sections[0][3] == ""  # section_path
-
-
-class TestLoadDocx:
-    def test_returns_lc_documents(self):
-        from cafetera_admin.parser import load_docx
-
-        with TemporaryDirectory() as tmp:
-            path = Path(tmp) / "test.docx"
-            _make_docx(path, [(None, "Some content for the HR bot.")])
-            docs = load_docx(path)
-
-        assert len(docs) >= 1
-        assert all(isinstance(d, LCDocument) for d in docs)
-
-    def test_metadata_contains_source(self):
-        from cafetera_admin.parser import load_docx
-
-        with TemporaryDirectory() as tmp:
-            path = Path(tmp) / "policy.docx"
-            _make_docx(path, [(None, "Policy text here.")])
-            docs = load_docx(path)
-
-        assert docs[0].metadata["source"] == "policy.docx"
-
-    def test_metadata_contains_section(self):
-        from cafetera_admin.parser import load_docx
-
-        with TemporaryDirectory() as tmp:
-            path = Path(tmp) / "manual.docx"
-            _make_docx(
-                path,
-                [
-                    ("Heading 1", "Vacation Policy"),
-                    (None, "Employees are entitled to 28 days of leave."),
-                ],
-            )
-            docs = load_docx(path)
-
-        assert docs[0].metadata["section"] == "Vacation Policy"
-
-    def test_long_text_is_chunked(self):
-        from cafetera_admin.parser import CHUNK_SIZE, load_docx
-
-        # CHUNK_SIZE is in tokens (~500), so use ~2000 tokens to ensure splitting
-        long_text = "Word " * 2000  # ~10000 chars, ~2000 tokens
-        with TemporaryDirectory() as tmp:
-            path = Path(tmp) / "long.docx"
-            _make_docx(path, [(None, long_text)])
-            docs = load_docx(path)
-
-        assert len(docs) > 1
-        for doc in docs:
-            # CHUNK_SIZE is tokens; use a safe char upper bound (tokens rarely exceed 10 chars)
-            assert len(doc.page_content) <= CHUNK_SIZE * 10
 
 
 # ── 6.2 — Prompts ─────────────────────────────────────────────────

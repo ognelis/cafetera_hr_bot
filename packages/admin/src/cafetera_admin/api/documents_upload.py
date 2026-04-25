@@ -6,7 +6,6 @@ import asyncio
 import logging
 import tempfile
 from pathlib import Path
-from typing import Literal, cast
 
 from fastapi import (
     APIRouter,
@@ -15,7 +14,6 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from langchain_core.embeddings import Embeddings
 
 from cafetera_admin.api.deps import (
     AdminDep,
@@ -34,6 +32,7 @@ from cafetera_admin.api.documents_helpers import (
 )
 from cafetera_admin.config import AdminSettings
 from cafetera_admin.parser import load_document
+from cafetera_core.config import CoreSettings
 from cafetera_core.domain.qa_service import QAService
 from cafetera_core.storage.models import DocumentStatus
 from cafetera_core.storage.s3 import S3Storage
@@ -77,12 +76,7 @@ async def _parse_document_chunks(
     s3_key: str,
     document_id: str,
     *,
-    chunk_size: int,
-    chunk_overlap: int,
-    strategy: str = "recursive",
-    embeddings: Embeddings | None = None,
-    breakpoint_threshold_type: str = "percentile",
-    breakpoint_threshold_amount: float | int = 95,
+    settings: CoreSettings,
 ) -> list:
     """Write *data* to a temp file, parse it into chunks, and clean up."""
     ext = Path(s3_key).suffix.lower()
@@ -94,24 +88,15 @@ async def _parse_document_chunks(
         chunks = await asyncio.to_thread(
             load_document,
             tmp_path,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            strategy=strategy,
-            embeddings=embeddings,
-            breakpoint_threshold_type=cast(
-                Literal["percentile", "standard_deviation", "interquartile", "gradient"],
-                breakpoint_threshold_type,
-            ),
-            breakpoint_threshold_amount=breakpoint_threshold_amount,
+            settings,
         )
     except ValueError as exc:
-        if "not a Word file" in str(exc):
-            logger.error(
-                "Document %s failed to parse: %s (data size: %d bytes)",
-                document_id,
-                exc,
-                len(data),
-            )
+        logger.error(
+            "Document %s failed to parse: %s (data size: %d bytes)",
+            document_id,
+            exc,
+            len(data),
+        )
         raise
     finally:
         await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
@@ -124,14 +109,9 @@ async def _index_document_from_s3(
     document_id: str,
     s3_key: str,
     semaphore: asyncio.Semaphore,
-    chunk_size: int,
-    chunk_overlap: int,
+    settings: CoreSettings,
     is_reindex: bool = False,
     qa_service: QAService | None = None,
-    strategy: str = "recursive",
-    embeddings: Embeddings | None = None,
-    breakpoint_threshold_type: str = "percentile",
-    breakpoint_threshold_amount: float | int = 95,
 ) -> None:
     """Download from S3, parse, and index/reindex a document. Runs as a background task."""
     async with semaphore:
@@ -144,12 +124,7 @@ async def _index_document_from_s3(
                 data,
                 s3_key,
                 document_id,
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
-                strategy=strategy,
-                embeddings=embeddings,
-                breakpoint_threshold_type=breakpoint_threshold_type,
-                breakpoint_threshold_amount=breakpoint_threshold_amount,
+                settings=settings,
             )
 
             if is_reindex:
@@ -178,7 +153,7 @@ async def upload_documents(
     qa: QAServiceDep,
     files: list[UploadFile],
 ):
-    """Upload one or more documents (.docx, .doc) to S3.
+    """Upload one or more documents (.docx, .pdf) to S3.
 
     Returns list of created documents.
     """
@@ -256,14 +231,9 @@ async def upload_documents(
             record.document_id,
             s3_key,
             request.app.state.indexing_semaphore,
-            settings.chunk_size,
-            settings.chunk_overlap,
+            settings,
             is_reindex=False,
             qa_service=qa,
-            strategy=settings.chunk_strategy,
-            embeddings=request.app.state.embeddings,
-            breakpoint_threshold_type=settings.semantic_breakpoint_threshold_type,
-            breakpoint_threshold_amount=settings.semantic_breakpoint_threshold_amount,
         )
 
         results.append(_doc_to_dict(record))

@@ -421,14 +421,9 @@ async def reindex_document(
         document_id,
         record.s3_key,
         semaphore,
-        settings.chunk_size,
-        settings.chunk_overlap,
+        settings,
         is_reindex=True,
         qa_service=qa,
-        strategy=settings.chunk_strategy,
-        embeddings=request.app.state.embeddings,
-        breakpoint_threshold_type=settings.semantic_breakpoint_threshold_type,
-        breakpoint_threshold_amount=settings.semantic_breakpoint_threshold_amount,
     )
 
     is_htmx = request.headers.get("HX-Request") == "true"

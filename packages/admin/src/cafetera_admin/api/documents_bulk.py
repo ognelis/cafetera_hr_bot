@@ -156,14 +156,9 @@ async def bulk_reindex_documents(
                 document_id,
                 record.s3_key,
                 semaphore,
-                settings.chunk_size,
-                settings.chunk_overlap,
+                settings,
                 is_reindex=True,
                 qa_service=qa,
-                strategy=settings.chunk_strategy,
-                embeddings=request.app.state.embeddings,
-                breakpoint_threshold_type=settings.semantic_breakpoint_threshold_type,
-                breakpoint_threshold_amount=settings.semantic_breakpoint_threshold_amount,
             )
         except Exception as exc:
             logger.error("Bulk reindex failed for %s", document_id, exc_info=True)

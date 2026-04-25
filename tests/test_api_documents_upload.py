@@ -55,7 +55,7 @@ class TestUpload:
     def test_upload_rejects_non_docx(self, auth_client):
         resp = auth_client.post(
             "/api/documents/upload",
-            files=[("files", ("test.pdf", BytesIO(b"fake"), "application/pdf"))],
+            files=[("files", ("test.txt", BytesIO(b"fake"), "text/plain"))],
         )
         assert resp.status_code == 200
         data = resp.json()

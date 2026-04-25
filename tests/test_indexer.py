@@ -101,6 +101,68 @@ class TestPrepareChunks:
         )
         assert raw[0].metadata == original_meta
 
+    def test_extracts_dl_meta_page_numbers_and_headings(self):
+        raw = [
+            LCDocument(
+                page_content="chunk",
+                metadata={
+                    "source": "test.pdf",
+                    "dl_meta": {
+                        "page_numbers": [1, 2],
+                        "headings": ["Intro", "Section 1"],
+                    },
+                },
+            ),
+        ]
+        enriched = prepare_chunks(
+            raw,
+            document_id="doc-1",
+            filename="test.pdf",
+            s3_key="documents/test.pdf",
+        )
+        assert enriched[0].metadata["page_numbers"] == [1, 2]
+        assert enriched[0].metadata["headings"] == ["Intro", "Section 1"]
+
+    def test_extracts_dl_meta_singular_page_number_and_heading(self):
+        raw = [
+            LCDocument(
+                page_content="chunk",
+                metadata={
+                    "source": "test.pdf",
+                    "dl_meta": {
+                        "page_number": 3,
+                        "heading": "Chapter 2",
+                    },
+                },
+            ),
+        ]
+        enriched = prepare_chunks(
+            raw,
+            document_id="doc-1",
+            filename="test.pdf",
+            s3_key="documents/test.pdf",
+        )
+        assert enriched[0].metadata["page_number"] == 3
+        assert enriched[0].metadata["heading"] == "Chapter 2"
+
+    def test_plain_chunks_without_dl_meta(self):
+        raw = [
+            LCDocument(
+                page_content="chunk",
+                metadata={"source": "test.docx", "section": "Heading"},
+            ),
+        ]
+        enriched = prepare_chunks(
+            raw,
+            document_id="doc-1",
+            filename="test.docx",
+            s3_key="documents/test.docx",
+        )
+        assert "page_numbers" not in enriched[0].metadata
+        assert "headings" not in enriched[0].metadata
+        assert enriched[0].metadata["source"] == "test.docx"
+        assert enriched[0].metadata["section"] == "Heading"
+
 
 # ── index_chunks ────────────────────────────────────────────────
 

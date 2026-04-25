@@ -460,7 +460,7 @@ class TestAPIUpload:
                 "subcategory": "hire_checklist",
                 "entity_id": 1,
             },
-            files={"file": ("test.pdf", BytesIO(b"fake"), "application/pdf")},
+            files={"file": ("test.txt", BytesIO(b"fake"), "text/plain")},
         )
         assert resp.status_code == 400
         assert "Unsupported" in resp.json()["detail"]

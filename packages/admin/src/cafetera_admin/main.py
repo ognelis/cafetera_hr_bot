@@ -13,6 +13,7 @@ from fastapi.templating import Jinja2Templates
 
 from cafetera_admin.config import AdminSettings
 from cafetera_admin.domain.document_service import DocumentService
+from cafetera_admin.parser import ensure_models_cached
 from cafetera_admin.prompts import GLOBAL_EXPERTS_PROMPT
 from cafetera_core.resources import build_resources, close_resources
 
@@ -40,6 +41,11 @@ def _resolve_repo_root() -> Path:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings: AdminSettings = app.state.settings
+
+    # Ensure tokenizer and Docling models are cached before any document
+    # parsing, then enable HuggingFace offline mode. This is a blocking call
+    # that may download files on first run, so we run it in a thread.
+    await asyncio.to_thread(ensure_models_cached, settings.chunker_tokenizer_model)
 
     res = await build_resources(settings, with_s3=True, with_db=True)
 

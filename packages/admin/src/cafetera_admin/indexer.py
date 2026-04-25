@@ -44,6 +44,17 @@ def prepare_chunks(
             "s3_key": s3_key,
             "is_search_enabled": is_search_enabled,
         }
+        # Extract Docling metadata into top-level fields when available
+        dl_meta = chunk.metadata.get("dl_meta")
+        if isinstance(dl_meta, dict):
+            if "page_numbers" in dl_meta:
+                meta["page_numbers"] = dl_meta["page_numbers"]
+            elif "page_number" in dl_meta:
+                meta["page_number"] = dl_meta["page_number"]
+            if "headings" in dl_meta:
+                meta["headings"] = dl_meta["headings"]
+            elif "heading" in dl_meta:
+                meta["heading"] = dl_meta["heading"]
         enriched.append(chunk.model_copy(update={"metadata": meta}))
     return enriched
 

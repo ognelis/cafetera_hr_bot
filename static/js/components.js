@@ -109,7 +109,6 @@ document.addEventListener('alpine:init', () => {
       const labels = {
         all: 'Все',
         docx: 'DOCX',
-        doc: 'DOC',
         xlsx: 'XLSX',
         other: 'Другие'
       };
