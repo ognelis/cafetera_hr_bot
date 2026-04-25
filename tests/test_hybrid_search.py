@@ -6,17 +6,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.config import Settings
-from app.domain.qa_service import QAService
-from app.rag.indexer import index_chunks
-from app.rag.retriever import build_sparse_embeddings, build_vectorstore
+from cafetera_core.config import CoreSettings
+from cafetera_core.domain.qa_service import QAService
+from cafetera_core.rag.indexer import index_chunks
+from cafetera_core.rag.retriever import build_sparse_embeddings, build_vectorstore
 
 # ── build_sparse_embeddings ───────────────────────────────────────
 
 
 def test_build_sparse_embeddings_returns_fastembed():
     """build_sparse_embeddings() returns FastEmbedSparse."""
-    settings = Settings(
+    settings = CoreSettings(
         sparse_embedding_model="Qdrant/bm25",
         _env_file=None,
     )
@@ -35,7 +35,7 @@ def test_build_sparse_embeddings_returns_fastembed():
 
 def test_build_sparse_embeddings_missing_dependency():
     """When FastEmbedSparse import fails, raises ImportError."""
-    settings = Settings(
+    settings = CoreSettings(
         sparse_embedding_model="Qdrant/bm25",
         _env_file=None,
     )
@@ -67,7 +67,7 @@ def test_build_vectorstore_without_sparse():
     mock_client = MagicMock()
     mock_embeddings = MagicMock()
 
-    with patch("app.rag.retriever.QdrantVectorStore") as mock_vs_cls:
+    with patch("cafetera_core.rag.retriever.QdrantVectorStore") as mock_vs_cls:
         result = build_vectorstore(
             client=mock_client,
             embeddings=mock_embeddings,
@@ -89,7 +89,7 @@ def test_build_vectorstore_with_sparse():
     mock_embeddings = MagicMock()
     mock_sparse = MagicMock()
 
-    with patch("app.rag.retriever.QdrantVectorStore") as mock_vs_cls:
+    with patch("cafetera_core.rag.retriever.QdrantVectorStore") as mock_vs_cls:
         result = build_vectorstore(
             client=mock_client,
             embeddings=mock_embeddings,
@@ -214,7 +214,7 @@ def test_qa_service_stores_colbert_embedding():
 
 def test_settings_defaults():
     """Default sparse_embedding_model is 'Qdrant/bm25'."""
-    settings = Settings(_env_file=None)
+    settings = CoreSettings(_env_file=None)
     assert settings.sparse_embedding_model == "Qdrant/bm25"
 
 
@@ -223,7 +223,7 @@ def test_settings_defaults():
 
 def test_reranking_settings_defaults():
     """Default reranking settings are disabled with sensible defaults."""
-    settings = Settings(_env_file=None)
+    settings = CoreSettings(_env_file=None)
     assert settings.reranking_enabled is False
     assert settings.colbert_rerank_model == "colbert-ir/colbertv2.0"
     assert settings.colbert_prefetch_limit == 20

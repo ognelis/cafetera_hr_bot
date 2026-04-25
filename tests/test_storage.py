@@ -8,9 +8,9 @@ from datetime import UTC, datetime
 import pytest
 from databases import Database
 
-from app.storage.database import init_db
-from app.storage.document_repo import DocumentRepository
-from app.storage.models import DocumentRecord, DocumentStatus
+from cafetera_core.storage.database import init_db
+from cafetera_core.storage.document_repo import DocumentRepository
+from cafetera_core.storage.models import DocumentRecord, DocumentStatus
 
 # ── helpers ───────────────────────────────────────────────────────
 

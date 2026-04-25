@@ -13,11 +13,11 @@ import pytest
 from databases import Database
 from fastapi.testclient import TestClient
 
-from app.config import Settings
-from app.main import create_app
-from app.storage.database import init_db
-from app.storage.document_repo import DocumentRepository
-from app.storage.models import DocumentRecord, DocumentStatus
+from cafetera_admin.config import AdminSettings
+from cafetera_admin.main import create_app
+from cafetera_core.storage.database import init_db
+from cafetera_core.storage.document_repo import DocumentRepository
+from cafetera_core.storage.models import DocumentRecord, DocumentStatus
 
 
 def _is_docker_available() -> bool:
@@ -105,7 +105,7 @@ def settings(pg_container):
     # get_connection_url() returns postgresql+psycopg2://...
     # databases[asyncpg] needs postgresql://... or postgresql+asyncpg://...
     url = raw_url.replace("postgresql+psycopg2", "postgresql")
-    return Settings(
+    return AdminSettings(
         admin_api_key=TEST_API_KEY,
         database_url=url,
         s3_endpoint_url="http://localhost:9000",
@@ -167,9 +167,9 @@ def app(settings, mock_qdrant, mock_embeddings, mock_s3, mock_qa_service):
 
     from databases import Database as _Database
 
-    from app.domain.document_service import DocumentService
-    from app.storage.database import init_db as _init_db
-    from app.storage.document_repo import DocumentRepository as _DocRepo
+    from cafetera_core.domain.document_service import DocumentService
+    from cafetera_core.storage.database import init_db as _init_db
+    from cafetera_core.storage.document_repo import DocumentRepository as _DocRepo
 
     @asynccontextmanager
     async def _test_lifespan(_app):

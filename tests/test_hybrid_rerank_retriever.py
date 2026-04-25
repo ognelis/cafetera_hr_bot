@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import numpy as np
 
-from app.config import Settings
-from app.rag.retriever import (
+from cafetera_core.config import CoreSettings
+from cafetera_core.rag.retriever import (
     AsyncHybridRerankRetriever,
     AsyncQdrantRetriever,
     build_retriever,
@@ -136,7 +136,7 @@ def test_build_retriever_dispatches_to_hybrid_when_enabled():
     """When reranking_enabled and colbert_embedding provided, returns
     AsyncHybridRerankRetriever.
     """
-    settings = Settings(
+    settings = CoreSettings(
         reranking_enabled=True,
         colbert_prefetch_limit=25,
         _env_file=None,
@@ -164,7 +164,7 @@ def test_build_retriever_dispatches_to_hybrid_when_enabled():
 
 def test_build_retriever_returns_hybrid_when_reranking_disabled():
     """When reranking_enabled=False, returns AsyncQdrantRetriever (hybrid mode)."""
-    settings = Settings(
+    settings = CoreSettings(
         reranking_enabled=False,
         _env_file=None,
     )
@@ -190,7 +190,7 @@ def test_build_retriever_returns_hybrid_when_colbert_missing():
     """When colbert_embedding is None, returns AsyncQdrantRetriever
     even if reranking_enabled.
     """
-    settings = Settings(
+    settings = CoreSettings(
         reranking_enabled=True,
         _env_file=None,
     )
@@ -214,7 +214,7 @@ def test_build_retriever_for_document_dispatches_to_hybrid_when_enabled():
     """When reranking_enabled and colbert_embedding provided, returns
     AsyncHybridRerankRetriever for document-scoped retrieval.
     """
-    settings = Settings(
+    settings = CoreSettings(
         reranking_enabled=True,
         colbert_prefetch_limit=30,
         _env_file=None,
@@ -245,7 +245,7 @@ def test_build_retriever_for_document_dispatches_to_hybrid_when_enabled():
 
 def test_build_retriever_for_document_returns_hybrid_when_disabled():
     """When reranking_enabled=False, returns AsyncQdrantRetriever."""
-    settings = Settings(
+    settings = CoreSettings(
         reranking_enabled=False,
         _env_file=None,
     )

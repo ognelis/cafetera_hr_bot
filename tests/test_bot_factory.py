@@ -1,8 +1,8 @@
 """Tests for app.integrations.vk.bot — bot factory and handler wiring."""
 
-from app.config import Settings
-from app.integrations.vk.bot import _HANDLER_LABELERS, create_bot
-from app.integrations.vk.handlers import (
+from cafetera_vk_bot.bot import _HANDLER_LABELERS, create_bot
+from cafetera_vk_bot.config import VKSettings
+from cafetera_vk_bot.handlers import (
     ask,
     fallback,
     fire,
@@ -46,13 +46,13 @@ class TestHandlerLabelerOrder:
 
 class TestCreateBot:
     def test_returns_bot_instance(self):
-        settings = Settings(vk_access_token="test_token_placeholder", _env_file=None)
+        settings = VKSettings(vk_access_token="test_token_placeholder", _env_file=None)
         bot = create_bot(settings)
         from vkbottle import Bot
         assert isinstance(bot, Bot)
 
     def test_handlers_registered(self):
-        settings = Settings(vk_access_token="test_token_placeholder", _env_file=None)
+        settings = VKSettings(vk_access_token="test_token_placeholder", _env_file=None)
         bot = create_bot(settings)
         handler_count = len(bot.labeler.message_view.handlers)
         # start: 2 (on_start, on_home)
@@ -68,11 +68,11 @@ class TestCreateBot:
     def test_token_forwarded_to_bot(self):
         """Verify test placeholder token is used, not a real one (09-security)."""
         token = "test_token_placeholder"
-        settings = Settings(vk_access_token=token, _env_file=None)
+        settings = VKSettings(vk_access_token=token, _env_file=None)
         bot = create_bot(settings)
         assert bot.api.token_generator.token == token
 
     def test_state_dispenser_shared(self):
-        settings = Settings(vk_access_token="test_token_placeholder", _env_file=None)
+        settings = VKSettings(vk_access_token="test_token_placeholder", _env_file=None)
         bot = create_bot(settings)
         assert bot.state_dispenser is get_state_dispenser()

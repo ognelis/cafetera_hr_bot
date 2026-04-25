@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from databases import Database
 
-from app.domain.category_file_service import CategoryFileService
-from app.storage.category_models import LEGAL_ENTITIES, CategoryFileRecord
-from app.storage.category_repo import CategoryFileRepository
-from app.storage.database import init_db
+from cafetera_core.domain.category_file_service import CategoryFileService
+from cafetera_core.storage.category_models import LEGAL_ENTITIES, CategoryFileRecord
+from cafetera_core.storage.category_repo import CategoryFileRepository
+from cafetera_core.storage.database import init_db
 
 # ── helpers ───────────────────────────────────────────────────────
 

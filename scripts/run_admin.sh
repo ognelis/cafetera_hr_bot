@@ -74,7 +74,7 @@ BG_PIDS=()
 
 cleanup() {
   log "Shutting down..."
-  for pid in "${BG_PIDS[@]}"; do
+  for pid in ${BG_PIDS[@]+"${BG_PIDS[@]}"}; do
     if kill -0 "$pid" 2>/dev/null; then
       log "Stopping background process (PID=$pid)"
       kill "$pid" 2>/dev/null || true
@@ -239,28 +239,19 @@ select_embedding_provider() {
 select_llm_provider
 select_embedding_provider
 
-# Sync dependencies with provider-specific extras
-UV_EXTRAS=""
-if [[ "$LLM_PROVIDER" == "ollama" || "$EMBEDDING_PROVIDER" == "ollama" ]]; then
-  UV_EXTRAS="$UV_EXTRAS --extra ollama"
-fi
-if [[ "$LLM_PROVIDER" == "openai" || "$LLM_PROVIDER" == "llamacpp" || "$EMBEDDING_PROVIDER" == "openai" ]]; then
-  UV_EXTRAS="$UV_EXTRAS --extra openai_compatible"
-fi
-
-log "Syncing Python dependencies (extras:${UV_EXTRAS:- none})..."
-# shellcheck disable=SC2086
-if ! uv sync $UV_EXTRAS; then
+# Sync dependencies (all LLM/embedding providers are now included in cafetera-core)
+log "Syncing Python dependencies..."
+if ! uv sync; then
   log "ERROR: Failed to sync Python dependencies"
   log "FIX:   Check pyproject.toml is valid and uv.lock is not corrupted"
-  log "       Try: uv lock --upgrade && uv sync $UV_EXTRAS"
+  log "       Try: uv lock --upgrade && uv sync"
   exit 1
 fi
 log "Dependencies OK"
 
 # Start infrastructure
 log "Starting infrastructure via docker compose..."
-docker compose up -d
+docker compose up -d qdrant minio postgres
 
 # Wait for PostgreSQL
 if ! wait_for_postgres; then

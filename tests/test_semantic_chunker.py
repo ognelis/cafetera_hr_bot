@@ -10,8 +10,8 @@ from docx import Document as DocxDocument
 from langchain_core.documents import Document as LCDocument
 from langchain_core.embeddings import Embeddings
 
-from app.config import Settings
-from app.rag.parser import load_doc, load_document, load_docx
+from cafetera_core.config import CoreSettings
+from cafetera_core.rag.parser import load_doc, load_document, load_docx
 
 
 class FakeEmbeddings(Embeddings):
@@ -159,7 +159,7 @@ class TestLoadDocumentSemantic:
             "It enables computers to understand human language."
         )
 
-        with patch("app.rag.parser.sharepoint2text.read_file") as mock_read_file:
+        with patch("cafetera_core.rag.parser.sharepoint2text.read_file") as mock_read_file:
             mock_result = MagicMock()
             mock_result.get_full_text.return_value = sample_text
             mock_read_file.return_value = iter([mock_result])
@@ -215,7 +215,7 @@ class TestSemanticStrategyRequiresEmbeddings:
     def test_load_doc_semantic_requires_embeddings(self, multi_paragraph_doc: Path):
         """Calling load_doc(path, strategy='semantic') without embeddings
         raises ValueError."""
-        with patch("app.rag.parser.sharepoint2text.read_file") as mock_read_file:
+        with patch("cafetera_core.rag.parser.sharepoint2text.read_file") as mock_read_file:
             mock_result = MagicMock()
             mock_result.get_full_text.return_value = "Some content here."
             mock_read_file.return_value = iter([mock_result])
@@ -234,12 +234,12 @@ class TestConfigChunkingDefaults:
 
     def test_config_chunk_strategy_default(self):
         """Settings defaults chunk_strategy to 'recursive'."""
-        settings = Settings(_env_file=None)
+        settings = CoreSettings(_env_file=None)
         assert settings.chunk_strategy == "recursive"
 
     def test_config_semantic_defaults(self):
         """Settings defaults semantic_breakpoint_threshold_type to 'percentile'
         and semantic_breakpoint_threshold_amount to 95."""
-        settings = Settings(_env_file=None)
+        settings = CoreSettings(_env_file=None)
         assert settings.semantic_breakpoint_threshold_type == "percentile"
         assert settings.semantic_breakpoint_threshold_amount == 95

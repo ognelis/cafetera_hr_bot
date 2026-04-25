@@ -10,7 +10,7 @@ from tests.conftest import _make_record
 
 
 class TestReindex:
-    @patch("app.api.documents.load_document", return_value=[])
+    @patch("cafetera_admin.api.documents.load_document", return_value=[])
     async def test_reindex_starts(
         self, mock_parse, auth_client, repo, mock_s3
     ):

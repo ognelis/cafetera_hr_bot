@@ -5,7 +5,7 @@ import json
 import pytest
 from vkbottle import Keyboard
 
-from app.integrations.vk.keyboards import (
+from cafetera_vk_bot.keyboards import (
     CMD_ASK,
     CMD_FIRE,
     CMD_HIRE,

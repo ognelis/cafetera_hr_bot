@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from langchain_core.documents import Document as LCDocument
 
-from app.rag.indexer import index_chunks, optimize_collection, prepare_chunks
+from cafetera_core.rag.indexer import index_chunks, optimize_collection, prepare_chunks
 
 # ── prepare_chunks ────────────────────────────────────────────────
 
@@ -281,7 +281,7 @@ class TestOptimizeCollection:
         client.get_collection = AsyncMock(return_value=optimizing_info)
 
         # Patch asyncio.sleep inside the indexer module to run instantly
-        with patch("app.rag.indexer.asyncio.sleep", new_callable=AsyncMock):
+        with patch("cafetera_core.rag.indexer.asyncio.sleep", new_callable=AsyncMock):
             await optimize_collection(client, "test-collection")
 
         # Even though optimization never completed, threshold should be restored

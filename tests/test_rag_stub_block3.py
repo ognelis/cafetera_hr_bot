@@ -1,6 +1,6 @@
 """Tests for Block 3 — RAG stub service and handler wiring."""
 
-from app.domain.content import rag_stub
+from cafetera_core.domain.content import rag_stub
 
 
 class TestRagStub:
@@ -34,12 +34,12 @@ class TestFireRagUsesQaService:
     """3.2 — fire handler uses send_rag_answer helper for RAG (Block 7+8)."""
 
     def test_fire_handler_imports_send_rag_answer(self):
-        from app.integrations.vk.handlers import fire
+        from cafetera_vk_bot.handlers import fire
 
         assert hasattr(fire, "send_rag_answer")
 
     def test_fire_module_has_no_section_stub(self):
-        import app.integrations.vk.handlers.fire as fire_mod
+        import cafetera_vk_bot.handlers.fire as fire_mod
 
         assert not hasattr(fire_mod, "_SECTION_STUB")
 
@@ -48,12 +48,12 @@ class TestVacationRagUsesQaService:
     """3.3 — vacation handler uses send_rag_answer helper for RAG (Block 7+8)."""
 
     def test_vacation_handler_imports_send_rag_answer(self):
-        from app.integrations.vk.handlers import vacation
+        from cafetera_vk_bot.handlers import vacation
 
         assert hasattr(vacation, "send_rag_answer")
 
     def test_vacation_module_has_no_rag_stub_const(self):
-        import app.integrations.vk.handlers.vacation as vac_mod
+        import cafetera_vk_bot.handlers.vacation as vac_mod
 
         assert not hasattr(vac_mod, "_RAG_STUB")
 
@@ -62,7 +62,7 @@ class TestPaySectionUsesQaService:
     """3.4 — pay section uses send_rag_answer helper for RAG (Block 7+8)."""
 
     def test_pay_handler_imports_send_rag_answer(self):
-        from app.integrations.vk.handlers import pay
+        from cafetera_vk_bot.handlers import pay
 
         assert hasattr(pay, "send_rag_answer")
 
@@ -71,7 +71,7 @@ class TestSectionsUsesSendRagAnswer:
     """Block 8 — sections handler uses send_rag_answer helper for RAG."""
 
     def test_sections_handler_imports_send_rag_answer(self):
-        from app.integrations.vk.handlers import sections
+        from cafetera_vk_bot.handlers import sections
 
         assert hasattr(sections, "send_rag_answer")
 
@@ -87,7 +87,7 @@ class TestVacationScheduleHandler:
         assert "Навигатор по графику отпусков" in result
 
     def test_vacation_handler_has_schedule_handler(self):
-        from app.integrations.vk.handlers import vacation
+        from cafetera_vk_bot.handlers import vacation
 
         assert hasattr(vacation, "on_vacation_schedule")
 
@@ -100,6 +100,6 @@ class TestFireGroundsHandler:
         assert "Основания увольнения" in result
 
     def test_fire_handler_has_grounds_handler(self):
-        from app.integrations.vk.handlers import fire
+        from cafetera_vk_bot.handlers import fire
 
         assert hasattr(fire, "on_fire_grounds")

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.storage.models import DocumentStatus
+from cafetera_core.storage.models import DocumentStatus
 from tests.conftest import _make_record
 
 # ── Documents page ────────────────────────────────────────────────

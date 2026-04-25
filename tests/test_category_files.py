@@ -11,17 +11,17 @@ import pytest
 from databases import Database
 from fastapi.testclient import TestClient
 
-from app.config import Settings
-from app.domain.category_file_service import CategoryFileService
-from app.main import create_app
-from app.storage.category_models import (
+from cafetera_admin.config import AdminSettings
+from cafetera_admin.main import create_app
+from cafetera_core.domain.category_file_service import CategoryFileService
+from cafetera_core.storage.category_models import (
     CATEGORY_SLOTS,
     LEGAL_ENTITIES,
     CategoryFileRecord,
     is_valid_slot,
 )
-from app.storage.category_repo import CategoryFileRepository
-from app.storage.database import init_db
+from cafetera_core.storage.category_repo import CategoryFileRepository
+from cafetera_core.storage.database import init_db
 
 TEST_API_KEY = "test-secret-key-12345"
 
@@ -76,7 +76,7 @@ def settings(pg_container):
     # get_connection_url() returns postgresql+psycopg2://...
     # databases[asyncpg] needs postgresql://...
     url = raw_url.replace("postgresql+psycopg2", "postgresql")
-    return Settings(
+    return AdminSettings(
         admin_api_key=TEST_API_KEY,
         database_url=url,
         s3_endpoint_url="http://localhost:9000",
@@ -108,9 +108,9 @@ def app(settings, mock_s3):
 
     from databases import Database as _Database
 
-    from app.domain.category_file_service import CategoryFileService
-    from app.storage.category_repo import CategoryFileRepository as _CatRepo
-    from app.storage.database import init_db as _init_db
+    from cafetera_core.domain.category_file_service import CategoryFileService
+    from cafetera_core.storage.category_repo import CategoryFileRepository as _CatRepo
+    from cafetera_core.storage.database import init_db as _init_db
 
     @asynccontextmanager
     async def _test_lifespan(_app):

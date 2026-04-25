@@ -10,7 +10,6 @@ cd "$PROJECT_DIR"
 # Configuration
 ADMIN_HOST="${ADMIN_HOST:-127.0.0.1}"
 ADMIN_PORT="${ADMIN_PORT:-8000}"
-ADMIN_IMAGE="${ADMIN_IMAGE:-cafetera-admin:latest}"
 
 HEALTH_RETRIES=30
 HEALTH_INTERVAL=2
@@ -109,7 +108,7 @@ BG_PIDS=()
 
 cleanup() {
   log "Shutting down..."
-  for pid in "${BG_PIDS[@]}"; do
+  for pid in ${BG_PIDS[@]+"${BG_PIDS[@]}"}; do
     if kill -0 "$pid" 2>/dev/null; then
       log "Stopping background process (PID=$pid)"
       kill "$pid" 2>/dev/null || true
@@ -118,12 +117,10 @@ cleanup() {
   done
   log "Stopping docker services..."
   docker compose down 2>/dev/null || true
-  docker stop cafetera-admin-container 2>/dev/null || true
-  docker rm cafetera-admin-container 2>/dev/null || true
 }
 
 # Set trap for cleanup on exit
-trap cleanup EXIT
+trap cleanup EXIT INT TERM
 
 # Check prerequisites
 log "Checking prerequisites..."
@@ -280,7 +277,7 @@ select_embedding_provider
 
 # Start infrastructure
 log "Starting infrastructure via docker compose..."
-docker compose up -d
+docker compose up -d qdrant minio postgres
 
 # Wait for PostgreSQL (uses docker compose exec)
 if ! wait_for_postgres; then
@@ -447,42 +444,14 @@ if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
   log "Embedding provider: OpenAI (remote, no local server needed)"
 fi
 
-# Prepare environment for Docker container
-# The container needs to access docker-compose services via the docker network
-# and connect to host services (ollama/llamacpp) via host.docker.internal
-
-# Create a temporary env file for Docker with adjusted URLs for container networking
-DOCKER_ENV_FILE=$(mktemp /tmp/cafetera-admin-env.XXXXXX)
-
-# Copy .env as base
-cp .env "$DOCKER_ENV_FILE"
-
-# Override URLs that need to work from inside the container
-# docker-compose services are accessible by service name on the docker network
-cat >> "$DOCKER_ENV_FILE" << EOF
-
-# Docker-specific overrides (use Docker service names, not localhost)
-DATABASE_URL=${DATABASE_CONTAINER_URL}
-QDRANT_URL=${QDRANT_CONTAINER_URL}
-S3_ENDPOINT_URL=${MINIO_CONTAINER_URL}
-
-# Host services (ollama/llamacpp) need host.docker.internal
-LLM_BASE_URL=${LLM_BASE_URL}
-EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL}
-
-# Admin server config
-BIND_HOST=0.0.0.0
-PORT=${ADMIN_PORT}
-FASTEMBED_CACHE_PATH=/app/.cache/fastembed
-EOF
-
-# Cleanup temp env file on exit
-trap "rm -f '$DOCKER_ENV_FILE'; cleanup" EXIT
+# Start admin service via docker compose
+log "Building and starting admin service..."
+docker compose up -d --build admin
 
 # Print startup info
 echo
 log "=========================================="
-log "Starting admin server in Docker"
+log "Starting admin server via Docker Compose"
 log "=========================================="
 log "Admin UI:    http://${ADMIN_HOST}:${ADMIN_PORT}/documents"
 log "API docs:    http://${ADMIN_HOST}:${ADMIN_PORT}/docs"
@@ -499,12 +468,5 @@ echo
 log "Press Ctrl+C to stop"
 echo
 
-# Run the pre-built Docker image
-log "Running Docker image: $ADMIN_IMAGE"
-docker run \
-  --name cafetera-admin-container \
-  --rm \
-  -p "${ADMIN_PORT}:${ADMIN_PORT}" \
-  --network cafetera_hr_bot_default \
-  --env-file "$DOCKER_ENV_FILE" \
-  "$ADMIN_IMAGE"
+# Follow admin logs, keeping the script alive until Ctrl+C
+docker compose logs -f admin

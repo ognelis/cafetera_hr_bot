@@ -1,12 +1,12 @@
 """Tests for app.domain.content — static content and formatters."""
 
-from app.domain.content import (
+from cafetera_core.domain.content import (
     hire_checklist,
     hire_contract_text,
     onboarding_checklist,
     vacation_template_text,
 )
-from app.domain.entities import ENTITIES
+from cafetera_core.domain.entities import ENTITIES
 
 
 class TestHireContent:

@@ -2,64 +2,53 @@
 
 <cite>
 **Referenced Files in This Document**
-- [bot.py](file://app/integrations/vk/bot.py)
-- [start.py](file://app/integrations/vk/handlers/start.py)
-- [sections.py](file://app/integrations/vk/handlers/sections.py)
-- [ask.py](file://app/integrations/vk/handlers/ask.py)
-- [fire.py](file://app/integrations/vk/handlers/fire.py)
-- [pay.py](file://app/integrations/vk/handlers/pay.py)
-- [vacation.py](file://app/integrations/vk/handlers/vacation.py)
-- [fallback.py](file://app/integrations/vk/handlers/fallback.py)
-- [hire.py](file://app/integrations/vk/handlers/hire.py)
-- [keyboards.py](file://app/integrations/vk/keyboards.py)
-- [states.py](file://app/integrations/vk/states.py)
-- [handlers/__init__.py](file://app/integrations/vk/handlers/__init__.py)
-- [rules.py](file://app/integrations/vk/rules.py)
-- [entities.py](file://app/domain/entities.py)
-- [qa_service.py](file://app/domain/qa_service.py)
-- [chain.py](file://app/rag/chain.py)
-- [retriever.py](file://app/rag/retriever.py)
-- [indexer.py](file://app/rag/indexer.py)
-- [prompts.py](file://app/rag/prompts.py)
-- [topic_hints.py](file://app/domain/topic_hints.py)
-- [polling_vk.py](file://scripts/polling_vk.py)
-- [resources.py](file://app/resources.py)
-- [config.py](file://app/config.py)
-- [main.py](file://app/main.py)
+- [bot.py](file://packages/vk_bot/src/cafetera_vk_bot/bot.py)
+- [start.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/start.py)
+- [sections.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py)
+- [ask.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py)
+- [fire.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py)
+- [pay.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py)
+- [vacation.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py)
+- [fallback.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py)
+- [hire.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py)
+- [keyboards.py](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py)
+- [states.py](file://packages/vk_bot/src/cafetera_vk_bot/states.py)
+- [handlers/__init__.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py)
+- [rules.py](file://packages/vk_bot/src/cafetera_vk_bot/rules.py)
+- [config.py](file://packages/vk_bot/src/cafetera_vk_bot/config.py)
+- [polling.py](file://packages/vk_bot/src/cafetera_vk_bot/polling.py)
+- [resources.py](file://packages/core/src/cafetera_core/resources.py)
+- [config.py](file://packages/core/src/cafetera_core/config.py)
 - [test_bot_factory.py](file://tests/test_bot_factory.py)
 - [test_qa_service.py](file://tests/test_qa_service.py)
 - [test_keyboards.py](file://tests/test_keyboards.py)
 - [test_states.py](file://tests/test_states.py)
 - [test_ask_block9.py](file://tests/test_ask_block9.py)
 - [test_category_hints.py](file://tests/test_category_hints.py)
-- [category_file_service.py](file://app/domain/category_file_service.py)
+- [category_file_service.py](file://packages/core/src/cafetera_core/domain/category_file_service.py)
 - [category_files.py](file://app/api/category_files.py)
-- [s3.py](file://app/storage/s3.py)
-- [category_models.py](file://app/storage/category_models.py)
-- [category_repo.py](file://app/storage/category_repo.py)
+- [s3.py](file://packages/core/src/cafetera_core/storage/s3.py)
+- [category_models.py](file://packages/core/src/cafetera_core/storage/category_models.py)
+- [category_repo.py](file://packages/core/src/cafetera_core/storage/category_repo.py)
 - [deps.py](file://app/api/deps.py)
 - [category_files.html](file://templates/category_files.html)
 - [category_slot.html](file://templates/partials/category_slot.html)
-- [attachments.py](file://app/integrations/vk/attachments.py)
-- [pyproject.toml](file://pyproject.toml)
+- [attachments.py](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py)
+- [pyproject.toml](file://packages/vk_bot/pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced category-aware functionality with scenario ID passing for RAG queries
-- Added category parameter specification for targeted content delivery
-- Implemented category hint system for scenario-specific RAG processing
-- Updated RAG chain building to support category-based filtering and system prompts
-- Enhanced ask handler with scenario ID detection and category parameter passing
-- Added category parameter support to centralized QA service access layer
-- Updated sections handler to use category-aware RAG queries for specific HR domains
-- Enhanced topic hints system with scenario ID detection for navigation
-- Implemented category hint injection into RAG system prompts for focused responses
-- Enhanced error handling system with require_entity functions and @catch_entity_error decorators
-- Integrated AsyncQdrantClient for fully asynchronous operations
-- Added hybrid search capabilities with sparse embeddings
-- Implemented intelligent timeout handling for RAG responses
+- Updated package location from `app/integrations/vk/` to `packages/vk_bot/src/cafetera_vk_bot/`
+- Enhanced bot architecture with proper resource management using shared `cafetera_core` package
+- Improved VKontakte integration patterns with better separation of concerns
+- Added comprehensive async resource management with graceful initialization and cleanup
+- Integrated category-aware functionality with scenario ID passing for RAG queries
+- Implemented centralized state management with proper error handling patterns
 - Enhanced fire handler with entity-based resignation flow and document template delivery
+- Added hybrid search capabilities with sparse embeddings and improved RAG performance
+- Implemented intelligent timeout handling for RAG responses with user experience improvements
+- Updated handler registration and ordering with proper fallback mechanism
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -86,12 +75,14 @@
 22. [Appendices](#appendices)
 
 ## Introduction
-This document explains the VKontakte integration system built with the vkbottle framework, featuring a comprehensive QA service integration for Retrieval-Augmented Generation (RAG) processing across all HR-related handlers. The system implements a bot factory pattern with centralized state dispenser sharing, advanced handler registration and ordering, payload-based navigation, and sophisticated VK API integration patterns. It covers bot initialization, message routing, category-aware RAG-powered content delivery, and practical guidance for extending the bot with new handlers, customizing behavior, and integrating with VK's webhook system. Common integration challenges, robust error handling, and best practices for VK bot development are addressed.
+This document explains the VKontakte integration system built with the vkbottle framework, featuring a comprehensive QA service integration for Retrieval-Augmented Generation (RAG) processing across all HR-related handlers. The system implements a bot factory pattern with centralized state dispenser sharing, advanced handler registration and ordering, payload-based navigation, and sophisticated VK API integration patterns. 
 
 **Updated** The system now features enhanced category-aware functionality with scenario ID passing and category parameter specification for RAG queries. This allows for targeted content delivery based on user intent detection, enabling more precise and relevant responses for different HR scenarios such as hiring, firing, vacations, pay, sick leave, and probation periods. The system integrates AsyncQdrantClient for fully asynchronous operations, hybrid search capabilities with sparse embeddings, and intelligent timeout handling for improved user experience.
 
+The VK integration now resides under the `packages/vk_bot/src/cafetera_vk_bot/` namespace, providing better separation of concerns and integration with the shared `cafetera_core` package that manages domain services, RAG processing, and resource management.
+
 ## Project Structure
-The VK integration resides under app/integrations/vk and includes:
+The VK integration now resides under `packages/vk_bot/src/cafetera_vk_bot/` and includes:
 - A bot factory that wires a vkbottle Bot with labeled handlers, shared state management, and centralized QA service access
 - Handler modules for start/main menu, section entry points, dedicated ask-a-question functionality, and HR request workflows
 - Keyboard builders for consistent UI and payload-driven navigation
@@ -103,7 +94,7 @@ The VK integration resides under app/integrations/vk and includes:
 
 ```mermaid
 graph TB
-subgraph "VK Integration"
+subgraph "VK Bot Package (packages/vk_bot/src/cafetera_vk_bot)"
 BOT["bot.py<br/>Bot factory with centralized state sharing"]
 START["handlers/start.py<br/>Start & main menu"]
 SECTIONS["handlers/sections.py<br/>Section entry points (RAG)"]
@@ -118,11 +109,14 @@ ATTACHMENTS["attachments.py<br/>Document attachment helper"]
 STATES["states.py<br/>Dialog states"]
 UTILS["handlers/__init__.py<br/>Centralized state & QA access"]
 RULES["rules.py<br/>Custom payload rules"]
-ENTITIES["entities.py<br/>Updated legal entities"]
+CONFIG["config.py<br/>VK-specific settings"]
+POLLING["polling.py<br/>Long poll runner with async resources"]
 end
-subgraph "Enhanced Domain Services"
+subgraph "Shared Core Package (packages/core/src/cafetera_core)"
 RESOURCES["resources.py<br/>Async resource management"]
+CORE_CONFIG["config.py<br/>Core settings & environment"]
 QA_SERVICE["domain/qa_service.py<br/>Async Qdrant integration"]
+CATEGORY_FILE_SERVICE["domain/category_file_service.py<br/>Template management"]
 CHAIN["rag/chain.py<br/>RAG implementation with category hints"]
 RETRIEVER["rag/retriever.py<br/>Async Qdrant retriever"]
 INDEXER["rag/indexer.py<br/>Async document indexing"]
@@ -139,15 +133,14 @@ FIRE_MENU["Fire menu keyboard<br/>Resignation & grounds"]
 ENTITY_SELECT["Entity selection keyboard<br/>Company-specific templates"]
 DOC_ATTACHMENT["Document attachment<br/>Template delivery"]
 end
-RESOURCES --> SCRIPT["scripts/polling_vk.py<br/>Async runner"]
-RESOURCES --> MAIN["app/main.py<br/>FastAPI lifespan"]
-RESOURCES --> QA_SERVICE
+RESOURCES --> POLLING
+RESOURCES --> BOT
 QA_SERVICE --> RETRIEVER
 QA_SERVICE --> PROMPTS
 RETRIEVER --> INDEXER
 UTILS --> QA_SERVICE
 UTILS --> STATES
-UTILS --> ENTITIES
+UTILS --> CATEGORY_FILE_SERVICE
 UTILS --> REQUIRE_ENTITY
 UTILS --> CATCH_ERROR
 UTILS --> ENTITY_NOT_FOUND
@@ -155,36 +148,35 @@ KEYBOARDS --> FIRE_MENU
 KEYBOARDS --> ENTITY_SELECT
 FIRE_MENU --> DOC_ATTACHMENT
 ENTITY_SELECT --> DOC_ATTACHMENT
-BOT --> CONFIG["app/config.py<br/>Async settings"]
+CONFIG --> POLLING
 TESTS["tests/<br/>Enhanced integration tests"]
 ```
 
 **Diagram sources**
-- [bot.py:45-58](file://app/integrations/vk/bot.py#L45-L58)
-- [ask.py:22-28](file://app/integrations/vk/handlers/ask.py#L22-L28)
-- [hire.py:19-34](file://app/integrations/vk/handlers/hire.py#L19-L34)
-- [fire.py:11](file://app/integrations/vk/handlers/fire.py#L11)
-- [pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
-- [vacation.py:1-105](file://app/integrations/vk/handlers/vacation.py#L1-L105)
-- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
-- [handlers/__init__.py:13-39](file://app/integrations/vk/handlers/__init__.py#L13-L39)
-- [entities.py:16-21](file://app/domain/entities.py#L16-L21)
-- [resources.py:32-49](file://app/resources.py#L32-L49)
-- [qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
-- [chain.py:1-80](file://app/rag/chain.py#L1-L80)
-- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
-- [indexer.py:13-49](file://app/rag/indexer.py#L13-49)
-- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
-- [config.py:1-9](file://app/config.py#L1-L9)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- [bot.py:42-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L42-L56)
+- [ask.py:22-28](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L22-L28)
+- [hire.py:19-34](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L19-L34)
+- [fire.py:11](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L11)
+- [pay.py:1-46](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py#L1-L46)
+- [vacation.py:1-105](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L1-L105)
+- [sections.py:1-35](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L1-L35)
+- [handlers/__init__.py:13-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L13-L39)
+- [config.py:4-16](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L4-L16)
+- [polling.py:20-48](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L20-L48)
+- [resources.py:193-422](file://packages/core/src/cafetera_core/resources.py#L193-L422)
+- [qa_service.py:1-120](file://packages/core/src/cafetera_core/domain/qa_service.py#L1-L120)
+- [chain.py:1-80](file://packages/core/src/cafetera_core/rag/chain.py#L1-L80)
+- [retriever.py:20-53](file://packages/core/src/cafetera_core/rag/retriever.py#L20-L53)
+- [indexer.py:13-49](file://packages/core/src/cafetera_core/rag/indexer.py#L13-49)
+- [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
 - [test_bot_factory.py:54-67](file://tests/test_bot_factory.py#L54-L67)
 
 **Section sources**
-- [bot.py:1-59](file://app/integrations/vk/bot.py#L1-L59)
-- [polling_vk.py:1-36](file://scripts/polling_vk.py#L1-L36)
-- [config.py:1-9](file://app/config.py#L1-L9)
+- [bot.py:1-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L1-L56)
+- [polling.py:1-71](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L1-L71)
+- [config.py:1-16](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L1-L16)
 
 ## Core Components
 - Bot factory: Creates a vkbottle Bot with shared state dispenser, loads handler labelers in strict order, and integrates the QA service for RAG processing
@@ -196,9 +188,11 @@ TESTS["tests/<br/>Enhanced integration tests"]
 - Document attachment system: Provides helper functions for sending S3-stored documents as VK message attachments
 - Keyboard builders: Provide consistent UI and payload constants for navigation, including new entity selection flows
 - States: Define multi-step dialog states for complex HR workflows using centralized state dispenser
-- Legal entities: Manage company information with updated names and centralized entity lookup
 - Local runner: Initializes Settings and starts the bot in Long Poll mode with proper resource management
 - Resource management: Handles graceful initialization and cleanup of RAG resources and enhanced service components
+- **New** Package structure: Organized under `cafetera_vk_bot` namespace with proper separation from core functionality
+- **New** Shared core integration: Leverages `cafetera_core` package for domain services and resource management
+- **New** Async resource management: Implements proper async resource initialization and cleanup with graceful degradation
 - **New** Category-aware RAG processing: Enables targeted content delivery based on scenario detection and category parameter specification
 - **New** Scenario ID detection: Automatically identifies user intent and provides navigation shortcuts to relevant HR sections
 - **New** Category hint system: Injects scenario-specific context into RAG system prompts for focused responses
@@ -207,56 +201,54 @@ TESTS["tests/<br/>Enhanced integration tests"]
 - **New** Hybrid search capabilities: Supports both dense and sparse embedding retrieval for enhanced document search
 - **New** Intelligent timeout handling: Automatically manages slow RAG responses with "please wait" notifications
 - **New** Automatic question context prepending: Ensures user questions remain visible in conversation history
-- **New** Resource lifecycle management: Implements proper async resource initialization and cleanup with graceful degradation
 
 Key implementation references:
-- Factory and handler loading order with centralized state sharing: [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
-- Centralized state dispenser sharing pattern: [bot.py:50-52](file://app/integrations/vk/bot.py#L50-L52), [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
-- Centralized QA service access patterns: [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
-- Enhanced fire handler with entity-based flow: [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
-- Document attachment helper: [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
-- Enhanced keyboard system with entity selection: [keyboards.py:42-44](file://app/integrations/vk/keyboards.py#L42-L44)
-- QA service initialization and RAG processing: [qa_service.py:51-105](file://app/domain/qa_service.py#L51-L105)
-- Ask-a-question handler with RAG integration: [ask.py:40-45](file://app/integrations/vk/handlers/ask.py#L40-L45)
-- HR request multi-step dialog with centralized state: [hire.py:69-74](file://app/integrations/vk/handlers/hire.py#L69-L74)
-- Enhanced RAG-enabled HR handlers with centralized access: [fire.py:63-65](file://app/integrations/vk/handlers/fire.py#L63-L65), [pay.py:36-46](file://app/integrations/vk/handlers/pay.py#L36-L46), [vacation.py:67-80](file://app/integrations/vk/handlers/vacation.py#L67-L80)
-- Keyboard builders and payloads: [keyboards.py:13-108](file://app/integrations/vk/keyboards.py#L13-L108)
-- Dialog states: [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- Updated legal entities with new company names: [entities.py:16-21](file://app/domain/entities.py#L16-L21)
-- Local runner with resource management: [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
-- Settings: [config.py:4-9](file://app/config.py#L4-L9)
-- Resource management: [resources.py:51-165](file://app/resources.py#L51-L165)
-- **New** Category-aware RAG processing: [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153), [chain.py:104-109](file://app/rag/chain.py#L104-L109)
-- **New** Scenario ID detection: [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- **New** Category hint system: [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- **New** Category parameter passing: [ask.py:76](file://app/integrations/vk/handlers/ask.py#L76), [sections.py:26](file://app/integrations/vk/handlers/sections.py#L26)
-- **New** Async Qdrant client integration: [retriever.py:20-53](file://app/rag/retriever.py#L20-L53), [resources.py:167-189](file://app/resources.py#L167-L189)
-- **New** Enhanced error handling system: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
-- **New** Hybrid search capabilities: [retriever.py:135-151](file://app/rag/retriever.py#L135-L151), [resources.py:191-202](file://app/resources.py#L191-L202)
-- **New** Intelligent timeout handling: [handlers/__init__.py:58-88](file://app/integrations/vk/handlers/__init__.py#L58-88)
-- **New** Automatic question context prepending: [handlers/__init__.py:90-99](file://app/integrations/vk/handlers/__init__.py#L90-99)
+- Factory and handler loading order with centralized state sharing: [bot.py:49-52](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L49-L52)
+- Centralized state dispenser sharing pattern: [bot.py:50-52](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L50-L52), [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
+- Centralized QA service access patterns: [handlers/__init__.py:22-29](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L29)
+- Enhanced fire handler with entity-based flow: [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
+- Document attachment helper: [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
+- Enhanced keyboard system with entity selection: [keyboards.py:42-44](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L42-L44)
+- QA service initialization and RAG processing: [qa_service.py:51-105](file://packages/core/src/cafetera_core/domain/qa_service.py#L51-L105)
+- Ask-a-question handler with RAG integration: [ask.py:40-45](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L40-L45)
+- HR request multi-step dialog with centralized state: [hire.py:69-74](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L69-L74)
+- Enhanced RAG-enabled HR handlers with centralized access: [fire.py:63-65](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L63-L65), [pay.py:36-46](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py#L36-L46), [vacation.py:67-80](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L67-L80)
+- Keyboard builders and payloads: [keyboards.py:13-108](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L13-L108)
+- Dialog states: [states.py:4-17](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L4-L17)
+- Local runner with resource management: [polling.py:17-31](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L17-L31)
+- Settings: [config.py:4-16](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L4-L16)
+- Resource management: [resources.py:51-165](file://packages/core/src/cafetera_core/resources.py#L51-L165)
+- **New** Package structure and namespace: [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
+- **New** Category-aware RAG processing: [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153), [chain.py:104-109](file://packages/core/src/cafetera_core/rag/chain.py#L104-L109)
+- **New** Scenario ID detection: [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
+- **New** Category hint system: [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- **New** Category parameter passing: [ask.py:76](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L76), [sections.py:26](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L26)
+- **New** Async Qdrant client integration: [retriever.py:20-53](file://packages/core/src/cafetera_core/rag/retriever.py#L20-L53), [resources.py:167-189](file://packages/core/src/cafetera_core/resources.py#L167-L189)
+- **New** Enhanced error handling system: [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
+- **New** Hybrid search capabilities: [retriever.py:135-151](file://packages/core/src/cafetera_core/rag/retriever.py#L135-L151), [resources.py:191-202](file://packages/core/src/cafetera_core/resources.py#L191-L202)
+- **New** Intelligent timeout handling: [handlers/__init__.py:58-88](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L58-88)
+- **New** Automatic question context prepending: [handlers/__init__.py:90-99](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L90-99)
 
 **Section sources**
-- [bot.py:24-59](file://app/integrations/vk/bot.py#L24-L59)
-- [handlers/__init__.py:13-171](file://app/integrations/vk/handlers/__init__.py#L13-L171)
-- [qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
-- [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
-- [hire.py:1-119](file://app/integrations/vk/handlers/hire.py#L1-L119)
-- [fire.py:1-76](file://app/integrations/vk/handlers/fire.py#L1-L76)
-- [pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
-- [vacation.py:1-134](file://app/integrations/vk/handlers/vacation.py#L1-L134)
-- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
-- [keyboards.py:13-108](file://app/integrations/vk/keyboards.py#L13-L108)
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
-- [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
-- [config.py:4-9](file://app/config.py#L4-L9)
-- [resources.py:51-165](file://app/resources.py#L51-L165)
-- [attachments.py:1-121](file://app/integrations/vk/attachments.py#L1-121)
-- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
-- [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
-- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [bot.py:24-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L24-L56)
+- [handlers/__init__.py:13-177](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L13-L177)
+- [qa_service.py:1-120](file://packages/core/src/cafetera_core/domain/qa_service.py#L1-L120)
+- [ask.py:1-90](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L1-L90)
+- [hire.py:1-119](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L1-L119)
+- [fire.py:1-76](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L1-L76)
+- [pay.py:1-46](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py#L1-L46)
+- [vacation.py:1-134](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L1-L134)
+- [sections.py:1-35](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L1-L35)
+- [keyboards.py:13-108](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L13-L108)
+- [states.py:4-17](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L4-L17)
+- [polling.py:17-31](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L17-L31)
+- [config.py:4-16](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L4-L16)
+- [resources.py:51-165](file://packages/core/src/cafetera_core/resources.py#L51-L165)
+- [attachments.py:1-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L1-121)
+- [retriever.py:20-53](file://packages/core/src/cafetera_core/rag/retriever.py#L20-L53)
+- [retriever.py:135-151](file://packages/core/src/cafetera_core/rag/retriever.py#L135-L151)
+- [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
 
 ## Architecture Overview
 The VK bot follows a modular architecture with integrated RAG capabilities and centralized service management:
@@ -267,6 +259,9 @@ The VK bot follows a modular architecture with integrated RAG capabilities and c
 - Optional state groups enable multi-step dialogs with sophisticated HR workflows
 - Enhanced fire handler implements entity-based resignation flow with document template attachment and improved error handling
 - Resource management handles graceful initialization and cleanup of RAG components and enhanced service components
+- **New** Package structure with `cafetera_vk_bot` namespace provides better separation of concerns
+- **New** Integration with shared `cafetera_core` package for domain services and resource management
+- **New** Async resource management ensures proper initialization order and cleanup of Qdrant clients and embeddings
 - **New** Category-aware RAG processing enables targeted content delivery based on scenario detection and category parameter specification
 - **New** Scenario ID detection automatically identifies user intent and provides navigation shortcuts to relevant HR sections
 - **New** Category hint system injects scenario-specific context into RAG system prompts for focused responses
@@ -279,7 +274,7 @@ The VK bot follows a modular architecture with integrated RAG capabilities and c
 ```mermaid
 sequenceDiagram
 participant Dev as "Developer"
-participant Script as "polling_vk.py"
+participant Script as "polling.py"
 participant Resources as "resources.build_resources()"
 participant Factory as "bot.create_bot()"
 participant Bot as "vkbottle.Bot"
@@ -288,13 +283,12 @@ participant Labelers as "Handler Labelers"
 participant Utils as "handlers/__init__.py"
 participant QA as "QA Service"
 participant Attachments as "attachments.send_category_document()"
-participant Entities as "Legal Entities"
 participant Qdrant as "AsyncQdrantClient"
 participant TopicHints as "detect_topic_hint()"
 participant Prompts as "CATEGORY_HINTS"
 participant VK as "VK API"
 Dev->>Script : Run long poll
-Script->>Resources : build_resources(Settings)
+Script->>Resources : build_resources(Settings, with_s3=True, with_db=True)
 Resources-->>Script : AppResources
 Script->>Factory : create_bot(resources.settings)
 Factory->>Bot : Initialize with token
@@ -302,13 +296,11 @@ Factory->>SD : Create BuiltinStateDispenser
 Factory->>Bot : Set bot.state_dispenser = SD
 Factory->>Utils : set_state_dispenser(SD)
 Factory->>Utils : set_qa_service(resources.vk_qa_service)
+Factory->>Utils : set_category_file_service(resources.category_file_service)
 Factory->>Labelers : Load handlers (start, hire, fire, vacation, pay, sections, ask, fallback)
 Script->>Utils : set_qa_service(resources.vk_qa_service)
 Utils->>QA : Initialize RAG chain with AsyncQdrantClient
 Utils->>Qdrant : Connect async client
-Utils->>Entities : Load legal entities
-Labelers->>Utils : get_state_dispenser()
-Utils-->>Labelers : Shared BuiltinStateDispenser
 Labelers->>TopicHints : detect_topic_hint(question)
 TopicHints-->>Labelers : scenario_id, disclaimer
 Labelers->>Utils : get_qa_service().ask(question, category=scenario_id)
@@ -316,8 +308,6 @@ Utils->>Prompts : CATEGORY_HINTS.get(category)
 Prompts-->>Utils : category_hint
 Utils->>QA : Query RAG with category hint
 Labelers->>Attachments : send_category_document()
-Attachments->>Entities : Get entity by ID
-Entities-->>Attachments : Legal entity info
 Attachments-->>Labelers : Document attachment or fallback
 Script->>Bot : run_forever()
 Bot->>VK : Poll for updates
@@ -328,16 +318,15 @@ Bot-->>VK : Send response
 ```
 
 **Diagram sources**
-- [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
-- [resources.py:51-165](file://app/resources.py#L51-L165)
-- [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
-- [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
-- [qa_service.py:51-105](file://app/domain/qa_service.py#L51-L105)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
-- [entities.py:16-21](file://app/domain/entities.py#L16-L21)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
+- [polling.py:17-31](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L17-L31)
+- [resources.py:51-165](file://packages/core/src/cafetera_core/resources.py#L51-L165)
+- [bot.py:49-52](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L49-L52)
+- [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
+- [handlers/__init__.py:22-29](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L29)
+- [qa_service.py:51-105](file://packages/core/src/cafetera_core/domain/qa_service.py#L51-L105)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
+- [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
 
 ## Centralized State Management
 
@@ -357,10 +346,13 @@ class VKHandlersUtils {
 + get_state_dispenser() BuiltinStateDispenser
 + set_qa_service(service) None
 + get_qa_service() QAService
++ set_category_file_service(service) None
++ get_category_file_service() CategoryFileService
 }
 class Holder {
 + qa : QAService | None
 + state_dispenser : BuiltinStateDispenser | None
++ category_file_service : CategoryFileService | None
 }
 class BotFactory {
 + create_bot(settings) Bot
@@ -398,25 +390,25 @@ AskHandlers --> VKHandlersUtils : get_state_dispenser()
 ```
 
 **Diagram sources**
-- [bot.py:50-52](file://app/integrations/vk/bot.py#L50-L52)
-- [handlers/__init__.py:13-63](file://app/integrations/vk/handlers/__init__.py#L13-L63)
-- [hire.py:56-60](file://app/integrations/vk/handlers/hire.py#L56-L60)
-- [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
-- [vacation.py:50-86](file://app/integrations/vk/handlers/vacation.py#L50-L86)
-- [ask.py:40](file://app/integrations/vk/handlers/ask.py#L40)
+- [bot.py:50-52](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L50-L52)
+- [handlers/__init__.py:13-63](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L13-L63)
+- [hire.py:56-60](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L56-L60)
+- [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
+- [vacation.py:50-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L50-L86)
+- [ask.py:40](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L40)
 
 ### Centralized State Access Patterns
 All handlers now use centralized state dispenser access patterns for consistent state management:
 
-**Updated** All handlers (hire, fire, vacation, ask, sections) now use the centralized state dispenser through get_state_dispenser() calls, replacing direct imports with consistent shared state access patterns. The enhanced fire workflow utilizes state management for the two-step resignation process and entity selection flow.
+**Updated** All handlers (hire, fire, vacation, ask, sections) now use the centralized state dispenser through get_state_dispenser() calls, replacing direct imports with consistent shared state access patterns. The enhanced fire workflow utilizes state management for the two-step resignation process and entity selection flow. The new centralized utilities module also manages CategoryFileService for document template delivery.
 
 **Section sources**
-- [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
-- [hire.py:56-60](file://app/integrations/vk/handlers/hire.py#L56-L60)
-- [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
-- [vacation.py:50-86](file://app/integrations/vk/handlers/vacation.py#L50-L86)
-- [ask.py:40](file://app/integrations/vk/handlers/ask.py#L40)
+- [bot.py:49-52](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L49-L52)
+- [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
+- [hire.py:56-60](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L56-L60)
+- [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
+- [vacation.py:50-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L50-L86)
+- [ask.py:40](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L40)
 
 ## Centralized QA Service Access Layer
 
@@ -431,6 +423,8 @@ class VKHandlersUtils {
 + get_qa_service() QAService
 + set_state_dispenser(sd) None
 + get_state_dispenser() BuiltinStateDispenser
++ set_category_file_service(service) None
++ get_category_file_service() CategoryFileService
 + send_rag_answer(message, question, back_payload, category) None
 + query_rag_with_wait(message, question, timeout, category) str
 + get_entity_or_error(message, entity_id, back_payload) Entity | None
@@ -455,35 +449,29 @@ class ErrorHandler {
 +ERR_DOCUMENT_UNAVAILABLE : str
 +VK_MSG_LIMIT : int
 }
-class LegalEntities {
-+ENTITIES : tuple[LegalEntity, ...]
-+ENTITY_BY_ID : dict[int, LegalEntity]
-}
 VKHandlersUtils --> Holder : manages
 VKHandlersUtils --> QAService : uses
 VKHandlersUtils --> BuiltinStateDispenser : uses
-VKHandlersUtils --> LegalEntities : uses
+VKHandlersUtils --> CategoryFileService : uses
 ```
 
 **Diagram sources**
-- [handlers/__init__.py:13-63](file://app/integrations/vk/handlers/__init__.py#L13-L63)
-- [qa_service.py:23-105](file://app/domain/qa_service.py#L23-L105)
-- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
+- [handlers/__init__.py:13-63](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L13-L63)
+- [qa_service.py:23-105](file://packages/core/src/cafetera_core/domain/qa_service.py#L23-L105)
 
 ### Centralized Access Patterns
 All HR-related handlers now use centralized service access patterns for consistent error handling and resource management:
 
-**Updated** All HR-related handlers (hire, fire, pay, vacation, sections) now use the centralized utilities module for QA service access and state dispenser management, replacing direct imports with consistent get_*_service() calls and improved error handling patterns. The enhanced fire handler integrates with the centralized utilities for entity validation and document template delivery.
+**Updated** All HR-related handlers (hire, fire, pay, vacation, sections) now use the centralized utilities module for QA service access and state dispenser management, replacing direct imports with consistent get_*_service() calls and improved error handling patterns. The enhanced fire handler integrates with the centralized utilities for entity validation and document template delivery. The new CategoryFileService integration provides document template management capabilities.
 
 **Section sources**
-- [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
-- [hire.py:63-65](file://app/integrations/vk/handlers/hire.py#L63-L65)
-- [fire.py:63-65](file://app/integrations/vk/handlers/fire.py#L63-L65)
-- [pay.py:36-46](file://app/integrations/vk/handlers/pay.py#L36-L46)
-- [vacation.py:67-80](file://app/integrations/vk/handlers/vacation.py#L67-L80)
-- [sections.py:25-45](file://app/integrations/vk/handlers/sections.py#L25-L45)
-- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
+- [handlers/__init__.py:22-29](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L29)
+- [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
+- [hire.py:63-65](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L63-L65)
+- [fire.py:63-65](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L63-L65)
+- [pay.py:36-46](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py#L36-L46)
+- [vacation.py:67-80](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L67-L80)
+- [sections.py:25-45](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L25-L45)
 
 ## Enhanced RAG Response Handling
 
@@ -517,7 +505,7 @@ end
 ```
 
 **Diagram sources**
-- [handlers/__init__.py:46-68](file://app/integrations/vk/handlers/__init__.py#L46-L68)
+- [handlers/__init__.py:46-68](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L46-L68)
 
 ### Automatic Question Context Prepending
 The enhanced `send_rag_answer()` function automatically prepends user question context to all answers for better clarity and traceability:
@@ -538,7 +526,7 @@ Send --> End(["Complete"])
 ```
 
 **Diagram sources**
-- [handlers/__init__.py:70-86](file://app/integrations/vk/handlers/__init__.py#L70-L86)
+- [handlers/__init__.py:70-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L70-L86)
 
 ### Key Features of Enhanced RAG Handling
 - **Intelligent Timeout Detection**: Automatically detects slow RAG responses and sends "please wait" notifications
@@ -551,8 +539,8 @@ Send --> End(["Complete"])
 **Updated** The new timeout handling system provides a seamless user experience by automatically managing slow RAG responses, while the automatic question context prepending ensures users always have clear reference to their original questions. All RAG-enabled handlers now use the enhanced `send_rag_answer()` function for consistent user experience.
 
 **Section sources**
-- [handlers/__init__.py:46-86](file://app/integrations/vk/handlers/__init__.py#L46-L86)
-- [ask.py:75-90](file://app/integrations/vk/handlers/ask.py#L75-L90)
+- [handlers/__init__.py:46-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L46-L86)
+- [ask.py:75-90](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L75-L90)
 - [test_ask_block9.py:94-112](file://tests/test_ask_block9.py#L94-L112)
 
 ## Category-Aware RAG Processing
@@ -589,9 +577,9 @@ CategoryAwareChain --> CategoryHintSystem : injects
 ```
 
 **Diagram sources**
-- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
-- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- [chain.py:98-124](file://app/rag/chain.py#L98-L124)
+- [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
+- [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- [chain.py:98-124](file://packages/core/src/cafetera_core/rag/chain.py#L98-L124)
 
 ### Category Hint Injection
 The category hint system provides scenario-specific context injection into RAG system prompts:
@@ -611,9 +599,9 @@ Answer --> End(["Send to User"])
 ```
 
 **Diagram sources**
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- [chain.py:104-109](file://app/rag/chain.py#L104-L109)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
+- [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- [chain.py:104-109](file://packages/core/src/cafetera_core/rag/chain.py#L104-L109)
 
 ### Key Features of Category-Aware Processing
 - **Scenario Detection**: Automatically identifies user intent through keyword-based detection
@@ -626,10 +614,10 @@ Answer --> End(["Send to User"])
 **Updated** The category-aware RAG processing system represents a significant enhancement to the HR bot's intelligence. By detecting scenario IDs from user questions and passing them as category parameters to the QA service, the system can inject scenario-specific context into RAG system prompts, resulting in more focused and relevant responses. The CATEGORY_HINTS dictionary provides scenario-specific guidance for different HR domains.
 
 **Section sources**
-- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
-- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- [chain.py:98-124](file://app/rag/chain.py#L98-L124)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
+- [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- [chain.py:98-124](file://packages/core/src/cafetera_core/rag/chain.py#L98-L124)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
 
 ## Scenario ID Detection and Navigation
 
@@ -656,9 +644,9 @@ ScenarioNavigation --> TopicHint : uses scenario_id
 ```
 
 **Diagram sources**
-- [topic_hints.py:14-26](file://app/domain/topic_hints.py#L14-L26)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- [keyboards.py:236-243](file://app/integrations/vk/keyboards.py#L236-L243)
+- [topic_hints.py:14-26](file://packages/core/src/cafetera_core/domain/topic_hints.py#L14-L26)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
+- [keyboards.py:236-243](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L236-L243)
 
 ### Scenario-Based Navigation
 The ask handler now uses scenario ID detection for intelligent navigation:
@@ -682,9 +670,9 @@ Send --> End(["Complete"])
 ```
 
 **Diagram sources**
-- [ask.py:72-89](file://app/integrations/vk/handlers/ask.py#L72-L89)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- [keyboards.py:252-262](file://app/integrations/vk/keyboards.py#L252-L262)
+- [ask.py:72-89](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L72-L89)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
+- [keyboards.py:252-262](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L252-L262)
 
 ### Key Features of Scenario Detection
 - **Keyword-Based Detection**: Uses predefined keyword lists to identify scenario intents
@@ -697,10 +685,10 @@ Send --> End(["Complete"])
 **Updated** The scenario ID detection system provides intelligent navigation by automatically analyzing user questions for HR scenario keywords. When detected, the system passes the scenario ID as a category parameter to RAG queries and generates scenario-specific navigation buttons. This creates a more intuitive user experience by connecting questions to relevant HR sections.
 
 **Section sources**
-- [topic_hints.py:14-26](file://app/domain/topic_hints.py#L14-L26)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- [ask.py:72-89](file://app/integrations/vk/handlers/ask.py#L72-L89)
-- [keyboards.py:236-262](file://app/integrations/vk/keyboards.py#L236-L262)
+- [topic_hints.py:14-26](file://packages/core/src/cafetera_core/domain/topic_hints.py#L14-L26)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
+- [ask.py:72-89](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L72-L89)
+- [keyboards.py:236-262](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L236-L262)
 
 ## Document Template Management System
 
@@ -726,19 +714,18 @@ class VKDocumentAPI {
 +get_messages_upload_server(peer_id, type) dict
 +save(file, title) dict
 }
-class LegalEntities {
-+ENTITY_BY_ID : dict[int, LegalEntity]
+class CategoryFileRepository {
++get_file(category, subcategory, entity_id) CategoryFileRecord | None
 }
 FireHandler --> DocumentAttachmentHelper : uses
 DocumentAttachmentHelper --> CategoryFileService : queries
 DocumentAttachmentHelper --> VKDocumentAPI : uploads
-DocumentAttachmentHelper --> LegalEntities : validates
+DocumentAttachmentHelper --> CategoryFileRepository : validates
 ```
 
 **Diagram sources**
-- [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
-- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
+- [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
 
 ### Document Attachment Process
 The document attachment system provides seamless template delivery with fallback capabilities:
@@ -760,8 +747,8 @@ Fallback --> End
 ```
 
 **Diagram sources**
-- [fire.py:48-67](file://app/integrations/vk/handlers/fire.py#L48-L67)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- [fire.py:48-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L48-L67)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
 
 ### Key Features of Enhanced Document Management
 - **Entity-Specific Templates**: Company-specific resignation templates delivered based on legal entity selection
@@ -774,9 +761,8 @@ Fallback --> End
 **Updated** The enhanced fire handler now provides company-specific resignation templates through the document attachment system, with automatic fallback to RAG responses when templates are unavailable. This demonstrates the system's commitment to providing accurate, company-specific HR documentation.
 
 **Section sources**
-- [fire.py:1-76](file://app/integrations/vk/handlers/fire.py#L1-L76)
-- [attachments.py:1-121](file://app/integrations/vk/attachments.py#L1-L121)
-- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
+- [fire.py:1-76](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L1-L76)
+- [attachments.py:1-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L1-L121)
 
 ## QA Service and RAG Integration
 
@@ -808,8 +794,8 @@ QAService --> ErrorHandler : returns
 ```
 
 **Diagram sources**
-- [qa_service.py:23-105](file://app/domain/qa_service.py#L23-L105)
-- [chain.py:30-79](file://app/rag/chain.py#L30-L79)
+- [qa_service.py:23-105](file://packages/core/src/cafetera_core/domain/qa_service.py#L23-L105)
+- [chain.py:30-79](file://packages/core/src/cafetera_core/rag/chain.py#L30-L79)
 
 ### RAG Processing Pipeline
 The RAG system integrates Qdrant vector database with configurable LLM providers:
@@ -835,8 +821,8 @@ DocUnavailable --> End
 ```
 
 **Diagram sources**
-- [qa_service.py:86-105](file://app/domain/qa_service.py#L86-L105)
-- [chain.py:61-79](file://app/rag/chain.py#L61-L79)
+- [qa_service.py:86-105](file://packages/core/src/cafetera_core/domain/qa_service.py#L86-L105)
+- [chain.py:61-79](file://packages/core/src/cafetera_core/rag/chain.py#L61-L79)
 
 ### Handler Integration Patterns
 All HR-related handlers now leverage the centralized QA service for intelligent content delivery:
@@ -844,14 +830,14 @@ All HR-related handlers now leverage the centralized QA service for intelligent 
 **Updated** All HR-related handlers (hire, fire, pay, vacation, sections) now use the centralized utilities module for consistent QA service access and state dispenser management, providing improved error handling and resource management across all handlers. The enhanced fire handler integrates with both QA service and document attachment systems for comprehensive HR support.
 
 **Section sources**
-- [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
-- [qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
-- [chain.py:1-80](file://app/rag/chain.py#L1-L80)
-- [hire.py:63-65](file://app/integrations/vk/handlers/hire.py#L63-L65)
-- [fire.py:63-65](file://app/integrations/vk/handlers/fire.py#L63-L65)
-- [pay.py:36-46](file://app/integrations/vk/handlers/pay.py#L36-L46)
-- [vacation.py:67-80](file://app/integrations/vk/handlers/vacation.py#L67-L80)
-- [sections.py:25-45](file://app/integrations/vk/handlers/sections.py#L25-L45)
+- [handlers/__init__.py:22-29](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L29)
+- [qa_service.py:1-120](file://packages/core/src/cafetera_core/domain/qa_service.py#L1-L120)
+- [chain.py:1-80](file://packages/core/src/cafetera_core/rag/chain.py#L1-L80)
+- [hire.py:63-65](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L63-L65)
+- [fire.py:63-65](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L63-L65)
+- [pay.py:36-46](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py#L36-L46)
+- [vacation.py:67-80](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L67-L80)
+- [sections.py:25-45](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L25-L45)
 
 ## Enhanced Fire Handler with Entity-Based Resignation Flow
 
@@ -879,9 +865,9 @@ Fallback --> End
 ```
 
 **Diagram sources**
-- [fire.py:29-67](file://app/integrations/vk/handlers/fire.py#L29-L67)
-- [keyboards.py:179-185](file://app/integrations/vk/keyboards.py#L179-L185)
-- [keyboards.py:129-152](file://app/integrations/vk/keyboards.py#L129-L152)
+- [fire.py:29-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L29-L67)
+- [keyboards.py:179-185](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L179-L185)
+- [keyboards.py:129-152](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L129-L152)
 
 ### Enhanced Keyboard System for Fire Flow
 The keyboard system now includes specialized keyboards for the fire resignation flow:
@@ -906,9 +892,9 @@ EntitySelectionKeyboard --> PayloadConstants : uses
 ```
 
 **Diagram sources**
-- [keyboards.py:179-185](file://app/integrations/vk/keyboards.py#L179-L185)
-- [keyboards.py:129-152](file://app/integrations/vk/keyboards.py#L129-L152)
-- [keyboards.py:42-44](file://app/integrations/vk/keyboards.py#L42-L44)
+- [keyboards.py:179-185](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L179-L185)
+- [keyboards.py:129-152](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L129-L152)
+- [keyboards.py:42-44](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L42-L44)
 
 ### Key Features of Enhanced Fire Handler
 - **Entity-Based Resignation**: Users can select their legal entity for company-specific resignation templates
@@ -921,10 +907,10 @@ EntitySelectionKeyboard --> PayloadConstants : uses
 **Updated** The fire handler now provides a comprehensive entity-based resignation flow with document template delivery, representing a significant enhancement to the HR workflow capabilities. The system maintains backward compatibility while adding sophisticated company-specific template support.
 
 **Section sources**
-- [fire.py:1-76](file://app/integrations/vk/handlers/fire.py#L1-L76)
-- [keyboards.py:179-185](file://app/integrations/vk/keyboards.py#L179-L185)
-- [keyboards.py:129-152](file://app/integrations/vk/keyboards.py#L129-L152)
-- [keyboards.py:42-44](file://app/integrations/vk/keyboards.py#L42-L44)
+- [fire.py:1-76](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L1-L76)
+- [keyboards.py:179-185](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L179-L185)
+- [keyboards.py:129-152](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L129-L152)
+- [keyboards.py:42-44](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L42-L44)
 
 ## Enhanced Error Handling with Decorators
 
@@ -967,9 +953,9 @@ GetEntityOrErrorFunction --> ErrorHandlerPattern : legacy pattern
 ```
 
 **Diagram sources**
-- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
-- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
-- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
+- [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L51-L59)
 
 ### Error Handling Patterns in Handlers
 The new error handling system provides consistent patterns across all HR-related handlers:
@@ -977,10 +963,9 @@ The new error handling system provides consistent patterns across all HR-related
 **Updated** The fire handler now uses `@catch_entity_error` decorator combined with `require_entity` function for improved error handling. The hire handler also uses the same pattern for entity validation. The vacation handler maintains backward compatibility with the `get_entity_or_error` pattern for continued support.
 
 **Section sources**
-- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
-- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
-- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
-- [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
+- [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L51-L59)
 
 ## Async Qdrant Client Integration
 
@@ -1018,9 +1003,9 @@ AsyncQdrantRetriever --> QAService : enables async retrieval
 ```
 
 **Diagram sources**
-- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
-- [retriever.py:87-89](file://app/rag/retriever.py#L87-L89)
-- [qa_service.py:50-72](file://app/domain/qa_service.py#L50-L72)
+- [retriever.py:20-53](file://packages/core/src/cafetera_core/rag/retriever.py#L20-L53)
+- [retriever.py:87-89](file://packages/core/src/cafetera_core/rag/retriever.py#L87-L89)
+- [qa_service.py:50-72](file://packages/core/src/cafetera_core/domain/qa_service.py#L50-L72)
 
 ### Async Resource Initialization
 The new async resource management system provides proper initialization and cleanup of Qdrant clients:
@@ -1032,7 +1017,7 @@ participant Resources as "build_resources()"
 participant Qdrant as "AsyncQdrantClient"
 participant Embeddings as "Embeddings"
 participant QA as "QAService"
-App->>Resources : build_resources(settings)
+App->>Resources : build_resources(settings, with_s3, with_db)
 Resources->>Qdrant : build_qdrant_client(settings)
 Resources->>Embeddings : build_embeddings(settings)
 Resources->>QA : Create QAService with AsyncQdrantClient
@@ -1044,8 +1029,8 @@ Resources-->>App : Cleanup complete
 ```
 
 **Diagram sources**
-- [resources.py:127-303](file://app/resources.py#L127-L303)
-- [retriever.py:87-89](file://app/rag/retriever.py#L87-L89)
+- [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
+- [retriever.py:87-89](file://packages/core/src/cafetera_core/rag/retriever.py#L87-L89)
 
 ### Key Features of Async Integration
 - **Fully Asynchronous Operations**: Eliminates sync client overhead with AsyncQdrantClient
@@ -1058,10 +1043,10 @@ Resources-->>App : Cleanup complete
 **Updated** The async Qdrant client integration represents a significant architectural improvement, eliminating sync client overhead and enabling fully asynchronous operations throughout the RAG pipeline. The new AsyncQdrantRetriever provides direct async access to Qdrant without LangChain's QdrantVectorStore overhead.
 
 **Section sources**
-- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
-- [retriever.py:87-89](file://app/rag/retriever.py#L87-L89)
-- [resources.py:127-303](file://app/resources.py#L127-L303)
-- [qa_service.py:50-72](file://app/domain/qa_service.py#L50-L72)
+- [retriever.py:20-53](file://packages/core/src/cafetera_core/rag/retriever.py#L20-L53)
+- [retriever.py:87-89](file://packages/core/src/cafetera_core/rag/retriever.py#L87-L89)
+- [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
+- [qa_service.py:50-72](file://packages/core/src/cafetera_core/domain/qa_service.py#L50-L72)
 
 ## Improved Resource Management
 
@@ -1071,7 +1056,7 @@ The new resource management system provides proper async initialization and clea
 ```mermaid
 classDiagram
 class AppResources {
-+settings : Settings
++settings : CoreSettings
 +qdrant_client : AsyncQdrantClient | None
 +embeddings : Embeddings | None
 +llm : BaseChatModel | None
@@ -1082,6 +1067,7 @@ class AppResources {
 +qa_service : QAService | None
 +vk_qa_service : QAService | None
 +sparse_embeddings : object | None
++colbert_embeddings : object | None
 +category_file_repo : CategoryFileRepository | None
 +category_file_service : CategoryFileService | None
 }
@@ -1101,8 +1087,8 @@ ResourceManager --> GracefulDegradation : implements
 ```
 
 **Diagram sources**
-- [resources.py:104-125](file://app/resources.py#L104-L125)
-- [resources.py:127-303](file://app/resources.py#L127-L303)
+- [resources.py:104-125](file://packages/core/src/cafetera_core/resources.py#L104-L125)
+- [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
 
 ### Async Resource Initialization Patterns
 The new async resource management system provides robust initialization with proper error handling:
@@ -1110,8 +1096,8 @@ The new async resource management system provides robust initialization with pro
 **Updated** The resource management system now uses async patterns throughout, with proper error handling and graceful degradation. Each major resource block (S3, Qdrant+embeddings, QA) is wrapped in try/except blocks with comprehensive logging. The system gracefully degrades by setting None values when resources are unavailable, allowing the application to continue functioning with reduced capabilities.
 
 **Section sources**
-- [resources.py:127-303](file://app/resources.py#L127-L303)
-- [resources.py:306-344](file://app/resources.py#L306-L344)
+- [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
+- [resources.py:306-344](file://packages/core/src/cafetera_core/resources.py#L306-L344)
 
 ## Hybrid Search Capabilities
 
@@ -1145,9 +1131,9 @@ HybridSearch --> SparseRetriever : uses for sparse search
 ```
 
 **Diagram sources**
-- [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
-- [retriever.py:186-223](file://app/rag/retriever.py#L186-L223)
-- [retriever.py:226-268](file://app/rag/retriever.py#L226-L268)
+- [retriever.py:135-151](file://packages/core/src/cafetera_core/rag/retriever.py#L135-L151)
+- [retriever.py:186-223](file://packages/core/src/cafetera_core/rag/retriever.py#L186-L223)
+- [retriever.py:226-268](file://packages/core/src/cafetera_core/rag/retriever.py#L226-L268)
 
 ### Hybrid Search Configuration
 The hybrid search system provides flexible configuration for different retrieval modes:
@@ -1155,24 +1141,25 @@ The hybrid search system provides flexible configuration for different retrieval
 **Updated** The hybrid search system supports both dense and sparse embedding retrieval modes. When retrieval_mode is set to "hybrid", the system initializes sparse embeddings using FastEmbedSparse and configures Qdrant collections with sparse vector parameters. The AsyncQdrantRetriever can handle both dense and sparse embeddings, providing enhanced document retrieval capabilities.
 
 **Section sources**
-- [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
-- [retriever.py:186-223](file://app/rag/retriever.py#L186-L223)
-- [retriever.py:226-268](file://app/rag/retriever.py#L226-L268)
-- [config.py:59-62](file://app/config.py#L59-L62)
+- [retriever.py:135-151](file://packages/core/src/cafetera_core/rag/retriever.py#L135-L151)
+- [retriever.py:186-223](file://packages/core/src/cafetera_core/rag/retriever.py#L186-L223)
+- [retriever.py:226-268](file://packages/core/src/cafetera_core/rag/retriever.py#L226-L268)
 
 ## Detailed Component Analysis
 
 ### Bot Factory Pattern and Handler Registration
 - The factory initializes a Bot with the VK access token from Settings and establishes shared state management through BuiltinStateDispenser
 - It creates a BuiltinStateDispenser instance and assigns it to both the bot and the centralized utilities module
-- It loads 27 labelers in a specific order: start, ask, hire, fire, vacation, pay, sections, fallback
+- It loads 25 labelers in a specific order: start, ask, hire, fire, vacation, pay, sections, fallback
 - The order is crucial because vkbottle evaluates handlers top-to-bottom; fallback must be last to avoid intercepting intended matches
 - The QA service is initialized during bot creation and registered with the centralized utilities module for consistent access patterns
 - Enhanced fire handler is now included in the handler registration process with improved error handling patterns
+- **New** Package structure with `cafetera_vk_bot` namespace provides better separation of concerns
+- **New** Integration with shared `cafetera_core` package for domain services and resource management
 - **New** Async resource management ensures proper initialization of Qdrant clients and embeddings before handler registration
 - **New** Category-aware RAG processing is integrated into the QA service initialization for scenario-based content delivery
 
-**Updated** The factory now registers 27 total handlers across all VK integration modules, with the enhanced fire handler providing comprehensive entity-based resignation flow and improved error handling using decorators. The handler registration order ensures proper routing precedence with fallback as the last handler. The new async resource management ensures Qdrant clients and embeddings are properly initialized before any handlers attempt to use them.
+**Updated** The factory now registers 25 total handlers across all VK integration modules, with the enhanced fire handler providing comprehensive entity-based resignation flow and improved error handling using decorators. The handler registration order ensures proper routing precedence with fallback as the last handler. The new async resource management ensures Qdrant clients and embeddings are properly initialized before any handlers attempt to use them.
 
 ```mermaid
 flowchart TD
@@ -1180,17 +1167,18 @@ Start(["create_bot(settings)"]) --> Init["Initialize Bot with token"]
 Init --> ShareState["Create BuiltinStateDispenser"]
 ShareState --> AssignSD["Assign to bot.state_dispenser"]
 AssignSD --> RegisterSD["Register with centralized utils"]
-RegisterSD --> LoadHandlers["Load 27 labelers in order"]
+RegisterSD --> LoadHandlers["Load 25 labelers in order"]
 LoadHandlers --> RegisterServices["Register QA service"]
+RegisterServices --> RegisterCategoryService["Register CategoryFileService"]
 RegisterServices --> Log["Log handler count"]
 Log --> ReturnBot(["Return Bot"])
 ```
 
 **Diagram sources**
-- [bot.py:45-58](file://app/integrations/vk/bot.py#L45-L58)
+- [bot.py:45-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L45-L56)
 
 **Section sources**
-- [bot.py:24-59](file://app/integrations/vk/bot.py#L24-L59)
+- [bot.py:24-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L24-L56)
 - [test_bot_factory.py:54-67](file://tests/test_bot_factory.py#L54-L67)
 
 ### Message Routing and Navigation with Payloads
@@ -1245,28 +1233,28 @@ Fallback-->>User : Prompt to use menu
 ```
 
 **Diagram sources**
-- [start.py:34-49](file://app/integrations/vk/handlers/start.py#L34-L49)
-- [ask.py:40](file://app/integrations/vk/handlers/ask.py#L40)
-- [hire.py:69](file://app/integrations/vk/handlers/hire.py#L69)
-- [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
-- [vacation.py:50-116](file://app/integrations/vk/handlers/vacation.py#L50-L116)
-- [pay.py:36-46](file://app/integrations/vk/handlers/pay.py#L36-L46)
-- [sections.py:25-45](file://app/integrations/vk/handlers/sections.py#L25-L45)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
-- [fallback.py:15-17](file://app/integrations/vk/handlers/fallback.py#L15-L17)
+- [start.py:34-49](file://packages/vk_bot/src/cafetera_vk_bot/handlers/start.py#L34-L49)
+- [ask.py:40](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L40)
+- [hire.py:69](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L69)
+- [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
+- [vacation.py:50-116](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L50-L116)
+- [pay.py:36-46](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py#L36-L46)
+- [sections.py:25-45](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L25-L45)
+- [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
+- [fallback.py:15-17](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py#L15-L17)
 
 **Section sources**
-- [start.py:14-50](file://app/integrations/vk/handlers/start.py#L14-L50)
-- [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
-- [hire.py:1-119](file://app/integrations/vk/handlers/hire.py#L1-L119)
-- [fire.py:1-76](file://app/integrations/vk/handlers/fire.py#L1-L76)
-- [vacation.py:1-134](file://app/integrations/vk/handlers/vacation.py#L1-L134)
-- [pay.py:1-46](file://app/integrations/vk/handlers/pay.py#L1-L46)
-- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
-- [handlers/__init__.py:13-171](file://app/integrations/vk/handlers/__init__.py#L13-L171)
-- [fallback.py:9-18](file://app/integrations/vk/handlers/fallback.py#L9-L18)
-- [keyboards.py:13-108](file://app/integrations/vk/keyboards.py#L13-L108)
+- [start.py:14-50](file://packages/vk_bot/src/cafetera_vk_bot/handlers/start.py#L14-L50)
+- [ask.py:1-90](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L1-L90)
+- [hire.py:1-119](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L1-L119)
+- [fire.py:1-76](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L1-L76)
+- [vacation.py:1-134](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L1-L134)
+- [pay.py:1-46](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py#L1-L46)
+- [sections.py:1-35](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L1-L35)
+- [handlers/__init__.py:13-177](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L13-L177)
+- [fallback.py:9-18](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py#L9-L18)
+- [keyboards.py:13-108](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L13-L108)
 
 ### Keyboard Builders and Payload Constants
 - Payload constants define navigation semantics (home, back, contact HR, section commands)
@@ -1275,7 +1263,6 @@ Fallback-->>User : Prompt to use menu
 - Specialized keyboards support multi-step dialog flows and RAG-powered content presentation
 - Enhanced fire workflow keyboards support two-step entity selection process
 - Document attachment system enables dynamic template loading based on entity selection
-- Entity selection keyboards provide company-specific template delivery
 - **New** Scenario ID detection integrates with keyboard builders for intelligent navigation
 - **New** Category hint system enhances keyboard buttons with scenario-specific context
 
@@ -1315,11 +1302,11 @@ Payloads <.. KeyboardBuilders : "used by"
 ```
 
 **Diagram sources**
-- [keyboards.py:13-108](file://app/integrations/vk/keyboards.py#L13-L108)
-- [keyboards.py:42-44](file://app/integrations/vk/keyboards.py#L42-L44)
+- [keyboards.py:13-108](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L13-L108)
+- [keyboards.py:42-44](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L42-L44)
 
 **Section sources**
-- [keyboards.py:13-108](file://app/integrations/vk/keyboards.py#L13-L108)
+- [keyboards.py:13-108](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L13-L108)
 - [test_keyboards.py:49-92](file://tests/test_keyboards.py#L49-L92)
 - [test_keyboards.py:97-150](file://tests/test_keyboards.py#L97-L150)
 - [test_keyboards.py:155-171](file://tests/test_keyboards.py#L155-L171)
@@ -1358,10 +1345,10 @@ BotStates --> BuiltinStateDispenser : uses
 ```
 
 **Diagram sources**
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
+- [states.py:4-17](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L4-L17)
 
 **Section sources**
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
+- [states.py:4-17](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L4-L17)
 - [test_states.py:8-31](file://tests/test_states.py#L8-L31)
 
 ### Bot Initialization and Long Poll Runner
@@ -1369,46 +1356,48 @@ BotStates --> BuiltinStateDispenser : uses
 - The factory initializes the QA service during bot creation and registers it with centralized utilities for immediate RAG capabilities
 - Resource management handles graceful initialization and cleanup of RAG components
 - Logging is configured for development visibility with RAG processing metrics
+- **New** Package structure with `cafetera_vk_bot` namespace provides better separation of concerns
+- **New** Integration with shared `cafetera_core` package for domain services and resource management
 - **New** Async resource management ensures proper initialization of Qdrant clients and embeddings before bot creation
 - **New** Category-aware RAG processing is integrated into the QA service initialization for scenario-based content delivery
 
 ```mermaid
 sequenceDiagram
 participant CLI as "CLI"
-participant Runner as "polling_vk.main()"
+participant Runner as "polling.main()"
 participant Resources as "resources.build_resources()"
 participant Factory as "bot.create_bot()"
 participant Bot as "vkbottle.Bot"
 participant Utils as "handlers/__init__.py"
 participant QA as "QA Service"
-participant Entities as "Legal Entities"
+participant CategoryService as "CategoryFileService"
 participant Attachments as "attachments Module"
 CLI->>Runner : Execute script
-Runner->>Resources : build_resources(Settings)
+Runner->>Resources : build_resources(Settings, with_s3=True, with_db=True)
 Resources-->>Runner : AppResources
 Runner->>Factory : create_bot(resources.settings)
 Factory-->>Runner : Bot instance
 Factory->>Utils : set_state_dispenser(bot.state_dispenser)
 Factory->>Utils : set_qa_service(resources.vk_qa_service)
+Factory->>Utils : set_category_file_service(resources.category_file_service)
 Utils->>QA : Initialize RAG chain with AsyncQdrantClient
-Utils->>Entities : Load legal entities
+Utils->>CategoryService : Initialize CategoryFileService
 Utils->>Attachments : Load module
 Runner->>Bot : run_forever()
 Bot-->>Runner : Running
 ```
 
 **Diagram sources**
-- [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
-- [resources.py:51-165](file://app/resources.py#L51-L165)
-- [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
-- [qa_service.py:51-81](file://app/domain/qa_service.py#L51-L81)
-- [entities.py:16-21](file://app/domain/entities.py#L16-L21)
+- [polling.py:17-31](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L17-L31)
+- [resources.py:51-165](file://packages/core/src/cafetera_core/resources.py#L51-L165)
+- [bot.py:49-52](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L49-L52)
+- [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
+- [qa_service.py:51-81](file://packages/core/src/cafetera_core/domain/qa_service.py#L51-L81)
 
 **Section sources**
-- [polling_vk.py:17-31](file://scripts/polling_vk.py#L17-L31)
-- [resources.py:51-165](file://app/resources.py#L51-L165)
-- [config.py:4-9](file://app/config.py#L4-L9)
+- [polling.py:17-31](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L17-L31)
+- [resources.py:51-165](file://packages/core/src/cafetera_core/resources.py#L51-L165)
+- [config.py:4-16](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L4-L16)
 
 ### Enhanced Ask Handler with Better UX
 The ask handler has been significantly improved with better user experience:
@@ -1433,10 +1422,10 @@ Answer --> End
 ```
 
 **Diagram sources**
-- [ask.py:51-89](file://app/integrations/vk/handlers/ask.py#L51-L89)
+- [ask.py:51-89](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L51-L89)
 
 **Section sources**
-- [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
+- [ask.py:1-90](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L1-L90)
 
 ### Enhanced Vacation Workflow with Two-Step Selection and Template Attachment
 The vacation workflow has been significantly enhanced with a two-step selection process and document template attachment:
@@ -1458,12 +1447,12 @@ SendText --> End
 ```
 
 **Diagram sources**
-- [vacation.py:50-116](file://app/integrations/vk/handlers/vacation.py#L50-L116)
+- [vacation.py:50-116](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L50-L116)
 
 **Updated** The vacation workflow now features a two-step selection process: first selecting the vacation type (paid/unpaid), then selecting the legal entity for template generation. The system attempts to send document attachments first, falling back to text templates if no template is available. This provides better user experience and ensures accurate template generation based on company-specific policies.
 
 **Section sources**
-- [vacation.py:1-134](file://app/integrations/vk/handlers/vacation.py#L1-L134)
+- [vacation.py:1-134](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L1-L134)
 
 ### Enhanced Legal Entity Definitions
 The legal entity definitions have been updated with new company names:
@@ -1477,7 +1466,7 @@ The legal entity definitions have been updated with new company names:
 These entities are used across hiring, vacation, and HR request workflows for accurate policy generation.
 
 **Section sources**
-- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
+- [entities.py:1-24](file://packages/core/src/cafetera_core/domain/entities.py#L1-L24)
 
 ### Sections Handler Using New Helper Function
 The sections handler now uses the new `send_rag_answer()` helper function for consistent RAG response handling:
@@ -1485,7 +1474,7 @@ The sections handler now uses the new `send_rag_answer()` helper function for co
 **Updated** The sections handler has been simplified to use the centralized `send_rag_answer()` function, which automatically handles typing indicators, timeout detection, question context prepending, and keyboard generation. This ensures consistent user experience across all RAG-enabled handlers.
 
 **Section sources**
-- [sections.py:1-35](file://app/integrations/vk/handlers/sections.py#L1-L35)
+- [sections.py:1-35](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L1-L35)
 
 ### Enhanced Error Handling Implementation
 The new error handling system provides consistent patterns across all handlers:
@@ -1493,10 +1482,9 @@ The new error handling system provides consistent patterns across all handlers:
 **Updated** The enhanced error handling system replaces the previous get_entity_or_error pattern with require_entity functions and @catch_entity_error decorators. The fire handler now uses `@catch_entity_error` decorator combined with `require_entity` function for improved error handling. The hire handler also uses the same pattern. The vacation handler maintains backward compatibility with the `get_entity_or_error` pattern for continued support.
 
 **Section sources**
-- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
-- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
-- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
-- [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
+- [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L51-L59)
 
 ## Dependency Analysis
 External dependencies relevant to VK integration:
@@ -1512,6 +1500,7 @@ External dependencies relevant to VK integration:
 - **New** category hint system for scenario-specific RAG context
 - aiobotocore provides async S3/MinIO client for cloud storage
 - aiosqlite provides async SQLite access for metadata storage
+- **New** Package structure with `cafetera_vk_bot` namespace and `cafetera_core` shared package
 
 ```mermaid
 graph LR
@@ -1520,11 +1509,10 @@ VKBot --> Cfg["Settings (config.py)"]
 VKBot --> Utils["Centralized Utils (handlers/__init__.py)"]
 Utils --> SD["BuiltinStateDispenser"]
 Utils --> QA["QA Service (qa_service.py)"]
-Utils --> Entities["Legal Entities (entities.py)"]
+Utils --> CategoryService["CategoryFileService"]
 Utils --> Attachments["Document Attachments (attachments.py)"]
-Attachments --> CFService["CategoryFileService"]
-CFService --> CFRepo["CategoryFileRepository"]
-CFService --> S3["S3Storage"]
+Attachments --> CategoryRepo["CategoryFileRepository"]
+Attachments --> S3["S3Storage"]
 QA --> LangChain["LangChain"]
 QA --> AsyncQdrant["AsyncQdrantClient"]
 QA --> FastEmbed["FastEmbed (hybrid)"]
@@ -1532,43 +1520,42 @@ QA --> Prompts["CATEGORY_HINTS (prompts.py)"]
 QA --> TopicHints["detect_topic_hint (topic_hints.py)"]
 Resources["Resources (resources.py)"] --> VKBot
 Resources --> QA
+Resources --> CategoryService
 Resources --> Attachments
 Tests["Tests"] --> VKBot
 Tests --> Utils
 Tests --> QA
-Tests --> Entities
+Tests --> CategoryService
 Tests --> Attachments
 Tests --> VKFw
 Tests --> Cfg
 ```
 
 **Diagram sources**
-- [bot.py:7-10](file://app/integrations/vk/bot.py#L7-L10)
-- [config.py:4-9](file://app/config.py#L4-L9)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
-- [qa_service.py:60-81](file://app/domain/qa_service.py#L60-L81)
-- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
-- [category_repo.py:47-52](file://app/storage/category_repo.py#L47-L52)
-- [s3.py:14-37](file://app/storage/s3.py#L14-L37)
-- [resources.py:51-165](file://app/resources.py#L51-L165)
-- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- [pyproject.toml:17-21](file://pyproject.toml#L17-L21)
+- [bot.py:7-10](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L7-L10)
+- [config.py:4-16](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L4-L16)
+- [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
+- [qa_service.py:60-81](file://packages/core/src/cafetera_core/domain/qa_service.py#L60-L81)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
+- [category_repo.py:47-52](file://packages/core/src/cafetera_core/storage/category_repo.py#L47-L52)
+- [s3.py:14-37](file://packages/core/src/cafetera_core/storage/s3.py#L14-L37)
+- [resources.py:51-165](file://packages/core/src/cafetera_core/resources.py#L51-L165)
+- [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
+- [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
 
 **Section sources**
-- [pyproject.toml:17-21](file://pyproject.toml#L17-L21)
-- [bot.py:7-10](file://app/integrations/vk/bot.py#L7-L10)
-- [config.py:4-9](file://app/config.py#L4-L9)
-- [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
-- [qa_service.py:60-81](file://app/domain/qa_service.py#L60-L81)
-- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
-- [category_repo.py:47-52](file://app/storage/category_repo.py#L47-L52)
-- [s3.py:14-37](file://app/storage/s3.py#L14-L37)
-- [resources.py:51-165](file://app/resources.py#L51-L165)
-- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
+- [bot.py:7-10](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L7-L10)
+- [config.py:4-16](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L4-L16)
+- [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
+- [qa_service.py:60-81](file://packages/core/src/cafetera_core/domain/qa_service.py#L60-L81)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
+- [category_repo.py:47-52](file://packages/core/src/cafetera_core/storage/category_repo.py#L47-L52)
+- [s3.py:14-37](file://packages/core/src/cafetera_core/storage/s3.py#L14-L37)
+- [resources.py:51-165](file://packages/core/src/cafetera_core/resources.py#L51-L165)
+- [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
 
 ## Performance Considerations
 - Handler order minimizes unnecessary evaluations; keep fallback last
@@ -1582,6 +1569,8 @@ Tests --> Cfg
 - Centralized utilities provide consistent error handling and fallback responses for QA service failures
 - Shared state dispenser reduces memory overhead across handlers
 - Resource management handles graceful initialization and cleanup of RAG components
+- **New** Package structure with `cafetera_vk_bot` namespace provides better separation of concerns and modularity
+- **New** Integration with shared `cafetera_core` package reduces code duplication and improves maintainability
 - **New** Category-aware RAG processing reduces retrieval scope through category parameter filtering
 - **New** Scenario ID detection improves response relevance by focusing on specific HR domains
 - **New** Category hint injection enhances RAG responses with scenario-specific context without additional retrieval costs
@@ -1638,6 +1627,10 @@ Common issues and resolutions:
   - Verify BuiltinStateDispenser is properly shared between bot and handlers
   - Check that set_state_dispenser() is called during bot creation
   - Ensure get_state_dispenser() is used consistently across all handlers
+- **New** Package structure issues:
+  - Verify `cafetera_vk_bot` namespace is properly installed and importable
+  - Check that `cafetera_core` package is available and properly configured
+  - Ensure proper import paths for all modules under the new namespace
 - **New** Category-aware RAG processing issues:
   - Verify category parameter is properly passed from topic detection
   - Check that CATEGORY_HINTS contains the expected scenario IDs
@@ -1686,12 +1679,8 @@ Common issues and resolutions:
   - Ensure template generation uses correct entity information
   - Verify CategoryFileService is properly initialized for template attachment
   - Check document attachment system for proper template delivery
-- **New** Legal entity issues:
-  - Verify entity IDs match between keyboards and entity lookup
-  - Check that full company names are displayed correctly
-  - Ensure entity validation returns proper error messages
 - **New** Handler count validation issues:
-  - Verify factory registers all 27 handlers correctly
+  - Verify factory registers all 25 handlers correctly
   - Check test expectations for updated handler counts
   - Ensure proper handler ordering with fallback as last
 - **New** Error handling issues:
@@ -1699,32 +1688,29 @@ Common issues and resolutions:
   - Check that require_entity function is used instead of get_entity_or_error
   - Ensure EntityNotFoundError is properly handled by decorators
   - Verify error handling consistency across all handlers
-- **New** Entity validation issues:
-  - Check that entity IDs are properly extracted from payload data
-  - Verify ENTITY_BY_ID dictionary contains all required entities
-  - Ensure error messages are sent to users before raising exceptions
 
 Validation references:
 - Handler order and counts: [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
 - QA service integration: [test_qa_service.py:176-198](file://tests/test_qa_service.py#L176-L198)
 - Keyboard composition and payloads: [test_keyboards.py:49-92](file://tests/test_keyboards.py#L49-L92), [test_keyboards.py:176-192](file://tests/test_keyboards.py#L176-L192)
 - state definitions: [test_states.py:8-31](file://tests/test_states.py#L8-L31)
-- Centralized access patterns: [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
-- Enhanced fire handler functionality: [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
-- Document attachment system: [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- Centralized access patterns: [handlers/__init__.py:22-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L39)
+- Enhanced fire handler functionality: [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
+- Document attachment system: [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
 - State dispenser sharing: [test_bot_factory.py:82-86](file://tests/test_bot_factory.py#L82-L86)
-- **New** Category-aware RAG processing: [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
-- **New** Scenario ID detection: [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- **New** Category hint system: [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- **New** Async Qdrant client integration: [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
-- **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
-- **New** Fire handler with decorators: [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
-- **New** Hire handler with decorators: [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
-- **New** Vacation handler with backward compatibility: [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
-- **New** Hybrid search capabilities: [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
-- **New** Resource lifecycle management: [resources.py:127-303](file://app/resources.py#L127-L303)
-- **New** Intelligent timeout handling: [handlers/__init__.py:58-88](file://app/integrations/vk/handlers/__init__.py#L58-88)
-- **New** Automatic question context prepending: [handlers/__init__.py:90-99](file://app/integrations/vk/handlers/__init__.py#L90-99)
+- **New** Package structure validation: [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
+- **New** Category-aware RAG processing: [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
+- **New** Scenario ID detection: [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
+- **New** Category hint system: [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- **New** Async Qdrant client integration: [retriever.py:20-53](file://packages/core/src/cafetera_core/rag/retriever.py#L20-L53)
+- **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
+- **New** Fire handler with decorators: [fire.py:53-57](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L53-L57)
+- **New** Hire handler with decorators: [hire.py:51-59](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L51-L59)
+- **New** Vacation handler with backward compatibility: [vacation.py:79-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L79-L86)
+- **New** Hybrid search capabilities: [retriever.py:135-151](file://packages/core/src/cafetera_core/rag/retriever.py#L135-L151)
+- **New** Resource lifecycle management: [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
+- **New** Intelligent timeout handling: [handlers/__init__.py:58-88](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L58-88)
+- **New** Automatic question context prepending: [handlers/__init__.py:90-99](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L90-99)
 
 **Section sources**
 - [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -1732,35 +1718,28 @@ Validation references:
 - [test_keyboards.py:49-92](file://tests/test_keyboards.py#L49-L92)
 - [test_keyboards.py:176-192](file://tests/test_keyboards.py#L176-L192)
 - [test_states.py:8-31](file://tests/test_states.py#L8-L31)
-- [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
-- [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
-- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
-- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
-- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
-- [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
-- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
-- [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
-- [resources.py:127-303](file://app/resources.py#L127-L303)
-- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
-- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- [handlers/__init__.py:58-88](file://app/integrations/vk/handlers/__init__.py#L58-88)
-- [handlers/__init__.py:90-99](file://app/integrations/vk/handlers/__init__.py#L90-99)
+- [handlers/__init__.py:22-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L39)
+- [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
+- [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L51-L59)
+- [vacation.py:79-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L79-L86)
+- [retriever.py:20-53](file://packages/core/src/cafetera_core/rag/retriever.py#L20-L53)
+- [retriever.py:135-151](file://packages/core/src/cafetera_core/rag/retriever.py#L135-L151)
+- [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
+- [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
+- [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
+- [handlers/__init__.py:58-88](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L58-88)
+- [handlers/__init__.py:90-99](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L90-99)
 
 ## Conclusion
 The VK integration leverages a clean factory pattern with centralized state dispenser sharing, deterministic handler ordering, payload-driven navigation, and comprehensive RAG integration with centralized service management to deliver a sophisticated, extensible bot. The system now includes significant user experience improvements through intelligent timeout handling for RAG responses, automatic question context prepending, enhanced fire workflow with entity-based resignation flow, document template attachment capabilities, and updated legal entity definitions with new company names.
 
 **Updated** The system now features enhanced category-aware functionality with scenario ID passing and category parameter specification for RAG queries. This represents a major advancement in HR bot intelligence, enabling targeted content delivery based on user intent detection. The category-aware RAG processing system automatically detects scenario IDs from user questions, passes them as category parameters to the QA service, and injects scenario-specific context into system prompts for focused responses. The scenario ID detection system provides intelligent navigation by generating scenario-specific buttons and maintaining backward compatibility with existing functionality.
 
-The new category-aware RAG processing system provides several key benefits:
-- **Enhanced User Experience**: More relevant and precise answers based on detected user intent
-- **Intelligent Navigation**: Automatic scenario-based navigation to relevant HR sections
-- **Targeted Content Delivery**: Scenario-specific responses for different HR domains
-- **Improved Accuracy**: Category hint injection focuses RAG responses on relevant content
-- **Backward Compatibility**: Maintains existing functionality while adding new capabilities
-
-The system now features enhanced domain services with async Qdrant client integration and improved resource management, providing better performance, reliability, and scalability for RAG operations. The new async patterns eliminate sync client overhead and enable fully asynchronous operations throughout the system. The enhanced error handling consistency with new require_entity decorators and @catch_entity_error decorators provides improved reliability and user experience across all HR-related handlers.
+The new package structure with `cafetera_vk_bot` namespace provides better separation of concerns and integration with the shared `cafetera_core` package for domain services and resource management. The new async resource management system ensures proper initialization order and cleanup of Qdrant clients and embeddings, while the enhanced error handling consistency with new require_entity decorators and @catch_entity_error decorators provides improved reliability and user experience across all HR-related handlers.
 
 The new `query_rag_with_wait()` function provides intelligent timeout detection that automatically sends "please wait" notifications when RAG responses take longer than 3 seconds, while the `send_rag_answer()` helper function standardizes RAG response handling across all handlers by automatically setting typing indicators, querying RAG with timeout handling, prepending question context, truncating responses to VK limits, and adding appropriate navigation keyboards.
 
@@ -1779,52 +1758,55 @@ Steps to add a new section:
 - Define a payload constant for the new command
 - Add a handler in a new or existing module annotated with the payload
 - Import and use the centralized state dispenser, QA service access patterns:
-  - Use `from app.integrations.vk.handlers import get_state_dispenser` for state management
-  - Use `from app.integrations.vk.handlers import get_qa_service` for direct access
-  - Use `from app.integrations.vk.handlers import send_rag_answer` for standardized RAG responses
-  - Use `from app.integrations.vk.handlers import require_entity` for entity validation
-  - Use `from app.integrations.vk.handlers import catch_entity_error` for error handling
+  - Use `from cafetera_vk_bot.handlers import get_state_dispenser` for state management
+  - Use `from cafetera_vk_bot.handlers import get_qa_service` for direct access
+  - Use `from cafetera_vk_bot.handlers import send_rag_answer` for standardized RAG responses
+  - Use `from cafetera_vk_bot.handlers import require_entity` for entity validation
+  - Use `from cafetera_vk_bot.handlers import catch_entity_error` for error handling
 - Build a keyboard with the service row to ensure Back/Home/Contact HR are always available
 - Register the new labeler in the factory's loader list and ensure it precedes fallback
 - Update handler count expectations in tests
+- **New** Verify proper import paths for the new `cafetera_vk_bot` namespace
+- **New** Ensure integration with shared `cafetera_core` package for domain services
 - **New** Implement proper error handling using require_entity and @catch_entity_error patterns
 - **New** Ensure async resource initialization order if using Qdrant or other async resources
 - **New** Consider implementing category-aware RAG processing for scenario-specific content delivery
 - **New** Integrate scenario ID detection for intelligent navigation capabilities
 
-**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `app.integrations.vk.handlers` and using the provided utility functions for consistent error handling and resource management. Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. For multi-step workflows with template attachment, consider implementing document attachment system integration using the provided helper functions. Implement proper error handling using require_entity and @catch_entity_error patterns for consistent error handling across all handlers. Ensure proper async resource initialization order if using Qdrant or other async resources.
+**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `cafetera_vk_bot.handlers` and using the provided utility functions for consistent error handling and resource management. Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. For multi-step workflows with template attachment, consider implementing document attachment system integration using the provided helper functions. Implement proper error handling using require_entity and @catch_entity_error patterns for consistent error handling across all handlers. Ensure proper async resource initialization order if using Qdrant or other async resources.
 
 References:
-- Payload constants: [keyboards.py:13-24](file://app/integrations/vk/keyboards.py#L13-L24)
-- Handler registration order: [bot.py:31-41](file://app/integrations/vk/bot.py#L31-L41)
-- Centralized state dispenser access: [handlers/__init__.py:32-39](file://app/integrations/vk/handlers/__init__.py#L32-L39)
-- Centralized QA access patterns: [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
-- Keyboard service row: [keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
-- Enhanced fire handler integration: [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
-- Document attachment system: [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
-- **New** Category-aware RAG processing: [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
-- **New** Scenario ID detection: [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
-- **New** Category hint system: [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- **New** Async Qdrant client integration: [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
-- **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
-- **New** Fire handler with decorators: [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
-- **New** Hire handler with decorators: [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
-- **New** Vacation handler with backward compatibility: [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
+- Payload constants: [keyboards.py:13-24](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L13-L24)
+- Handler registration order: [bot.py:31-41](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L31-L41)
+- Centralized state dispenser access: [handlers/__init__.py:32-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L32-L39)
+- Centralized QA access patterns: [handlers/__init__.py:22-29](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L29)
+- Keyboard service row: [keyboards.py:29-50](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L29-L50)
+- Enhanced fire handler integration: [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
+- Document attachment system: [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
+- **New** Package structure validation: [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
+- **New** Category-aware RAG processing: [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
+- **New** Scenario ID detection: [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
+- **New** Category hint system: [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- **New** Async Qdrant client integration: [retriever.py:20-53](file://packages/core/src/cafetera_core/rag/retriever.py#L20-L53)
+- **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
+- **New** Fire handler with decorators: [fire.py:53-57](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L53-L57)
+- **New** Hire handler with decorators: [hire.py:51-59](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L51-L59)
+- **New** Vacation handler with backward compatibility: [vacation.py:79-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L79-L86)
 
 **Section sources**
-- [keyboards.py:13-50](file://app/integrations/vk/keyboards.py#L13-L50)
-- [bot.py:31-41](file://app/integrations/vk/bot.py#L31-L41)
-- [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L29)
-- [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
-- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
-- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
-- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
-- [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
-- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
-- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
-- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [keyboards.py:13-50](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L13-L50)
+- [bot.py:31-41](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L31-L41)
+- [handlers/__init__.py:22-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L29)
+- [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
+- [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L51-L59)
+- [vacation.py:79-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L79-L86)
+- [retriever.py:20-53](file://packages/core/src/cafetera_core/rag/retriever.py#L20-L53)
+- [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
+- [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)
 
 ### Integrating with VK Webhook System
 Guidance:
@@ -1835,27 +1817,30 @@ Guidance:
 - Implement proper error handling for webhook processing failures
 - Maintain the centralized QA service initialization patterns for consistent access across all handlers
 - Ensure state dispenser is properly shared between bot and handlers in webhook mode
+- **New** Verify proper import paths for the `cafetera_vk_bot` namespace in webhook mode
+- **New** Ensure integration with shared `cafetera_core` package for domain services in webhook mode
 - **New** Implement consistent error handling patterns using require_entity and @catch_entity_error decorators in webhook mode
 - **New** Ensure async resource initialization order for Qdrant clients and embeddings in webhook mode
 - **New** Consider implementing category-aware RAG processing for webhook-based scenario detection
 - **New** Ensure scenario ID detection and category hint injection work correctly in webhook mode
 
 References:
-- Bot initialization and token forwarding: [bot.py:45-58](file://app/integrations/vk/bot.py#L45-L58), [test_bot_factory.py:75-81](file://tests/test_bot_factory.py#L75-L81)
-- Handler registration: [bot.py:54-55](file://app/integrations/vk/bot.py#L54-L55)
-- Centralized state dispenser sharing: [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
-- Centralized QA service initialization: [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
-- **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
-- **New** Async resource management: [resources.py:127-303](file://app/resources.py#L127-L303)
-- **New** Category-aware RAG processing: [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
+- Bot initialization and token forwarding: [bot.py:45-58](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L45-L58), [test_bot_factory.py:75-81](file://tests/test_bot_factory.py#L75-L81)
+- Handler registration: [bot.py:54-55](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L54-L55)
+- Centralized state dispenser sharing: [bot.py:49-52](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L49-L52)
+- Centralized QA service initialization: [handlers/__init__.py:22-29](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L29)
+- **New** Package structure validation: [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
+- **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
+- **New** Async resource management: [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
+- **New** Category-aware RAG processing: [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
 
 **Section sources**
-- [bot.py:45-58](file://app/integrations/vk/bot.py#L45-L58)
+- [bot.py:45-58](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L45-L58)
 - [test_bot_factory.py:75-81](file://tests/test_bot_factory.py#L75-L81)
-- [handlers/__init__.py:22-29](file://app/integrations/vk/handlers/__init__.py#L22-L29)
-- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
-- [resources.py:127-303](file://app/resources.py#L127-L303)
-- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
+- [handlers/__init__.py:22-29](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L29)
+- [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
+- [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
+- [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
 
 ### Best Practices for VK Bot Development
 - Keep handler order explicit and documented
@@ -1871,6 +1856,8 @@ References:
 - Use centralized utilities for consistent state management, error handling, and service access patterns
 - Ensure state dispenser is properly shared between bot and handlers for consistent state persistence
 - Implement proper resource management for graceful initialization and cleanup of RAG components
+- **New** Use package structure with `cafetera_vk_bot` namespace for better separation of concerns
+- **New** Integrate with shared `cafetera_core` package for domain services and resource management
 - **New** Use intelligent timeout handling for any handler that processes user questions to improve user experience
 - **New** Always use automatic question context prepending to maintain conversation clarity and traceability
 - **New** Standardize RAG response handling across all handlers using the `send_rag_answer()` helper function
@@ -1895,18 +1882,20 @@ References:
 ### Centralized State and Service Integration Patterns
 - Initialize state dispenser during bot creation and register with centralized utilities for immediate state management capabilities
 - Initialize QA service during bot creation and register with centralized utilities for immediate RAG capabilities
-- Use `from app.integrations.vk.handlers import get_state_dispenser` for all state management operations
-- Use `from app.integrations.vk.handlers import get_qa_service` for all HR-related content generation
-- Use `from app.integrations.vk.handlers import send_rag_answer` for standardized RAG response handling
-- Use `from app.integrations.vk.handlers import get_entity_or_error` for entity validation (legacy pattern)
-- Use `from app.integrations.vk.handlers import require_entity` for entity validation (new pattern)
-- Use `from app.integrations.vk.handlers import catch_entity_error` for error handling (new pattern)
+- Use `from cafetera_vk_bot.handlers import get_state_dispenser` for all state management operations
+- Use `from cafetera_vk_bot.handlers import get_qa_service` for all HR-related content generation
+- Use `from cafetera_vk_bot.handlers import send_rag_answer` for standardized RAG response handling
+- Use `from cafetera_vk_bot.handlers import get_entity_or_error` for entity validation (legacy pattern)
+- Use `from cafetera_vk_bot.handlers import require_entity` for entity validation (new pattern)
+- Use `from cafetera_vk_bot.handlers import catch_entity_error` for error handling (new pattern)
 - Implement proper error handling with fallback responses using centralized patterns
 - Truncate long responses to VK message limits automatically through centralized access
 - Close QA service during application shutdown using centralized management
 - Monitor service health and implement graceful degradation strategies through centralized access layer
 - Ensure centralized state dispenser is initialized before handler registration to prevent runtime errors
 - Ensure centralized QA service is initialized before handler registration to prevent runtime errors
+- **New** Use package structure with `cafetera_vk_bot` namespace for consistent imports and modularity
+- **New** Integrate with shared `cafetera_core` package for domain services and resource management
 - **New** Use intelligent timeout handling for any handler that processes user questions to provide better user experience
 - **New** Always use `send_rag_answer()` instead of direct QA service calls to ensure consistent user experience and question context preservation
 - **New** Leverage the centralized utilities module for consistent error handling and resource management patterns across all handlers
@@ -1928,24 +1917,24 @@ References:
 - **New** Integrate category hint system for enhanced RAG response focus and accuracy
 
 **Section sources**
-- [handlers/__init__.py:22-39](file://app/integrations/vk/handlers/__init__.py#L22-L39)
-- [bot.py:49-52](file://app/integrations/vk/bot.py#L49-L52)
-- [qa_service.py:51-120](file://app/domain/qa_service.py#L51-L120)
+- [handlers/__init__.py:22-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L39)
+- [bot.py:49-52](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L49-L52)
+- [qa_service.py:51-120](file://packages/core/src/cafetera_core/domain/qa_service.py#L51-L120)
 - [test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
 - [test_bot_factory.py:82-86](file://tests/test_bot_factory.py#L82-L86)
 - [test_ask_block9.py:94-112](file://tests/test_ask_block9.py#L94-L112)
-- [states.py:4-17](file://app/integrations/vk/states.py#L4-L17)
-- [fire.py:40-67](file://app/integrations/vk/handlers/fire.py#L40-L67)
-- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
-- [handlers/__init__.py:98-141](file://app/integrations/vk/handlers/__init__.py#L98-L141)
-- [fire.py:53-57](file://app/integrations/vk/handlers/fire.py#L53-L57)
-- [hire.py:51-59](file://app/integrations/vk/handlers/hire.py#L51-L59)
-- [vacation.py:79-86](file://app/integrations/vk/handlers/vacation.py#L79-L86)
-- [retriever.py:20-53](file://app/rag/retriever.py#L20-L53)
-- [retriever.py:135-151](file://app/rag/retriever.py#L135-L151)
-- [resources.py:127-303](file://app/resources.py#L127-L303)
-- [config.py:59-62](file://app/config.py#L59-L62)
-- [qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
-- [prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- [topic_hints.py:87-109](file://app/domain/topic_hints.py#L87-L109)
+- [states.py:4-17](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L4-L17)
+- [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
+- [entities.py:16-24](file://packages/core/src/cafetera_core/domain/entities.py#L16-L24)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
+- [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
+- [fire.py:53-57](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L53-L57)
+- [hire.py:51-59](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L51-L59)
+- [vacation.py:79-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L79-L86)
+- [retriever.py:20-53](file://packages/core/src/cafetera_core/rag/retriever.py#L20-L53)
+- [retriever.py:135-151](file://packages/core/src/cafetera_core/rag/retriever.py#L135-L151)
+- [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
+- [config.py:59-62](file://packages/core/src/cafetera_core/config.py#L59-L62)
+- [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
+- [prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- [topic_hints.py:87-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L87-L109)

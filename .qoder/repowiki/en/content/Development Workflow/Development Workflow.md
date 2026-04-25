@@ -3,870 +3,416 @@
 <cite>
 **Referenced Files in This Document**
 - [pyproject.toml](file://pyproject.toml)
-- [docker-compose.yml](file://docker-compose.yml)
-- [PLAN.md](file://PLAN.md)
-- [AGENTS.md](file://AGENTS.md)
-- [app/config.py](file://app/config.py)
-- [app/main.py](file://app/main.py)
-- [app/resources.py](file://app/resources.py)
-- [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
-- [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
-- [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
-- [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
-- [app/integrations/vk/handlers/fallback.py](file://app/integrations/vk/handlers/fallback.py)
-- [app/api/documents.py](file://app/api/documents.py)
-- [scripts/admin_server.py](file://scripts/admin_server.py)
-- [scripts/run_admin.sh](file://scripts/run_admin.sh)
-- [scripts/polling_vk.py](file://scripts/polling_vk.py)
-- [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
+- [uv.lock](file://uv.lock)
+- [packages/core/pyproject.toml](file://packages/core/pyproject.toml)
+- [packages/admin/pyproject.toml](file://packages/admin/pyproject.toml)
+- [packages/vk_bot/pyproject.toml](file://packages/vk_bot/pyproject.toml)
+- [packages/core/src/cafetera_core/config.py](file://packages/core/src/cafetera_core/config.py)
+- [packages/admin/src/cafetera_admin/main.py](file://packages/admin/src/cafetera_admin/main.py)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py](file://packages/vk_bot/src/cafetera_vk_bot/bot.py)
+- [scripts/run_all.sh](file://scripts/run_all.sh)
 - [scripts/run_admin.sh](file://scripts/run_admin.sh)
 - [tests/test_config.py](file://tests/test_config.py)
 - [tests/test_keyboards.py](file://tests/test_keyboards.py)
 - [tests/test_states.py](file://tests/test_states.py)
-- [static/js/components.js](file://static/js/components.js)
-- [static/js/upload.js](file://static/js/upload.js)
-- [static/css/style.css](file://static/css/style.css)
-- [templates/base.html](file://templates/base.html)
-- [templates/documents.html](file://templates/documents.html)
-- [templates/partials/document_table.html](file://templates/partials/document_table.html)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced Testing Procedures section to include the critical `uv sync --extra test --extra dev` step before running tests
-- Updated Development Environment Setup to reflect the new testing workflow with proper dependency synchronization
-- Added comprehensive documentation for the uv package manager workflow and optional dependency management
-- Updated Validation Commands section to emphasize the importance of dependency synchronization for consistent testing
+- Updated to reflect comprehensive monorepo restructuring with uv workspace architecture
+- Enhanced development workflow documentation for workspace-based package management
+- Added detailed coverage of workspace-aware package organization (core, admin, vk_bot)
+- Updated development environment setup procedures for uv workspace support
+- Enhanced testing procedures for workspace-based package structure
+- Added comprehensive troubleshooting guide for workspace-specific issues
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
-3. [Core Components](#core-components)
-4. [Architecture Overview](#architecture-overview)
-5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+3. [Workspace Architecture](#workspace-architecture)
+4. [Core Components](#core-components)
+5. [Development Environment Setup](#development-environment-setup)
+6. [Workspace-Based Development Workflow](#workspace-based-development-workflow)
+7. [Package-Specific Development](#package-specific-development)
+8. [Testing in Workspace Architecture](#testing-in-workspace-architecture)
+9. [Code Quality Tools](#code-quality-tools)
+10. [Running Services and Scripts](#running-services-and-scripts)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Best Practices](#best-practices)
+13. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the development workflow and best practices for cafetera_hr_bot. It covers environment setup, code quality tools (Ruff, MyPy), testing procedures, validation commands, and code review guidelines. It also documents development standards, commit conventions, and contribution workflow, with practical examples for local development, running checks, executing tests, and preparing changes for review. Debugging techniques, performance profiling, and maintaining code quality throughout the development lifecycle are addressed.
+This document describes the development workflow and best practices for cafetera_hr_bot, a comprehensive monorepo project featuring a modern workspace-based architecture using uv. The project has been restructured into separate packages for core functionality, admin interface, and VK bot integration, each with dedicated development workflows while maintaining tight integration through uv workspace management.
 
-**Updated** Enhanced with comprehensive documentation for the modernized application entry point with async resource management, Vue.js-like frontend architecture with Alpine.js, and streamlined template architecture for client-side rendering.
+The workspace architecture provides enhanced development experience with workspace-aware imports, package-based module execution patterns, and streamlined dependency management across multiple Python packages. This documentation covers environment setup, code quality tools (Ruff, MyPy), testing procedures, validation commands, and code review guidelines tailored for the new workspace structure.
+
+**Updated** Enhanced with comprehensive documentation for workspace-based package architecture, uv workspace management, and package-specific development workflows.
 
 ## Project Structure
-The repository follows a layered structure with modernized frontend architecture:
-- app/: Application code organized by domain and integrations
-- app/config.py: Pydantic settings loader with .env file integration
-- app/main.py: FastAPI application factory with lifespan resource management
-- app/resources.py: Shared resource container and factory for RAG application
-- app/integrations/vk/: VK bot implementation (handlers, keyboards, states, bot factory)
-- app/api/documents.py: Admin interface routes and document management
-- static/: Modern frontend assets with Alpine.js components and CSS styling
-- templates/: Jinja2 templates with HTMX partials for client-side rendering
-- scripts/: Local development and auxiliary scripts with enhanced .env integration
-- tests/: Unit tests for configuration, keyboards, states, and bot factory
-- pyproject.toml: Project metadata, dependencies, dev tool configuration
-- docker-compose.yml: Local infrastructure (Qdrant, MinIO)
-- PLAN.md: Development plan and acceptance criteria
-- AGENTS.md: Coding standards, validation commands, and contribution workflow
+The repository follows a modern monorepo architecture with uv workspace management, organizing functionality into distinct packages:
+
+```
+cafetera_hr_bot/
+├── pyproject.toml                    # Workspace root configuration
+├── uv.lock                          # Workspace dependency lock file
+├── packages/
+│   ├── core/                        # Core domain logic and RAG pipeline
+│   │   ├── pyproject.toml           # Core package configuration
+│   │   └── src/cafetera_core/       # Core implementation
+│   ├── admin/                       # Admin web interface (FastAPI + HTMX)
+│   │   ├── pyproject.toml           # Admin package configuration
+│   │   └── src/cafetera_admin/      # Admin implementation
+│   └── vk_bot/                      # VK Bot integration
+│       ├── pyproject.toml           # VK Bot package configuration
+│       └── src/cafetera_vk_bot/     # VK Bot implementation
+├── scripts/                         # Development automation scripts
+├── tests/                           # Shared test suite
+├── static/                          # Static assets
+├── templates/                       # HTML templates
+└── docker-compose.yml              # Infrastructure orchestration
+```
+
+**Updated** Added comprehensive project structure documentation reflecting the new workspace-based monorepo organization.
+
+**Section sources**
+- [pyproject.toml:22-28](file://pyproject.toml#L22-L28)
+- [packages/core/pyproject.toml:1-29](file://packages/core/pyproject.toml#L1-L29)
+- [packages/admin/pyproject.toml:1-20](file://packages/admin/pyproject.toml#L1-L20)
+- [packages/vk_bot/pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
+
+## Workspace Architecture
+The workspace-based architecture leverages uv's advanced workspace management to coordinate multiple Python packages with shared dependencies and workspace-aware imports:
 
 ```mermaid
 graph TB
-subgraph "Application Layer"
-CFG["app/config.py<br/>.env integration"]
-MAIN["app/main.py<br/>Async lifespan resource management"]
-RES["app/resources.py<br/>Resource factory & container"]
-VKBOT["app/integrations/vk/bot.py"]
-VKKEY["app/integrations/vk/keyboards.py"]
-VKSTAT["app/integrations/vk/states.py"]
-VKSTART["app/integrations/vk/handlers/start.py"]
-VKFB["app/integrations/vk/handlers/fallback.py"]
-DOCSAPI["app/api/documents.py<br/>Admin routes & endpoints"]
+subgraph "Workspace Root"
+ROOT[pyproject.toml<br/>Workspace Configuration]
+LOCK[uv.lock<br/>Dependency Resolution]
 end
-subgraph "Frontend Layer"
-BASE["templates/base.html<br/>Vue.js-like Alpine.js + HTMX"]
-DOCS["templates/documents.html<br/>Main admin interface"]
-PARTIAL["templates/partials/<br/>HTMX partials"]
-COMPONENTS["static/js/components.js<br/>Alpine data stores & behaviors"]
-UPLOAD["static/js/upload.js<br/>Window functions bridge"]
-STYLE["static/css/style.css<br/>Custom design system"]
+subgraph "Core Package"
+CORE_PKG[cafetera-core<br/>Core domain logic]
+CORE_SRC[src/cafetera_core/<br/>Config, Resources, Domain]
+CORE_DEPS[Core Dependencies<br/>LangChain, Qdrant, Pydantic]
 end
-subgraph "Scripts & Infrastructure"
-ADMINSRV["scripts/admin_server.py<br/>Hot reload admin server"]
-RUNADMIN["scripts/run_admin.sh<br/>.env integration & provider selection"]
-POLL["scripts/polling_vk.py"]
-LLM["scripts/run_llama_qwen.sh"]
+subgraph "Admin Package"
+ADMIN_PKG[cafetera-admin<br/>Web interface]
+ADMIN_SRC[src/cafetera_admin/<br/>Main, Server, API]
+ADMIN_DEPS[Admin Dependencies<br/>FastAPI, Hypercorn, Jinja2]
 end
-subgraph "Testing & Tooling"
-TCFG["tests/test_config.py"]
-TKEY["tests/test_keyboards.py"]
-TSTAT["tests/test_states.py"]
-PYTOML["pyproject.toml"]
-DCMP["docker-compose.yml"]
-PLAN["PLAN.md"]
-AG["AGENTS.md"]
+subgraph "VK Bot Package"
+VK_PKG[cafetera-vk-bot<br/>Social media integration]
+VK_SRC[src/cafetera_vk_bot/<br/>Bot, Handlers, States]
+VK_DEPS[VK Bot Dependencies<br/>vkbottle, Core]
 end
-ADMINSRV --> MAIN
-RUNADMIN --> CFG
-RUNADMIN --> MAIN
-MAIN --> DOCSAPI
-MAIN --> RES
-RES --> DOCSAPI
-DOCSAPI --> PARTIAL
-COMPONENTS --> PARTIAL
-UPLOAD --> PARTIAL
-STYLE --> BASE
-BASE --> DOCS
-TCFG --> CFG
-TKEY --> VKKEY
-TSTAT --> VKSTAT
-PYTOML -. config .-> TCFG
-PYTOML -. config .-> TKEY
-PYTOML -. config .-> TSTAT
-PYTOML -. config .-> POLL
-PYTOML -. config .-> LLM
+subgraph "Workspace Management"
+UV_WS[uv workspace<br/>Members: packages/*]
+WS_SOURCES[Workspace Sources<br/>cafetera-core, cafetera-admin, cafetera-vk-bot]
+end
+ROOT --> UV_WS
+UV_WS --> WS_SOURCES
+WS_SOURCES --> CORE_PKG
+WS_SOURCES --> ADMIN_PKG
+WS_SOURCES --> VK_PKG
+ADMIN_PKG --> CORE_PKG
+VK_PKG --> CORE_PKG
+CORE_PKG --> CORE_DEPS
+ADMIN_PKG --> ADMIN_DEPS
+VK_PKG --> VK_DEPS
 ```
 
 **Diagram sources**
-- [app/config.py:14-15](file://app/config.py#L14-L15)
-- [app/main.py:22-49](file://app/main.py#L22-L49)
-- [app/resources.py:104-303](file://app/resources.py#L104-L303)
-- [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
-- [app/integrations/vk/keyboards.py:1-108](file://app/integrations/vk/keyboards.py#L1-L108)
-- [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
-- [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
-- [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
-- [templates/base.html:1-213](file://templates/base.html#L1-L213)
-- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
-- [templates/partials/document_table.html:1-64](file://templates/partials/document_table.html#L1-L64)
-- [static/js/components.js:1-623](file://static/js/components.js#L1-L623)
-- [static/js/upload.js:1-83](file://static/js/upload.js#L1-L83)
-- [static/css/style.css:1-171](file://static/css/style.css#L1-L171)
-- [scripts/admin_server.py:1-66](file://scripts/admin_server.py#L1-L66)
-- [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
-- [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
-- [scripts/run_llama_qwen.sh:1-59](file://scripts/run_llama_qwen.sh#L1-L59)
-- [tests/test_config.py:1-27](file://tests/test_config.py#L1-L27)
-- [tests/test_keyboards.py:1-192](file://tests/test_keyboards.py#L1-L192)
-- [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
-- [pyproject.toml:1-72](file://pyproject.toml#L1-L72)
-- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
+- [pyproject.toml:22-28](file://pyproject.toml#L22-L28)
+- [pyproject.toml:25-28](file://pyproject.toml#L25-L28)
+- [packages/admin/pyproject.toml:14-15](file://packages/admin/pyproject.toml#L14-L15)
+- [packages/vk_bot/pyproject.toml:11-12](file://packages/vk_bot/pyproject.toml#L11-L12)
 
 **Section sources**
-- [pyproject.toml:1-72](file://pyproject.toml#L1-L72)
-- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
-- [PLAN.md:1-295](file://PLAN.md#L1-L295)
-- [AGENTS.md:1-177](file://AGENTS.md#L1-L177)
+- [pyproject.toml:22-28](file://pyproject.toml#L22-L28)
+- [pyproject.toml:25-28](file://pyproject.toml#L25-L28)
 
 ## Core Components
-- Settings loader: Loads environment variables into a typed Settings model with .env file integration and UTF-8 encoding support.
-- Async FastAPI application factory: Creates a configurable FastAPI app with lifespan resource management for admin interface.
-- Resource factory: Consolidates initialization of RAG resources (Qdrant client, embeddings, LLM, retriever, chain, QAService, S3, DocumentRepository, DocumentService) with graceful degradation.
-- Vue.js-like frontend architecture: Alpine.js components with reactive data stores, HTMX partials for client-side rendering, and comprehensive CSS styling system.
-- VK bot factory: Creates a vkbottle Bot, registers labelers in order, and prepares it for long polling or callbacks.
-- Admin server: Provides hot-reloading development server with comprehensive logging and authentication for document management.
-- Enhanced .env integration: Intelligent configuration loading with environment variable precedence over .env file values.
-- Keyboard builders: Provide standardized keyboards and service buttons (Back/Home/Contact HR) used across screens.
-- States: Multi-step dialog states for HR request flow.
-- Handlers: Start/home navigation and fallback for unmatched text.
-- Scripts: Local VK long polling entrypoint, admin server with .env integration, and optional local LLM server runner.
-- Tests: Configuration defaults/env, keyboard layout and payload correctness, and state enumeration.
+The workspace architecture organizes functionality into three primary packages, each with distinct responsibilities:
 
-**Updated** Added comprehensive documentation for async resource management, Vue.js-like frontend architecture, and resource factory consolidation.
+### Core Package (`cafetera-core`)
+- **Domain Logic**: Centralized business logic, entity definitions, and service implementations
+- **RAG Pipeline**: Complete Retrieval-Augmented Generation system with indexing, retrieval, and generation
+- **Storage Abstractions**: Database and S3 storage implementations with dependency injection
+- **Configuration Management**: Unified settings management with environment variable support
+
+### Admin Package (`cafetera-admin`)
+- **Web Interface**: FastAPI-based admin interface with HTMX partials and interactive elements
+- **Document Management**: Full CRUD operations for document management with background processing
+- **Authentication**: API key-based authentication for admin access
+- **Template System**: Jinja2 templates with static asset serving
+
+### VK Bot Package (`cafetera-vk-bot`)
+- **Bot Integration**: VKontakte bot implementation with vkbottle framework
+- **Handler System**: Modular handler architecture with state management
+- **Interactive UI**: Keyboard-based navigation and service actions
+- **Polling Mechanism**: Background polling for message processing
+
+**Updated** Enhanced with comprehensive coverage of all three workspace packages and their specific responsibilities.
 
 **Section sources**
-- [app/config.py:14-15](file://app/config.py#L14-L15)
-- [app/main.py:22-49](file://app/main.py#L22-L49)
-- [app/resources.py:104-303](file://app/resources.py#L104-L303)
-- [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
-- [app/integrations/vk/keyboards.py:1-108](file://app/integrations/vk/keyboards.py#L1-L108)
-- [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
-- [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
-- [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
-- [scripts/admin_server.py:1-66](file://scripts/admin_server.py#L1-L66)
-- [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
-- [scripts/polling_vk.py:1-38](file://scripts/polling_vk.py#L1-L38)
-- [scripts/run_llama_qwen.sh:1-59](file://scripts/run_llama_qwen.sh#L1-L59)
-- [tests/test_config.py:1-27](file://tests/test_config.py#L1-L27)
-- [tests/test_keyboards.py:1-192](file://tests/test_keyboards.py#L1-L192)
-- [tests/test_states.py:1-31](file://tests/test_states.py#L1-L31)
+- [packages/core/pyproject.toml:6-24](file://packages/core/pyproject.toml#L6-L24)
+- [packages/admin/pyproject.toml:6-12](file://packages/admin/pyproject.toml#L6-L12)
+- [packages/vk_bot/pyproject.toml:6-9](file://packages/vk_bot/pyproject.toml#L6-L9)
 
-## Architecture Overview
-The VK integration is structured around a bot factory that loads labelers in a specific order. Handlers are registered top-down, with the fallback labeler last to catch unmatched messages. Keyboard builders centralize UX patterns and service actions. States manage multi-step dialogs. The admin interface provides a FastAPI-based document management system with authentication and hot reloading. The modernized frontend architecture uses Vue.js-like Alpine.js components with reactive data stores, HTMX partials for client-side rendering, and a comprehensive CSS styling system with custom design tokens. Enhanced .env integration provides intelligent configuration loading with environment variable precedence.
+## Development Environment Setup
+Setting up the development environment requires understanding the workspace-based architecture and uv's dependency management:
 
-```mermaid
-graph LR
-A["scripts/admin_server.py<br/>Hot reload admin server"] --> B["app/main.py<br/>Async lifespan()"]
-B --> C["app/resources.py<br/>build_resources()"]
-C --> D["AppResources container<br/>Qdrant, S3, QAService"]
-B --> E["app/api/documents.py<br/>Admin routes & endpoints"]
-B --> F["templates/base.html<br/>Alpine.js + HTMX"]
-F --> G["static/js/components.js<br/>Alpine.data() & Alpine.store()"]
-F --> H["static/css/style.css<br/>Custom design system"]
-G --> I["templates/partials/<br/>HTMX partials"]
-J["scripts/run_admin.sh<br/>.env integration & provider selection"] --> K["app/config.py<br/>.env loading"]
-J --> B
+### Prerequisites
+- **Python 3.13+**: Required for all packages
+- **uv**: Modern Python package manager with workspace support
+- **Docker**: For infrastructure services (PostgreSQL, Qdrant, MinIO)
+- **Optional**: Ollama for local LLM/embedding services
+
+### Workspace Installation Process
+1. **Clone Repository**: `git clone <repository-url>`
+2. **Navigate to Project Root**: `cd cafetera_hr_bot`
+3. **Install Dependencies**: `uv sync --all-packages`
+4. **Verify Installation**: `uv pip list` should show all workspace packages
+
+### Environment Configuration
+- **Environment Variables**: Copy `.env.example` to `.env` and configure service URLs
+- **Service Dependencies**: Docker Compose handles infrastructure services
+- **Workspace Sources**: uv automatically resolves workspace package dependencies
+
+**Updated** Added comprehensive development environment setup covering workspace-specific requirements.
+
+**Section sources**
+- [pyproject.toml:30-53](file://pyproject.toml#L30-L53)
+- [pyproject.toml:36-49](file://pyproject.toml#L36-L49)
+
+## Workspace-Based Development Workflow
+The workspace architecture enables sophisticated development patterns with workspace-aware imports and package coordination:
+
+### Module Execution Patterns
+Each package can be executed independently using Python's module execution syntax:
+
+```bash
+# Execute admin package
+uv run python -m cafetera_admin.main
+
+# Execute VK bot package  
+uv run python -m cafetera_vk_bot.bot
+
+# Execute core functionality
+uv run python -m cafetera_core.resources
 ```
 
-**Updated** Added modernized frontend architecture with Alpine.js components, HTMX partials, and resource factory consolidation.
+### Workspace-Aware Imports
+Internal imports use consistent namespace patterns:
+- `cafetera_core.*` for core functionality
+- `cafetera_admin.*` for admin features  
+- `cafetera_vk_bot.*` for VK bot features
 
-**Diagram sources**
-- [scripts/admin_server.py:37-60](file://scripts/admin_server.py#L37-L60)
-- [app/main.py:22-49](file://app/main.py#L22-L49)
-- [app/resources.py:127-303](file://app/resources.py#L127-L303)
-- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
-- [templates/base.html:1-213](file://templates/base.html#L1-L213)
-- [static/js/components.js:23-623](file://static/js/components.js#L23-L623)
-- [static/css/style.css:104-171](file://static/css/style.css#L104-L171)
-- [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
-- [app/config.py:14-15](file://app/config.py#L14-L15)
+### Package Dependencies
+Cross-package dependencies are managed through workspace sources:
+- `cafetera-admin` depends on `cafetera-core`
+- `cafetera-vk-bot` depends on `cafetera-core`
+- Workspace sources ensure proper import resolution
 
-## Detailed Component Analysis
+**Updated** Added detailed coverage of workspace-based development patterns and module execution.
 
-### Async Resource Management and Application Entry Point
-- The main application entry point uses lifespan context managers for async resource initialization and cleanup.
-- Resources are consolidated in AppResources container with graceful degradation when services are unavailable.
-- build_resources() factory replicates initialization logic from lifespan with proper error handling.
-- close_resources() ensures all resources are properly closed in the correct order.
+**Section sources**
+- [packages/admin/src/cafetera_admin/main.py:1-50](file://packages/admin/src/cafetera_admin/main.py#L1-L50)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py:1-32](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L1-L32)
 
-```mermaid
-sequenceDiagram
-participant CLI as "scripts/admin_server.py"
-participant APP as "app/main.py"
-participant LIFESPAN as "lifespan()"
-participant RES as "AppResources"
-CLI->>APP : create_app(Settings)
-APP->>LIFESPAN : Initialize lifespan
-LIFESPAN->>RES : build_resources(with_s3=True, with_db=True)
-RES->>RES : init_db, S3, Qdrant, Embeddings
-CLI->>APP : Hypercorn serve
-APP->>CLI : HTTP/2 server ready
-APP->>LIFESPAN : Cleanup on shutdown
-LIFESPAN->>RES : close_resources()
+## Package-Specific Development
+Each package maintains its own development workflow while benefiting from workspace coordination:
+
+### Core Package Development
+- **Domain Development**: Work on core business logic and RAG pipeline
+- **Testing**: Package-specific unit tests in `tests/` directory
+- **Documentation**: Internal API documentation for core components
+- **Integration**: Provides foundation for other packages
+
+### Admin Package Development  
+- **Web Development**: FastAPI routes, templates, and static assets
+- **UI Development**: HTMX partials and interactive components
+- **API Development**: REST endpoints for document management
+- **Deployment**: Hypercorn ASGI server configuration
+
+### VK Bot Package Development
+- **Bot Development**: Handler registration and state management
+- **UI Development**: Keyboard components and navigation
+- **Integration**: VK API integration and polling mechanisms
+- **Testing**: Message handling and state transition testing
+
+**Updated** Enhanced with package-specific development workflows and responsibilities.
+
+**Section sources**
+- [packages/core/src/cafetera_core/config.py:1-50](file://packages/core/src/cafetera_core/config.py#L1-L50)
+- [packages/admin/src/cafetera_admin/main.py:1-50](file://packages/admin/src/cafetera_admin/main.py#L1-L50)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py:1-32](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L1-L32)
+
+## Testing in Workspace Architecture
+The workspace architecture supports comprehensive testing across all packages with workspace-aware import resolution:
+
+### Test Configuration
+- **pytest Configuration**: Workspace-aware test discovery and import resolution
+- **Source Paths**: Tests target workspace package source directories
+- **Shared Utilities**: Common test utilities available across packages
+
+### Package-Specific Testing
+- **Core Tests**: Domain logic, RAG pipeline, and storage functionality
+- **Admin Tests**: API endpoints, authentication, and document operations
+- **VK Bot Tests**: Handler logic, state management, and keyboard interactions
+
+### Test Execution
+```bash
+# Run all workspace tests
+uv run pytest
+
+# Run specific package tests
+uv run pytest packages/core/tests/
+
+# Run tests with markers
+uv run pytest -m "requires_docker"
 ```
 
-**Updated** Added comprehensive documentation for async resource management with lifespan context managers and resource factory consolidation.
-
-**Diagram sources**
-- [scripts/admin_server.py:57-60](file://scripts/admin_server.py#L57-L60)
-- [app/main.py:22-49](file://app/main.py#L22-L49)
-- [app/resources.py:127-303](file://app/resources.py#L127-L303)
+**Updated** Added comprehensive testing documentation for workspace-based package structure.
 
 **Section sources**
-- [app/main.py:22-49](file://app/main.py#L22-L49)
-- [app/resources.py:104-303](file://app/resources.py#L104-L303)
-- [scripts/admin_server.py:37-60](file://scripts/admin_server.py#L37-L60)
+- [pyproject.toml:30-33](file://pyproject.toml#L30-L33)
+- [pyproject.toml:36-49](file://pyproject.toml#L36-L49)
 
-### Modernized Frontend Architecture with Alpine.js and HTMX
-- Vue.js-like Alpine.js components provide reactive data stores and behaviors.
-- Components.js defines Alpine.data() and Alpine.store() for state management.
-- HTMX partials enable client-side rendering with server-side data fetching.
-- Comprehensive CSS styling system with custom design tokens and semantic theming.
-- Window functions bridge template interactions with Alpine.js components.
+## Code Quality Tools
+The workspace architecture integrates code quality tools with workspace-aware configuration:
 
-```mermaid
-graph TB
-ALPINE["Alpine.js Components<br/>components.js"]
-HTMX["HTMX Partials<br/>partials/*.html"]
-CSS["Custom CSS System<br/>style.css"]
-TEMPLATE["Jinja2 Templates<br/>base.html + documents.html"]
-BRIDGE["Window Functions<br/>upload.js"]
-ALPINE --> HTMX
-HTMX --> TEMPLATE
-CSS --> TEMPLATE
-TEMPLATE --> BRIDGE
-BRIDGE --> ALPINE
+### Ruff Configuration
+- **Workspace-wide Linting**: Single configuration targets all workspace packages
+- **Source Directories**: Configured for workspace package source locations
+- **Linting Rules**: Comprehensive rule set including error detection, formatting, and style
+
+### MyPy Configuration  
+- **Type Checking**: Workspace-aware type checking across package boundaries
+- **Python Version**: Configured for Python 3.13 compatibility
+- **Strict Mode**: Flexible strictness settings for gradual adoption
+
+### Tool Integration
+```bash
+# Run workspace-wide linting
+uv run ruff check
+
+# Run type checking
+uv run mypy packages/
+
+# Fix common issues
+uv run ruff check --fix
 ```
 
-**New Section**
-
-**Diagram sources**
-- [static/js/components.js:23-623](file://static/js/components.js#L23-L623)
-- [templates/base.html:1-213](file://templates/base.html#L1-L213)
-- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
-- [templates/partials/document_table.html:1-64](file://templates/partials/document_table.html#L1-L64)
-- [static/css/style.css:104-171](file://static/css/style.css#L104-L171)
-- [static/js/upload.js:1-83](file://static/js/upload.js#L1-L83)
+**Updated** Enhanced with comprehensive code quality tool configuration for workspace architecture.
 
 **Section sources**
-- [static/js/components.js:1-623](file://static/js/components.js#L1-L623)
-- [static/js/upload.js:1-83](file://static/js/upload.js#L1-L83)
-- [static/css/style.css:1-171](file://static/css/style.css#L1-L171)
-- [templates/base.html:1-213](file://templates/base.html#L1-L213)
-- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
-- [templates/partials/document_table.html:1-64](file://templates/partials/document_table.html#L1-L64)
+- [pyproject.toml:36-49](file://pyproject.toml#L36-L49)
+- [pyproject.toml:44-49](file://pyproject.toml#L44-L49)
 
-### Streamlined Template Architecture for Client-Side Rendering
-- Base template provides layout with Alpine.js integration and HTMX support.
-- Main documents page uses Alpine.js data store for state management.
-- HTMX partials enable dynamic content updates without full page reloads.
-- Template inheritance with modular partials for maintainability.
-- Responsive design with custom CSS classes and design tokens.
+## Running Services and Scripts
+The workspace architecture provides comprehensive automation through development scripts:
 
-**New Section**
+### Complete System Startup
+The `run_all.sh` script orchestrates the complete system startup:
 
-**Section sources**
-- [templates/base.html:1-213](file://templates/base.html#L1-L213)
-- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
-- [templates/partials/document_table.html:1-64](file://templates/partials/document_table.html#L1-L64)
-
-### Settings and Environment
-- Settings class loads environment variables with UTF-8 encoding and supports VK tokens, group ID, and comprehensive RAG configuration.
-- Enhanced .env integration provides intelligent configuration loading with environment variable precedence over .env file values.
-- AGENTS.md specifies environment variable names and constraints for VK, Telegram (post-MVP), RAG, and storage.
-- Admin server requires ADMIN_API_KEY for authentication and supports comprehensive environment configuration.
-
-Best practices:
-- Use pydantic-settings for type-safe configuration with .env file integration.
-- Provide .env.example with placeholders; never hardcode secrets.
-- Validate required keys during startup.
-- Environment variables take precedence over .env file values for flexible deployment scenarios.
-
-**Updated** Added comprehensive .env file integration with environment variable precedence and enhanced configuration management.
-
-**Section sources**
-- [app/config.py:14-15](file://app/config.py#L14-L15)
-- [app/config.py:16-62](file://app/config.py#L16-L62)
-- [AGENTS.md:20-48](file://AGENTS.md#L20-L48)
-- [scripts/admin_server.py:40-42](file://scripts/admin_server.py#L40-L42)
-- [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
-
-### Enhanced Configuration Management
-- Intelligent .env loading with load_env_var() function that only sets variables when they're not already defined.
-- Environment variable precedence ensures runtime overrides take priority over .env file values.
-- Comprehensive RAG configuration including LLM providers, embedding models, and storage settings.
-- Interactive provider selection for LLM and embedding providers with default values.
-- Default values are applied after .env loading for robust configuration management.
-
-Configuration precedence:
-1. Environment variables (highest priority)
-2. .env file values (lower priority)
-3. Application defaults (lowest priority)
-
-**New Section**
-
-**Section sources**
-- [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
-- [app/config.py:14-15](file://app/config.py#L14-L15)
-- [app/config.py:16-62](file://app/config.py#L16-L62)
-
-### FastAPI Application Factory Pattern
-- create_app builds a configurable FastAPI application with lifespan resource management.
-- Lifespan handles initialization of SQLite, S3 storage, Qdrant client, and document service.
-- Supports hot reloading through uvicorn factory pattern.
-- Mounts static files and templates for admin interface.
-
-```mermaid
-sequenceDiagram
-participant CLI as "scripts/admin_server.py"
-participant APP as "app/main.py"
-participant LIFESPAN as "lifespan()"
-participant RES as "Resources"
-CLI->>APP : create_app(Settings)
-APP->>LIFESPAN : Initialize resources
-LIFESPAN->>RES : init_db, S3, Qdrant
-CLI->>APP : Hypercorn serve
-APP->>CLI : HTTP/2 server ready
+```bash
+./scripts/run_all.sh
 ```
 
-**Updated** Added comprehensive documentation for the FastAPI application factory pattern and resource management.
+Features:
+- **Infrastructure Setup**: PostgreSQL, Qdrant, MinIO containers
+- **Provider Selection**: Interactive LLM and embedding provider configuration
+- **Service Health Checks**: Automated health monitoring
+- **Background Processing**: Concurrent service startup
 
-**Diagram sources**
-- [scripts/admin_server.py:57-60](file://scripts/admin_server.py#L57-L60)
-- [app/main.py:24-83](file://app/main.py#L24-L83)
-- [app/main.py:99-124](file://app/main.py#L99-L124)
+### Admin Service Only
+For focused development on the admin interface:
 
-**Section sources**
-- [app/main.py:24-83](file://app/main.py#L24-L83)
-- [app/main.py:99-124](file://app/main.py#L99-L124)
-- [scripts/admin_server.py:37-60](file://scripts/admin_server.py#L37-L60)
-
-### Admin Server Development Environment
-- Hot-reloading FastAPI server for document administration with HTTP/2 support.
-- Comprehensive logging with timestamp formatting and structured output.
-- Authentication via ADMIN_API_KEY for secure admin interface access.
-- Development server runs on localhost:8000 with automatic reload on code changes.
-- Integrates with existing document management infrastructure.
-- Enhanced .env integration for comprehensive configuration management.
-
-Key features:
-- Automatic code reloading during development
-- Structured logging with INFO level by default
-- Admin authentication via API key
-- HTTP/2 support for improved performance
-- Integration with document upload, management, and search functionality
-- Comprehensive .env file integration with environment variable precedence
-
-**Updated** Enhanced with HTTP/2 support and comprehensive .env integration.
-
-**Section sources**
-- [scripts/admin_server.py:1-66](file://scripts/admin_server.py#L1-L66)
-- [app/main.py:1-124](file://app/main.py#L1-L124)
-- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
-
-### Enhanced .env Integration and Provider Selection
-- Intelligent configuration loading with load_env_var() function that respects environment variable precedence.
-- Interactive provider selection for LLM and embedding providers with default values.
-- Comprehensive environment variable loading for RAG configuration including URLs, API keys, and model settings.
-- Graceful handling of missing .env files with clear error messages.
-- Dynamic dependency synchronization based on provider selection.
-
-Provider selection workflow:
-1. Check for existing environment variables
-2. Load missing values from .env file if present
-3. Apply defaults for any remaining unset variables
-4. Present interactive selection for provider configuration
-5. Sync Python dependencies with provider-specific extras
-
-**New Section**
-
-**Section sources**
-- [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
-- [scripts/run_admin.sh:130-209](file://scripts/run_admin.sh#L130-L209)
-
-### VK Bot Factory
-- create_bot registers labelers in order: start, sections, fallback (last).
-- Logging indicates successful handler registration.
-
-```mermaid
-sequenceDiagram
-participant CLI as "scripts/polling_vk.py"
-participant CFG as "app/config.py"
-participant BOT as "app/integrations/vk/bot.py"
-participant START as "handlers/start.py"
-participant FALL as "handlers/fallback.py"
-CLI->>CFG : Load Settings()
-CLI->>BOT : create_bot(Settings)
-BOT->>START : load labeler
-BOT->>FALL : load labeler (last)
-CLI->>BOT : run_forever()
+```bash
+./scripts/run_admin.sh
 ```
 
-**Diagram sources**
-- [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
-- [app/config.py:14-15](file://app/config.py#L14-L15)
-- [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
-- [app/integrations/vk/handlers/start.py:31-41](file://app/integrations/vk/handlers/start.py#L31-L41)
-- [app/integrations/vk/handlers/fallback.py:15-17](file://app/integrations/vk/handlers/fallback.py#L15-L17)
+Features:
+- **Selective Startup**: Only admin-related infrastructure
+- **Dependency Sync**: Workspace-aware dependency management
+- **Local Providers**: Optional local LLM/embedding server startup
+
+### Provider Management
+Scripts support multiple AI provider configurations:
+- **Ollama**: Local model serving with automatic model pulling
+- **OpenAI**: Remote API integration
+- **Llama.cpp**: Custom local inference servers
+
+**Updated** Added comprehensive coverage of workspace-based service management and automation.
 
 **Section sources**
-- [app/integrations/vk/bot.py:14-31](file://app/integrations/vk/bot.py#L14-L31)
-- [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
-
-### Keyboard Builders and Payloads
-- Payload constants define navigation commands.
-- with_service_row adds Back/Home/Contact HR buttons consistently.
-- main_menu_kb builds the primary menu with seven functional sections plus Contact HR.
-- stub_kb provides minimal keyboard with service row.
-
-Validation focuses on:
-- Number of rows/buttons
-- Presence of expected payloads
-- Service-row visibility controls
-- Inline/one-time flags
-- Payload shape and uniqueness
-
-**Section sources**
-- [app/integrations/vk/keyboards.py:11-108](file://app/integrations/vk/keyboards.py#L11-L108)
-- [tests/test_keyboards.py:49-150](file://tests/test_keyboards.py#L49-L150)
-
-### States for Multi-Step Dialogs
-- BotStates enumerates six HR-request states for a structured dialog.
-- Tests verify subclassing, uniqueness, and presence of expected state names.
-
-**Section sources**
-- [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
-- [tests/test_states.py:8-30](file://tests/test_states.py#L8-L30)
-
-### Handlers: Start, Home, and Fallback
-- Start handler responds to /start and Home payload with the main menu.
-- Fallback handler answers unmatched text with a guided prompt and main menu.
-
-**Section sources**
-- [app/integrations/vk/handlers/start.py:23-54](file://app/integrations/vk/handlers/start.py#L23-L54)
-- [app/integrations/vk/handlers/fallback.py:9-17](file://app/integrations/vk/handlers/fallback.py#L9-L17)
-
-### Admin Interface Routes and Endpoints
-- Login page with admin authentication via API key
-- Main documents page with upload zone and document table
-- RESTful API endpoints for document management
-- HTMX partials for dynamic UI updates
-- File upload with validation and background indexing
-- Document search enable/disable functionality
-
-Key endpoints:
-- GET /login, POST /login - Admin authentication
-- GET /logout - Logout and cookie cleanup
-- GET /documents - Main admin page
-- POST /api/documents/upload - Upload files with validation
-- GET/PUT/PATCH/DELETE /api/documents/{id} - Document management
-- GET /partials/document-table - Dynamic table updates
-- GET /partials/document-row/{id} - Individual row updates
-
-**Section sources**
-- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
-
-### Testing Procedures
-- pytest configuration runs tests under tests/ with asyncio mode enabled.
-- Tests cover Settings defaults/env, keyboard layouts, and state enumeration.
-- Admin interface testing includes authentication, upload validation, and document management.
-- Configuration tests validate environment variable precedence and .env file loading.
-
-**Critical Update**: The testing workflow now requires explicit dependency synchronization before running tests. The proper sequence is:
-1. `uv sync --extra test --extra dev` - Install test and development dependencies
-2. `uv run pytest` - Run tests relevant to changed code
-3. Additional validation steps as specified in AGENTS.md
-
-Recommended test coverage:
-- Handler logic for each section
-- State transitions and persistence
-- Keyboard rendering and payload correctness
-- Integration with Settings and bot wiring
-- Admin interface authentication and authorization
-- Document upload validation and background processing
-- Configuration loading with environment variable precedence
-- Alpine.js component state management and HTMX partials
-
-**Updated** Added critical dependency synchronization step and enhanced testing recommendations for modernized frontend architecture.
-
-**Section sources**
-- [pyproject.toml:45-58](file://pyproject.toml#L45-L58)
-- [tests/test_config.py:1-27](file://tests/test_config.py#L1-L27)
-- [tests/test_keyboards.py:49-191](file://tests/test_keyboards.py#L49-L191)
-- [tests/test_states.py:8-30](file://tests/test_states.py#L8-L30)
-- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
-
-### Code Quality Tools: Ruff and MyPy
-- Ruff configuration enforces style and lint rules with a line length limit and target Python version.
-- MyPy configuration sets Python version and strictness flags.
-
-Validation commands:
-- Run linter and type checker before review per AGENTS.md.
-
-**Section sources**
-- [pyproject.toml:60-72](file://pyproject.toml#L60-L72)
-- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
-
-### Local Infrastructure: Docker Compose
-- Qdrant and MinIO services are defined with healthchecks and persistent volumes.
-- Useful for local RAG ingestion and storage testing.
-
-**Section sources**
-- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
-
-### Optional Local LLM Server
-- run_llama_qwen.sh starts llama.cpp's llama-server with configurable model path, host, port, context size, threads, and GPU layers.
-
-**Section sources**
-- [scripts/run_llama_qwen.sh:1-59](file://scripts/run_llama_qwen.sh#L1-L59)
-
-## Dependency Analysis
-- The VK bot depends on Settings for credentials and on keyboard/state modules for UX and state machine.
-- Admin server depends on FastAPI application factory and document management services.
-- Enhanced .env integration provides configuration precedence for flexible deployment scenarios.
-- Handlers depend on keyboard builders for consistent UI.
-- Tests depend on the module under test and vkbottle Keyboard type.
-- Modernized frontend architecture depends on Alpine.js, HTMX, and custom CSS system.
-- Resource factory consolidates initialization logic from main.py lifespan.
-
-```mermaid
-graph TD
-CFG["app/config.py<br/>.env integration"] --> BOT["app/integrations/vk/bot.py"]
-CFG --> MAIN["app/main.py"]
-RES["app/resources.py<br/>Resource factory"] --> MAIN
-RUNADMIN["scripts/run_admin.sh<br/>.env integration"] --> CFG
-RUNADMIN --> MAIN
-MAIN --> DOCSAPI["app/api/documents.py"]
-KEY["app/integrations/vk/keyboards.py"] --> BOT
-STAT["app/integrations/vk/states.py"] --> BOT
-START["handlers/start.py"] --> BOT
-FALL["handlers/fallback.py"] --> BOT
-BOT --> POLL["scripts/polling_vk.py"]
-MAIN --> ADMINSRV["scripts/admin_server.py"]
-DOCSAPI --> ADMINSRV
-DOCSAPI --> PARTIAL["templates/partials/<br/>HTMX partials"]
-COMPONENTS["static/js/components.js<br/>Alpine.js components"] --> PARTIAL
-STYLE["static/css/style.css<br/>Custom design system"] --> BASE["templates/base.html"]
-BASE --> DOCS["templates/documents.html"]
-TCFG["tests/test_config.py"] --> CFG
-TKEY["tests/test_keyboards.py"] --> KEY
-TSTAT["tests/test_states.py"] --> STAT
-```
-
-**Updated** Added modernized frontend architecture dependencies and resource factory consolidation.
-
-**Diagram sources**
-- [app/config.py:14-15](file://app/config.py#L14-L15)
-- [app/main.py:22-49](file://app/main.py#L22-L49)
-- [app/resources.py:127-303](file://app/resources.py#L127-L303)
-- [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
-- [app/api/documents.py:1-531](file://app/api/documents.py#L1-L531)
-- [app/integrations/vk/keyboards.py:56-98](file://app/integrations/vk/keyboards.py#L56-L98)
-- [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
-- [app/integrations/vk/handlers/start.py:31-41](file://app/integrations/vk/handlers/start.py#L31-L41)
-- [app/integrations/vk/handlers/fallback.py:15-17](file://app/integrations/vk/handlers/fallback.py#L15-L17)
-- [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
-- [scripts/admin_server.py:37-60](file://scripts/admin_server.py#L37-L60)
-- [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
-- [static/js/components.js:23-623](file://static/js/components.js#L23-L623)
-- [static/css/style.css:104-171](file://static/css/style.css#L104-L171)
-- [templates/base.html:1-213](file://templates/base.html#L1-L213)
-- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
-- [tests/test_config.py:7-13](file://tests/test_config.py#L7-L13)
-- [tests/test_keyboards.py:8-21](file://tests/test_keyboards.py#L8-L21)
-- [tests/test_states.py:5-10](file://tests/test_states.py#L5-L10)
-
-**Section sources**
-- [app/integrations/vk/bot.py:14-31](file://app/integrations/vk/bot.py#L14-L31)
-- [app/integrations/vk/keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
-- [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
-- [app/integrations/vk/handlers/start.py:31-41](file://app/integrations/vk/handlers/start.py#L31-L41)
-- [app/integrations/vk/handlers/fallback.py:15-17](file://app/integrations/vk/handlers/fallback.py#L15-L17)
-
-## Performance Considerations
-- Keep handler logic synchronous where possible; defer heavy work to background tasks.
-- Minimize keyboard rebuilds; reuse keyboard instances where safe.
-- Use stateless helpers for pure transformations to improve cacheability.
-- Profile async bottlenecks using Python's async profiler and monitor network latency to VK and external APIs.
-- Admin interface should leverage HTMX partials to minimize full page reloads.
-- Hot reloading in development should be disabled in production environments.
-- HTTP/2 support in admin server improves connection multiplexing and performance.
-- Efficient .env loading with environment variable precedence reduces configuration overhead.
-- Alpine.js reactive data stores minimize DOM manipulation overhead.
-- Custom CSS design system reduces style calculation complexity.
-
-**Updated** Added performance considerations for Alpine.js components, HTMX partials, and custom CSS design system.
+- [scripts/run_all.sh:1-441](file://scripts/run_all.sh#L1-L441)
+- [scripts/run_admin.sh:1-445](file://scripts/run_admin.sh#L1-L445)
 
 ## Troubleshooting Guide
-Common issues and remedies:
-- Missing VK credentials: Ensure environment variables are set and Settings loads them correctly.
-- Handler not triggered: Verify labeler registration order and payload matching.
-- Keyboard mismatch: Validate payload shapes and service-row additions.
-- Type-check failures: Align function signatures with MyPy expectations.
-- Lint errors: Fix style issues reported by Ruff.
-- Admin server startup failures: Check ADMIN_API_KEY configuration and logging output.
-- Hot reload not working: Verify uvicorn installation and factory pattern usage.
-- Document upload errors: Check S3 connectivity and file validation rules.
-- .env file loading issues: Verify .env file syntax and load_env_var() function execution.
-- Configuration precedence problems: Check environment variable vs .env file conflicts.
-- Provider selection errors: Verify provider-specific environment variables and model availability.
-- Alpine.js component not responding: Check Alpine.js initialization and data binding.
-- HTMX partial not updating: Verify partial endpoint and data attributes.
-- CSS styling issues: Check custom design tokens and theme configuration.
-- **New**: Test dependency installation failures: Ensure `uv sync --extra test --extra dev` completes successfully before running tests.
-- **New**: uv package manager issues: Verify uv installation and proper handling of optional dependencies.
+Workspace-specific issues and their solutions:
 
-Validation checklist:
-- Run tests for affected modules.
-- Execute linter and type checker.
-- Confirm environment variables are present and correct.
-- Test admin interface authentication and document operations.
-- Verify hot reload functionality during development.
-- Validate .env file loading and configuration precedence.
-- Check provider selection and model availability.
-- Test Alpine.js component state management.
-- Verify HTMX partial functionality and data updates.
-- Validate custom CSS design system and responsive behavior.
-- **New**: Verify test dependencies are properly installed via uv sync.
-- **New**: Confirm uv package manager workflow with optional dependencies.
+### Workspace Installation Issues
+- **uv Not Found**: Ensure uv is installed and in PATH
+- **Workspace Members**: Verify `members = ["packages/*"]` configuration
+- **Package Resolution**: Check workspace sources configuration
 
-**Updated** Added troubleshooting guidance for uv package manager workflow, test dependency installation, and modernized frontend component validation.
+### Import Resolution Problems
+- **Package Names**: Verify workspace package names match source configuration
+- **Import Paths**: Ensure imports use correct workspace namespace
+- **Dependency Conflicts**: Check uv.lock for dependency resolution issues
+
+### Development Script Issues
+- **Docker Connectivity**: Verify Docker daemon is running
+- **Port Conflicts**: Check for conflicting service ports
+- **Environment Variables**: Ensure .env file contains required configuration
+
+### Testing Problems
+- **Workspace Discovery**: Verify pytest configuration targets workspace packages
+- **Import Resolution**: Check PYTHONPATH configuration for workspace packages
+- **Dependency Issues**: Re-run `uv sync` to refresh workspace dependencies
+
+**Updated** Enhanced troubleshooting guide covering workspace-specific issues and solutions.
 
 **Section sources**
-- [app/config.py:14-15](file://app/config.py#L14-L15)
-- [app/integrations/vk/bot.py:23-31](file://app/integrations/vk/bot.py#L23-L31)
-- [app/integrations/vk/keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
-- [tests/test_keyboards.py:49-150](file://tests/test_keyboards.py#L49-L150)
-- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
-- [scripts/admin_server.py:40-42](file://scripts/admin_server.py#L40-L42)
-- [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
+- [pyproject.toml:22-28](file://pyproject.toml#L22-L28)
+- [uv.lock:1-12](file://uv.lock#L1-L12)
+
+## Best Practices
+Workspace-based development best practices for cafetera_hr_bot:
+
+### Package Organization
+- **Clear Boundaries**: Maintain distinct responsibilities for each package
+- **Minimal Dependencies**: Keep cross-package dependencies to essential minimum
+- **Namespace Consistency**: Use consistent import namespaces across packages
+
+### Development Workflow
+- **Workspace Awareness**: Always develop within the workspace context
+- **Dependency Management**: Use workspace sources for inter-package dependencies
+- **Testing Strategy**: Develop and test each package independently while validating workspace integration
+
+### Code Quality
+- **Consistent Formatting**: Use Ruff for workspace-wide formatting consistency
+- **Type Safety**: Leverage MyPy for comprehensive type checking
+- **Documentation**: Maintain clear documentation for workspace package interfaces
+
+### Deployment Considerations
+- **Workspace Packaging**: Ensure workspace packages can be built independently
+- **Dependency Resolution**: Verify uv.lock provides reproducible builds
+- **Environment Configuration**: Maintain environment variable documentation for all packages
+
+**Updated** Added comprehensive best practices for workspace-based development.
 
 ## Conclusion
-This guide consolidates the development workflow for cafetera_hr_bot, from environment setup to validation and code review. The modernization of the main application entry point with async resource management, the enhanced frontend architecture with Vue.js-like Alpine.js components and comprehensive CSS styling system, and the streamlined template architecture for client-side rendering significantly enhance the development experience. The addition of the admin server with hot reloading capabilities and comprehensive .env integration with interactive provider selection provides a robust development environment. The intelligent configuration loading with environment variable precedence offers flexible deployment scenarios while maintaining robust defaults. The critical update to the testing workflow with explicit dependency synchronization ensures consistent and reliable test execution. By following the documented standards, using the provided scripts and configurations, and adhering to the validation commands, contributors can maintain high-quality code and a smooth development lifecycle.
+The workspace-based package architecture significantly enhances the development workflow for cafetera_hr_bot by providing clear separation of concerns, efficient dependency management, and workspace-aware development patterns. The new architecture with uv workspace support enables better code organization, improved maintainability, and streamlined development processes across multiple Python packages.
 
-**Updated** Enhanced conclusion to reflect the modernized application architecture with async resource management, Vue.js-like frontend components, streamlined template architecture, and critical testing workflow improvements.
+Key benefits of the workspace architecture include:
+- **Enhanced Modularity**: Clear package boundaries with workspace-aware imports
+- **Efficient Dependency Management**: Shared dependency resolution across packages
+- **Streamlined Development**: Workspace-aware development tools and scripts
+- **Improved Testing**: Comprehensive test coverage across all packages
+- **Better Collaboration**: Clear package responsibilities and interfaces
 
-## Appendices
+By leveraging uv workspace management, developers can efficiently work with multiple packages while maintaining clean import boundaries and proper dependency resolution. The enhanced development environment setup, testing procedures, and troubleshooting guidance ensure a smooth development experience across all workspace packages.
 
-### Development Environment Setup
-- Install Python 3.13+ and uv package manager.
-- Create a virtual environment via uv and install dependencies.
-- Configure environment variables according to AGENTS.md.
-- Start local VK long polling with the provided script.
-- **Alternative**: Start admin server with hot reloading for document management development.
-- **Enhanced**: Use run_admin.sh for comprehensive .env integration, provider selection, and interactive configuration.
-
-Practical steps:
-- Install dependencies including dev extras for testing and linting.
-- Set VK-related environment variables.
-- Launch long polling to verify the bot responds to /start and navigates to the main menu.
-- **Alternative**: Set ADMIN_API_KEY and launch admin server for document management interface.
-- **Enhanced**: Use run_admin.sh to automatically load .env configuration, select providers, and start local infrastructure.
-
-**Updated** Added run_admin.sh option with comprehensive .env integration and enhanced development environment setup.
-
-**Section sources**
-- [AGENTS.md:7-14](file://AGENTS.md#L7-L14)
-- [pyproject.toml:30-53](file://pyproject.toml#L30-L53)
-- [scripts/polling_vk.py:25-34](file://scripts/polling_vk.py#L25-L34)
-- [scripts/admin_server.py:37-60](file://scripts/admin_server.py#L37-L60)
-- [scripts/run_admin.sh:81-92](file://scripts/run_admin.sh#L81-L92)
-
-### Running Code Quality Checks
-- Lint: run the linter as specified in AGENTS.md.
-- Type-check: run the type checker as specified in AGENTS.md.
-
-**Section sources**
-- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
-- [pyproject.toml:60-72](file://pyproject.toml#L60-L72)
-
-### Executing Tests
-- Run the test suite with the configured pytest settings.
-- Focus on tests for modules you modified.
-- **New**: Include admin interface tests for document management functionality.
-- **Enhanced**: Include configuration tests for .env file loading and environment variable precedence.
-- **New**: Include Alpine.js component tests for frontend state management.
-- **New**: Include HTMX partial tests for client-side rendering functionality.
-- **Critical Update**: Always run `uv sync --extra test --extra dev` before executing tests to ensure proper dependency installation.
-
-**Updated** Added critical dependency synchronization requirement and enhanced testing recommendations for modernized frontend architecture.
-
-**Section sources**
-- [pyproject.toml:45-58](file://pyproject.toml#L45-L58)
-- [tests/test_config.py:1-27](file://tests/test_config.py#L1-L27)
-- [tests/test_keyboards.py:49-150](file://tests/test_keyboards.py#L49-L150)
-- [tests/test_states.py:8-30](file://tests/test_states.py#L8-L30)
-- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
-
-### Preparing Changes for Review
-- Implement small, reviewable changes aligned with the development plan.
-- Validate with tests, linter, and type checker.
-- Summarize what passed, what failed, and remaining risks as per AGENTS.md.
-- **New**: Ensure admin interface changes include proper authentication and security validation.
-- **Enhanced**: Validate .env integration and configuration precedence behavior.
-- **New**: Ensure Alpine.js component changes include proper state management and data binding.
-- **New**: Validate HTMX partial functionality and client-side rendering behavior.
-- **Critical Update**: Verify that test dependencies are properly synchronized before submission.
-
-**Updated** Added requirement for admin interface security validation, .env integration testing, modernized frontend component validation, and critical dependency synchronization requirement.
-
-**Section sources**
-- [PLAN.md:113-120](file://PLAN.md#L113-L120)
-- [AGENTS.md:62-64](file://AGENTS.md#L62-L64)
-- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
-
-### Debugging Techniques
-- Enable INFO logs for the bot and handlers.
-- Inspect keyboard JSON payloads and state transitions.
-- Use pytest with verbose output and breakpoints for targeted debugging.
-- **New**: Monitor admin server logs for authentication and document operations.
-- **New**: Use browser developer tools for HTMX partial updates and admin interface debugging.
-- **Enhanced**: Debug .env loading issues and configuration precedence problems.
-- **New**: Debug Alpine.js component state management and reactive data binding.
-- **New**: Debug HTMX partials and client-side rendering functionality.
-- **Critical Update**: Debug test dependency installation issues using uv sync verification.
-
-**Updated** Added debugging techniques for Alpine.js components, HTMX partials, modernized frontend architecture, and critical test dependency debugging.
-
-**Section sources**
-- [scripts/polling_vk.py:18-22](file://scripts/polling_vk.py#L18-L22)
-- [app/integrations/vk/keyboards.py:29-50](file://app/integrations/vk/keyboards.py#L29-L50)
-- [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
-- [scripts/admin_server.py:31-35](file://scripts/admin_server.py#L31-L35)
-
-### Commit Conventions and Contribution Workflow
-- Follow the contribution workflow: inspect, plan, implement small changes, validate, report.
-- Adhere to hard constraints: reuse existing patterns, avoid unnecessary changes, preserve contracts.
-- **New**: Admin interface changes should include proper authentication and authorization validation.
-- **Enhanced**: Configuration changes should include .env integration and environment variable precedence validation.
-- **New**: Frontend changes should include Alpine.js component validation and HTMX partial testing.
-- **New**: Resource management changes should include async context manager validation and graceful degradation testing.
-- **Critical Update**: Ensure test dependencies are properly synchronized in CI/CD pipelines.
-
-**Updated** Added security validation requirement for admin interface contributions, configuration validation requirements, modernized frontend component validation, and critical dependency synchronization requirement for CI/CD.
-
-**Section sources**
-- [AGENTS.md:58-74](file://AGENTS.md#L58-L74)
-
-### Admin Server Usage Guide
-- Start development server: `uv run python scripts/admin_server.py`
-- Access admin interface: Navigate to `http://localhost:8000/documents`
-- Authentication: Submit ADMIN_API_KEY on login page
-- Hot reloading: Server automatically restarts on code changes
-- Logging: INFO level logging with timestamp formatting
-- Environment variables: Configure all RAG and storage settings for full functionality
-- HTTP/2 support: Enhanced performance with HTTP/2 multiplexing
-- Interactive provider selection: Choose LLM and embedding providers during startup
-
-**Enhanced** Added HTTP/2 support, interactive provider selection, and comprehensive environment variable configuration.
-
-**Section sources**
-- [scripts/admin_server.py:1-66](file://scripts/admin_server.py#L1-L66)
-- [app/api/documents.py:133-174](file://app/api/documents.py#L133-L174)
-
-### .env Integration and Configuration Management
-- Use load_env_var() function for intelligent configuration loading with environment variable precedence.
-- .env file provides default values while environment variables override them at runtime.
-- Comprehensive RAG configuration including LLM providers, embedding models, and storage settings.
-- Interactive provider selection for flexible development and deployment scenarios.
-- Dynamic dependency synchronization based on provider selection.
-
-Configuration loading workflow:
-1. Check if environment variable is already set
-2. If not set, check .env file for the variable
-3. If found in .env, export it as environment variable
-4. Apply application defaults if still not set
-
-**New Section**
-
-**Section sources**
-- [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
-- [app/config.py:14-15](file://app/config.py#L14-L15)
-- [app/config.py:16-62](file://app/config.py#L16-L62)
-
-### Modernized Frontend Architecture Guide
-- Alpine.js components provide reactive data stores with Alpine.data() and Alpine.store()
-- HTMX partials enable client-side rendering with server-side data fetching
-- Custom CSS design system with semantic tokens and theme customization
-- Window functions bridge template interactions with Alpine.js components
-- Responsive design with mobile-first approach and adaptive layouts
-
-Frontend development workflow:
-1. Define Alpine.js data stores for component state management
-2. Create HTMX partials for dynamic content updates
-3. Implement custom CSS classes with design tokens
-4. Use window functions for template-to-component communication
-5. Test responsive behavior across different screen sizes
-
-**New Section**
-
-**Section sources**
-- [static/js/components.js:1-623](file://static/js/components.js#L1-L623)
-- [static/js/upload.js:1-83](file://static/js/upload.js#L1-L83)
-- [static/css/style.css:1-171](file://static/css/style.css#L1-L171)
-- [templates/base.html:1-213](file://templates/base.html#L1-L213)
-- [templates/documents.html:1-432](file://templates/documents.html#L1-L432)
-
-### uv Package Manager Workflow
-- **Critical Update**: The project uses uv as the sole package manager with explicit optional dependencies.
-- Optional dependencies are managed through extras: `test` and `dev`.
-- The testing workflow requires `uv sync --extra test --extra dev` to install all necessary dependencies.
-- pyproject.toml defines optional dependency groups for different development needs.
-- uv run is used for executing commands with proper environment isolation.
-
-Key workflow:
-1. `uv sync --extra test --extra dev` - Install test and development dependencies
-2. `uv run pytest` - Execute test suite with proper environment
-3. `uv run ruff check .` - Run linter with development tools
-4. `uv run mypy app/` - Run type checker with development configuration
-
-**New Section**
-
-**Section sources**
-- [AGENTS.md:7](file://AGENTS.md#L7)
-- [AGENTS.md:135-146](file://AGENTS.md#L135-L146)
-- [pyproject.toml:30-53](file://pyproject.toml#L30-L53)
+**Updated** Enhanced conclusion reflecting the benefits and advantages of the workspace-based architecture for cafetera_hr_bot development.

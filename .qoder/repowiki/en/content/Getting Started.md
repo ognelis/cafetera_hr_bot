@@ -3,131 +3,151 @@
 <cite>
 **Referenced Files in This Document**
 - [README.md](file://README.md)
+- [pyproject.toml](file://pyproject.toml)
+- [docker-compose.yml](file://docker-compose.yml)
+- [packages/admin/src/cafetera_admin/main.py](file://packages/admin/src/cafetera_admin/main.py)
+- [packages/admin/src/cafetera_admin/config.py](file://packages/admin/src/cafetera_admin/config.py)
+- [packages/core/src/cafetera_core/config.py](file://packages/core/src/cafetera_core/config.py)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py](file://packages/vk_bot/src/cafetera_vk_bot/bot.py)
 - [scripts/run_admin.sh](file://scripts/run_admin.sh)
 - [scripts/admin_server.py](file://scripts/admin_server.py)
-- [app/main.py](file://app/main.py)
-- [app/config.py](file://app/config.py)
-- [docker-compose.yml](file://docker-compose.yml)
-- [pyproject.toml](file://pyproject.toml)
-- [scripts/run_llama_embeddings.sh](file://scripts/run_llama_embeddings.sh)
-- [scripts/run_llama_llm.sh](file://scripts/run_llama_llm.sh)
-- [scripts/run_ollama_qwen.sh](file://scripts/run_ollama_qwen.sh)
-- [scripts/run_llama_qwen.sh](file://scripts/run_llama_qwen.sh)
-- [AGENTS.md](file://AGENTS.md)
-- [PLAN.md](file://PLAN.md)
+- [packages/admin/pyproject.toml](file://packages/admin/pyproject.toml)
+- [packages/core/pyproject.toml](file://packages/core/pyproject.toml)
+- [packages/vk_bot/pyproject.toml](file://packages/vk_bot/pyproject.toml)
+- [tests/conftest.py](file://tests/conftest.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive English-language README.md setup guide covering Docker installation, Python package manager setup with uv, Ollama AI model installation, project download procedures, environment variable configuration, automated server startup using run_admin.sh script, and troubleshooting common issues
-- Updated prerequisites section to reflect new Docker-based admin panel setup
-- Enhanced installation section with uv package manager requirements and optional LLM provider extras
-- Expanded environment setup section with new ADMIN_API_KEY requirement and comprehensive variable configuration
-- Added new section for automated admin panel setup using run_admin.sh script
-- Updated troubleshooting section with new common issues specific to the admin panel setup
-- Revised development workflow to include admin panel development alongside VK bot development
+- Updated project structure to reflect new monorepo with uv workspace configuration
+- Added comprehensive documentation for package-based installation using uv sync
+- Updated directory structure documentation with packages/*/src/ organization
+- Enhanced installation section with workspace configuration and package imports
+- Added new section for workspace-based development workflow
+- Updated environment setup to reflect shared configuration inheritance
+- Revised troubleshooting section for workspace-related issues
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Prerequisites](#prerequisites)
-4. [Installation](#installation)
-5. [Environment Setup](#environment-setup)
-6. [Automated Admin Panel Setup](#automated-admin-panel-setup)
-7. [Manual Development Setup](#manual-development-setup)
-8. [Testing the Admin Panel](#testing-the-admin-panel)
-9. [Verification Checklist](#verification-checklist)
-10. [Development Workflow Basics](#development-workflow-basics)
-11. [Next Steps for Contributors](#next-steps-for-contributors)
-12. [Troubleshooting Guide](#troubleshooting-guide)
-13. [Conclusion](#conclusion)
+4. [Workspace Setup](#workspace-setup)
+5. [Installation](#installation)
+6. [Environment Setup](#environment-setup)
+7. [Running the Admin Panel](#running-the-admin-panel)
+8. [Development Workflow](#development-workflow)
+9. [Testing the Admin Panel](#testing-the-admin-panel)
+10. [Verification Checklist](#verification-checklist)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
 
 ## Introduction
-This guide helps you set up cafetera_hr_bot for local development with two primary approaches: the automated admin panel setup using run_admin.sh script or manual development setup for VK integration. The project uses Python 3.13+, uv for package management, Docker for infrastructure services, and supports local RAG experimentation via optional LLM servers.
+This guide helps you set up cafetera_hr_bot for local development in a modern monorepo environment. The project uses a uv workspace architecture with three main packages: admin, core, and vk_bot. Each package has its own configuration and dependencies, managed through uv workspace. The admin package provides a comprehensive web interface for document management and RAG administration, while the core package contains shared domain logic and infrastructure.
 
-**Updated** Added comprehensive English-language README.md setup guide covering Docker installation, Python package manager setup with uv, Ollama AI model installation, project download procedures, environment variable configuration, automated server startup using run_admin.sh script, and troubleshooting common issues.
+**Updated** Added comprehensive coverage of the new monorepo structure with workspace configuration and package-based imports.
 
 ## Project Structure
-The repository is organized into:
-- app/: Application code (FastAPI backend, domain services, integrations)
-- scripts/: Automated setup and development helpers (admin server, LLM launchers)
-- tests/: Unit tests for configuration and bot wiring
-- docker-compose.yml: Local infrastructure (Qdrant, MinIO)
-- README.md: Comprehensive English setup guide
+The repository follows a modern monorepo architecture with uv workspace configuration:
+
+```
+cafetera_hr_bot/
+├── packages/
+│   ├── admin/           # FastAPI admin web interface
+│   ├── core/            # Shared domain logic and infrastructure
+│   └── vk_bot/          # VK messenger bot implementation
+├── scripts/             # Development and deployment helpers
+├── static/              # Static assets for admin interface
+├── templates/           # Jinja2 templates for admin interface
+├── tests/               # Shared test suite
+├── docker-compose.yml   # Local infrastructure services
+├── pyproject.toml       # Workspace configuration
+└── README.md           # Setup documentation
+```
 
 ```mermaid
 graph TB
-subgraph "Application"
-MAIN["app/main.py"]
-CFG["app/config.py"]
-ADMIN["scripts/admin_server.py"]
+subgraph "Workspace Packages"
+CORE["packages/core/"]
+ADMIN["packages/admin/"]
+VKBOT["packages/vk_bot/"]
 end
-subgraph "Scripts"
-RUNADMIN["scripts/run_admin.sh"]
-LLAMAE["scripts/run_llama_embeddings.sh"]
-LLAMAL["scripts/run_llama_llm.sh"]
-OLLA["scripts/run_ollama_qwen.sh"]
-LLAMAQ["scripts/run_llama_qwen.sh"]
+subgraph "Workspace Configuration"
+PYPROJECT["pyproject.toml<br/>[tool.uv.workspace]"]
+SOURCES["[tool.uv.sources]<br/>cafetera-core/admin/vk-bot"]
 end
-subgraph "Infrastructure"
+subgraph "Shared Infrastructure"
 DOCKER["docker-compose.yml"]
+STATIC["static/ & templates/"]
 end
-subgraph "Docs"
-README["README.md"]
-end
-RUNADMIN --> MAIN
-RUNADMIN --> CFG
-RUNADMIN --> ADMIN
-ADMIN --> MAIN
-MAIN --> CFG
-DOCKER -.-> RUNADMIN
-README -.-> RUNADMIN
+PYPROJECT --> CORE
+PYPROJECT --> ADMIN
+PYPROJECT --> VKBOT
+SOURCES --> CORE
+SOURCES --> ADMIN
+SOURCES --> VKBOT
+ADMIN --> STATIC
+CORE --> DOCKER
+ADMIN --> DOCKER
+VKBOT --> DOCKER
 ```
 
 **Diagram sources**
-- [app/main.py:1-80](file://app/main.py#L1-L80)
-- [app/config.py:1-62](file://app/config.py#L1-L62)
-- [scripts/admin_server.py:1-66](file://scripts/admin_server.py#L1-L66)
-- [scripts/run_admin.sh:1-427](file://scripts/run_admin.sh#L1-L427)
-- [scripts/run_llama_embeddings.sh:1-103](file://scripts/run_llama_embeddings.sh#L1-L103)
-- [scripts/run_llama_llm.sh:1-98](file://scripts/run_llama_llm.sh#L1-L98)
-- [scripts/run_ollama_qwen.sh:1-11](file://scripts/run_ollama_qwen.sh#L1-L11)
-- [scripts/run_llama_qwen.sh:1-11](file://scripts/run_llama_qwen.sh#L1-L11)
-- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
-- [README.md:1-249](file://README.md#L1-L249)
+- [pyproject.toml:22-28](file://pyproject.toml#L22-L28)
+- [packages/admin/src/cafetera_admin/main.py:70-78](file://packages/admin/src/cafetera_admin/main.py#L70-L78)
+- [docker-compose.yml:1-115](file://docker-compose.yml#L1-L115)
 
 **Section sources**
-- [README.md:1-249](file://README.md#L1-L249)
-- [app/main.py:1-80](file://app/main.py#L1-L80)
-- [app/config.py:1-62](file://app/config.py#L1-L62)
-- [scripts/run_admin.sh:1-427](file://scripts/run_admin.sh#L1-L427)
-- [docker-compose.yml:1-34](file://docker-compose.yml#L1-L34)
+- [pyproject.toml:1-49](file://pyproject.toml#L1-L49)
+- [packages/admin/src/cafetera_admin/main.py:1-88](file://packages/admin/src/cafetera_admin/main.py#L1-L88)
+- [docker-compose.yml:1-115](file://docker-compose.yml#L1-L115)
 
 ## Prerequisites
-- **Python 3.13+** (required for project, uv will manage Python versions)
-- **uv package manager** (recommended for dependency management)
+- **Python 3.13+** (required for all packages)
+- **uv** (Python package manager with workspace support)
 - **Docker** (for infrastructure services)
 - **Ollama** (for local AI models, optional)
 - **Git** (for cloning the repository)
 - **Terminal access** (macOS Terminal or Linux shell)
 
-**Updated** Enhanced prerequisites to include Docker for infrastructure services and Ollama for local AI models, reflecting the new automated admin panel setup approach.
+**Updated** Enhanced prerequisites to include uv workspace requirements and modern Python packaging standards.
 
 Key facts from the codebase:
-- Python version requirement is 3.13+ as specified in pyproject.toml
-- Docker Compose manages Qdrant and MinIO services
-- uv handles dependency installation and project management
+- Python version requirement is 3.13+ across all packages
+- uv workspace manages dependencies for all three packages
+- Docker Compose orchestrates Qdrant, MinIO, and PostgreSQL
 - Ollama provides local LLM and embedding models
 
 **Section sources**
 - [pyproject.toml:6](file://pyproject.toml#L6)
-- [README.md:7-58](file://README.md#L7-L58)
-- [README.md:86-108](file://README.md#L86-L108)
+- [packages/core/pyproject.toml:5](file://packages/core/pyproject.toml#L5)
+- [packages/admin/pyproject.toml:5](file://packages/admin/pyproject.toml#L5)
+- [packages/vk_bot/pyproject.toml:5](file://packages/vk_bot/pyproject.toml#L5)
+
+## Workspace Setup
+The project uses uv workspace configuration to manage dependencies across multiple packages. The workspace definition in pyproject.toml specifies all member packages and their source locations.
+
+### Workspace Configuration
+The main workspace configuration includes:
+- **Members**: `["packages/*"]` - all packages in the packages directory
+- **Sources**: Individual package sources for proper import resolution
+- **Dev Dependencies**: All packages included in the development group
+
+### Package Structure
+Each package follows the standard structure:
+- `src/` - Source code with proper package naming
+- `pyproject.toml` - Package-specific configuration and dependencies
+- Proper import paths using `cafetera_package_name` naming convention
+
+**Section sources**
+- [pyproject.toml:22-28](file://pyproject.toml#L22-L28)
+- [packages/admin/pyproject.toml:1-20](file://packages/admin/pyproject.toml#L1-L20)
+- [packages/core/pyproject.toml:1-29](file://packages/core/pyproject.toml#L1-L29)
+- [packages/vk_bot/pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
 
 ## Installation
-Follow these steps to install and prepare the environment:
+Follow these steps to install and prepare the workspace environment:
 
-### Automated Setup (Recommended)
+### Step 1: Install Prerequisites
 1. **Install Docker** (macOS or Linux)
    - macOS: Download Docker Desktop from docker.com
    - Linux: Use the provided installation commands
@@ -140,130 +160,149 @@ Follow these steps to install and prepare the environment:
    - macOS: Download from ollama.com/download
    - Linux: `curl -fsSL https://ollama.com/install.sh | sh`
 
-4. **Clone the repository**
-   - `cd ~/Projects`
-   - `git clone <repository-url> cafetera_hr_bot`
-   - `cd cafetera_hr_bot`
+### Step 2: Clone and Configure Repository
+```bash
+cd ~/Projects
+git clone <repository-url> cafetera_hr_bot
+cd cafetera_hr_bot
+```
 
-5. **Run the automated setup script**
-   - `bash scripts/run_admin.sh`
+### Step 3: Install Workspace Dependencies
+```bash
+# Install all workspace dependencies
+uv sync
 
-### Manual Setup
-1. **Install dependencies**
-   - Use uv to install project dependencies and optional groups
-   - Example commands:
-     - Install base dependencies: `uv pip install .`
-     - Install dev dependencies: `uv pip install ".[dev]"`
-     - Install optional LLM provider extras: `uv pip install ".[ollama]"` or ".[openai_compatible]"
+# Install with specific extras if needed
+uv sync --extra dev
+uv sync --extra ollama
+uv sync --extra openai
+```
 
-2. **Verify installation**
-   - Run tests to confirm environment readiness: `uv run pytest`
+### Step 4: Verify Installation
+```bash
+# Run tests to verify environment
+uv run pytest
 
-**Updated** Added comprehensive automated setup process using run_admin.sh script, which handles Docker setup, dependency installation, service orchestration, and AI model provisioning.
+# Check package imports work correctly
+uv run python -c "from cafetera_core import config; from cafetera_admin import main; from cafetera_vk_bot import bot"
+```
+
+**Updated** Added comprehensive workspace setup with uv sync commands and package import verification.
 
 **Section sources**
-- [README.md:7-126](file://README.md#L7-L126)
-- [README.md:165-198](file://README.md#L165-L198)
-- [pyproject.toml:32-43](file://pyproject.toml#L32-L43)
-- [scripts/run_admin.sh:66-94](file://scripts/run_admin.sh#L66-L94)
+- [README.md:7-83](file://README.md#L7-L83)
+- [pyproject.toml:9-20](file://pyproject.toml#L9-L20)
+- [scripts/run_admin.sh:242-250](file://scripts/run_admin.sh#L242-L250)
 
 ## Environment Setup
-Configure environment variables via pydantic-settings. The Settings class loads from a .env file.
+Configure environment variables using the shared settings system. The AdminSettings class extends CoreSettings, inheriting all shared configuration while adding admin-specific fields.
 
 ### Required Variables
 - **ADMIN_API_KEY** (required for admin authentication)
 - **VK_ACCESS_TOKEN** (optional, for VK bot functionality)
-- **VK_GROUP_ID** (optional, for VK bot functionality)
 
-### Infrastructure Variables
+### Shared Infrastructure Variables
 - **QDRANT_URL** (default: http://localhost:6333)
+- **DATABASE_URL** (default: postgresql://cafetera:cafetera@localhost:5432/cafetera)
 - **S3_ENDPOINT_URL** (default: http://localhost:9000)
-- **OLLAMA_URL** (default: http://localhost:11434)
 
 ### LLM Provider Configuration
 - **LLM_PROVIDER** (default: ollama)
 - **LLM_MODEL** (default: qwen3.5:4b-q4_K_M)
 - **LLM_BASE_URL** (default: http://localhost:11434)
-- **EMBEDDING_PROVIDER** (default: ollama)
-- **EMBEDDING_MODEL** (default: qwen3-embedding:4b-q4_K_M)
-- **EMBEDDING_BASE_URL** (default: http://localhost:11434)
 
-**Updated** Added comprehensive environment variable configuration including new ADMIN_API_KEY requirement and expanded LLM provider options.
+**Updated** Enhanced environment setup to reflect the shared configuration inheritance pattern.
 
 **Section sources**
-- [app/config.py:14-62](file://app/config.py#L14-L62)
-- [scripts/run_admin.sh:96-123](file://scripts/run_admin.sh#L96-L123)
-- [README.md:129-162](file://README.md#L129-L162)
+- [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+- [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
+- [scripts/run_admin.sh:113-148](file://scripts/run_admin.sh#L113-L148)
 
-## Automated Admin Panel Setup
-The run_admin.sh script provides a complete automated setup experience:
+## Running the Admin Panel
+The admin panel provides a comprehensive web interface for document management and RAG administration. The run_admin.sh script automates the entire setup process.
 
-### What the Script Does
-1. **Checks Prerequisites**: Verifies Docker, uv, and .env file existence
+### Automated Startup Process
+1. **Prerequisite Check**: Verifies Docker, uv, and .env file
 2. **Provider Selection**: Interactive choice between Ollama, OpenAI, or llama.cpp
 3. **Dependency Sync**: Installs Python dependencies with appropriate extras
-4. **Infrastructure Start**: Launches Qdrant and MinIO via Docker Compose
+4. **Infrastructure Start**: Launches Qdrant, MinIO, and PostgreSQL via Docker Compose
 5. **AI Model Setup**: Starts Ollama and downloads required models
 6. **Server Launch**: Starts the admin panel on http://127.0.0.1:8000
 
-### Usage
+### Usage Commands
 ```bash
+# Basic startup
 cd ~/Projects/cafetera_hr_bot
 bash scripts/run_admin.sh
+
+# Custom port
+ADMIN_PORT=8080 bash scripts/run_admin.sh
+
+# Custom host
+ADMIN_HOST=0.0.0.0 bash scripts/run_admin.sh
 ```
-
-### Customization Options
-- **Custom Port**: `ADMIN_PORT=8080 bash scripts/run_admin.sh`
-- **Custom Host**: `ADMIN_HOST=0.0.0.0 bash scripts/run_admin.sh`
-
-**Updated** Added comprehensive documentation for the new automated admin panel setup script, which replaces manual development setup for most use cases.
-
-**Section sources**
-- [scripts/run_admin.sh:1-427](file://scripts/run_admin.sh#L1-L427)
-- [README.md:165-198](file://README.md#L165-L198)
-
-## Manual Development Setup
-For developers who prefer manual control over the development environment:
-
-### Local Development with VK Integration
-Local development uses polling mode for VK. The polling entry-point script initializes settings, builds the bot, and starts long polling.
-
-Key files:
-- **scripts/polling_vk.py**: Local VK polling entry-point
-- **app/integrations/vk/bot.py**: Bot factory that registers handlers
-- **app/integrations/vk/handlers/start.py, sections.py, fallback.py**: Message handlers
-- **app/integrations/vk/keyboards.py**: Keyboard builders
-- **app/integrations/vk/states.py**: Multi-step dialog states
-
-### Workflow
-- The polling script loads Settings, creates a Bot via create_bot(), and runs run_polling()
-- Handlers are registered in a specific order to ensure fallback behavior
-
-**Section sources**
-- [scripts/polling_vk.py:1-33](file://scripts/polling_vk.py#L1-L33)
-- [app/integrations/vk/bot.py:1-32](file://app/integrations/vk/bot.py#L1-L32)
-- [app/integrations/vk/handlers/start.py:1-55](file://app/integrations/vk/handlers/start.py#L1-L55)
-- [app/integrations/vk/handlers/sections.py:1-82](file://app/integrations/vk/handlers/sections.py#L1-L82)
-- [app/integrations/vk/handlers/fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [app/integrations/vk/keyboards.py:1-108](file://app/integrations/vk/keyboards.py#L1-L108)
-- [app/integrations/vk/states.py:1-14](file://app/integrations/vk/states.py#L1-L14)
-
-## Testing the Admin Panel
-The admin panel provides a comprehensive interface for document management and RAG administration:
 
 ### Access the Admin Interface
 1. **Start the Admin Server**: `bash scripts/run_admin.sh`
 2. **Open Browser**: Navigate to `http://127.0.0.1:8000/documents`
 3. **Authentication**: Enter ADMIN_API_KEY from .env file
 
-### Key Features
+**Section sources**
+- [scripts/run_admin.sh:1-445](file://scripts/run_admin.sh#L1-L445)
+- [README.md:165-209](file://README.md#L165-L209)
+
+## Development Workflow
+The workspace-based architecture enables efficient development across multiple packages with proper dependency management and import resolution.
+
+### Workspace Development Commands
+```bash
+# Install all dependencies
+uv sync
+
+# Install development dependencies
+uv sync --extra dev
+
+# Run individual package tests
+uv run pytest packages/admin/tests/
+uv run pytest packages/core/tests/
+uv run pytest packages/vk_bot/tests/
+
+# Run linting across all packages
+uv run ruff check packages/core/src packages/admin/src packages/vk_bot/src
+
+# Run type checking
+uv run mypy packages/core/src packages/admin/src packages/vk_bot/src
+```
+
+### Package-Specific Development
+- **Core Package**: Domain logic, RAG pipeline, and storage abstractions
+- **Admin Package**: FastAPI web interface with document management
+- **VK Bot Package**: Messenger integration with handler registration
+
+### Import Resolution
+The workspace configuration ensures proper import resolution:
+```python
+from cafetera_core.config import CoreSettings
+from cafetera_admin.main import create_app
+from cafetera_vk_bot.bot import create_bot
+```
+
+**Section sources**
+- [pyproject.toml:34-49](file://pyproject.toml#L34-L49)
+- [packages/admin/src/cafetera_admin/main.py:14-16](file://packages/admin/src/cafetera_admin/main.py#L14-L16)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py:9-20](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L9-L20)
+
+## Testing the Admin Panel
+The admin panel provides comprehensive functionality for document management and RAG administration:
+
+### Admin Interface Features
 - **Document Upload**: Drag-and-drop or browse to upload Word documents
 - **Document Management**: View, edit, and manage document metadata
 - **Search Toggle**: Enable/disable documents from RAG search results
 - **Reindex Documents**: Recreate vector embeddings for updated documents
 - **Bulk Operations**: Manage multiple documents simultaneously
 
-### Backend Endpoints
+### Backend API Endpoints
 - **GET /documents**: List all documents with pagination
 - **POST /documents**: Upload new documents
 - **GET /documents/{id}**: Get document details
@@ -272,128 +311,91 @@ The admin panel provides a comprehensive interface for document management and R
 - **POST /documents/{id}/reindex**: Rebuild vector embeddings
 - **DELETE /documents/{id}**: Remove document and associated data
 
-**Updated** Added comprehensive documentation for the new admin panel functionality, replacing the previous VK bot testing approach.
+### Testing Commands
+```bash
+# Run admin-specific tests
+uv run pytest tests/test_api_documents.py
+uv run pytest tests/test_api_documents_auth.py
+uv run pytest tests/test_api_documents_bulk.py
+uv run pytest tests/test_api_documents_upload.py
+
+# Test QA functionality
+uv run pytest tests/test_qa_service.py
+uv run pytest tests/test_hybrid_search.py
+```
 
 **Section sources**
-- [scripts/admin_server.py:1-66](file://scripts/admin_server.py#L1-L66)
-- [app/main.py:72-79](file://app/main.py#L72-L79)
+- [scripts/admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
 - [README.md:201-209](file://README.md#L201-L209)
 
 ## Verification Checklist
-### Automated Setup Verification
-- **Docker Services**: `docker compose ps` shows healthy Qdrant and MinIO
-- **Admin Panel**: Browser access to `http://127.0.0.1:8000/documents`
+### Workspace Setup Verification
+- **Workspace Detection**: `uv workspace show` confirms workspace members
+- **Package Imports**: `uv run python -c "from cafetera_core import config"` succeeds
+- **Dependency Resolution**: All packages install without conflicts
+- **Import Paths**: Proper package naming resolves correctly
+
+### Admin Panel Verification
+- **Docker Services**: `docker compose ps` shows healthy Qdrant, MinIO, and PostgreSQL
+- **Admin Interface**: Browser access to `http://127.0.0.1:8000/documents`
 - **Authentication**: ADMIN_API_KEY successfully validates
 - **AI Models**: Ollama models downloaded and ready
-- **Dependencies**: uv sync completes without errors
+- **Static Assets**: CSS and JavaScript files load correctly
 
-### Manual Setup Verification
-- **Environment variables**: All required variables present in .env
-- **Docker services**: Qdrant and MinIO running on correct ports
-- **Bot functionality**: VK bot responds to /start and main menu
-- **Handler routing**: Correct handler registration order
-- **Database**: SQLite database initialized at data/cafetera.db
-
-**Updated** Added new verification criteria for the automated admin panel setup, including Docker service health, admin panel accessibility, and AI model availability.
+### Core Functionality Verification
+- **Document Processing**: Upload test documents and verify indexing
+- **RAG Query**: Test question-answering with uploaded documents
+- **Database Connection**: Verify PostgreSQL connectivity
+- **Storage Integration**: Confirm MinIO bucket access
 
 **Section sources**
 - [scripts/run_admin.sh:244-261](file://scripts/run_admin.sh#L244-L261)
-- [scripts/run_admin.sh:406-421](file://scripts/run_admin.sh#L406-L421)
 - [README.md:217-249](file://README.md#L217-L249)
-- [app/config.py:14-62](file://app/config.py#L14-L62)
-
-## Development Workflow Basics
-### Automated Development Flow
-1. **Start Services**: `bash scripts/run_admin.sh`
-2. **Access UI**: Open `http://127.0.0.1:8000/documents`
-3. **Upload Documents**: Use drag-and-drop interface
-4. **Monitor Processing**: Watch status indicators and logs
-5. **Test RAG**: Query documents through admin interface
-6. **Iterate**: Make changes, reindex, test again
-
-### Manual Development Flow
-- Use uv for running commands and managing dependencies
-- Follow repository conventions:
-  - Prefer explicitness over cleverness
-  - Keep functions small and readable
-  - Add or update tests for behavior changes
-- Validate changes with:
-  - `uv run pytest`
-  - `uv run ruff check .`
-  - `uv run mypy app/`
-
-**Updated** Added new automated development workflow using the admin panel, which simplifies the development process compared to manual VK bot setup.
-
-**Section sources**
-- [scripts/run_admin.sh:130-213](file://scripts/run_admin.sh#L130-L213)
-- [AGENTS.md:82-88](file://AGENTS.md#L82-L88)
-
-## Next Steps for Contributors
-### Phase 1: Admin Panel Foundation
-- **Complete Admin UI**: Implement full CRUD operations for documents
-- **Enhance Upload Flow**: Add validation, progress tracking, and error handling
-- **Security Hardening**: Implement proper authentication and authorization
-- **Performance Optimization**: Add pagination, filtering, and search capabilities
-
-### Phase 2: RAG Integration
-- **Document Processing**: Implement Word document parsing and chunking
-- **Vector Indexing**: Set up Qdrant collection and embedding pipeline
-- **Query Processing**: Build RAG chain with retrieval and generation
-- **Result Ranking**: Implement relevance scoring and answer validation
-
-### Phase 3: Advanced Features
-- **Multi-tenant Support**: Add workspace isolation and permission management
-- **Audit Logging**: Track all document and query activities
-- **Analytics Dashboard**: Monitor usage patterns and performance metrics
-- **API Exposure**: Expose RAG capabilities to external applications
-
-**Updated** Added new development phases focused on the admin panel and RAG integration, replacing the previous VK bot-centric approach.
-
-**Section sources**
-- [PLAN.md:190-282](file://PLAN.md#L190-L282)
-- [PLAN.md:5-121](file://PLAN.md#L5-L121)
+- [packages/admin/src/cafetera_admin/main.py:70-78](file://packages/admin/src/cafetera_admin/main.py#L70-L78)
 
 ## Troubleshooting Guide
-### Common Issues and Resolutions
+### Workspace and Package Issues
+- **Workspace Not Detected**: Run `uv workspace show` to verify workspace configuration
+- **Package Import Errors**: Ensure proper package naming (`cafetera-package-name`)
+- **Dependency Conflicts**: Use `uv pip tree` to diagnose dependency resolution issues
+- **Source Resolution**: Verify package directories contain proper `src/` structure
 
-#### Automated Setup Issues
+### Docker and Infrastructure Issues
 - **Docker Not Found**: Install Docker Desktop or Docker Engine
-- **uv Command Not Found**: Restart terminal after uv installation
+- **Service Health**: Check `docker compose logs qdrant` for initialization errors
+- **Port Conflicts**: Use `lsof -i :PORT` to identify conflicting processes
+- **Volume Permissions**: Ensure proper permissions for mounted volumes
+
+### Environment and Configuration Issues
 - **ADMIN_API_KEY Missing**: Add ADMIN_API_KEY to .env file
-- **Port Conflicts**: Use `ADMIN_PORT=8080` for custom port assignment
+- **Import Path Errors**: Verify PYTHONPATH includes `packages/core/src`, `packages/admin/src`, `packages/vk_bot/src`
+- **Settings Inheritance**: Check that AdminSettings properly extends CoreSettings
+- **Static File Loading**: Verify repository root detection in main.py
 
-#### Service Issues
-- **Qdrant Failed to Start**: Check Docker logs, ensure port 6333 is free
-- **MinIO Failed to Start**: Verify Docker logs, check port 9000 availability
-- **Ollama Not Responding**: Ensure Ollama is installed and models are downloaded
-
-#### Dependency Issues
-- **uv Sync Failed**: Check pyproject.toml validity, run `uv lock --upgrade`
-- **Missing Extras**: Install optional dependencies: `uv pip install ".[ollama]"` or `".[openai_compatible]"`
-- **Python Version Mismatch**: Use uv to manage Python 3.13+ environment
-
-#### Performance Issues
-- **Slow Model Loading**: Ensure sufficient disk space for model downloads
-- **Memory Usage**: Adjust chunk sizes and concurrent indexing limits
-- **Network Latency**: Use local Ollama instance instead of remote APIs
-
-**Updated** Added comprehensive troubleshooting for the new automated admin panel setup, including Docker service issues, AI model problems, and dependency conflicts.
+### Development Workflow Issues
+- **Test Discovery**: Ensure test files follow pytest naming conventions
+- **Linting Errors**: Run `uv run ruff check` with proper source paths
+- **Type Checking**: Verify mypy configuration includes all package sources
+- **Package Isolation**: Use separate virtual environments for different package development
 
 **Section sources**
-- [README.md:217-249](file://README.md#L217-L249)
-- [scripts/run_admin.sh:69-92](file://scripts/run_admin.sh#L69-L92)
-- [scripts/run_admin.sh:247-261](file://scripts/run_admin.sh#L247-L261)
-- [scripts/run_admin.sh:264-327](file://scripts/run_admin.sh#L264-L327)
+- [README.md:290-322](file://README.md#L290-L322)
+- [packages/admin/src/cafetera_admin/main.py:20-35](file://packages/admin/src/cafetera_admin/main.py#L20-L35)
+- [pyproject.toml:34-49](file://pyproject.toml#L34-L49)
 
 ## Conclusion
-You now have multiple pathways to set up cafetera_hr_bot locally:
+You now have a comprehensive understanding of the cafetera_hr_bot monorepo setup and development workflow. The workspace-based architecture provides several advantages:
 
-### Automated Path (Recommended)
-Use `bash scripts/run_admin.sh` for a complete, turnkey setup with Docker, AI models, and admin panel in minutes.
+### Benefits of Workspace Architecture
+- **Unified Dependency Management**: Single source of truth for all package dependencies
+- **Consistent Development Environment**: Standardized tooling across all packages
+- **Proper Import Resolution**: Clean package naming and import paths
+- **Modular Code Organization**: Clear separation of concerns across packages
 
-### Manual Path
-Follow the traditional VK bot development approach with polling mode and manual environment configuration.
+### Next Steps
+1. **Explore Package Structure**: Examine the three main packages and their responsibilities
+2. **Run Tests**: Execute the test suite to verify your setup
+3. **Experiment with Admin Interface**: Upload documents and test RAG functionality
+4. **Contribute Code**: Follow the established patterns for adding new features
 
-Both approaches provide access to the same core functionality: document management, RAG processing, and admin interface. Choose the automated path for rapid prototyping and the manual path for deep customization and learning.
-
-Proceed with the phased development plan to implement the admin panel features and integrate RAG capabilities using Qdrant and MinIO infrastructure.
+The workspace configuration ensures that all development activities align with the project's architectural principles, making it easier to maintain code quality and developer productivity.

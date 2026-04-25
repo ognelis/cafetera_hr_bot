@@ -1,0 +1,19 @@
+[project]
+name = "cafetera-admin"
+version = "0.1.0"
+description = "Admin web UI (FastAPI + HTMX) for Cafetera HR Bot"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "cafetera-core",
+    "fastapi>=0.135.3",
+    "hypercorn>=0.18.0",
+    "jinja2>=3.1.6",
+    "python-multipart>=0.0.24",
+]
+
+[tool.uv.sources]
+cafetera-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

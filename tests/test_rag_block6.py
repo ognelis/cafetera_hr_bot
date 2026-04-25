@@ -11,10 +11,10 @@ from unittest.mock import MagicMock, patch
 from docx import Document as DocxDocument
 from langchain_core.documents import Document as LCDocument
 
-from app.config import Settings
-from app.rag.chain import _format_docs, _format_docs_with_metadata, build_rag_chain
-from app.rag.prompts import SYSTEM_PROMPT
-from app.rag.retriever import COLLECTION_NAME, build_vectorstore, estimate_k
+from cafetera_core.config import CoreSettings
+from cafetera_core.rag.chain import _format_docs, _format_docs_with_metadata, build_rag_chain
+from cafetera_core.rag.prompts import SYSTEM_PROMPT
+from cafetera_core.rag.retriever import COLLECTION_NAME, build_vectorstore, estimate_k
 
 # ── Helpers ────────────────────────────────────────────────────────
 
@@ -35,20 +35,20 @@ def _make_docx(path: Path, paragraphs: list[tuple[str | None, str]]) -> None:
 
 class TestRagSettings:
     def test_defaults_for_qdrant(self):
-        s = Settings(vk_access_token="t", _env_file=None)
+        s = CoreSettings(_env_file=None)
         assert s.qdrant_url == "http://localhost:6333"
         assert s.qdrant_api_key is None
         assert s.qdrant_collection == "hr_documents"
 
     def test_defaults_for_llm(self):
-        s = Settings(vk_access_token="t", _env_file=None)
+        s = CoreSettings(_env_file=None)
         assert s.llm_provider == "ollama"
         assert s.llm_model == "qwen3.5:4b-q4_K_M"
         assert s.llm_base_url == "http://localhost:11434"
         assert s.llm_api_key == ""
 
     def test_defaults_for_embeddings(self):
-        s = Settings(vk_access_token="t", _env_file=None)
+        s = CoreSettings(_env_file=None)
         assert s.embedding_model == "qwen3-embedding:4b-q4_K_M"
 
     def test_qdrant_settings_from_env(self, monkeypatch):
@@ -56,7 +56,7 @@ class TestRagSettings:
         monkeypatch.setenv("QDRANT_URL", "http://qdrant:6333")
         monkeypatch.setenv("QDRANT_API_KEY", "secret")
         monkeypatch.setenv("QDRANT_COLLECTION", "custom_col")
-        s = Settings()
+        s = CoreSettings()
         assert s.qdrant_url == "http://qdrant:6333"
         assert s.qdrant_api_key == "secret"
         assert s.qdrant_collection == "custom_col"
@@ -67,7 +67,7 @@ class TestRagSettings:
         monkeypatch.setenv("LLM_MODEL", "gpt-4o-mini")
         monkeypatch.setenv("LLM_API_KEY", "sk-xxx")
         monkeypatch.setenv("LLM_BASE_URL", "https://api.openai.com/v1")
-        s = Settings()
+        s = CoreSettings()
         assert s.llm_provider == "openai"
         assert s.llm_model == "gpt-4o-mini"
         assert s.llm_api_key == "sk-xxx"
@@ -77,7 +77,7 @@ class TestRagSettings:
         monkeypatch.setenv("LLM_PROVIDER", "llamacpp")
         monkeypatch.setenv("LLM_BASE_URL", "http://localhost:8080/v1")
         monkeypatch.setenv("LLM_API_KEY", "")
-        s = Settings()
+        s = CoreSettings()
         assert s.llm_provider == "llamacpp"
         assert s.llm_base_url == "http://localhost:8080/v1"
 
@@ -87,7 +87,7 @@ class TestRagSettings:
 
 class TestExtractSections:
     def test_single_section_no_heading(self):
-        from app.rag.parser import _extract_sections
+        from cafetera_core.rag.parser import _extract_sections
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -103,7 +103,7 @@ class TestExtractSections:
         assert section_path == ""
 
     def test_multiple_headings(self):
-        from app.rag.parser import _extract_sections
+        from cafetera_core.rag.parser import _extract_sections
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -129,7 +129,7 @@ class TestExtractSections:
         assert sections[1][3] == "Chapter One > Section Two"  # section_path
 
     def test_empty_paragraphs_skipped(self):
-        from app.rag.parser import _extract_sections
+        from cafetera_core.rag.parser import _extract_sections
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -144,7 +144,7 @@ class TestExtractSections:
 
 class TestLoadDocx:
     def test_returns_lc_documents(self):
-        from app.rag.parser import load_docx
+        from cafetera_core.rag.parser import load_docx
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -155,7 +155,7 @@ class TestLoadDocx:
         assert all(isinstance(d, LCDocument) for d in docs)
 
     def test_metadata_contains_source(self):
-        from app.rag.parser import load_docx
+        from cafetera_core.rag.parser import load_docx
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "policy.docx"
@@ -165,7 +165,7 @@ class TestLoadDocx:
         assert docs[0].metadata["source"] == "policy.docx"
 
     def test_metadata_contains_section(self):
-        from app.rag.parser import load_docx
+        from cafetera_core.rag.parser import load_docx
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "manual.docx"
@@ -181,7 +181,7 @@ class TestLoadDocx:
         assert docs[0].metadata["section"] == "Vacation Policy"
 
     def test_long_text_is_chunked(self):
-        from app.rag.parser import CHUNK_SIZE, load_docx
+        from cafetera_core.rag.parser import CHUNK_SIZE, load_docx
 
         # CHUNK_SIZE is in tokens (~500), so use ~2000 tokens to ensure splitting
         long_text = "Word " * 2000  # ~10000 chars, ~2000 tokens
@@ -343,7 +343,7 @@ class TestBuildVectorstore:
         mock_client = MagicMock()
         mock_embeddings = MagicMock()
 
-        with patch("app.rag.retriever.QdrantVectorStore") as mock_vs_cls:
+        with patch("cafetera_core.rag.retriever.QdrantVectorStore") as mock_vs_cls:
             build_vectorstore(mock_client, mock_embeddings, "test_col")
             mock_vs_cls.assert_called_once_with(
                 client=mock_client,
@@ -379,7 +379,7 @@ class TestBuildLlmLlamaCpp:
             _env_file=None,
         )
         defaults.update(overrides)
-        return Settings(**defaults)
+        return CoreSettings(**defaults)
 
     def _fake_langchain_openai(self):
         mod = types.ModuleType("langchain_openai")
@@ -388,7 +388,7 @@ class TestBuildLlmLlamaCpp:
         return mod
 
     def test_uses_chat_openai_with_defaults(self):
-        from app.rag.chain import build_llm
+        from cafetera_core.rag.chain import build_llm
 
         fake = self._fake_langchain_openai()
         s = self._settings()
@@ -402,7 +402,7 @@ class TestBuildLlmLlamaCpp:
             )
 
     def test_passes_real_api_key_when_set(self):
-        from app.rag.chain import build_llm
+        from cafetera_core.rag.chain import build_llm
 
         fake = self._fake_langchain_openai()
         s = self._settings(llm_api_key="real-key")
@@ -416,7 +416,7 @@ class TestBuildLlmLlamaCpp:
             )
 
     def test_passes_custom_base_url(self):
-        from app.rag.chain import build_llm
+        from cafetera_core.rag.chain import build_llm
 
         fake = self._fake_langchain_openai()
         s = self._settings(llm_base_url="http://gpu-box:9090/v1")
@@ -432,7 +432,7 @@ class TestBuildLlmLlamaCpp:
     def test_import_error_message(self):
         import builtins
 
-        from app.rag.chain import build_llm
+        from cafetera_core.rag.chain import build_llm
 
         real_import = builtins.__import__
 
@@ -461,7 +461,7 @@ class TestBuildEmbeddingsLlamaCpp:
             _env_file=None,
         )
         defaults.update(overrides)
-        return Settings(**defaults)
+        return CoreSettings(**defaults)
 
     def _fake_langchain_openai(self):
         mod = types.ModuleType("langchain_openai")
@@ -470,7 +470,7 @@ class TestBuildEmbeddingsLlamaCpp:
         return mod
 
     def test_uses_openai_embeddings_with_defaults(self):
-        from app.rag.retriever import build_embeddings
+        from cafetera_core.rag.retriever import build_embeddings
 
         fake = self._fake_langchain_openai()
         s = self._settings()
@@ -483,7 +483,7 @@ class TestBuildEmbeddingsLlamaCpp:
             )
 
     def test_passes_real_api_key_when_set(self):
-        from app.rag.retriever import build_embeddings
+        from cafetera_core.rag.retriever import build_embeddings
 
         fake = self._fake_langchain_openai()
         s = self._settings(embedding_api_key="real-key")
@@ -498,7 +498,7 @@ class TestBuildEmbeddingsLlamaCpp:
     def test_import_error_message(self):
         import builtins
 
-        from app.rag.retriever import build_embeddings
+        from cafetera_core.rag.retriever import build_embeddings
 
         real_import = builtins.__import__
 

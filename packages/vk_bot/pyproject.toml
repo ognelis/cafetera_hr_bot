@@ -1,0 +1,16 @@
+[project]
+name = "cafetera-vk-bot"
+version = "0.1.0"
+description = "VK Bot integration for Cafetera HR Bot"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "cafetera-core",
+    "vkbottle>=4.8.1",
+]
+
+[tool.uv.sources]
+cafetera-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

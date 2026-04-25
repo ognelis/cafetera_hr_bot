@@ -214,76 +214,62 @@ bash scripts/run_admin.sh
 
 ---
 
-## Сборка и запуск Docker-контейнеров
+## Сборка и запуск через Docker Compose
 
-Проект содержит два Dockerfile для разных режимов работы.
-
-### Сборка образов
+Весь стек (инфраструктура + приложения) можно поднять одной командой:
 
 ```bash
-# Админ-панель
-docker build -f Dockerfile.admin -t cafetera-admin .
-
-# VK-бот в режиме polling
-docker build -f Dockerfile.polling_vk -t cafetera-polling-vk .
+docker compose up -d --build
 ```
 
-### Запуск контейнеров
+Это запустит:
+- **Qdrant** — векторная база данных (порт 6333)
+- **MinIO** — файловое хранилище S3 (порт 9000)
+- **PostgreSQL** — реляционная БД (порт 5432)
+- **Admin-панель** — веб-интерфейс (порт 8000)
+- **VK-бот** — бот в режиме polling
+
+Админка будет доступна по адресу: **http://localhost:8000/documents**
+
+Посмотреть логи:
 
 ```bash
-# Админ-панель (доступна на http://localhost:8000)
-docker run --rm --env-file .env -p 8000:8000 cafetera-admin
-
-# VK-бот в режиме polling
-docker run --rm --env-file .env cafetera-polling-vk
+docker compose logs -f          # все сервисы
+docker compose logs -f admin     # только админка
+docker compose logs -f vk_bot    # только VK-бот
 ```
 
-### Подключение к внешним сервисам
-
-Контейнерам нужен доступ к внешним сервисам: PostgreSQL, Qdrant, MinIO, LLM-сервер. Адреса подключения передаются через переменные окружения в `.env`.
-
-Если сервисы запущены через `docker compose`, используйте флаг `--network` для подключения к той же сети:
+Остановить все сервисы:
 
 ```bash
-docker run --rm --env-file .env --network cafetera_hr_bot_default -p 8000:8000 cafetera-admin
+docker compose down
 ```
 
-> **Примечание:** в контейнере админ-панели переменная `BIND_HOST` автоматически устанавливается в `0.0.0.0` для корректной работы внутри Docker.
+> **Примечание:** `docker-compose.yml` автоматически переопределяет адреса сервисов (`DATABASE_URL`, `QDRANT_URL`, `S3_ENDPOINT_URL`) внутри контейнеров — ручное указание `--network` и `-e` не требуется.
 
-#### Использование имён сервисов вместо localhost
+### Оркестрация через run_all.sh
 
-Когда контейнер запущен с `--network cafetera_hr_bot_default`, внутри него `localhost` ссылается на сам контейнер, а не на хост-машину. Для подключения к сервисам, запущенным через `docker compose`, используйте **имена контейнеров** в качестве хостов:
-
-| Сервис | Имя хоста в docker compose |
-|---|---|
-| PostgreSQL | `rag-bot-postgres` |
-| Qdrant | `rag-bot-qdrant` |
-| MinIO | `rag-bot-minio` |
-
-Пример запуска админ-панели с переопределением адресов сервисов:
+Скрипт `run_all.sh` запускает весь стек через Docker Compose с интерактивным выбором LLM/Embedding провайдера:
 
 ```bash
-docker run --rm \
-  --env-file .env \
-  -e DATABASE_URL=postgresql://cafetera:cafetera@rag-bot-postgres:5432/cafetera \
-  -e QDRANT_URL=http://rag-bot-qdrant:6333 \
-  -e S3_ENDPOINT_URL=http://rag-bot-minio:9000 \
-  --network cafetera_hr_bot_default \
-  -p 8000:8000 \
-  cafetera-admin
+bash scripts/run_all.sh
 ```
 
-Аналогично для VK-бота в режиме polling:
+Он автоматически поднимает инфраструктуру и приложения, проверяет готовность сервисов, и запускает Ollama при необходимости.
 
-```bash
-docker run --rm \
-  --env-file .env \
-  -e DATABASE_URL=postgresql://cafetera:cafetera@rag-bot-postgres:5432/cafetera \
-  -e QDRANT_URL=http://rag-bot-qdrant:6333 \
-  -e S3_ENDPOINT_URL=http://rag-bot-minio:9000 \
-  --network cafetera_hr_bot_default \
-  cafetera-polling-vk
-```
+---
+
+## Структура проекта
+
+Проект организован как **uv workspace** с тремя пакетами:
+
+| Пакет | Назначение | Путь |
+|---|---|---|
+| `cafetera-core` | Общая логика: домен, RAG, хранилище, конфигурация | `packages/core/` |
+| `cafetera-admin` | Админ-панель: FastAPI, API, шаблоны | `packages/admin/` |
+| `cafetera-vk-bot` | VK-бот: хендлеры, клавиатуры, polling | `packages/vk_bot/` |
+
+Каждый пакет имеет собственный `pyproject.toml` с изолированными зависимостями. Общий код переиспользуется через `cafetera-core`.
 
 ---
 

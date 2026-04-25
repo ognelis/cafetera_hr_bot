@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from app.config import Settings
-from app.rag.colbert_embeddings import (
+from cafetera_core.config import CoreSettings
+from cafetera_core.rag.colbert_embeddings import (
     ColbertEmbeddingAdapter,
     build_colbert_embeddings,
 )
@@ -18,14 +18,14 @@ from app.rag.colbert_embeddings import (
 
 def test_build_colbert_embeddings_disabled_when_reranking_false():
     """When reranking_enabled=False, returns None."""
-    settings = Settings(reranking_enabled=False, _env_file=None)
+    settings = CoreSettings(reranking_enabled=False, _env_file=None)
     result = build_colbert_embeddings(settings)
     assert result is None
 
 
 def test_build_colbert_embeddings_returns_adapter_when_enabled():
     """When reranking_enabled=True, returns adapter."""
-    settings = Settings(
+    settings = CoreSettings(
         reranking_enabled=True,
         colbert_rerank_model="colbert-ir/colbertv2.0",
         _env_file=None,
@@ -35,7 +35,7 @@ def test_build_colbert_embeddings_returns_adapter_when_enabled():
     mock_adapter.dimension = 128
 
     with patch(
-        "app.rag.colbert_embeddings.ColbertEmbeddingAdapter",
+        "cafetera_core.rag.colbert_embeddings.ColbertEmbeddingAdapter",
         return_value=mock_adapter,
     ) as mock_cls:
         result = build_colbert_embeddings(settings)
@@ -46,13 +46,13 @@ def test_build_colbert_embeddings_returns_adapter_when_enabled():
 
 def test_build_colbert_embeddings_graceful_degradation_on_import_error():
     """When fastembed is not installed, returns None instead of raising."""
-    settings = Settings(
+    settings = CoreSettings(
         reranking_enabled=True,
         _env_file=None,
     )
 
     with patch(
-        "app.rag.colbert_embeddings.ColbertEmbeddingAdapter",
+        "cafetera_core.rag.colbert_embeddings.ColbertEmbeddingAdapter",
         side_effect=ImportError("No module named 'fastembed'"),
     ):
         result = build_colbert_embeddings(settings)
@@ -62,13 +62,13 @@ def test_build_colbert_embeddings_graceful_degradation_on_import_error():
 
 def test_build_colbert_embeddings_graceful_degradation_on_other_error():
     """When model loading fails for other reasons, returns None instead of raising."""
-    settings = Settings(
+    settings = CoreSettings(
         reranking_enabled=True,
         _env_file=None,
     )
 
     with patch(
-        "app.rag.colbert_embeddings.ColbertEmbeddingAdapter",
+        "cafetera_core.rag.colbert_embeddings.ColbertEmbeddingAdapter",
         side_effect=RuntimeError("Model download failed"),
     ):
         result = build_colbert_embeddings(settings)

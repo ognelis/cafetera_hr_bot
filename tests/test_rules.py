@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.integrations.vk.rules import PayloadCmdRule
+from cafetera_vk_bot.rules import PayloadCmdRule
 
 
 def _make_message(payload: dict | None = None) -> MagicMock:

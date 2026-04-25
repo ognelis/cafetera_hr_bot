@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.domain.content import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
-from app.domain.qa_service import (
+from cafetera_core.domain.content import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
+from cafetera_core.domain.qa_service import (
     _TRUNCATION_SUFFIX,
     VK_MSG_LIMIT,
     QAService,
@@ -217,21 +217,21 @@ class TestHandlerImports:
     """Verify that P0+P1 handlers use send_rag_answer helper (Block 7+8)."""
 
     def test_fire_handler_imports_send_rag_answer(self):
-        from app.integrations.vk.handlers import fire
+        from cafetera_vk_bot.handlers import fire
 
         assert hasattr(fire, "send_rag_answer")
 
     def test_vacation_handler_imports_send_rag_answer(self):
-        from app.integrations.vk.handlers import vacation
+        from cafetera_vk_bot.handlers import vacation
 
         assert hasattr(vacation, "send_rag_answer")
 
     def test_pay_handler_imports_send_rag_answer(self):
-        from app.integrations.vk.handlers import pay
+        from cafetera_vk_bot.handlers import pay
 
         assert hasattr(pay, "send_rag_answer")
 
     def test_sections_handler_imports_send_rag_answer(self):
-        from app.integrations.vk.handlers import sections
+        from cafetera_vk_bot.handlers import sections
 
         assert hasattr(sections, "send_rag_answer")

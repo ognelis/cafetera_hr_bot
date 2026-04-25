@@ -3,6 +3,7 @@
 <cite>
 **Referenced Files in This Document**
 - [pyproject.toml](file://pyproject.toml)
+- [tests/conftest.py](file://tests/conftest.py)
 - [tests/test_config.py](file://tests/test_config.py)
 - [tests/test_bot_factory.py](file://tests/test_bot_factory.py)
 - [tests/test_keyboards.py](file://tests/test_keyboards.py)
@@ -23,40 +24,42 @@
 - [tests/test_api_documents_bulk.py](file://tests/test_api_documents_bulk.py)
 - [tests/test_document_service.py](file://tests/test_document_service.py)
 - [tests/test_indexer.py](file://tests/test_indexer.py)
-- [tests/test_category_hints.py](file://tests/test_category_hints.py)
-- [tests/conftest.py](file://tests/conftest.py)
 - [tests/test_category_file_service.py](file://tests/test_category_file_service.py)
 - [tests/test_category_files.py](file://tests/test_category_files.py)
-- [tests/test_rag_block6.py](file://tests/test_rag_block6.py)
-- [app/api/documents.py](file://app/api/documents.py)
-- [app/api/deps.py](file://app/api/deps.py)
-- [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
-- [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
-- [app/integrations/vk/rules.py](file://app/integrations/vk/rules.py)
-- [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
-- [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
-- [app/integrations/vk/handlers/sections.py](file://app/integrations/vk/handlers/sections.py)
-- [app/integrations/vk/handlers/fallback.py](file://app/integrations/vk/handlers/fallback.py)
-- [app/integrations/vk/handlers/fire.py](file://app/integrations/vk/handlers/fire.py)
-- [app/integrations/vk/handlers/vacation.py](file://app/integrations/vk/handlers/vacation.py)
-- [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
-- [app/integrations/vk/handlers/__init__.py](file://app/integrations/vk/handlers/__init__.py)
-- [app/domain/content.py](file://app/domain/content.py)
-- [app/domain/entities.py](file://app/domain/entities.py)
-- [app/domain/qa_service.py](file://app/domain/qa_service.py)
-- [app/domain/topic_hints.py](file://app/domain/topic_hints.py)
-- [app/domain/document_service.py](file://app/domain/document_service.py)
-- [app/config.py](file://app/config.py)
-- [app/rag/chain.py](file://app/rag/chain.py)
-- [app/rag/retriever.py](file://app/rag/retriever.py)
-- [app/rag/parser.py](file://app/rag/parser.py)
-- [app/rag/indexer.py](file://app/rag/indexer.py)
-- [app/rag/prompts.py](file://app/rag/prompts.py)
-- [app/storage/models.py](file://app/storage/models.py)
-- [app/storage/database.py](file://app/storage/database.py)
-- [app/storage/document_repo.py](file://app/storage/document_repo.py)
-- [app/storage/category_repo.py](file://app/storage/category_repo.py)
-- [app/resources.py](file://app/resources.py)
+- [tests/test_category_hints.py](file://tests/test_category_hints.py)
+- [packages/core/src/cafetera_core/config.py](file://packages/core/src/cafetera_core/config.py)
+- [packages/core/src/cafetera_core/domain/content.py](file://packages/core/src/cafetera_core/domain/content.py)
+- [packages/core/src/cafetera_core/domain/entities.py](file://packages/core/src/cafetera_core/domain/entities.py)
+- [packages/core/src/cafetera_core/domain/qa_service.py](file://packages/core/src/cafetera_core/domain/qa_service.py)
+- [packages/core/src/cafetera_core/domain/topic_hints.py](file://packages/core/src/cafetera_core/domain/topic_hints.py)
+- [packages/core/src/cafetera_core/domain/document_service.py](file://packages/core/src/cafetera_core/domain/document_service.py)
+- [packages/core/src/cafetera_core/rag/chain.py](file://packages/core/src/cafetera_core/rag/chain.py)
+- [packages/core/src/cafetera_core/rag/retriever.py](file://packages/core/src/cafetera_core/rag/retriever.py)
+- [packages/core/src/cafetera_core/rag/parser.py](file://packages/core/src/cafetera_core/rag/parser.py)
+- [packages/core/src/cafetera_core/rag/indexer.py](file://packages/core/src/cafetera_core/rag/indexer.py)
+- [packages/core/src/cafetera_core/rag/prompts.py](file://packages/core/src/cafetera_core/rag/prompts.py)
+- [packages/core/src/cafetera_core/storage/models.py](file://packages/core/src/cafetera_core/storage/models.py)
+- [packages/core/src/cafetera_core/storage/database.py](file://packages/core/src/cafetera_core/storage/database.py)
+- [packages/core/src/cafetera_core/storage/document_repo.py](file://packages/core/src/cafetera_core/storage/document_repo.py)
+- [packages/core/src/cafetera_core/storage/category_repo.py](file://packages/core/src/cafetera_core/storage/category_repo.py)
+- [packages/admin/src/cafetera_admin/config.py](file://packages/admin/src/cafetera_admin/config.py)
+- [packages/admin/src/cafetera_admin/main.py](file://packages/admin/src/cafetera_admin/main.py)
+- [packages/admin/src/cafetera_admin/api/documents.py](file://packages/admin/src/cafetera_admin/api/documents.py)
+- [packages/admin/src/cafetera_admin/api/deps.py](file://packages/admin/src/cafetera_admin/api/deps.py)
+- [packages/admin/src/cafetera_admin/api/documents_auth.py](file://packages/admin/src/cafetera_admin/api/documents_auth.py)
+- [packages/admin/src/cafetera_admin/api/documents_upload.py](file://packages/admin/src/cafetera_admin/api/documents_upload.py)
+- [packages/admin/src/cafetera_admin/api/documents_bulk.py](file://packages/admin/src/cafetera_admin/api/documents_bulk.py)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py](file://packages/vk_bot/src/cafetera_vk_bot/bot.py)
+- [packages/vk_bot/src/cafetera_vk_bot/keyboards.py](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py)
+- [packages/vk_bot/src/cafetera_vk_bot/rules.py](file://packages/vk_bot/src/cafetera_vk_bot/rules.py)
+- [packages/vk_bot/src/cafetera_vk_bot/states.py](file://packages/vk_bot/src/cafetera_vk_bot/states.py)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/start.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/start.py)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py)
 - [templates/login.html](file://templates/login.html)
 - [templates/documents.html](file://templates/documents.html)
 - [templates/partials/pagination.html](file://templates/partials/pagination.html)
@@ -66,16 +69,11 @@
 
 ## Update Summary
 **Changes Made**
-- **Enhanced PostgreSQL Database Testing Infrastructure**: Complete migration from SQLite to PostgreSQL for test database infrastructure using Testcontainers
-- **Docker Availability Detection**: Implemented automatic Docker availability detection with graceful skipping of container-based tests
-- **Comprehensive Test Fixtures**: Enhanced conftest.py with AsyncMock support, PostgreSQL database integration, and improved test isolation
-- **Improved Test Isolation**: Enhanced table dropping and recreation with CASCADE option for better isolation
-- **Async Database Operations**: Proper async database connection handling with asyncpg driver
-- **Modular Test Organization**: Enhanced admin document API testing with specialized test modules for authentication, upload, and bulk operations
-- **Advanced Mocking Infrastructure**: Comprehensive AsyncMock usage for Qdrant client mocking and S3 storage operations
-- **Category-Aware Functionality Testing**: Established comprehensive testing infrastructure for new category-aware RAG prompts with CATEGORY_HINTS validation, chain building with category hints, QA service parameter passing, and global chain construction
-- **Enhanced Indexer Testing**: Added comprehensive tests for proper handling of the is_search_enabled flag during document indexing with top-level field storage validation
-- **Expanded Test Coverage**: Enhanced test coverage for all new category-aware features and functionality across multiple test modules
+- **Enhanced Package Structure Support**: Updated testing infrastructure to work with new uv workspace configuration using proper import paths for packages/core, packages/admin, and packages/vk_bot
+- **Improved Python Path Configuration**: Added comprehensive pythonpath entries for all three packages to ensure proper import resolution across test modules
+- **Modernized Workspace Configuration**: Migrated from monorepo structure to uv workspace with proper package discovery and dependency management
+- **Enhanced Import Path Resolution**: Updated all test imports to use new package structure with cafetera_core, cafetera_admin, and cafetera_vk_bot module names
+- **Streamlined Test Organization**: Maintained comprehensive test coverage while adapting to new package structure with proper module imports
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -92,37 +90,37 @@
 ## Introduction
 This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly enhanced with modern async testing patterns, comprehensive AsyncMock usage for Qdrant client mocking, expanded test coverage for the new async operations and combined vector embedding approach in hybrid search functionality, and a complete migration from SQLite to PostgreSQL for production-like testing environments using Testcontainers.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, expanded test coverage for new async operations and combined vector embedding approach, **complete migration from SQLite to PostgreSQL for production-like testing environments using Testcontainers**, **comprehensive category-aware functionality testing with CATEGORY_HINTS validation and chain building**, **enhanced indexer testing for is_search_enabled flag handling**, and **expanded test coverage for all new category-aware features and functionality**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, expanded test coverage for new async operations and combined vector embedding approach, **complete migration from SQLite to PostgreSQL for production-like testing environments using Testcontainers**, **comprehensive category-aware functionality testing with CATEGORY_HINTS validation and chain building**, **enhanced indexer testing for is_search_enabled flag handling**, **expanded test coverage for all new category-aware features and functionality**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, and **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**.
 
 ## Project Structure
-The testing effort is organized under the tests/ directory with a modernized approach featuring comprehensive AsyncMock usage, PostgreSQL database testing, and Docker container integration:
-- **Configuration loading and defaults** with explicit environment file control and async fixtures
-- **Bot factory and handler registration** with simplified handler counting and async validation
-- **Keyboard builders and payload constants** (focusing on core handler functionality)
-- **Domain content validation** (static content and formatters)
-- **Entity definitions and legal entity management**
-- **RAG stub service and handler wiring** with updated architectural patterns
-- **QA service testing** with RAG chain wrapper functionality and new query_rag_with_wait approach
-- **Custom payload matching rules**
-- **State machine definitions**
-- **Handler modules** (start, ask, sections, fallback, fire, vacation, pay) with updated architectural patterns
-- **Topic hints detection** for scenario linking and disclaimer handling
-- **Enhanced admin document API testing** with modular approach covering authentication, upload, bulk operations, and remaining functionality
-- **Comprehensive test fixtures** in conftest.py for shared testing infrastructure with AsyncMock support and PostgreSQL database integration
-- **Document storage system testing** with comprehensive database initialization, CRUD operations, status transitions, search enablement functionality, and filtering/sorting capabilities
-- **Category file service testing** with PostgreSQL database integration and S3 storage mocking
-- **Enhanced RAG infrastructure testing** with llama.cpp provider dispatch logic, configuration parameter validation, and integration with existing RAG components
-- **Comprehensive parser testing** for document ingestion, section extraction, chunking, and dispatcher functionality
-- **Expanded RAG pipeline testing** with indexer validation and document service lifecycle management
-- **Comprehensive filtering and sorting API endpoint testing** with status, source type, and sort field validation
-- **Updated architectural testing patterns** validating the new query_rag_with_wait and send_rag_answer approach across all handlers
-- **Updated QAService resource management testing** with AsyncMock for Qdrant client lifecycle validation
-- **Enhanced semantic chunking testing** with FakeEmbeddings mock and comprehensive threshold validation
-- **Comprehensive hybrid search testing** with AsyncMock for sparse embeddings and vector store integration
-- **Extended configuration testing** for semantic chunking and hybrid search settings
-- **AsyncMock-based test infrastructure** for comprehensive async operation validation
-- **Category hints testing** with comprehensive validation of CATEGORY_HINTS integration and chain building
-- **Enhanced indexer testing** with comprehensive validation of is_search_enabled flag handling
+The testing effort is organized under the tests/ directory with a modernized approach featuring comprehensive AsyncMock usage, PostgreSQL database testing, and Docker container integration within the new uv workspace structure:
+- **Configuration loading and defaults** with explicit environment file control and async fixtures using cafetera_vk_bot.config
+- **Bot factory and handler registration** with simplified handler counting and async validation using cafetera_vk_bot.bot
+- **Keyboard builders and payload constants** (focusing on core handler functionality) using cafetera_vk_bot.keyboards
+- **Domain content validation** (static content and formatters) using cafetera_core.domain.content
+- **Entity definitions and legal entity management** using cafetera_core.domain.entities
+- **RAG stub service and handler wiring** with updated architectural patterns using cafetera_core.domain.qa_service
+- **QA service testing** with RAG chain wrapper functionality and new query_rag_with_wait approach using cafetera_core.domain.qa_service
+- **Custom payload matching rules** using cafetera_vk_bot.rules
+- **State machine definitions** using cafetera_vk_bot.states
+- **Handler modules** (start, ask, sections, fallback, fire, vacation, pay) with updated architectural patterns using cafetera_vk_bot.handlers
+- **Topic hints detection** for scenario linking and disclaimer handling using cafetera_core.domain.topic_hints
+- **Enhanced admin document API testing** with modular approach covering authentication, upload, bulk operations, and remaining functionality using cafetera_admin.api
+- **Comprehensive test fixtures** in conftest.py for shared testing infrastructure with AsyncMock support and PostgreSQL database integration using cafetera_core.storage
+- **Document storage system testing** with comprehensive database initialization, CRUD operations, status transitions, search enablement functionality, and filtering/sorting capabilities using cafetera_core.storage
+- **Category file service testing** with PostgreSQL database integration and S3 storage mocking using cafetera_core.storage
+- **Enhanced RAG infrastructure testing** with llama.cpp provider dispatch logic, configuration parameter validation, and integration with existing RAG components using cafetera_core.rag
+- **Comprehensive parser testing** for document ingestion, section extraction, chunking, and dispatcher functionality using cafetera_core.rag.parser
+- **Expanded RAG pipeline testing** with indexer validation and document service lifecycle management using cafetera_core.rag
+- **Comprehensive filtering and sorting API endpoint testing** with status, source type, and sort field validation using cafetera_admin.api
+- **Updated architectural testing patterns** validating the new query_rag_with_wait and send_rag_answer approach across all handlers using cafetera_vk_bot.handlers
+- **Updated QAService resource management testing** with AsyncMock for Qdrant client lifecycle validation using cafetera_core.domain.qa_service
+- **Enhanced semantic chunking testing** with FakeEmbeddings mock and comprehensive threshold validation using cafetera_core.rag.parser
+- **Comprehensive hybrid search testing** with AsyncMock for sparse embeddings and vector store integration using cafetera_core.rag.retriever
+- **Extended configuration testing** for semantic chunking and hybrid search settings using cafetera_core.config
+- **AsyncMock-based test infrastructure** for comprehensive async operation validation using cafetera_core.domain.qa_service
+- **Category hints testing** with comprehensive validation of CATEGORY_HINTS integration and chain building using cafetera_core.rag.prompts
+- **Enhanced indexer testing** with comprehensive validation of is_search_enabled flag handling using cafetera_core.rag.indexer
 
 ```mermaid
 graph TB
@@ -151,39 +149,50 @@ T_DOCS_BULK["test_api_documents_bulk.py"]
 T_DOC_SERVICE["test_document_service.py"]
 T_INDEXER["test_indexer.py"]
 T_CONFTEST["conftest.py"]
-APP["app/integrations/vk/"]
-BOT["bot.py"]
-KB["keyboards.py"]
-RULES["rules.py"]
-STATES["states.py"]
-DOMAIN["app/domain/"]
-CONTENT["content.py"]
-ENTITIES["entities.py"]
-QA["qa_service.py"]
-TOPIC_HINTS["topic_hints.py"]
-DOCUMENT_SERVICE["document_service.py"]
-STORAGE["app/storage/"]
-MODELS["models.py"]
-DATABASE["database.py"]
-REPO["document_repo.py"]
-CATEGORY_REPO["category_repo.py"]
-RAG["app/rag/"]
-PARSER["parser.py"]
-CHAIN["chain.py"]
-RETRIEVER["retriever.py"]
-INDEXER["indexer.py"]
-PROMPTS["prompts.py"]
-RESOURCES["resources.py"]
-API["app/api/"]
-DOCS_API["documents.py"]
-DOCS_DEPS["deps.py"]
+CORE["cafetera_core/"]
+ADMIN["cafetera_admin/"]
+VK["cafetera_vk_bot/"]
+CORE_CONFIG["config.py"]
+CORE_CONTENT["domain/content.py"]
+CORE_ENTITIES["domain/entities.py"]
+CORE_QA["domain/qa_service.py"]
+CORE_TOPIC["domain/topic_hints.py"]
+CORE_DOC_SERVICE["domain/document_service.py"]
+CORE_RAG_CHAIN["rag/chain.py"]
+CORE_RAG_RETRIEVER["rag/retriever.py"]
+CORE_RAG_PARSER["rag/parser.py"]
+CORE_RAG_INDEXER["rag/indexer.py"]
+CORE_RAG_PROMPTS["rag/prompts.py"]
+CORE_STORAGE_MODELS["storage/models.py"]
+CORE_STORAGE_DB["storage/database.py"]
+CORE_STORAGE_DOC_REPO["storage/document_repo.py"]
+CORE_STORAGE_CAT_REPO["storage/category_repo.py"]
+ADMIN_CONFIG["config.py"]
+ADMIN_MAIN["main.py"]
+ADMIN_DOCS["api/documents.py"]
+ADMIN_DOCS_DEPS["api/deps.py"]
+ADMIN_DOCS_AUTH["api/documents_auth.py"]
+ADMIN_DOCS_UPLOAD["api/documents_upload.py"]
+ADMIN_DOCS_BULK["api/documents_bulk.py"]
+VK_BOT["bot.py"]
+VK_KEYBOARDS["keyboards.py"]
+VK_RULES["rules.py"]
+VK_STATES["states.py"]
+VK_HANDLERS["handlers/"]
+VK_START["handlers/start.py"]
+VK_SECTIONS["handlers/sections.py"]
+VK_FALLBACK["handlers/fallback.py"]
+VK_FIRE["handlers/fire.py"]
+VK_VACATION["handlers/vacation.py"]
+VK_ASK["handlers/ask.py"]
+VK_HANDLERS_INIT["handlers/__init__.py"]
 TEMPLATES["templates/"]
 LOGIN_HTML["login.html"]
 DOCS_HTML["documents.html"]
 PARTIALS["partials/"]
 PAGINATION["pagination.html"]
 SCRIPTS["scripts/"]
-RUN_LLAMA["run_llama_qwen.sh"]
+RUN_ADMIN["run_admin.sh"]
 T --> T_CFG
 T --> T_BOT
 T --> T_KB
@@ -208,36 +217,47 @@ T --> T_DOCS_BULK
 T --> T_DOC_SERVICE
 T --> T_INDEXER
 T --> T_CONFTEST
-APP --> BOT
-APP --> KB
-APP --> RULES
-APP --> STATES
-APP --> HANDLERS
-DOMAIN --> CONTENT
-DOMAIN --> ENTITIES
-DOMAIN --> QA
-DOMAIN --> TOPIC_HINTS
-DOMAIN --> DOCUMENT_SERVICE
-STORAGE --> MODELS
-STORAGE --> DATABASE
-STORAGE --> REPO
-STORAGE --> CATEGORY_REPO
-RAG --> PARSER
-RAG --> CHAIN
-RAG --> RETRIEVER
-RAG --> INDEXER
-RAG --> PROMPTS
-RAG --> RESOURCES
-API --> DOCS_API
-API --> DOCS_DEPS
+CORE --> CORE_CONFIG
+CORE --> CORE_CONTENT
+CORE --> CORE_ENTITIES
+CORE --> CORE_QA
+CORE --> CORE_TOPIC
+CORE --> CORE_DOC_SERVICE
+CORE --> CORE_RAG_CHAIN
+CORE --> CORE_RAG_RETRIEVER
+CORE --> CORE_RAG_PARSER
+CORE --> CORE_RAG_INDEXER
+CORE --> CORE_RAG_PROMPTS
+CORE --> CORE_STORAGE_MODELS
+CORE --> CORE_STORAGE_DB
+CORE --> CORE_STORAGE_DOC_REPO
+CORE --> CORE_STORAGE_CAT_REPO
+ADMIN --> ADMIN_CONFIG
+ADMIN --> ADMIN_MAIN
+ADMIN --> ADMIN_DOCS
+ADMIN --> ADMIN_DOCS_DEPS
+ADMIN --> ADMIN_DOCS_AUTH
+ADMIN --> ADMIN_DOCS_UPLOAD
+ADMIN --> ADMIN_DOCS_BULK
+VK --> VK_BOT
+VK --> VK_KEYBOARDS
+VK --> VK_RULES
+VK --> VK_STATES
+VK --> VK_HANDLERS
+VK_HANDLERS --> VK_START
+VK_HANDLERS --> VK_SECTIONS
+VK_HANDLERS --> VK_FALLBACK
+VK_HANDLERS --> VK_FIRE
+VK_HANDLERS --> VK_VACATION
+VK_HANDLERS --> VK_ASK
+VK_HANDLERS --> VK_HANDLERS_INIT
+ADMIN --> TEMPLATES
 TEMPLATES --> LOGIN_HTML
 TEMPLATES --> DOCS_HTML
 TEMPLATES --> PARTIALS
 PARTIALS --> PAGINATION
-APP --> CFG
-RAG --> CHAIN
-RAG --> RETRIEVER
-SCRIPTS --> RUN_LLAMA
+ADMIN --> SCRIPTS
+SCRIPTS --> RUN_ADMIN
 ```
 
 **Diagram sources**
@@ -264,10 +284,10 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
 - [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
-- [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
+- [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
 
 **Section sources**
-- [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
+- [pyproject.toml:22-34](file://pyproject.toml#L22-L34)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_bot_factory.py:1-79](file://tests/test_bot_factory.py#L1-L79)
 - [tests/test_keyboards.py:1-222](file://tests/test_keyboards.py#L1-L222)
@@ -291,40 +311,40 @@ SCRIPTS --> RUN_LLAMA
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
 - [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
-- [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
+- [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
 
 ## Core Components
-- **Configuration tests** validate default values and environment overrides with explicit environment file control.
-- **Bot factory tests** verify handler registration order and token forwarding, with simplified handler count breakdown.
-- **Keyboard tests** validate structure, payloads, and service-row behavior (focusing on core handler functionality).
-- **Domain content tests** validate static content, formatters, and RAG stub functionality.
-- **Entity tests** validate legal entity definitions and management.
-- **QA service tests** validate RAG chain wrapper functionality with truncation, error handling, and resource management, **including updated testing for Qdrant client lifecycle ownership with AsyncMock validation**, including the new query_rag_with_wait approach.
-- **Custom rule tests** validate payload matching and routing logic.
-- **State machine tests** validate the state machine definition and uniqueness.
-- **Handler modules** are tested indirectly via bot wiring and keyboard payloads, with updated architectural patterns.
-- **Enhanced RAG stub testing** covers specialized features with dedicated test classes for different functionality blocks.
-- **Topic hints tests** validate scenario detection and background-topic disclaimer handling.
-- **Ask handler tests** validate state management, QA service integration, and scenario navigation using the new query_rag_with_wait approach.
-- **Enhanced admin document API testing** validates authentication, authorization, Russian localization validation, and comprehensive filtering/sorting functionality across multiple specialized test modules.
-- **Comprehensive test fixtures** in conftest.py provide shared testing infrastructure including database initialization, mock services, and authenticated client creation with AsyncMock support and **PostgreSQL database integration with Docker container management**.
-- **Document storage system tests** validate database initialization, CRUD operations, status transitions, search enablement functionality, and comprehensive filtering/sorting capabilities with 278 lines of new test coverage.
-- **Category file service tests** validate PostgreSQL database integration, S3 storage mocking, and category file management functionality.
-- **Enhanced RAG infrastructure testing** validates llama.cpp provider functionality, configuration parameter validation, and error handling scenarios.
-- **Comprehensive parser testing** validates document ingestion, section extraction, chunking, and dispatcher functionality for .docx and .doc file processing, including semantic chunking with embeddings validation.
-- **Expanded RAG pipeline testing** validates indexer validation and document service lifecycle management.
-- **Comprehensive filtering and sorting API endpoint testing** validates status filtering, source type filtering, sort field validation, and pagination functionality.
-- **Updated architectural testing patterns** validate the new query_rag_with_wait and send_rag_answer approach across all handlers.
-- **Updated QAService testing** validates resource management with Qdrant client lifecycle ownership using AsyncMock.
-- **Enhanced semantic chunking testing** validates FakeEmbeddings mock usage, comprehensive threshold validation, and file format-specific behavior for both .docx and .doc files.
-- **Comprehensive hybrid search testing** validates sparse embedding creation, vector store construction with sparse embeddings, index chunking functionality, and settings configuration defaults using AsyncMock.
-- **Extended configuration testing** validates new semantic chunking and hybrid search settings including chunk_strategy, semantic_breakpoint_threshold_type, semantic_breakpoint_threshold_amount, retrieval_mode, and sparse_embedding_model.
-- **Resource management testing** validates sparse embeddings initialization and cleanup in AppResources with graceful degradation for hybrid search mode.
-- **AsyncMock-based test infrastructure** provides comprehensive async operation validation with proper await semantics and async fixtures.
-- **Category hints testing** validates CATEGORY_HINTS integration, chain building with category hints, QA service parameter passing, and global chain construction with comprehensive test coverage of 248 lines.
-- **Enhanced indexer testing** validates proper handling of the is_search_enabled flag during document indexing with comprehensive validation of top-level field storage and metadata preservation.
+- **Configuration tests** validate default values and environment overrides with explicit environment file control using cafetera_vk_bot.config.
+- **Bot factory tests** verify handler registration order and token forwarding, with simplified handler count breakdown using cafetera_vk_bot.bot and cafetera_vk_bot.handlers.
+- **Keyboard tests** validate structure, payloads, and service-row behavior (focusing on core handler functionality) using cafetera_vk_bot.keyboards.
+- **Domain content tests** validate static content, formatters, and RAG stub functionality using cafetera_core.domain.content.
+- **Entity tests** validate legal entity definitions and management using cafetera_core.domain.entities.
+- **QA service tests** validate RAG chain wrapper functionality with truncation, error handling, and resource management, **including updated testing for Qdrant client lifecycle ownership with AsyncMock validation**, including the new query_rag_with_wait approach using cafetera_core.domain.qa_service.
+- **Custom rule tests** validate payload matching and routing logic using cafetera_vk_bot.rules.
+- **State machine tests** validate the state machine definition and uniqueness using cafetera_vk_bot.states.
+- **Handler modules** are tested indirectly via bot wiring and keyboard payloads, with updated architectural patterns using cafetera_vk_bot.handlers.
+- **Enhanced RAG stub testing** covers specialized features with dedicated test classes for different functionality blocks using cafetera_core.domain.qa_service.
+- **Topic hints tests** validate scenario detection and background-topic disclaimer handling using cafetera_core.domain.topic_hints.
+- **Ask handler tests** validate state management, QA service integration, and scenario navigation using the new query_rag_with_wait approach using cafetera_vk_bot.handlers.
+- **Enhanced admin document API testing** validates authentication, authorization, Russian localization validation, and comprehensive filtering/sorting functionality across multiple specialized test modules using cafetera_admin.api.
+- **Comprehensive test fixtures** in conftest.py provide shared testing infrastructure including database initialization, mock services, and authenticated client creation with AsyncMock support and **PostgreSQL database integration with Docker container management** using cafetera_core.storage.
+- **Document storage system tests** validate database initialization, CRUD operations, status transitions, search enablement functionality, and comprehensive filtering/sorting capabilities with 278 lines of new test coverage using cafetera_core.storage.
+- **Category file service tests** validate PostgreSQL database integration, S3 storage mocking, and category file management functionality using cafetera_core.storage.
+- **Enhanced RAG infrastructure testing** validates llama.cpp provider functionality, configuration parameter validation, and error handling scenarios using cafetera_core.rag.
+- **Comprehensive parser testing** validates document ingestion, section extraction, chunking, and dispatcher functionality for .docx and .doc file processing, including semantic chunking with embeddings validation using cafetera_core.rag.parser.
+- **Expanded RAG pipeline testing** validates indexer validation and document service lifecycle management using cafetera_core.rag.
+- **Comprehensive filtering and sorting API endpoint testing** validates status filtering, source type filtering, sort field validation, and pagination functionality using cafetera_admin.api.
+- **Updated architectural testing patterns** validate the new query_rag_with_wait and send_rag_answer approach across all handlers using cafetera_vk_bot.handlers.
+- **Updated QAService testing** validates resource management with Qdrant client lifecycle ownership using AsyncMock using cafetera_core.domain.qa_service.
+- **Enhanced semantic chunking testing** validates FakeEmbeddings mock usage, comprehensive threshold validation, and file format-specific behavior for both .docx and .doc files using cafetera_core.rag.parser.
+- **Comprehensive hybrid search testing** validates sparse embedding creation, vector store construction with sparse embeddings, index chunking functionality, and settings configuration defaults using AsyncMock using cafetera_core.rag.retriever.
+- **Extended configuration testing** validates new semantic chunking and hybrid search settings including chunk_strategy, semantic_breakpoint_threshold_type, semantic_breakpoint_threshold_amount, retrieval_mode, and sparse_embedding_model using cafetera_core.config.
+- **Resource management testing** validates sparse embeddings initialization and cleanup in AppResources with graceful degradation for hybrid search mode using cafetera_core.resources.
+- **AsyncMock-based test infrastructure** provides comprehensive async operation validation with proper await semantics using cafetera_core.domain.qa_service.
+- **Category hints testing** validates CATEGORY_HINTS integration, chain building with category hints, QA service parameter passing, and global chain construction with comprehensive test coverage of 248 lines using cafetera_core.rag.prompts.
+- **Enhanced indexer testing** validates proper handling of the is_search_enabled flag during document indexing with comprehensive validation of top-level field storage using cafetera_core.rag.indexer.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, **improved test isolation through table dropping and recreation**, **comprehensive category-aware functionality testing with CATEGORY_HINTS validation**, **enhanced indexer testing for is_search_enabled flag handling**, and **expanded test coverage for all new category-aware features and functionality**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, **improved test isolation through table dropping and recreation**, **comprehensive category-aware functionality testing with CATEGORY_HINTS validation**, **enhanced indexer testing for is_search_enabled flag handling**, **expanded test coverage for all new category-aware features and functionality**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, and **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**.
 
 Key testing characteristics:
 - Uses pytest with asyncio_mode set to auto for async-friendly tests.
@@ -361,12 +381,12 @@ Key testing characteristics:
 - **Resource management testing** validates sparse embeddings initialization and cleanup in AppResources with graceful degradation for hybrid search mode.
 - **AsyncMock usage testing** validates comprehensive async operation validation across all test modules.
 - **Category hints testing** validates CATEGORY_HINTS keys against known scenarios, chain building with category hints, QA service parameter passing, and global chain construction with comprehensive test coverage.
-- **Indexer testing** validates is_search_enabled flag handling with top-level field storage validation and metadata preservation.
+- **Enhanced indexer testing** validates is_search_enabled flag handling with top-level field storage validation and metadata preservation.
 
 **Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**.
 
 **Section sources**
-- [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
+- [pyproject.toml:22-34](file://pyproject.toml#L22-L34)
 - [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
 - [tests/test_bot_factory.py:1-79](file://tests/test_bot_factory.py#L1-L79)
 - [tests/test_keyboards.py:1-222](file://tests/test_keyboards.py#L1-L222)
@@ -390,18 +410,18 @@ Key testing characteristics:
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
 - [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
-- [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
+- [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
 
 ## Architecture Overview
-The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with simplified breakdown by functional area. The streamlined testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing with AsyncMock validation**, **enhanced semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings using AsyncMock**, **extended configuration testing for semantic chunking and hybrid search settings**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with is_search_enabled flag handling**, and **expanded test coverage for all new category-aware features and functionality**.
+The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with simplified breakdown by functional area. The streamlined testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing with AsyncMock validation**, **enhanced semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings using AsyncMock**, **extended configuration testing for semantic chunking and hybrid search settings**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with is_search_enabled flag handling**, **expanded test coverage for all new category-aware features and functionality**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, and **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**.
 
 ```mermaid
 sequenceDiagram
 participant Test as "Test Case"
 participant Factory as "create_bot()"
-participant Bot as "vkbottle.Bot"
+participant Bot as "cafetera_vk_bot.Bot"
 participant Labelers as "_HANDLER_LABELERS"
-Test->>Factory : "create_bot(Settings)"
+Test->>Factory : "create_bot(VKSettings)"
 Factory->>Bot : "Bot(token)"
 loop "Load labelers in order"
 Factory->>Labelers : "Iterate [start, ask, hire, fire, vacation, pay, sections, fallback]"
@@ -414,23 +434,23 @@ Test-->>Test : "Assert ordering and counts"
 ```
 
 **Diagram sources**
-- [app/integrations/vk/bot.py:24-39](file://app/integrations/vk/bot.py#L24-L39)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py:24-39](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L24-L39)
 - [tests/test_bot_factory.py:21-44](file://tests/test_bot_factory.py#L21-L44)
 
 **Section sources**
-- [app/integrations/vk/bot.py:24-39](file://app/integrations/vk/bot.py#L24-L39)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py:24-39](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L24-L39)
 - [tests/test_bot_factory.py:18-44](file://tests/test_bot_factory.py#L18-L44)
 
 ## Detailed Component Analysis
 
 ### Configuration Testing
 Purpose:
-- Verify default values for settings with explicit environment file control.
+- Verify default values for settings with explicit environment file control using cafetera_vk_bot.config.
 - Verify environment variable overrides using monkeypatch.
 - Ensure environment file integration works as configured while maintaining test isolation.
 
 Methodology:
-- Instantiate Settings with explicit overrides and `_env_file=None` to test defaults without environment file interference.
+- Instantiate VKSettings with explicit overrides and `_env_file=None` to test defaults without environment file interference.
 - Use monkeypatch to set environment variables and assert resulting values.
 - Confirm that environment file is used for loading settings when `_env_file` is not explicitly set.
 
@@ -444,7 +464,7 @@ Best practices:
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
-- [app/config.py:4-9](file://app/config.py#L4-L9)
+- [packages/core/src/cafetera_core/config.py:4-9](file://packages/core/src/cafetera_core/config.py#L4-L9)
 - [tests/test_semantic_chunker.py:223-236](file://tests/test_semantic_chunker.py#L223-L236)
 - [tests/test_hybrid_search.py:164-173](file://tests/test_hybrid_search.py#L164-L173)
 
@@ -452,12 +472,12 @@ Best practices:
 Purpose:
 - Enforce handler registration order.
 - Verify the number of registered handlers with simplified breakdown by functional area.
-- Ensure the token is forwarded to the underlying VK API client.
+- Ensure the token is forwarded to the underlying VK API client using cafetera_vk_bot.bot.
 
 Methodology:
 - Assert the last labeler is the fallback handler and the first is the start handler.
 - Build a bot and count the number of registered message handlers.
-- Assert that the bot's token equals the provided Settings token.
+- Assert that the bot's token equals the provided VKSettings token.
 - Verify simplified handler counts: start (2), ask (2), hire (5), fire (5), vacation (5), pay (3), sections (2), fallback (1) = 25 total.
 
 Asynchronous considerations:
@@ -471,11 +491,11 @@ Security note:
 
 **Section sources**
 - [tests/test_bot_factory.py:18-79](file://tests/test_bot_factory.py#L18-L79)
-- [app/integrations/vk/bot.py:24-39](file://app/integrations/vk/bot.py#L24-L39)
+- [packages/vk_bot/src/cafetera_vk_bot/bot.py:24-39](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L24-L39)
 
 ### Keyboard Builders and Payload Constants Testing
 Purpose:
-- Validate main menu layout and payloads.
+- Validate main menu layout and payloads using cafetera_vk_bot.keyboards.
 - Validate service-row behavior (Home, Back, Contact HR).
 - Validate Block 2 keyboard builders and new payload constants.
 - Validate Block 9 keyboard builders and scenario navigation.
@@ -503,15 +523,15 @@ Testing patterns:
 **Section sources**
 - [tests/test_keyboards.py:24-222](file://tests/test_keyboards.py#L24-L222)
 - [tests/test_keyboards_block2.py:25-178](file://tests/test_keyboards_block2.py#L25-L178)
-- [app/integrations/vk/keyboards.py:11-322](file://app/integrations/vk/keyboards.py#L11-L322)
+- [packages/vk_bot/src/cafetera_vk_bot/keyboards.py:11-322](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L11-L322)
 
 ### Domain Content and Static Content Testing
 Purpose:
-- Validate static content for hire, fire, and vacation processes.
+- Validate static content for hire, fire, and vacation processes using cafetera_core.domain.content.
 - Validate HR-request formatting and topic management.
 - Ensure content integrity and proper formatting.
 - Test RAG stub functionality for knowledge base integration.
-- Validate QA service integration with proper error handling.
+- Validate QA service integration with proper error handling using cafetera_core.domain.qa_service.
 
 Methodology:
 - Test hire content validation including checklists, contracts, and onboarding.
@@ -533,13 +553,13 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_content.py:18-93](file://tests/test_content.py#L18-L93)
-- [app/domain/content.py:12-177](file://app/domain/content.py#L12-L177)
+- [packages/core/src/cafetera_core/domain/content.py:12-177](file://packages/core/src/cafetera_core/domain/content.py#L12-L177)
 - [tests/test_qa_service.py:49-198](file://tests/test_qa_service.py#L49-L198)
-- [app/domain/qa_service.py:1-120](file://app/domain/qa_service.py#L1-L120)
+- [packages/core/src/cafetera_core/domain/qa_service.py:1-120](file://packages/core/src/cafetera_core/domain/qa_service.py#L1-L120)
 
 ### Entity Definitions and Management Testing
 Purpose:
-- Validate legal entity definitions and management.
+- Validate legal entity definitions and management using cafetera_core.domain.entities.
 - Ensure entity uniqueness and proper identification.
 - Test entity lookup by ID and name validation.
 
@@ -559,11 +579,11 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_entities.py:6-29](file://tests/test_entities.py#L6-L29)
-- [app/domain/entities.py:8-24](file://app/domain/entities.py#L8-L24)
+- [packages/core/src/cafetera_core/domain/entities.py:8-24](file://packages/core/src/cafetera_core/domain/entities.py#L8-L24)
 
 ### QA Service and RAG Chain Integration Testing
 Purpose:
-- Validate QA service wrapper functionality for RAG chain integration.
+- Validate QA service wrapper functionality for RAG chain integration using cafetera_core.domain.qa_service.
 - Ensure proper error handling and fallback responses.
 - Test response truncation for VK message limits.
 - Validate resource management and cleanup.
@@ -597,13 +617,13 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_qa_service.py:15-238](file://tests/test_qa_service.py#L15-L238)
-- [app/domain/qa_service.py:23-279](file://app/domain/qa_service.py#L23-L279)
-- [app/integrations/vk/handlers/__init__.py:46-91](file://app/integrations/vk/handlers/__init__.py#L46-L91)
-- [app/resources.py:173-192](file://app/resources.py#L173-L192)
+- [packages/core/src/cafetera_core/domain/qa_service.py:23-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L23-L279)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py:46-91](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L46-L91)
+- [packages/core/src/cafetera_core/resources.py:173-192](file://packages/core/src/cafetera_core/resources.py#L173-L192)
 
 ### Topic Hints Detection and Scenario Navigation Testing
 Purpose:
-- Validate keyword-based scenario detection for clickable scenarios.
+- Validate keyword-based scenario detection for clickable scenarios using cafetera_core.domain.topic_hints.
 - Test background-topic disclaimer handling for sensitive HR topics.
 - Ensure proper priority handling between background topics and scenarios.
 - Validate integration with ask handler for scenario navigation.
@@ -633,12 +653,12 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_ask_block9.py:1-112](file://tests/test_ask_block9.py#L1-L112)
-- [app/domain/topic_hints.py:14-109](file://app/domain/topic_hints.py#L14-L109)
-- [app/integrations/vk/handlers/ask.py:15-86](file://app/integrations/vk/handlers/ask.py#L15-L86)
+- [packages/core/src/cafetera_core/domain/topic_hints.py:14-109](file://packages/core/src/cafetera_core/domain/topic_hints.py#L14-L109)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py:15-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L15-L86)
 
 ### Custom Payload Matching Rules Testing
 Purpose:
-- Validate custom payload matching functionality.
+- Validate custom payload matching functionality using cafetera_vk_bot.rules.
 - Test PayloadCmdRule for command-based routing.
 - Ensure proper JSON payload parsing and validation.
 - Test async rule evaluation.
@@ -661,11 +681,11 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_rules.py:17-70](file://tests/test_rules.py#L17-L70)
-- [app/integrations/vk/rules.py:11-31](file://app/integrations/vk/rules.py#L11-L31)
+- [packages/vk_bot/src/cafetera_vk_bot/rules.py:11-31](file://packages/vk_bot/src/cafetera_vk_bot/rules.py#L11-L31)
 
 ### State Machine Testing
 Purpose:
-- Validate the state group type and structure.
+- Validate the state group type and structure using cafetera_vk_bot.states.
 - Ensure all expected states are present.
 - Verify uniqueness of state values.
 
@@ -676,13 +696,13 @@ Methodology:
 
 **Section sources**
 - [tests/test_states.py:8-31](file://tests/test_states.py#L8-L31)
-- [app/integrations/vk/states.py:4-14](file://app/integrations/vk/states.py#L4-L14)
+- [packages/vk_bot/src/cafetera_vk_bot/states.py:4-14](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L4-L14)
 
 ### Enhanced Admin Document API Testing Infrastructure
 **New Section** - Modular testing approach for admin document API functionality
 
 Purpose:
-- Validate authentication and authorization mechanisms for admin document API.
+- Validate authentication and authorization mechanisms for admin document API using cafetera_admin.api.
 - Test Russian localization strings in admin interface.
 - Validate authenticated client fixture with pre-set admin_session cookies.
 - Test document management operations with proper authentication.
@@ -694,15 +714,15 @@ Purpose:
 
 Methodology:
 - **Test authentication and authorization across multiple specialized modules:**
-  - **Authentication testing validates login page rendering, API key validation, session management, and logout functionality.**
-  - **Upload testing validates file upload operations, validation, indexing, and error handling scenarios.**
-  - **Bulk operations testing validates reindex and bulk delete functionality with proper error handling.**
+  - **Authentication testing validates login page rendering, API key validation, session management, and logout functionality using cafetera_admin.api.documents_auth.**
+  - **Upload testing validates file upload operations, validation, indexing, and error handling scenarios using cafetera_admin.api.documents_upload.**
+  - **Bulk operations testing validates reindex and bulk delete functionality with proper error handling using cafetera_admin.api.documents_bulk.**
 - **Validate shared test fixtures from conftest.py:**
   - **Database initialization with PostgreSQL containers using Testcontainers.**
   - **Mock services including Qdrant client with AsyncMock, embeddings, S3 storage, and QA service.**
   - **Authenticated client creation with pre-set admin_session cookies.**
-- **Test document listing, creation, update, deletion with authentication.**
-- **Test partial rendering (document-table, document-row) with authentication.**
+- **Test document listing, creation, update, deletion with authentication using cafetera_admin.api.documents.**
+- **Test partial rendering (document-table, document-row) with authentication requirements.**
 - **Validate Russian localization strings throughout admin interface.**
 - **Test status filtering with 'completed', 'pending', 'failed', and 'all' values.**
 - **Test source type filtering with 'docx', 'doc', 'other', and 'all' values.**
@@ -730,9 +750,9 @@ Testing patterns:
 - [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
-- [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
-- [app/api/documents.py:1-951](file://app/api/documents.py#L1-L951)
-- [app/api/deps.py:1-51](file://app/api/deps.py#L1-L51)
+- [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
+- [packages/admin/src/cafetera_admin/api/documents.py:1-951](file://packages/admin/src/cafetera_admin/api/documents.py#L1-L951)
+- [packages/admin/src/cafetera_admin/api/deps.py:1-51](file://packages/admin/src/cafetera_admin/api/deps.py#L1-L51)
 - [templates/login.html:1-56](file://templates/login.html#L1-L56)
 - [templates/documents.html:1-553](file://templates/documents.html#L1-L553)
 - [templates/partials/pagination.html:1-65](file://templates/partials/pagination.html#L1-L65)
@@ -741,10 +761,10 @@ Testing patterns:
 **New Section** - Comprehensive testing coverage for the document storage system
 
 Purpose:
-- Validate DocumentRecord model with proper default values and status enumeration.
-- Test database initialization with PostgreSQL tables and idempotent behavior.
-- Validate CRUD operations including create, read, update, and delete functionality.
-- Test status transitions and error handling in document processing.
+- Validate DocumentRecord model with proper default values and status enumeration using cafetera_core.storage.models.
+- Test database initialization with PostgreSQL tables and idempotent behavior using cafetera_core.storage.database.
+- Validate CRUD operations including create, read, update, and delete functionality using cafetera_core.storage.document_repo.
+- Validate status transitions and error handling in document processing.
 - Validate search enablement toggling without affecting document status.
 - Validate timestamp management and data persistence across operations.
 - **Validate comprehensive filtering and sorting capabilities including status filtering, source type filtering, and multi-field sorting.**
@@ -780,15 +800,15 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
-- [app/storage/models.py:1-36](file://app/storage/models.py#L1-L36)
-- [app/storage/database.py:1-58](file://app/storage/database.py#L1-L58)
-- [app/storage/document_repo.py:1-288](file://app/storage/document_repo.py#L1-L288)
+- [packages/core/src/cafetera_core/storage/models.py:1-36](file://packages/core/src/cafetera_core/storage/models.py#L1-L36)
+- [packages/core/src/cafetera_core/storage/database.py:1-58](file://packages/core/src/cafetera_core/storage/database.py#L1-L58)
+- [packages/core/src/cafetera_core/storage/document_repo.py:1-288](file://packages/core/src/cafetera_core/storage/document_repo.py#L1-L288)
 
 ### Category File Service Testing
 **New Section** - Comprehensive testing coverage for category file management
 
 Purpose:
-- Validate CategoryFileRepository with PostgreSQL database integration.
+- Validate CategoryFileRepository with PostgreSQL database integration using cafetera_core.storage.category_repo.
 - Test category file upload, retrieval, and deletion functionality.
 - Validate unique constraint per entity for category slots.
 - Test S3 storage integration with mock services.
@@ -818,13 +838,13 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_category_file_service.py:1-422](file://tests/test_category_file_service.py#L1-L422)
-- [app/storage/category_repo.py:1-200](file://app/storage/category_repo.py#L1-L200)
+- [packages/core/src/cafetera_core/storage/category_repo.py:1-200](file://packages/core/src/cafetera_core/storage/category_repo.py#L1-L200)
 
 ### Category Files API Testing
 **New Section** - Comprehensive testing coverage for category files API
 
 Purpose:
-- Validate category files API endpoints with PostgreSQL database integration.
+- Validate category files API endpoints with PostgreSQL database integration using cafetera_core.storage.category_repo.
 - Test category file upload, retrieval, and deletion via HTTP API.
 - Validate authentication and authorization mechanisms.
 - Test category file metadata management and validation.
@@ -853,13 +873,13 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_category_files.py:1-553](file://tests/test_category_files.py#L1-L553)
-- [app/storage/category_repo.py:1-200](file://app/storage/category_repo.py#L1-L200)
+- [packages/core/src/cafetera_core/storage/category_repo.py:1-200](file://packages/core/src/cafetera_core/storage/category_repo.py#L1-L200)
 
 ### Parser Testing Infrastructure
 **New Section** - Comprehensive testing coverage for document ingestion and processing
 
 Purpose:
-- Validate document ingestion pipeline for .docx and .doc file formats.
+- Validate document ingestion pipeline for .docx and .doc file formats using cafetera_core.rag.parser.
 - Test section extraction from structured .docx documents.
 - Validate text chunking with configurable chunk size and overlap.
 - Validate metadata handling including source filename and section headings.
@@ -894,14 +914,14 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_parser.py:1-94](file://tests/test_parser.py#L1-L94)
-- [app/rag/parser.py:1-323](file://app/rag/parser.py#L1-L323)
+- [packages/core/src/cafetera_core/rag/parser.py:1-323](file://packages/core/src/cafetera_core/rag/parser.py#L1-L323)
 - [tests/test_semantic_chunker.py:17-246](file://tests/test_semantic_chunker.py#L17-L246)
 
 ### Document Service Testing
 **New Section** - Comprehensive testing coverage for document lifecycle management
 
 Purpose:
-- Validate complete document lifecycle including creation, indexing, reindexing, and deletion.
+- Validate complete document lifecycle including creation, indexing, reindexing, and deletion using cafetera_core.domain.document_service.
 - Test document metadata management and status transitions.
 - Validate Qdrant integration for vector storage and retrieval.
 - Test chunk preparation and metadata enrichment.
@@ -934,13 +954,13 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
-- [app/domain/document_service.py:1-279](file://app/domain/document_service.py#L1-L279)
+- [packages/core/src/cafetera_core/domain/document_service.py:1-279](file://packages/core/src/cafetera_core/domain/document_service.py#L1-L279)
 
 ### Indexer Testing
 **New Section** - Comprehensive testing coverage for chunk preparation and metadata enrichment
 
 Purpose:
-- Validate chunk preparation and metadata enrichment process.
+- Validate chunk preparation and metadata enrichment process using cafetera_core.rag.indexer.
 - Test document ID assignment and chunk ID generation.
 - Validate metadata preservation and enrichment.
 - Test search enablement handling in chunk metadata.
@@ -976,13 +996,13 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
-- [app/rag/indexer.py:1-191](file://app/rag/indexer.py#L1-L191)
+- [packages/core/src/cafetera_core/rag/indexer.py:1-191](file://packages/core/src/cafetera_core/rag/indexer.py#L1-L191)
 
 ### Semantic Chunking Testing Infrastructure
 **New Section** - Comprehensive testing coverage for semantic chunking functionality
 
 Purpose:
-- Validate semantic chunking functionality with embedding-based breakpoints.
+- Validate semantic chunking functionality with embedding-based breakpoints using cafetera_core.rag.parser.
 - Test FakeEmbeddings mock for deterministic embeddings.
 - Validate threshold configuration defaults and validation.
 - Test file format-specific behavior for .docx and .doc files.
@@ -992,7 +1012,7 @@ Purpose:
 
 Methodology:
 - Test FakeEmbeddings class with deterministic embedding generation.
-- Validate load_docx semantic chunking with section-based metadata.
+- Validate load_docx semantic chunking with section-based metadata using cafetera_core.rag.parser.
 - Validate load_doc semantic chunking with empty section metadata.
 - Test threshold configuration defaults: percentile type, 95 threshold amount.
 - Test error handling for missing embeddings parameter in semantic chunking.
@@ -1014,13 +1034,13 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_semantic_chunker.py:1-246](file://tests/test_semantic_chunker.py#L1-L246)
-- [app/rag/parser.py:58-174](file://app/rag/parser.py#L58-L174)
+- [packages/core/src/cafetera_core/rag/parser.py:58-174](file://packages/core/src/cafetera_core/rag/parser.py#L58-L174)
 
 ### Hybrid Search Testing Infrastructure
 **New Section** - Comprehensive testing coverage for hybrid search capabilities
 
 Purpose:
-- Validate sparse embedding creation for hybrid search mode.
+- Validate sparse embedding creation for hybrid search mode using cafetera_core.rag.retriever.
 - Test FastEmbedSparse integration and model configuration.
 - Validate vector store construction with sparse embeddings.
 - Validate QAService integration with sparse embeddings.
@@ -1052,19 +1072,19 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
-- [app/rag/retriever.py:88-120](file://app/rag/retriever.py#L88-L120)
-- [app/resources.py:120-131](file://app/resources.py#L120-L131)
+- [packages/core/src/cafetera_core/rag/retriever.py:88-120](file://packages/core/src/cafetera_core/rag/retriever.py#L88-L120)
+- [packages/core/src/cafetera_core/resources.py:120-131](file://packages/core/src/cafetera_core/resources.py#L120-L131)
 
 ### Handler Testing Patterns
 Current coverage:
-- Handlers are validated indirectly via bot wiring and keyboard payloads.
+- Handlers are validated indirectly via bot wiring and keyboard payloads using cafetera_vk_bot.handlers.
 - The start handler registers a greeting and main menu.
 - Section handlers register stub responses with back payloads.
 - Fallback handler ensures unmatched messages route to the main menu.
-- Custom rules enable advanced payload-based routing.
-- Enhanced RAG stub testing validates specialized feature implementations.
+- Custom rules enable advanced payload-based routing using cafetera_vk_bot.rules.
+- Enhanced RAG stub testing validates specialized feature implementations using cafetera_core.domain.qa_service.
 - QA service testing validates RAG chain integration across handlers.
-- Topic hints testing validates scenario detection and navigation.
+- Topic hints testing validates scenario detection and navigation using cafetera_core.domain.topic_hints.
 - Ask handler testing validates state management and integration with QA service using the new query_rag_with_wait approach.
 - **Document storage system testing validates comprehensive database operations and lifecycle management.**
 - **Category file service testing validates PostgreSQL database integration and S3 storage mocking.**
@@ -1205,15 +1225,15 @@ Validation tips:
 **Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation using query_rag_with_wait, document storage system testing for comprehensive database operations, category file service testing for PostgreSQL integration, enhanced admin document API testing for authentication and localization, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **extended configuration testing for semantic chunking and hybrid search settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure with PostgreSQL integration**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with is_search_enabled flag handling**, and **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**.
 
 **Section sources**
-- [app/integrations/vk/handlers/start.py:23-55](file://app/integrations/vk/handlers/start.py#L23-L55)
-- [app/integrations/vk/handlers/sections.py:28-35](file://app/integrations/vk/handlers/sections.py#L28-L35)
-- [app/integrations/vk/handlers/fallback.py:15-18](file://app/integrations/vk/handlers/fallback.py#L15-L18)
-- [app/integrations/vk/keyboards.py:104-108](file://app/integrations/vk/keyboards.py#L104-L108)
-- [app/integrations/vk/rules.py:21-30](file://app/integrations/vk/rules.py#L21-L30)
-- [app/integrations/vk/handlers/fire.py:68-74](file://app/integrations/vk/handlers/fire.py#L68-L74)
-- [app/integrations/vk/handlers/vacation.py:79-80](file://app/integrations/vk/handlers/vacation.py#L79-L80)
-- [app/integrations/vk/handlers/ask.py:34-86](file://app/integrations/vk/handlers/ask.py#L34-L86)
-- [app/integrations/vk/handlers/__init__.py:46-91](file://app/integrations/vk/handlers/__init__.py#L46-L91)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/start.py:23-55](file://packages/vk_bot/src/cafetera_vk_bot/handlers/start.py#L23-L55)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py:28-35](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L28-L35)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py:15-18](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py#L15-L18)
+- [packages/vk_bot/src/cafetera_vk_bot/keyboards.py:104-108](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L104-L108)
+- [packages/vk_bot/src/cafetera_vk_bot/rules.py:21-30](file://packages/vk_bot/src/cafetera_vk_bot/rules.py#L21-L30)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py:68-74](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L68-L74)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py:79-80](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L79-L80)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py:34-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L34-L86)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py:46-91](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L46-L91)
 - [tests/test_storage.py:1-278](file://tests/test_storage.py#L1-L278)
 - [tests/test_category_file_service.py:1-422](file://tests/test_category_file_service.py#L1-L422)
 - [tests/test_category_files.py:1-553](file://tests/test_category_files.py#L1-L553)
@@ -1226,13 +1246,13 @@ Validation tips:
 - [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
 - [tests/test_semantic_chunker.py:1-246](file://tests/test_semantic_chunker.py#L1-L246)
 - [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
-- [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
+- [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
 
 ### Llama.cpp Provider Testing Infrastructure
 **New Section** - Extensive testing coverage for llama.cpp provider functionality
 
 Purpose:
-- Validate llama.cpp provider selection logic in RAG infrastructure.
+- Validate llama.cpp provider selection logic in RAG infrastructure using cafetera_core.rag.chain.
 - Test configuration parameter handling for llama.cpp provider.
 - Validate error handling scenarios including import errors.
 - Ensure integration with existing RAG components (chain.py, retriever.py).
@@ -1259,17 +1279,17 @@ Testing patterns:
 - [tests/test_rag_block6.py:75-83](file://tests/test_rag_block6.py#L75-L83)
 - [tests/test_rag_block6.py:267-347](file://tests/test_rag_block6.py#L267-L347)
 - [tests/test_rag_block6.py:349-413](file://tests/test_rag_block6.py#L349-L413)
-- [app/rag/chain.py:47-60](file://app/rag/chain.py#L47-L60)
-- [app/rag/retriever.py:38-50](file://app/rag/retriever.py#L38-L50)
+- [packages/core/src/cafetera_core/rag/chain.py:47-60](file://packages/core/src/cafetera_core/rag/chain.py#L47-L60)
+- [packages/core/src/cafetera_core/rag/retriever.py:38-50](file://packages/core/src/cafetera_core/rag/retriever.py#L38-L50)
 
 ### Embedding Model Configuration Testing
 **New Section** - Testing coverage for embedding model configuration changes
 
 Purpose:
-- Validate the new default embedding model 'qwen3-embedding:4b-q4_K_M'.
+- Validate the new default embedding model 'qwen3-embedding:4b-q4_K_M' using cafetera_core.config.
 - Test embedding model selection across different providers (ollama, openai, llamacpp).
 - Ensure backward compatibility with previous embedding model configurations.
-- Validate embedding model parameter handling in retriever module.
+- Validate embedding model parameter handling in retriever module using cafetera_core.rag.retriever.
 - **Validate new semantic chunking settings including chunk_strategy, semantic_breakpoint_threshold_type, and semantic_breakpoint_threshold_amount.**
 - **Validate new hybrid search settings including retrieval_mode and sparse_embedding_model.**
 
@@ -1298,8 +1318,8 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_rag_block6.py:50-53](file://tests/test_rag_block6.py#L50-L53)
-- [app/config.py:22-25](file://app/config.py#L22-L25)
-- [app/rag/retriever.py:22-62](file://app/rag/retriever.py#L22-L62)
+- [packages/core/src/cafetera_core/config.py:22-25](file://packages/core/src/cafetera_core/config.py#L22-L25)
+- [packages/core/src/cafetera_core/rag/retriever.py:22-62](file://packages/core/src/cafetera_core/rag/retriever.py#L22-L62)
 - [tests/test_semantic_chunker.py:223-236](file://tests/test_semantic_chunker.py#L223-L236)
 - [tests/test_hybrid_search.py:164-173](file://tests/test_hybrid_search.py#L164-L173)
 
@@ -1307,7 +1327,7 @@ Testing patterns:
 **New Section** - Comprehensive testing coverage for filtering and sorting functionality
 
 Purpose:
-- Validate comprehensive filtering functionality for document API endpoints.
+- Validate comprehensive filtering functionality for document API endpoints using cafetera_admin.api.
 - Test status filtering with 'completed', 'pending', 'failed', and 'all' values.
 - Test source type filtering with 'docx', 'doc', 'other', and 'all' values.
 - Validate multi-field sorting with 'title', 'created_at', and 'status' fields.
@@ -1338,15 +1358,15 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_api_documents.py:382-479](file://tests/test_api_documents.py#L382-L479)
-- [app/api/documents.py:500-550](file://app/api/documents.py#L500-L550)
-- [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
+- [packages/admin/src/cafetera_admin/api/documents.py:500-550](file://packages/admin/src/cafetera_admin/api/documents.py#L500-L550)
+- [packages/core/src/cafetera_core/storage/document_repo.py:120-210](file://packages/core/src/cafetera_core/storage/document_repo.py#L120-L210)
 
 ### Updated Architectural Testing Patterns
 **New Section** - Validating the new query_rag_with_wait and send_rag_answer approach
 
 Purpose:
-- Validate the new query_rag_with_wait function for asynchronous RAG querying with timeout handling.
-- Test the new send_rag_answer helper function for unified RAG answer delivery.
+- Validate the new query_rag_with_wait function for asynchronous RAG querying with timeout handling using cafetera_core.domain.qa_service.
+- Test the new send_rag_answer helper function for unified RAG answer delivery using cafetera_vk_bot.handlers.
 - Ensure P0+P1 handlers use send_rag_answer instead of direct QA service calls.
 - Validate ask handler imports query_rag_with_wait instead of get_qa_service.
 - Test timeout handling and "please wait" messaging functionality.
@@ -1373,16 +1393,16 @@ Testing patterns:
 - [tests/test_ask_block9.py:92-112](file://tests/test_ask_block9.py#L92-L112)
 - [tests/test_qa_service.py:213-238](file://tests/test_qa_service.py#L213-L238)
 - [tests/test_rag_stub_block3.py:33-76](file://tests/test_rag_stub_block3.py#L33-L76)
-- [app/integrations/vk/handlers/__init__.py:46-91](file://app/integrations/vk/handlers/__init__.py#L46-L91)
-- [app/integrations/vk/handlers/ask.py:21-22](file://app/integrations/vk/handlers/ask.py#L21-L22)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py:46-91](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L46-L91)
+- [packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py:21-22](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L21-L22)
 
 ### Updated QAService Resource Management Testing
 **New Section** - Validating Qdrant client lifecycle management
 **New Section** - Validating sparse embeddings resource management
 
 Purpose:
-- Validate that QAService no longer closes Qdrant clients internally.
-- Test external Qdrant client lifecycle management by AppResources.
+- Validate that QAService no longer closes Qdrant clients internally using cafetera_core.domain.qa_service.
+- Test external Qdrant client lifecycle management by AppResources using cafetera_core.resources.
 - Ensure proper resource ownership separation between QAService and Qdrant client.
 - Validate AppResources.close_resources() properly closes Qdrant clients.
 - **Validate sparse embeddings lifecycle management in AppResources.**
@@ -1390,8 +1410,8 @@ Purpose:
 - **Validate AsyncMock usage for Qdrant client lifecycle management testing.**
 
 Methodology:
-- Test QAService.close() does NOT call qdrant_client.close().
-- Test AppResources.close_resources() DOES call qdrant_client.close().
+- Test QAService.close() does NOT call qdrant_client.close() using AsyncMock.
+- Test AppResources.close_resources() DOES call qdrant_client.close() using AsyncMock.
 - Validate that Qdrant client lifecycle is managed externally.
 - Test error handling scenarios for Qdrant client closure.
 - Test that QAService state is properly reset without closing Qdrant.
@@ -1411,15 +1431,15 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_qa_service.py:191-211](file://tests/test_qa_service.py#L191-L211)
-- [app/domain/qa_service.py:271-279](file://app/domain/qa_service.py#L271-L279)
-- [app/resources.py:173-192](file://app/resources.py#L173-L192)
-- [app/resources.py:120-131](file://app/resources.py#L120-L131)
+- [packages/core/src/cafetera_core/domain/qa_service.py:271-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L271-L279)
+- [packages/core/src/cafetera_core/resources.py:173-192](file://packages/core/src/cafetera_core/resources.py#L173-L192)
+- [packages/core/src/cafetera_core/resources.py:120-131](file://packages/core/src/cafetera_core/resources.py#L120-L131)
 
 ### Enhanced Test Fixtures Infrastructure
 **New Section** - Comprehensive shared testing infrastructure
 
 Purpose:
-- Provide comprehensive test fixtures for shared testing infrastructure.
+- Provide comprehensive test fixtures for shared testing infrastructure using cafetera_core.storage.
 - Validate PostgreSQL database initialization with Docker containers.
 - Test mock services including Qdrant client, embeddings, S3 storage, and QA service.
 - Validate authenticated client creation with pre-set admin_session cookies.
@@ -1461,19 +1481,19 @@ Testing patterns:
 - **Validate Docker availability detection and graceful skipping of container-based tests.**
 - **Validate PostgreSQL database connection URL generation and asyncpg driver usage.**
 
-**Updated** Added comprehensive enhanced test fixtures infrastructure with 235 lines of new test fixtures providing shared testing infrastructure including PostgreSQL database integration with Docker containers, mock services, authenticated client creation, and comprehensive mocking capabilities for improved test organization and maintainability. The testing infrastructure now includes **AsyncMock usage for Qdrant client mocking across all fixtures**, **Docker availability detection and graceful skipping of container-based tests**, and **PostgreSQL database connection URL generation and asyncpg driver usage**.
+**Updated** Added comprehensive enhanced test fixtures infrastructure with 236 lines of new test fixtures providing shared testing infrastructure including PostgreSQL database integration with Docker containers, mock services, authenticated client creation, and comprehensive mocking capabilities for improved test organization and maintainability. The testing infrastructure now includes **AsyncMock usage for Qdrant client mocking across all fixtures**, **Docker availability detection and graceful skipping of container-based tests**, and **PostgreSQL database connection URL generation and asyncpg driver usage**.
 
 **Section sources**
-- [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
+- [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
 
 ### Category Hints Testing Infrastructure
 **New Section** - Comprehensive testing coverage for category-aware functionality
 
 Purpose:
-- Validate CATEGORY_HINTS integration with known scenario IDs.
-- Test build_rag_chain() with category_hint parameter for prompt enhancement.
-- Validate QAService.ask() parameter passing for category-based chain building.
-- Test _build_global_chain() integration with CATEGORY_HINTS lookup.
+- Validate CATEGORY_HINTS integration with known scenario IDs using cafetera_core.rag.prompts.
+- Test build_rag_chain() with category_hint parameter for prompt enhancement using cafetera_core.rag.chain.
+- Validate QAService.ask() parameter passing for category-based chain building using cafetera_core.domain.qa_service.
+- Test _build_global_chain() integration with CATEGORY_HINTS lookup using cafetera_core.domain.qa_service.
 - Validate comprehensive test coverage of 248 lines for category-aware functionality.
 
 Methodology:
@@ -1499,19 +1519,19 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
-- [app/rag/prompts.py:30-55](file://app/rag/prompts.py#L30-L55)
-- [app/rag/chain.py:98-124](file://app/rag/chain.py#L98-L124)
-- [app/domain/qa_service.py:120-153](file://app/domain/qa_service.py#L120-L153)
-- [app/domain/topic_hints.py:30-67](file://app/domain/topic_hints.py#L30-L67)
+- [packages/core/src/cafetera_core/rag/prompts.py:30-55](file://packages/core/src/cafetera_core/rag/prompts.py#L30-L55)
+- [packages/core/src/cafetera_core/rag/chain.py:98-124](file://packages/core/src/cafetera_core/rag/chain.py#L98-L124)
+- [packages/core/src/cafetera_core/domain/qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
+- [packages/core/src/cafetera_core/domain/topic_hints.py:30-67](file://packages/core/src/cafetera_core/domain/topic_hints.py#L30-L67)
 
 ### Enhanced Indexer Testing Infrastructure
 **New Section** - Comprehensive testing coverage for is_search_enabled flag handling
 
 Purpose:
-- Validate comprehensive is_search_enabled flag handling during document indexing.
+- Validate comprehensive is_search_enabled flag handling during document indexing using cafetera_core.rag.indexer.
 - Test top-level field storage validation to avoid Qdrant's inconsistent dot interpretation.
 - Validate metadata preservation in nested metadata dict while storing is_search_enabled at top level.
-- Test comprehensive test coverage of 222 lines for indexer functionality.
+- Validate comprehensive test coverage of 222 lines for indexer functionality.
 - Validate sparse embeddings integration in chunk preparation.
 
 Methodology:
@@ -1537,8 +1557,8 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_indexer.py:1-222](file://tests/test_indexer.py#L1-L222)
-- [app/rag/indexer.py:23-110](file://app/rag/indexer.py#L23-L110)
-- [app/rag/indexer.py:139-191](file://app/rag/indexer.py#L139-L191)
+- [packages/core/src/cafetera_core/rag/indexer.py:23-110](file://packages/core/src/cafetera_core/rag/indexer.py#L23-L110)
+- [packages/core/src/cafetera_core/rag/indexer.py:139-191](file://packages/core/src/cafetera_core/rag/indexer.py#L139-L191)
 
 ## Dependency Analysis
 The test suite depends on:
@@ -1575,6 +1595,9 @@ The test suite depends on:
 - **TEST_DATABASE_URL environment variable integration for database configuration.**
 - **Category hints testing infrastructure with comprehensive CATEGORY_HINTS validation.**
 - **Enhanced indexer testing infrastructure with is_search_enabled flag handling.**
+- **Modernized workspace configuration with uv workspace support.**
+- **Enhanced package structure with proper import paths for cafetera_core, cafetera_admin, and cafetera_vk_bot.**
+- **Streamlined test organization for improved maintainability.**
 
 ```mermaid
 graph TB
@@ -1614,6 +1637,9 @@ DOCKER["Docker Integration"]
 DAV["Docker Availability Detection"]
 ASYNC_PG["Asyncpg Driver"]
 CH["Category Hints Testing"]
+WS["Workspace Configuration"]
+PKG["Package Structure"]
+TO["Test Organization"]
 PY --> P
 PY --> PA
 PY --> VK
@@ -1649,6 +1675,9 @@ PY --> DOCKER
 PY --> DAV
 PY --> ASYNC_PG
 PY --> CH
+PY --> WS
+PY --> PKG
+PY --> TO
 ```
 
 **Diagram sources**
@@ -1704,8 +1733,11 @@ PY --> CH
 - **Category hints testing should validate comprehensive CATEGORY_HINTS integration efficiently.**
 - **Enhanced indexer testing should validate is_search_enabled flag handling performance.**
 - **Category hints integration testing should validate prompt enhancement performance.**
+- **Modernized workspace configuration should leverage uv workspace for efficient package discovery.**
+- **Enhanced package structure should provide proper import resolution for all test modules.**
+- **Streamlined test organization should improve maintainability and reduce import overhead.**
 
-**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing optimization, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing optimization for new settings**, **resource management testing optimization for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing optimization with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing optimization with is_search_enabled flag handling**, and **TEST_DATABASE_URL environment variable integration for database configuration**.
+**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing optimization, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing optimization for new settings**, **resource management testing optimization for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing optimization with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing optimization with is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, and **streamlined test organization for improved maintainability**.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -1780,6 +1812,9 @@ Common issues and resolutions:
 - **Enhanced indexer failures: Validate is_search_enabled flag handling and top-level field storage.**
 - **Enhanced indexer metadata failures: Test metadata preservation in nested dict.**
 - **Enhanced indexer sparse embedding failures: Test sparse embeddings parameter handling.**
+- **Modernized workspace configuration failures: Validate uv workspace setup and package discovery.**
+- **Enhanced package structure failures: Validate proper import paths for cafetera_core, cafetera_admin, and cafetera_vk_bot.**
+- **Streamlined test organization failures: Validate test organization and import resolution across modules.**
 
 Debugging tips:
 - Print or log parsed keyboard JSON during development to validate structure.
@@ -1834,8 +1869,11 @@ Debugging tips:
 - **Validate enhanced indexer testing with comprehensive is_search_enabled flag handling.**
 - **Validate comprehensive CATEGORY_HINTS integration and chain building functionality.**
 - **Validate comprehensive is_search_enabled flag handling with top-level field storage.**
+- **Modernized workspace configuration should leverage uv workspace for efficient package discovery.**
+- **Enhanced package structure should provide proper import resolution for all test modules.**
+- **Streamlined test organization should improve maintainability and reduce import overhead.**
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, category file service testing with PostgreSQL integration, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **semantic chunking testing with FakeEmbeddings mock**, **hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with is_search_enabled flag handling**, and **TEST_DATABASE_URL environment variable integration for database configuration**.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, category file service testing with PostgreSQL integration, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **semantic chunking testing with FakeEmbeddings mock**, **hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, and **streamlined test organization for improved maintainability**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1860,22 +1898,22 @@ Debugging tips:
 - [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
 - [tests/test_semantic_chunker.py:1-246](file://tests/test_semantic_chunker.py#L1-L246)
 - [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
-- [tests/conftest.py:1-235](file://tests/conftest.py#L1-L235)
+- [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
 
 ## Conclusion
 The current testing strategy emphasizes comprehensive structural and wiring correctness for the streamlined VK bot with modern async testing patterns:
-- Configuration defaults and environment overrides are verified with explicit environment file control.
-- Bot factory enforces handler registration order and validates simplified handler counts with detailed breakdown.
-- Keyboard builders are validated for layout, payloads, and service-row behavior (focusing on core handler functionality).
-- Domain content is validated for static content integrity and proper formatting.
-- Entity definitions are validated for consistency and uniqueness.
-- RAG stub functionality is tested for knowledge base integration with specialized test classes.
-- QA service testing validates RAG chain integration with proper error handling and resource management, **including updated testing for Qdrant client lifecycle ownership with AsyncMock validation**, including the new query_rag_with_wait approach.
-- Custom payload matching rules are validated for advanced routing.
-- State machine definitions are validated for completeness and uniqueness.
-- Handler testing validates both general functionality and specialized feature implementations.
-- Topic hints testing validates scenario detection and background-topic disclaimer handling.
-- Ask handler testing validates state management, QA service integration, and scenario navigation using the new query_rag_with_wait approach.
+- Configuration defaults and environment overrides are verified with explicit environment file control using cafetera_vk_bot.config.
+- Bot factory enforces handler registration order and validates simplified handler counts with detailed breakdown using cafetera_vk_bot.bot.
+- Keyboard builders are validated for layout, payloads, and service-row behavior (focusing on core handler functionality) using cafetera_vk_bot.keyboards.
+- Domain content is validated for static content integrity and proper formatting using cafetera_core.domain.content.
+- Entity definitions are validated for consistency and uniqueness using cafetera_core.domain.entities.
+- RAG stub functionality is tested for knowledge base integration with specialized test classes using cafetera_core.domain.qa_service.
+- QA service testing validates RAG chain integration with proper error handling and resource management, **including updated testing for Qdrant client lifecycle ownership with AsyncMock validation**, including the new query_rag_with_wait approach using cafetera_core.domain.qa_service.
+- Custom payload matching rules are validated for advanced routing using cafetera_vk_bot.rules.
+- State machine definitions are validated for completeness and uniqueness using cafetera_vk_bot.states.
+- Handler testing validates both general functionality and specialized feature implementations using cafetera_vk_bot.handlers.
+- Topic hints testing validates scenario detection and background-topic disclaimer handling using cafetera_core.domain.topic_hints.
+- Ask handler testing validates state management, QA service integration, and scenario navigation using the new query_rag_with_wait approach using cafetera_vk_bot.handlers.
 - **Document storage system testing validates comprehensive database operations including timestamp management, status transitions, search enablement functionality, and filtering/sorting capabilities with 278 lines of new test coverage.**
 - **Category file service testing validates PostgreSQL database integration, unique constraint enforcement, and S3 storage mocking with 422 lines of new test coverage.**
 - **Enhanced admin document API testing validates authentication, authorization, Russian localization, and comprehensive filtering/sorting functionality across multiple specialized modules with modular approach.**
@@ -1898,6 +1936,9 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - **TEST_DATABASE_URL environment variable testing validates database configuration and connection string formatting.**
 - **Category hints testing validates comprehensive CATEGORY_HINTS integration and chain building functionality with 248 lines of new test coverage.**
 - **Enhanced indexer testing validates comprehensive is_search_enabled flag handling with top-level field storage and metadata preservation with 222 lines of new test coverage.**
+- **Modernized workspace configuration with uv workspace support validates efficient package discovery and dependency management.**
+- **Enhanced package structure with proper import paths validates proper module resolution across all test modules.**
+- **Streamlined test organization validates improved maintainability and reduced import overhead across the testing infrastructure.**
 
 To evolve the test suite:
 - Introduce event-driven tests for handlers to validate async behavior.
@@ -1959,8 +2000,11 @@ To evolve the test suite:
 - **Validate comprehensive CATEGORY_HINTS integration and chain building functionality.**
 - **Add comprehensive enhanced indexer testing for comprehensive is_search_enabled flag handling and metadata preservation.**
 - **Validate comprehensive is_search_enabled flag handling with top-level field storage.**
+- **Modernized workspace configuration should leverage uv workspace for efficient package discovery.**
+- **Enhanced package structure should provide proper import resolution for all test modules.**
+- **Streamlined test organization should improve maintainability and reduce import overhead.**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, **category file service testing with 422 lines of new coverage**, **category files API testing with 553 lines of new coverage**, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive semantic chunking testing with 246 lines of new coverage**, **comprehensive hybrid search testing with 173 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 235 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing validating Qdrant client lifecycle ownership using AsyncMock**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **TEST_DATABASE_URL environment variable integration for database configuration**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, and **AsyncMock usage testing validating comprehensive async operation validation**.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, **category file service testing with 422 lines of new coverage**, **category files API testing with 553 lines of new coverage**, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive semantic chunking testing with 246 lines of new coverage**, **comprehensive hybrid search testing with 173 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 236 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing validating Qdrant client lifecycle ownership using AsyncMock**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **TEST_DATABASE_URL environment variable integration for database configuration**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, and **streamlined test organization for improved maintainability**.
 
 ## Appendices
 
@@ -1996,6 +2040,9 @@ To evolve the test suite:
 - **Run TEST_DATABASE_URL environment variable tests for database configuration validation (e.g., `pytest tests/test_storage.py::TestInitDb::test_creates_database_tables`).**
 - **Run category hints tests for comprehensive CATEGORY_HINTS validation (e.g., `pytest tests/test_category_hints.py`).**
 - **Run enhanced indexer tests for comprehensive is_search_enabled flag handling (e.g., `pytest tests/test_indexer.py::TestPrepareChunks::test_search_disabled`).**
+- **Run modernized workspace configuration tests for uv workspace support validation (e.g., `pytest tests/conftest.py::TestWorkspaceConfiguration`).**
+- **Run enhanced package structure tests for proper import paths validation (e.g., `pytest tests/test_config.py::TestSettingsDefaults`).**
+- **Run streamlined test organization tests for improved maintainability validation (e.g., `pytest tests/conftest.py::TestTestOrganization`).**
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -2065,5 +2112,8 @@ To evolve the test suite:
 - **Validate comprehensive category hints testing with CATEGORY_HINTS validation.**
 - **Validate enhanced indexer testing with comprehensive is_search_enabled flag handling.**
 - **Validate timeout handling and unified RAG answer delivery across all handlers.**
+- **Modernized workspace configuration should leverage uv workspace for efficient package discovery.**
+- **Enhanced package structure should provide proper import resolution for all test modules.**
+- **Streamlined test organization should improve maintainability and reduce import overhead.**
 
-**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, and **TEST_DATABASE_URL environment variable integration for database configuration**.
+**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive semantic chunking testing with FakeEmbeddings mock**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, and **streamlined test organization for improved maintainability**.

@@ -11,17 +11,31 @@ ENV UV_PYTHON_DOWNLOADS=never \
 
 WORKDIR /app
 
-# Copy dependency files first for layer caching
+# Copy root workspace files
 COPY pyproject.toml uv.lock ./
 
-# Install production dependencies + LLM provider extras
-RUN uv sync --locked --no-dev --extra ollama --extra openai_compatible
+# Copy package pyproject.toml files (needed for uv export workspace resolution)
+COPY packages/core/pyproject.toml ./packages/core/pyproject.toml
+COPY packages/admin/pyproject.toml ./packages/admin/pyproject.toml
+COPY packages/vk_bot/pyproject.toml ./packages/vk_bot/pyproject.toml
 
-# Copy application code
-COPY app/ ./app/
-COPY scripts/polling_vk.py ./scripts/polling_vk.py
-COPY templates/ ./templates/
-COPY static/ ./static/
+# Create minimal stubs so uv can resolve workspace members
+RUN mkdir -p packages/core/src/cafetera_core \
+             packages/admin/src/cafetera_admin \
+             packages/vk_bot/src/cafetera_vk_bot && \
+    touch packages/core/src/cafetera_core/__init__.py \
+          packages/admin/src/cafetera_admin/__init__.py \
+          packages/vk_bot/src/cafetera_vk_bot/__init__.py
+
+# Create venv, generate requirements, and install dependencies
+RUN uv venv .venv && \
+    uv export --format=requirements-txt --package=cafetera-vk-bot --no-dev --locked > requirements.txt && \
+    uv pip install -r requirements.txt
+
+# Now copy real source code and install workspace packages
+COPY packages/core/ ./packages/core/
+COPY packages/vk_bot/ ./packages/vk_bot/
+RUN uv pip install --no-deps ./packages/core ./packages/vk_bot
 
 # Pre-download BM25 sparse embedding model during build
 ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
@@ -48,11 +62,7 @@ WORKDIR /app
 
 # Copy virtual environment and application from builder
 COPY --from=builder /app/.venv ./.venv
-COPY --from=builder /app/app ./app
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/templates ./templates
-COPY --from=builder /app/static ./static
-COPY --from=builder /app/pyproject.toml ./
+COPY --from=builder /app/packages ./packages
 
 # Set PATH to use virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
@@ -70,4 +80,4 @@ RUN chown -R appuser:appuser /app/.cache
 USER appuser
 
 # Run VK polling bot
-CMD ["python", "scripts/polling_vk.py"]
+CMD ["python", "-m", "cafetera_vk_bot.polling"]

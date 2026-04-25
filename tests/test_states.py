@@ -2,7 +2,7 @@
 
 from vkbottle import BaseStateGroup
 
-from app.integrations.vk.states import BotStates
+from cafetera_vk_bot.states import BotStates
 
 
 class TestBotStates:

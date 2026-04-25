@@ -11,15 +11,33 @@ ENV UV_PYTHON_DOWNLOADS=never \
 
 WORKDIR /app
 
-# Copy dependency files first for layer caching
+# Copy root workspace files
 COPY pyproject.toml uv.lock ./
 
-# Install production dependencies + LLM provider extras
-RUN uv sync --locked --no-dev --extra ollama --extra openai_compatible
+# Copy package pyproject.toml files (needed for uv export workspace resolution)
+COPY packages/core/pyproject.toml ./packages/core/pyproject.toml
+COPY packages/admin/pyproject.toml ./packages/admin/pyproject.toml
+COPY packages/vk_bot/pyproject.toml ./packages/vk_bot/pyproject.toml
 
-# Copy application code
-COPY app/ ./app/
-COPY scripts/admin_server.py ./scripts/admin_server.py
+# Create minimal stubs so uv can resolve workspace members
+RUN mkdir -p packages/core/src/cafetera_core \
+             packages/admin/src/cafetera_admin \
+             packages/vk_bot/src/cafetera_vk_bot && \
+    touch packages/core/src/cafetera_core/__init__.py \
+          packages/admin/src/cafetera_admin/__init__.py \
+          packages/vk_bot/src/cafetera_vk_bot/__init__.py
+
+# Create venv, generate requirements, and install dependencies
+RUN uv venv .venv && \
+    uv export --format=requirements-txt --package=cafetera-admin --no-dev --locked > requirements.txt && \
+    uv pip install -r requirements.txt
+
+# Now copy real source code and install workspace packages
+COPY packages/core/ ./packages/core/
+COPY packages/admin/ ./packages/admin/
+RUN uv pip install --no-deps ./packages/core ./packages/admin
+
+# Copy frontend assets
 COPY templates/ ./templates/
 COPY static/ ./static/
 
@@ -29,8 +47,6 @@ RUN .venv/bin/python -c "from langchain_qdrant import FastEmbedSparse; FastEmbed
 
 # Pre-download ColBERT rerank model during build
 RUN .venv/bin/python -c "from fastembed import LateInteractionTextEmbedding; LateInteractionTextEmbedding(model_name='colbert-ir/colbertv2.0')"
-
-
 
 # Cleanup: remove test files and caches to reduce image size
 RUN find /app/.venv/lib/python3.13/site-packages \
@@ -50,11 +66,9 @@ WORKDIR /app
 
 # Copy virtual environment and application from builder
 COPY --from=builder /app/.venv ./.venv
-COPY --from=builder /app/app ./app
-COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/templates ./templates
 COPY --from=builder /app/static ./static
-COPY --from=builder /app/pyproject.toml ./
 
 # Set PATH to use virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
@@ -78,4 +92,4 @@ USER appuser
 EXPOSE 8000
 
 # Run admin server
-CMD ["python", "scripts/admin_server.py"]
+CMD ["python", "-m", "cafetera_admin.server"]

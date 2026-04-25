@@ -10,8 +10,6 @@ cd "$PROJECT_DIR"
 # Configuration
 ADMIN_HOST="${ADMIN_HOST:-127.0.0.1}"
 ADMIN_PORT="${ADMIN_PORT:-8000}"
-ADMIN_IMAGE="${ADMIN_IMAGE:-cafetera-admin:latest}"
-VK_BOT_IMAGE="${VK_BOT_IMAGE:-cafetera-polling-vk:latest}"
 
 HEALTH_RETRIES=30
 HEALTH_INTERVAL=2
@@ -104,30 +102,17 @@ wait_for_service() {
   return 1
 }
 
-# Container names
-ADMIN_CONTAINER="cafetera-admin-container"
-VK_BOT_CONTAINER="cafetera-polling-vk-container"
-
 # PIDs of background processes to kill on exit
 BG_PIDS=()
 
 cleanup() {
   log "Shutting down..."
   
-  # Stop Docker containers
-  log "Stopping admin container..."
-  docker stop "$ADMIN_CONTAINER" 2>/dev/null || true
-  docker rm "$ADMIN_CONTAINER" 2>/dev/null || true
-  
-  log "Stopping VK bot container..."
-  docker stop "$VK_BOT_CONTAINER" 2>/dev/null || true
-  docker rm "$VK_BOT_CONTAINER" 2>/dev/null || true
-  
   log "Stopping docker compose services..."
   docker compose down 2>/dev/null || true
   
   # Kill background processes
-  for pid in "${BG_PIDS[@]}"; do
+  for pid in ${BG_PIDS[@]+"${BG_PIDS[@]}"}; do
     if kill -0 "$pid" 2>/dev/null; then
       log "Stopping background process (PID=$pid)"
       kill "$pid" 2>/dev/null || true
@@ -410,32 +395,7 @@ if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
   log "Embedding provider: OpenAI (remote, no local server needed)"
 fi
 
-# Prepare environment for Docker containers
-DOCKER_ENV_FILE=$(mktemp /tmp/cafetera-env.XXXXXX)
-
-# Copy .env as base
-cp .env "$DOCKER_ENV_FILE"
-
-# Override URLs that need to work from inside the container
-cat >> "$DOCKER_ENV_FILE" << EOF
-
-# Docker-specific overrides (use Docker service names, not localhost)
-DATABASE_URL=${DATABASE_CONTAINER_URL}
-QDRANT_URL=${QDRANT_CONTAINER_URL}
-S3_ENDPOINT_URL=${MINIO_CONTAINER_URL}
-
-# Host services (ollama/llamacpp) need host.docker.internal
-LLM_BASE_URL=${LLM_BASE_URL}
-EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL}
-
-# Admin server config
-BIND_HOST=0.0.0.0
-PORT=${ADMIN_PORT}
-FASTEMBED_CACHE_PATH=/app/.cache/fastembed
-EOF
-
-# Cleanup temp env file on exit
-trap "rm -f '$DOCKER_ENV_FILE'; cleanup" EXIT
+# docker-compose.yml handles env_file and service URLs directly
 
 # Print startup info
 echo
@@ -462,31 +422,6 @@ echo
 log "Press Ctrl+C to stop all services"
 echo
 
-# Start Admin Server
-log "Starting Admin Server..."
-docker run \
-  --name "$ADMIN_CONTAINER" \
-  --rm \
-  -d \
-  -p "${ADMIN_PORT}:${ADMIN_PORT}" \
-  --network cafetera_hr_bot_default \
-  --env-file "$DOCKER_ENV_FILE" \
-  "$ADMIN_IMAGE"
-
-log "Admin Server started"
-
-# Start VK Bot
-log "Starting VK Bot..."
-docker run \
-  --name "$VK_BOT_CONTAINER" \
-  --rm \
-  -d \
-  --network cafetera_hr_bot_default \
-  --env-file "$DOCKER_ENV_FILE" \
-  "$VK_BOT_IMAGE"
-
-log "VK Bot started"
-
 echo
 log "=========================================="
 log "All services are running!"
@@ -495,14 +430,11 @@ log "Admin UI:  http://${ADMIN_HOST}:${ADMIN_PORT}/documents"
 log "VK Bot:    Running in polling mode"
 log ""
 log "View logs:"
-log "  Admin:   docker logs -f $ADMIN_CONTAINER"
-log "  VK Bot:  docker logs -f $VK_BOT_CONTAINER"
-log "  Infra:   docker compose logs -f"
+log "  docker compose logs -f"
 log ""
 log "Stop:      Press Ctrl+C"
 log "=========================================="
 echo
 
-# Wait for both containers (they run in background with -d)
-# This keeps the script running until Ctrl+C
-wait
+# Follow compose logs, keeping the script alive until Ctrl+C
+docker compose logs -f

@@ -1,6 +1,6 @@
 """Tests for Block 9 — topic hints detection (app/domain/topic_hints.py)."""
 
-from app.domain.topic_hints import TopicHint, detect_topic_hint
+from cafetera_core.domain.topic_hints import TopicHint, detect_topic_hint
 
 # ── 9.1: clickable-scenario detection ──────────────────────────────
 
@@ -93,19 +93,19 @@ class TestAskHandlerImports:
     """Verify the ask handler now imports qa_service instead of rag_stub."""
 
     def test_ask_handler_imports_query_rag_with_wait(self):
-        from app.integrations.vk.handlers import ask
+        from cafetera_vk_bot.handlers import ask
 
         assert hasattr(ask, "query_rag_with_wait")
 
     def test_ask_handler_does_not_import_rag_stub(self):
         import inspect
 
-        import app.integrations.vk.handlers.ask as ask_mod
+        import cafetera_vk_bot.handlers.ask as ask_mod
 
         source = inspect.getsource(ask_mod)
         assert "rag_stub" not in source
 
     def test_ask_handler_imports_topic_hints(self):
-        from app.integrations.vk.handlers import ask
+        from cafetera_vk_bot.handlers import ask
 
         assert hasattr(ask, "detect_topic_hint")

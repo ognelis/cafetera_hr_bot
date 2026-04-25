@@ -8,11 +8,11 @@
 - [chain.py](file://app/rag/chain.py)
 - [prompts.py](file://app/rag/prompts.py)
 - [colbert_embeddings.py](file://app/rag/colbert_embeddings.py)
-- [ingest.py](file://scripts/ingest.py)
 - [document_service.py](file://app/domain/document_service.py)
 - [document_repo.py](file://app/storage/document_repo.py)
 - [config.py](file://app/config.py)
 - [documents.py](file://app/api/documents.py)
+- [documents_upload.py](file://app/api/documents_upload.py)
 - [qa_service.py](file://app/domain/qa_service.py)
 - [main.py](file://app/main.py)
 - [resources.py](file://app/resources.py)
@@ -27,13 +27,10 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced hybrid search capabilities with ColBERT reranking integration for late-interaction reranking
-- Updated vector configuration behavior to support named vector spaces (dense, bm25, colbert) with prefetch-based hybrid search
-- Added ColBERT embedding adapter with per-token multivector embeddings for Qdrant's ColBERT late-interaction scoring
-- Implemented AsyncHybridRerankRetriever with prefetch optimization for dense and sparse retrieval before ColBERT reranking
-- Enhanced collection creation to support named vector spaces with proper vector parameter configuration
-- Added comprehensive ColBERT embedding model initialization with graceful fallback mechanisms
-- Updated configuration system with new reranking settings (reranking_enabled, colbert_rerank_model, colbert_prefetch_limit)
+- Updated parser documentation to clarify exclusive usage by admin upload flow and DocumentService
+- Removed references to ingest script functionality as it no longer exists in the codebase
+- Enhanced admin upload flow documentation to show explicit parser integration
+- Updated architecture diagrams to reflect the exclusive admin upload flow usage pattern
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -47,12 +44,13 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the RAG (Retrieval-Augmented Generation) Parser Enhancement for the Cafetera HR Bot. The enhancement significantly expands document processing capabilities by implementing advanced chunking strategies including semantic chunking with LangChain's SemanticChunker, enhanced configuration options for breakpoint thresholds, comprehensive Excel (.xlsx) spreadsheet support, and most importantly, **enhanced hybrid search functionality with ColBERT reranking integration**. The system now features dual chunking strategies ('recursive' and 'semantic'), Excel spreadsheet processing with structured text extraction, extensive test coverage for new functionality, and robust integration with Qdrant vector storage supporting named vector spaces (dense, bm25, colbert) with prefetch-based hybrid search and ColBERT late-interaction reranking. The enhancement maintains backward compatibility while providing superior text segmentation accuracy, improved retrieval performance through semantic understanding, enhanced search capabilities through hybrid dense-sparse retrieval modes, expanded document format support for HR-related spreadsheet data, and state-of-the-art ColBERT reranking for superior ranking quality.
+This document describes the RAG (Retrieval-Augmented Generation) Parser Enhancement for the Cafetera HR Bot. The enhancement significantly expands document processing capabilities by implementing advanced chunking strategies including semantic chunking with LangChain's SemanticChunker, enhanced configuration options for breakpoint thresholds, comprehensive Excel (.xlsx) spreadsheet support, and most importantly, **exclusive integration with the admin upload flow**. The system now features dual chunking strategies ('recursive' and 'semantic'), Excel spreadsheet processing with structured text extraction, comprehensive test coverage for new functionality, and robust integration with Qdrant vector storage supporting named vector spaces (dense, bm25, colbert) with prefetch-based hybrid search and ColBERT late-interaction reranking. The enhancement maintains backward compatibility while providing superior text segmentation accuracy, improved retrieval performance through semantic understanding, enhanced search capabilities through hybrid dense-sparse retrieval modes, expanded document format support for HR-related spreadsheet data, and state-of-the-art ColBERT reranking for superior ranking quality.
+
+**Updated** The parser is now exclusively used by the admin upload flow and DocumentService for processing uploaded documents, replacing any previous standalone usage patterns.
 
 ## Project Structure
 The RAG system is organized into cohesive modules with enhanced semantic chunking capabilities, hybrid search support, comprehensive Excel processing, ColBERT reranking integration, and comprehensive testing infrastructure:
 - app/rag: Core RAG components with semantic chunking, Excel processing, hybrid search, and ColBERT reranking (parser, indexer, retriever, chain, prompts, colbert_embeddings)
-- scripts: Batch ingestion utilities with semantic chunking, Excel support, ColBERT vector configuration, and configurable parameters
 - app/domain: Business services orchestrating document lifecycle with enhanced chunking strategies, Excel processing, and ColBERT integration
 - app/storage: Metadata persistence and S3 integration
 - app/api: Admin endpoints for document management with semantic-aware processing, Excel upload support, and ColBERT configuration
@@ -63,7 +61,7 @@ The RAG system is organized into cohesive modules with enhanced semantic chunkin
 ```mermaid
 graph TB
 subgraph "Enhanced Semantic Chunking RAG Core"
-P["parser.py<br/>Semantic chunking & dual strategies<br/>Excel support<br/>Hierarchical headings<br/>Table atomic chunks<br/>4 breakpoint threshold types"]
+P["parser.py<br/>Semantic chunking & dual strategies<br/>Excel support<br/>Hierarchical headings<br/>Table atomic chunks<br/>4 breakpoint threshold types<br/>Used by admin upload flow"]
 I["indexer.py<br/>Chunk prep & Qdrant ops<br/>Named vector spaces<br/>ColBERT multivector support"]
 R["retriever.py<br/>Dense & hybrid retriever<br/>BM25 sparse embeddings<br/>ColBERT reranking<br/>Prefetch optimization"]
 C["chain.py<br/>RAG chain builder"]
@@ -75,6 +73,7 @@ subgraph "Application Layer"
 DS["document_service.py<br/>Document lifecycle<br/>Semantic chunking & Excel support<br/>ColBERT integration"]
 DR["document_repo.py<br/>SQLite metadata"]
 API["documents.py<br/>Admin API<br/>Semantic-aware chunking & Excel upload<br/>ColBERT configuration"]
+UPLOAD["documents_upload.py<br/>Admin upload flow<br/>Parser integration<br/>Background indexing"]
 QA["qa_service.py<br/>QA handler<br/>Hybrid retrieval & ColBERT<br/>Document-scoped chains"]
 CFG["config.py<br/>Settings<br/>semantic chunking & hybrid<br/>ColBERT reranking settings"]
 MAIN["main.py<br/>App lifecycle"]
@@ -95,6 +94,7 @@ R --> FE
 R --> CE
 C --> LLM
 API --> DS
+UPLOAD --> P
 DS --> DR
 DS --> QD
 DS --> S3
@@ -112,6 +112,7 @@ CFG --> CE
 ```
 
 **Diagram sources**
+- [parser.py:1-6](file://app/rag/parser.py#L1-L6)
 - [parser.py:16-174](file://app/rag/parser.py#L16-L174)
 - [parser.py:273-407](file://app/rag/parser.py#L273-L407)
 - [indexer.py:49-71](file://app/rag/indexer.py#L49-L71)
@@ -123,11 +124,13 @@ CFG --> CE
 - [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
 - [documents.py:75-87](file://app/api/documents.py#L75-L87)
 - [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [documents_upload.py:74-121](file://app/api/documents_upload.py#L74-L121)
 - [qa_service.py:102-148](file://app/domain/qa_service.py#L102-L148)
 - [config.py:54-67](file://app/config.py#L54-L67)
 - [main.py:29-38](file://app/main.py#L29-L38)
 
 **Section sources**
+- [parser.py:1-6](file://app/rag/parser.py#L1-L6)
 - [parser.py:16-174](file://app/rag/parser.py#L16-L174)
 - [parser.py:273-407](file://app/rag/parser.py#L273-L407)
 - [indexer.py:49-71](file://app/rag/indexer.py#L49-L71)
@@ -139,6 +142,7 @@ CFG --> CE
 - [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
 - [documents.py:75-87](file://app/api/documents.py#L75-L87)
 - [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [documents_upload.py:74-121](file://app/api/documents_upload.py#L74-L121)
 - [qa_service.py:102-148](file://app/domain/qa_service.py#L102-L148)
 - [config.py:54-67](file://app/config.py#L54-L67)
 - [main.py:29-38](file://app/main.py#L29-L38)
@@ -157,6 +161,7 @@ This section outlines the primary components of the RAG Parser Enhancement with 
   - **Enhanced**: .xlsx files: Worksheet-based structured text extraction with column header detection and preservation
   - **Enhanced**: Excel processing preserves tabular structure while enabling semantic chunking across worksheets
   - Returns LangChain Document objects with semantic-aware metadata and chunk positioning
+  - **Exclusive Usage**: Now exclusively used by admin upload flow and DocumentService for processing uploaded documents
 
 - **Hierarchical DOCX Parsing with Breadcrumb Path Generation**
   - **New Feature**: Comprehensive hierarchical heading level tracking with level-based navigation
@@ -232,32 +237,37 @@ This section outlines the primary components of the RAG Parser Enhancement with 
 ## Architecture Overview
 The RAG Parser Enhancement integrates semantic chunking, hybrid search capabilities, ColBERT reranking integration, Excel processing functionality, and dual retrieval strategies into a comprehensive pipeline with enhanced chunking accuracy, prefetch-based hybrid search, and state-of-the-art ColBERT late-interaction reranking. The system now supports both traditional token-based chunking and intelligent semantic chunking, with optional hybrid search combining dense vector similarity with sparse BM25 keyword matching and ColBERT per-token reranking for superior retrieval performance, and comprehensive Excel spreadsheet processing for structured data extraction.
 
+**Updated** The parser is now exclusively integrated into the admin upload flow, providing a streamlined document processing pipeline that processes uploaded files through the parser and into the DocumentService for indexing.
+
 ```mermaid
 sequenceDiagram
 participant Admin as "Admin UI/API"
 participant API as "Documents API"
+participant Upload as "Upload Router"
+participant Parser as "Semantic Parser<br/>Dual strategies<br/>Excel support<br/>Hierarchical headings<br/>Table atomic chunks<br/>4 breakpoint types"
 participant Service as "DocumentService"
 participant S3 as "S3 Storage"
-participant Parser as "Semantic Parser<br/>Dual strategies<br/>Excel support<br/>Hierarchical headings<br/>Table atomic chunks<br/>4 breakpoint types"
 participant Indexer as "Indexer<br/>Named vector spaces<br/>ColBERT multivector"
 participant Qdrant as "Qdrant<br/>Dense + BM25 + ColBERT<br/>Prefetch optimization"
 Admin->>API : Upload .docx, .doc, or .xlsx<br/>with semantic chunking & ColBERT
-API->>S3 : Store file
-API->>Service : Create metadata record
-API->>Service : Schedule background indexing<br/>with semantic-aware chunking & ColBERT
-Service->>S3 : Download file
-Service->>Parser : load_document(path)<br/>semantic or recursive strategy
+API->>Upload : POST /api/documents/upload
+Upload->>S3 : Store file
+Upload->>Upload : Download & validate file
+Upload->>Parser : load_document(path)<br/>semantic or recursive strategy
 Parser->>Parser : Hierarchical heading processing<br/>Table atomic chunking<br/>Excel column header detection
-Parser-->>Service : List of Documents<br/>semantic chunks with metadata<br/>section_level & section_path
+Parser-->>Upload : List of Documents<br/>semantic chunks with metadata<br/>section_level & section_path
+Upload->>Service : index_document(document_id, chunks)
 Service->>Indexer : Enrich metadata + prepare chunks<br/>Named vector spaces : dense + bm25 + colbert
 Indexer->>Qdrant : Add vectors + sparse embeddings<br/>ColBERT multivector configuration
-Service-->>API : Update status to completed
+Service-->>Upload : Update status to completed
+Upload-->>API : Background indexing complete
 API-->>Admin : Show indexed document
 ```
 
 **Diagram sources**
 - [documents.py:75-87](file://app/api/documents.py#L75-L87)
 - [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [documents_upload.py:173-292](file://app/api/documents_upload.py#L173-L292)
 - [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
 - [parser.py:411-475](file://app/rag/parser.py#L411-L475)
 - [indexer.py:65-71](file://app/rag/indexer.py#L65-L71)
@@ -265,13 +275,17 @@ API-->>Admin : Show indexed document
 **Section sources**
 - [documents.py:75-87](file://app/api/documents.py#L75-L87)
 - [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [documents_upload.py:173-292](file://app/api/documents_upload.py#L173-L292)
 - [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
-- [ingest.py:55-88](file://scripts/ingest.py#L55-L88)
+- [parser.py:411-475](file://app/rag/parser.py#L411-L475)
+- [indexer.py:65-71](file://app/rag/indexer.py#L65-L71)
 
 ## Detailed Component Analysis
 
 ### Enhanced Semantic Chunking System with Hierarchical Metadata
 The parser now features a sophisticated dual-strategy chunking system supporting both traditional token-based chunking and intelligent semantic chunking with comprehensive hierarchical metadata tracking. The semantic chunking leverages LangChain's SemanticChunker with configurable breakpoint thresholds for optimal chunk boundaries based on semantic similarity.
+
+**Updated** The parser is now exclusively used by the admin upload flow and DocumentService, eliminating any standalone usage patterns.
 
 ```mermaid
 flowchart TD
@@ -642,6 +656,8 @@ QAIntegration --> Test7["QAService stores and uses<br/>colbert_embeddings for re
 ### Document Lifecycle Service with Enhanced Semantic Chunking Support
 The DocumentService now supports semantic chunking through enhanced indexing operations that handle both dense and sparse embedding indexing workflows, including ColBERT embedding indexing with named vector spaces and Excel file processing with enhanced metadata tracking.
 
+**Updated** The DocumentService exclusively uses the parser for document processing, eliminating any external usage patterns.
+
 ```mermaid
 flowchart TD
 DocumentService["DocumentService"] --> IndexDocument["index_document(document_id, chunks)"]
@@ -649,7 +665,7 @@ IndexDocument --> PrepareChunks["prepare_chunks(enriched metadata)<br/>Enhanced 
 PrepareChunks --> AsyncThread["asyncio.to_thread()"]
 AsyncThread --> IndexChunks["index_chunks(client, embeddings, collection, chunks,<br/>sparse_embedding=self._sparse_embedding,<br/>colbert_embedding=self._colbert_embedding)"]
 IndexChunks --> UseNamedVectors{"use_named_vectors?<br/>(colbert_vectors is not None)"}
-UseNamedVectors --> |"Yes"| NamedVectors["vector = {'dense': vectors[i],<br/>'bm25': sparse_vectors[i],<br/>'colbert': colbert_vectors[i]}"]
+UseNamedVectors --> |"Yes"| NamedVectors["vector = {'dense': vectors[i],<br/>'bm25': sparse_vectors[i],<br/'colbert': colbert_vectors[i]}"]
 UseNamedVectors --> |"No"| LegacyVectors["vector = vectors[i]<br/>if sparse_vectors: vector = {'': vectors[i],<br/>'text-sparse': sparse_vectors[i]}"]
 NamedVectors --> Upsert["client.upsert(points)"]
 LegacyVectors --> Upsert
@@ -668,41 +684,56 @@ UpdateRepo --> Complete["Document indexing complete"]
 ### Admin Upload Flow with Enhanced Excel Support and ColBERT Configuration
 The admin upload flow now supports Excel spreadsheets alongside other document types, providing users with flexible document processing options including structured spreadsheet data with enhanced column header preservation and ColBERT reranking configuration.
 
+**Updated** The admin upload flow now exclusively integrates the parser for document processing, providing a streamlined workflow from upload to indexing.
+
 ```mermaid
 sequenceDiagram
 participant Client as "Admin Client"
 participant API as "documents.py"
+participant Upload as "documents_upload.py"
+participant Parser as "parser.py"
 participant S3 as "S3Storage"
 participant Service as "DocumentService"
 participant BG as "Background Task"
 Client->>API : POST /api/documents/upload<br/>Excel support included<br/>Enhanced column header detection<br/>ColBERT reranking settings
-API->>API : Validate file type/size (.doc/.docx/.xlsx)
-API->>S3 : Upload file
-API->>Service : create_document(...)
-API->>BG : Schedule _index_in_background<br/>with semantic-aware chunking<br/>Enhanced metadata tracking<br/>ColBERT embedding indexing
+API->>Upload : Route to upload handler
+Upload->>Upload : Validate file type/size (.doc/.docx/.xlsx)
+Upload->>S3 : Upload file
+Upload->>Upload : Download & validate file
+Upload->>Parser : load_document(path)<br/>semantic or recursive strategy
+Parser-->>Upload : List of Documents<br/>semantic chunks with metadata<br/>section_level & section_path
+Upload->>Service : create_document(...)
+Upload->>BG : Schedule _index_document_from_s3<br/>with semantic-aware chunking<br/>Enhanced metadata tracking<br/>ColBERT embedding indexing
 BG->>S3 : Download file
 BG->>Service : index_document(document_id, chunks)<br/>semantic or recursive strategy<br/>Hierarchical metadata preserved<br/>Named vector spaces : dense + bm25 + colbert
 Service-->>BG : Status updated
-BG-->>API : Background indexing complete
+BG-->>Upload : Background indexing complete
+Upload-->>API : Background indexing complete
 API-->>Client : JSON or HTMX response
 ```
 
 **Diagram sources**
 - [documents.py:75-87](file://app/api/documents.py#L75-L87)
 - [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [documents_upload.py:173-292](file://app/api/documents_upload.py#L173-L292)
+- [parser.py:411-475](file://app/rag/parser.py#L411-L475)
 
 **Section sources**
 - [documents.py:75-87](file://app/api/documents.py#L75-L87)
 - [documents.py:154-163](file://app/api/documents.py#L154-L163)
+- [documents_upload.py:173-292](file://app/api/documents_upload.py#L173-L292)
+- [parser.py:411-475](file://app/rag/parser.py#L411-L475)
 
 ## Dependency Analysis
 The RAG Parser Enhancement exhibits enhanced dependency management with new semantic chunking, hybrid search capabilities, ColBERT reranking integration, and Excel processing functionality while maintaining backward compatibility. The system now integrates LangChain Experimental for semantic chunking, FastEmbed for sparse embeddings and ColBERT reranking, and openpyxl for Excel processing, with graceful fallback mechanisms for optional dependencies.
+
+**Updated** The parser dependency graph now reflects exclusive usage by the admin upload flow and DocumentService, eliminating any standalone usage patterns.
 
 ```mermaid
 graph TB
 CFG["config.py<br/>Semantic & hybrid settings<br/>chunk_strategy, sparse model<br/>ColBERT reranking settings<br/>Enhanced semantic defaults"] --> RES["resources.py<br/>Hybrid search init<br/>FastEmbedSparse<br/>ColBERT embeddings<br/>Named vector spaces"]
 CFG --> RET["retriever.py<br/>Hybrid retriever<br/>ColBERT reranking<br/>Prefetch optimization"]
-CFG --> PARSE["parser.py<br/>Semantic chunking<br/>Excel support<br/>Hierarchical headings<br/>Table atomic chunks<br/>SemanticChunker"]
+CFG --> PARSE["parser.py<br/>Semantic chunking<br/>Excel support<br/>Hierarchical headings<br/>Table atomic chunks<br/>SemanticChunker<br/>Used by admin upload flow"]
 RES --> RET
 RES --> QDRANT["Qdrant"]
 RES --> COLBERT["ColBERT Adapter<br/>Per-token embeddings"]
@@ -715,6 +746,7 @@ RET --> COLBERT
 INDEXER["indexer.py<br/>Named vector spaces<br/>ColBERT multivector"] --> QDRANT
 SERVICE["document_service.py<br/>Semantic chunking & Excel support<br/>Enhanced metadata<br/>ColBERT integration"] --> INDEXER
 API["documents.py<br/>Enhanced Excel upload support<br/>ColBERT configuration"] --> SERVICE
+UPLOAD["documents_upload.py<br/>Admin upload flow<br/>Parser integration"] --> PARSE
 QA["qa_service.py<br/>Hybrid retrieval & ColBERT<br/>Document-scoped chains<br/>Hierarchical metadata"] --> RET
 MAIN["main.py<br/>Resource initialization<br/>ColBERT setup"] --> RES
 ```
@@ -728,6 +760,7 @@ MAIN["main.py<br/>Resource initialization<br/>ColBERT setup"] --> RES
 - [indexer.py:65-71](file://app/rag/indexer.py#L65-L71)
 - [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
 - [documents.py:75-87](file://app/api/documents.py#L75-L87)
+- [documents_upload.py:74-121](file://app/api/documents_upload.py#L74-L121)
 - [qa_service.py:102-148](file://app/domain/qa_service.py#L102-L148)
 - [main.py:29-38](file://app/main.py#L29-L38)
 
@@ -740,6 +773,7 @@ MAIN["main.py<br/>Resource initialization<br/>ColBERT setup"] --> RES
 - [indexer.py:65-71](file://app/rag/indexer.py#L65-L71)
 - [document_service.py:106-120](file://app/domain/document_service.py#L106-L120)
 - [documents.py:75-87](file://app/api/documents.py#L75-L87)
+- [documents_upload.py:74-121](file://app/api/documents_upload.py#L74-L121)
 - [qa_service.py:102-148](file://app/domain/qa_service.py#L102-L148)
 - [main.py:29-38](file://app/main.py#L29-L38)
 
@@ -772,12 +806,12 @@ MAIN["main.py<br/>Resource initialization<br/>ColBERT setup"] --> RES
   - **New Feature**: Named vector spaces with proper Qdrant configuration for efficient multivector operations
   - **New Feature**: Separate prefetch_limit and rerank_limit settings allow tuning for optimal performance
   - **New Feature**: ColBERT embeddings cached after first probe to avoid repeated model loading
-  - **New Feature**: Graceful fallback to dense+sparse when ColBERT is unavailable prevents performance degradation
+  - **New Feature**: Graceful fallback to dense+sparse when ColBERT is unavailable
 - **Hybrid Search Performance Optimization**
   - Sparse embeddings add minimal overhead compared to dense embeddings while providing complementary keyword matching capabilities
   - FastEmbedSparse offers efficient BM25 implementation with configurable model selection
   - Hybrid retrieval combines dense and sparse scores with configurable weighting strategies
-  - Automatic fallback to dense-only retrieval when sparse embeddings are unavailable prevents performance degradation
+  - Automatic fallback to dense-only retrieval when sparse embeddings are unavailable
 - **Provider Selection and Resource Management**
   - Embedding and LLM providers impact both semantic chunking performance and hybrid search capabilities
   - Choose providers aligned with deployment constraints and enable caching where supported for semantic chunking operations
@@ -787,8 +821,7 @@ MAIN["main.py<br/>Resource initialization<br/>ColBERT setup"] --> RES
   - ColBERT reranking requires additional computational resources for per-token embedding generation
   - Consider chunk size adjustments when using semantic chunking to balance semantic coherence with computational efficiency
 - **Batch Processing and Memory Management**
-  - Batch ingestion (scripts/ingest.py) supports both semantic and recursive strategies with configurable parameters including Excel files and ColBERT vector configuration
-  - Admin uploads leverage background tasks with semantic-aware chunking parameters, breakpoint thresholds, and ColBERT embedding indexing
+  - **Updated** Admin uploads leverage background tasks with semantic-aware chunking parameters, breakpoint thresholds, and ColBERT embedding indexing
   - Memory considerations for semantic chunking include embedding model loading and breakpoint calculations
   - Excel files processed efficiently with read-only access preventing memory leaks
   - Hierarchical metadata tracking requires additional memory proportional to document sections
@@ -872,6 +905,11 @@ Common issues and resolutions for the enhanced RAG system with ColBERT reranking
   - Hierarchical heading processing adds new metadata fields without breaking existing functionality.
   - ColBERT reranking is opt-in and gracefully falls back to existing hybrid search when unavailable.
   - Named vector spaces maintain backward compatibility with legacy unnamed layout when ColBERT is disabled.
+- **Admin Upload Flow Integration Issues**
+  - **Updated** Parser integration issues typically stem from upload route configuration or background task scheduling.
+  - Ensure upload routes properly import and use the parser for document processing.
+  - Background task scheduling should pass proper chunking parameters and embedding configurations.
+  - DocumentService integration should receive properly chunked documents from the parser.
 
 **Section sources**
 - [retriever.py:88-103](file://app/rag/retriever.py#L88-L103)
@@ -881,6 +919,9 @@ Common issues and resolutions for the enhanced RAG system with ColBERT reranking
 - [config.py:54-67](file://app/config.py#L54-L67)
 - [resources.py:120-132](file://app/resources.py#L120-L132)
 - [colbert_embeddings.py:83-121](file://app/rag/colbert_embeddings.py#L83-L121)
+- [documents_upload.py:173-292](file://app/api/documents_upload.py#L173-L292)
 
 ## Conclusion
 The RAG Parser Enhancement delivers a comprehensive, production-ready pipeline for processing HR documents with advanced semantic understanding, hybrid search capabilities, ColBERT reranking integration, and Excel spreadsheet support. By implementing dual chunking strategies (recursive and semantic) with configurable breakpoint thresholds, integrating LangChain's SemanticChunker for intelligent boundary detection, supporting hybrid dense-sparse retrieval with BM25 keyword matching, providing comprehensive Excel processing with structured text extraction, implementing hierarchical heading level tracking with breadcrumb path generation, extracting tables as atomic chunks with Markdown formatting, detecting and preserving column headers in XLSX files, offering robust configuration management, **implementing ColBERT per-token embeddings with late-interaction reranking**, **adding prefetch-based hybrid search optimization**, **supporting named vector spaces (dense, bm25, colbert)**, and **enabling graceful fallback mechanisms**, the system significantly enhances document processing accuracy and retrieval performance. The modular architecture with graceful fallback mechanisms ensures backward compatibility while enabling cutting-edge retrieval capabilities. The enhanced testing infrastructure validates both semantic chunking functionality, hybrid search operations, ColBERT reranking capabilities, hierarchical metadata tracking, and Excel processing capabilities, while the centralized configuration system provides fine-grained control over chunking strategies, retrieval modes, ColBERT reranking parameters, and Excel processing parameters. The system's ability to automatically initialize sparse embeddings for hybrid search, integrate efficient Excel processing with openpyxl, maintain comprehensive hierarchical metadata tracking, combine intelligent table processing with semantic understanding, **implement state-of-the-art ColBERT reranking with per-token embeddings**, **optimize hybrid search with prefetch operations**, **support named vector spaces with proper Qdrant configuration**, and **provide graceful fallback mechanisms** makes it suitable for enterprise-scale document processing with superior semantic understanding, flexible retrieval options, comprehensive support for HR-related structured data formats, and industry-leading ranking quality through ColBERT late-interaction reranking.
+
+**Updated** The exclusive integration with the admin upload flow and DocumentService provides a streamlined, reliable document processing pipeline that eliminates standalone usage patterns and ensures consistent semantic chunking across all uploaded documents.
