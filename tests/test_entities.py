@@ -1,6 +1,6 @@
 """Tests for app.domain.entities — legal entity definitions."""
 
-from cafetera_core.domain.entities import ENTITIES, ENTITY_BY_ID, LegalEntity
+from cafetera_vk_bot.domain.entities import ENTITIES, ENTITY_BY_ID, LegalEntity
 
 
 class TestEntities:

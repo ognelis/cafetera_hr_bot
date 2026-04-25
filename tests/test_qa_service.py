@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from cafetera_core.domain.content import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
+from cafetera_core.domain.errors import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
 from cafetera_core.domain.qa_service import (
     _TRUNCATION_SUFFIX,
     VK_MSG_LIMIT,

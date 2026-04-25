@@ -10,7 +10,7 @@ import pytest
 from databases import Database
 from langchain_core.documents import Document as LCDocument
 
-from cafetera_core.domain.document_service import DocumentService
+from cafetera_admin.domain.document_service import DocumentService
 from cafetera_core.storage.database import init_db
 from cafetera_core.storage.document_repo import DocumentRepository
 from cafetera_core.storage.models import DocumentRecord, DocumentStatus
@@ -136,11 +136,11 @@ class TestCreateDocument:
 
 class TestIndexDocument:
     @patch(
-        "cafetera_core.domain.document_service.optimize_collection",
+        "cafetera_admin.domain.document_service.optimize_collection",
         new_callable=AsyncMock,
     )
     @patch(
-        "cafetera_core.domain.document_service.index_chunks",
+        "cafetera_admin.domain.document_service.index_chunks",
         new_callable=AsyncMock,
         return_value=3,
     )
@@ -161,11 +161,11 @@ class TestIndexDocument:
         mock_optimize.assert_called_once()
 
     @patch(
-        "cafetera_core.domain.document_service.optimize_collection",
+        "cafetera_admin.domain.document_service.optimize_collection",
         new_callable=AsyncMock,
     )
     @patch(
-        "cafetera_core.domain.document_service.index_chunks",
+        "cafetera_admin.domain.document_service.index_chunks",
         new_callable=AsyncMock,
         side_effect=RuntimeError("Qdrant down"),
     )
@@ -187,10 +187,14 @@ class TestIndexDocument:
         assert result is None
 
     @patch(
-        "cafetera_core.domain.document_service.optimize_collection",
+        "cafetera_admin.domain.document_service.optimize_collection",
         new_callable=AsyncMock,
     )
-    @patch("cafetera_core.domain.document_service.index_chunks", new_callable=AsyncMock, return_value=2)
+    @patch(
+        "cafetera_admin.domain.document_service.index_chunks",
+        new_callable=AsyncMock,
+        return_value=2,
+    )
     async def test_passes_is_search_enabled_to_chunks(
         self, mock_index, mock_optimize, service, repo
     ):
@@ -282,11 +286,18 @@ class TestToggleSearch:
 
 class TestReindexDocument:
     @patch(
-        "cafetera_core.domain.document_service.optimize_collection",
+        "cafetera_admin.domain.document_service.optimize_collection",
         new_callable=AsyncMock,
     )
-    @patch("cafetera_core.domain.document_service.index_chunks", new_callable=AsyncMock, return_value=5)
-    @patch("cafetera_core.domain.document_service.delete_document_chunks", new_callable=AsyncMock)
+    @patch(
+        "cafetera_admin.domain.document_service.index_chunks",
+        new_callable=AsyncMock,
+        return_value=5,
+    )
+    @patch(
+        "cafetera_admin.domain.document_service.delete_document_chunks",
+        new_callable=AsyncMock,
+    )
     async def test_reindexes_successfully(
         self, mock_delete, mock_index, mock_optimize, service, repo
     ):
@@ -308,15 +319,15 @@ class TestReindexDocument:
         mock_optimize.assert_called_once()
 
     @patch(
-        "cafetera_core.domain.document_service.optimize_collection",
+        "cafetera_admin.domain.document_service.optimize_collection",
         new_callable=AsyncMock,
     )
     @patch(
-        "cafetera_core.domain.document_service.index_chunks",
+        "cafetera_admin.domain.document_service.index_chunks",
         new_callable=AsyncMock,
         side_effect=RuntimeError("fail"),
     )
-    @patch("cafetera_core.domain.document_service.delete_document_chunks", new_callable=AsyncMock)
+    @patch("cafetera_admin.domain.document_service.delete_document_chunks", new_callable=AsyncMock)
     async def test_marks_failed_on_error(
         self, mock_delete, mock_index, mock_optimize, service, repo
     ):

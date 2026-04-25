@@ -124,7 +124,7 @@ async def get_entity_or_error(
     message: Message, entity_id: int | None, back_payload: dict[str, str]
 ):
     """Look up entity by ID; if not found, send error and return None."""
-    from cafetera_core.domain.entities import ENTITY_BY_ID
+    from cafetera_vk_bot.domain.entities import ENTITY_BY_ID
     from cafetera_vk_bot.keyboards import stub_kb
 
     entity = ENTITY_BY_ID.get(entity_id or 0)

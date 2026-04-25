@@ -16,16 +16,12 @@ from databases import Database
 
 from cafetera_core.config import CoreSettings
 from cafetera_core.domain.category_file_service import CategoryFileService
-from cafetera_core.domain.document_service import DocumentService
 from cafetera_core.domain.qa_service import QAService
-from cafetera_core.rag.chain import build_llm, build_rag_chain
+from cafetera_core.rag.chain import build_llm
 from cafetera_core.rag.colbert_embeddings import build_colbert_embeddings
-from cafetera_core.rag.prompts import GLOBAL_EXPERTS_PROMPT, SYSTEM_PROMPT
 from cafetera_core.rag.retriever import (
-    CollectionNotFoundError,
     build_embeddings,
     build_qdrant_client,
-    build_retriever,
     build_sparse_embeddings,
 )
 from cafetera_core.storage.category_repo import CategoryFileRepository
@@ -197,6 +193,9 @@ class AppResources:
     All attributes are optional (None) by default and are initialized
     by build_resources(). This allows graceful degradation when
     certain services are unavailable.
+
+    Use ``build_qa_service()`` to create a QAService with a
+    package-specific system prompt.
     """
 
     settings: CoreSettings
@@ -206,13 +205,51 @@ class AppResources:
     s3: S3Storage | None = None
     db: Database | None = None
     doc_repo: DocumentRepository | None = None
-    doc_service: DocumentService | None = None
-    qa_service: QAService | None = None
-    vk_qa_service: QAService | None = None
     sparse_embeddings: object | None = None
     colbert_embeddings: object | None = None
     category_file_repo: CategoryFileRepository | None = None
     category_file_service: CategoryFileService | None = None
+
+    def build_qa_service(
+        self,
+        system_prompt: str,
+        *,
+        include_metadata: bool = False,
+    ) -> QAService:
+        """Create a QAService using the shared resources.
+
+        Args:
+            system_prompt: The system prompt for the QA chain.
+            include_metadata: Whether to include document metadata in answers.
+
+        Returns:
+            A fully initialized QAService.
+
+        Raises:
+            ValueError: If required resources (qdrant_client, embeddings,
+                llm, settings) are not initialized.
+        """
+        if (
+            self.qdrant_client is None
+            or self.embeddings is None
+            or self.llm is None
+            or self.settings is None
+        ):
+            raise ValueError(
+                "Cannot build QAService: required resources "
+                "(qdrant_client, embeddings, llm, settings) not initialized"
+            )
+
+        return QAService(
+            qdrant_client=self.qdrant_client,
+            embeddings=self.embeddings,
+            llm=self.llm,
+            settings=self.settings,
+            global_system_prompt=system_prompt,
+            include_metadata=include_metadata,
+            sparse_embedding=self.sparse_embeddings,
+            colbert_embedding=self.colbert_embeddings,
+        )
 
 
 async def build_resources(
@@ -322,18 +359,6 @@ async def build_resources(
             res.doc_repo = repo
             logger.info("DocumentRepository initialized")
 
-            if qdrant_client is not None and embeddings is not None:
-                doc_service = DocumentService(
-                    repo=repo,
-                    qdrant_client=qdrant_client,
-                    embeddings=embeddings,
-                    collection_name=settings.qdrant_collection,
-                    sparse_embedding=res.sparse_embeddings,
-                    colbert_embedding=res.colbert_embeddings,
-                )
-                res.doc_service = doc_service
-                logger.info("DocumentService initialized")
-
             # Initialize category file repository and service
             category_file_repo = CategoryFileRepository(db)
             res.category_file_repo = category_file_repo
@@ -352,10 +377,10 @@ async def build_resources(
                 exc_info=True,
             )
 
-    # 4. LLM, retriever, chain, and QA service
+    # 4. LLM (QAService creation is deferred to each package via build_qa_service)
     if qdrant_client is not None and embeddings is not None:
         try:
-            # Ensure collection exists before building retriever
+            # Ensure collection exists before any retriever usage
             await _ensure_collection(
                 qdrant_client,
                 embeddings,
@@ -366,58 +391,13 @@ async def build_resources(
 
             llm = build_llm(settings)
             res.llm = llm
-
-            retriever = build_retriever(
-                settings,
-                qdrant_client=qdrant_client,
-                embeddings=embeddings,
-                sparse_embedding=res.sparse_embeddings,
-                colbert_embedding=res.colbert_embeddings,
-            )
-            chain = build_rag_chain(retriever, llm, system_prompt=GLOBAL_EXPERTS_PROMPT)
-
-            qa_service = QAService(
-                chain=chain,
-                qdrant_client=qdrant_client,
-                embeddings=embeddings,
-                llm=llm,
-                settings=settings,
-                global_system_prompt=GLOBAL_EXPERTS_PROMPT,
-                include_metadata=True,
-                sparse_embedding=res.sparse_embeddings,
-                colbert_embedding=res.colbert_embeddings,
-            )
-            res.qa_service = qa_service
-
-            # Create VK QAService with strict SYSTEM_PROMPT
-            vk_qa_service = QAService(
-                qdrant_client=qdrant_client,
-                embeddings=embeddings,
-                llm=llm,
-                settings=settings,
-                global_system_prompt=SYSTEM_PROMPT,
-                sparse_embedding=res.sparse_embeddings,
-                colbert_embedding=res.colbert_embeddings,
-            )
-            res.vk_qa_service = vk_qa_service
-            logger.info("QA service initialized successfully")
-        except CollectionNotFoundError:
-            logger.info(
-                "QA service not available — Qdrant collection not found. "
-                "Upload and index a document to enable Q&A."
-            )
-            res.qa_service = None
-            res.vk_qa_service = None
+            logger.info("LLM initialized successfully")
         except Exception:
             logger.warning(
-                "QA service not available — handlers will use fallback",
+                "LLM not available — QA service creation will fail",
                 exc_info=True,
             )
-            res.qa_service = None
-            res.vk_qa_service = None
-    else:
-        res.qa_service = None
-        res.vk_qa_service = None
+            res.llm = None
 
     return res
 
@@ -464,8 +444,5 @@ async def close_resources(res: AppResources) -> None:
     res.colbert_embeddings = None
     res.llm = None
     res.doc_repo = None
-    res.doc_service = None
-    res.qa_service = None
-    res.vk_qa_service = None
     res.category_file_repo = None
     res.category_file_service = None

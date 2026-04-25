@@ -2,68 +2,31 @@
 
 <cite>
 **Referenced Files in This Document**
-- [app/main.py](file://app/main.py)
-- [app/config.py](file://app/config.py)
-- [app/api/documents.py](file://app/api/documents.py)
-- [app/api/documents_auth.py](file://app/api/documents_auth.py)
-- [app/api/documents_upload.py](file://app/api/documents_upload.py)
-- [app/api/documents_bulk.py](file://app/api/documents_bulk.py)
-- [app/api/documents_qa.py](file://app/api/documents_qa.py)
-- [app/api/documents_helpers.py](file://app/api/documents_helpers.py)
-- [app/api/deps.py](file://app/api/deps.py)
-- [app/domain/document_service.py](file://app/domain/document_service.py)
-- [app/domain/entities.py](file://app/domain/entities.py)
-- [app/domain/qa_service.py](file://app/domain/qa_service.py)
-- [app/domain/topic_hints.py](file://app/domain/topic_hints.py)
-- [app/storage/document_repo.py](file://app/storage/document_repo.py)
-- [app/storage/category_repo.py](file://app/storage/category_repo.py)
-- [app/storage/models.py](file://app/storage/models.py)
-- [app/storage/category_models.py](file://app/storage/category_models.py)
-- [app/storage/s3.py](file://app/storage/s3.py)
-- [app/storage/database.py](file://app/storage/database.py)
-- [app/resources.py](file://app/resources.py)
-- [app/rag/indexer.py](file://app/rag/indexer.py)
-- [app/rag/parser.py](file://app/rag/parser.py)
-- [app/rag/retriever.py](file://app/rag/retriever.py)
-- [app/rag/chain.py](file://app/rag/chain.py)
-- [app/rag/prompts.py](file://app/rag/prompts.py)
-- [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
-- [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
-- [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
-- [app/integrations/vk/handlers/hr_request.py](file://app/integrations/vk/handlers/hr_request.py)
-- [app/integrations/vk/handlers/fire.py](file://app/integrations/vk/handlers/fire.py)
-- [app/integrations/vk/handlers/hire.py](file://app/integrations/vk/handlers/hire.py)
-- [app/integrations/vk/handlers/pay.py](file://app/integrations/vk/handlers/pay.py)
-- [app/integrations/vk/handlers/vacation.py](file://app/integrations/vk/handlers/vacation.py)
-- [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
-- [app/integrations/vk/rules.py](file://app/integrations/vk/rules.py)
-- [app/integrations/vk/keyboards.py](file://app/integrations/vk/keyboards.py)
-- [templates/documents.html](file://templates/documents.html)
-- [templates/partials/document_table.html](file://templates/partials/document_table.html)
-- [templates/partials/document_row.html](file://templates/partials/document_row.html)
-- [templates/partials/pagination.html](file://templates/partials/pagination.html)
-- [templates/partials/status_poller.html](file://templates/partials/status_poller.html)
-- [templates/base.html](file://templates/base.html)
-- [static/js/htmx.js](file://static/js/htmx.js)
-- [scripts/ingest.py](file://scripts/ingest.py)
-- [tests/conftest.py](file://tests/conftest.py)
-- [tests/test_api_documents.py](file://tests/test_api_documents.py)
-- [tests/test_api_documents_auth.py](file://tests/test_api_documents_auth.py)
-- [tests/test_api_documents_upload.py](file://tests/test_api_documents_upload.py)
-- [tests/test_api_documents_bulk.py](file://tests/test_api_documents_bulk.py)
-- [tests/test_storage.py](file://tests/test_storage.py)
-- [tests/test_qa_service.py](file://tests/test_qa_service.py)
+- [packages/admin/src/cafetera_admin/domain/document_service.py](file://packages/admin/src/cafetera_admin/domain/document_service.py)
+- [packages/admin/src/cafetera_admin/indexer.py](file://packages/admin/src/cafetera_admin/indexer.py)
+- [packages/admin/src/cafetera_admin/api/documents.py](file://packages/admin/src/cafetera_admin/api/documents.py)
+- [packages/admin/src/cafetera_admin/api/deps.py](file://packages/admin/src/cafetera_admin/api/deps.py)
+- [packages/admin/src/cafetera_admin/main.py](file://packages/admin/src/cafetera_admin/main.py)
+- [packages/core/src/cafetera_core/domain/qa_service.py](file://packages/core/src/cafetera_core/domain/qa_service.py)
+- [packages/core/src/cafetera_core/storage/models.py](file://packages/core/src/cafetera_core/storage/models.py)
+- [packages/core/src/cafetera_core/storage/document_repo.py](file://packages/core/src/cafetera_core/storage/document_repo.py)
+- [packages/core/src/cafetera_core/storage/category_repo.py](file://packages/core/src/cafetera_core/storage/category_repo.py)
+- [packages/core/src/cafetera_core/storage/database.py](file://packages/core/src/cafetera_core/storage/database.py)
+- [packages/core/src/cafetera_core/storage/s3.py](file://packages/core/src/cafetera_core/storage/s3.py)
+- [packages/core/src/cafetera_core/rag/retriever.py](file://packages/core/src/cafetera_core/rag/retriever.py)
+- [packages/core/src/cafetera_core/rag/chain.py](file://packages/core/src/cafetera_core/rag/chain.py)
+- [packages/core/src/cafetera_core/rag/prompts.py](file://packages/core/src/cafetera_core/rag/prompts.py)
 - [tests/test_document_service.py](file://tests/test_document_service.py)
-- [pyproject.toml](file://pyproject.toml)
+- [tests/conftest.py](file://tests/conftest.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- **Enhanced Admin Document API Testing**: Implemented comprehensive modular testing approach covering authentication, upload, bulk operations, and remaining functionality
-- **Improved Test Fixtures Infrastructure**: Enhanced PostgreSQL container testing with proper isolation and cleanup
-- **Comprehensive Filtering and Sorting API Testing**: Added extensive coverage for status filtering, source type filtering, sorting, and pagination
-- **Enhanced Test Coverage Areas**: Expanded testing to include router architecture, async operations, streaming responses, and batch status polling
-- **Revolutionary Batch Status Polling Testing**: Added comprehensive testing for centralized status updates and OOB swapping
+- Updated DocumentService import paths from core package to admin package
+- Extracted indexing functionality to dedicated indexer module in admin package
+- Updated import statements to reflect new package organization
+- Modified API dependencies to use new admin package imports
+- Updated test configurations to reference new admin package locations
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -87,20 +50,19 @@
 19. [Real-Time Streaming with Server-Sent Events](#real-time-streaming-with-server-sent-events)
 20. [Enhanced File Download Handling](#enhanced-file-download-handling)
 21. [Improved Document Status Tracking](#improved-document-status-tracking)
-22. [VK Bot Integration](#vk-bot-integration)
-23. [Storage Layer](#storage-layer)
-24. [API Endpoints](#api-endpoints)
-25. [Configuration Management](#configuration-management)
-26. [Enhanced Error Handling and Consistency](#enhanced-error-handling-and-consistency)
-27. [Deployment and Operations](#deployment-and-operations)
-28. [Troubleshooting Guide](#troubleshooting-guide)
-29. [Conclusion](#conclusion)
+22. [Storage Layer](#storage-layer)
+23. [API Endpoints](#api-endpoints)
+24. [Configuration Management](#configuration-management)
+25. [Enhanced Error Handling and Consistency](#enhanced-error-handling-and-consistency)
+26. [Deployment and Operations](#deployment-and-operations)
+27. [Troubleshooting Guide](#troubleshooting-guide)
+28. [Conclusion](#conclusion)
 
 ## Introduction
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-**Updated** The system has undergone significant enhancements with the implementation of a comprehensive modular testing approach for the admin document API. The testing infrastructure now includes enhanced fixtures with PostgreSQL container support, improved isolation between test cases, and extensive coverage for authentication, upload operations, bulk operations, and filtering/sorting functionality. The modular router architecture testing ensures backward compatibility while validating the new specialized routers for authentication, upload, bulk operations, and QA functionality. These improvements provide enhanced reliability, maintainability, and test coverage for the entire document management ecosystem.
+**Updated** The system has undergone significant architectural changes with the relocation of DocumentService from the core package to the admin package and the extraction of indexing functionality to a dedicated indexer module. These changes improve code organization, separation of concerns, and maintainability while preserving all existing functionality. The DocumentService now resides in `packages/admin/src/cafetera_admin/domain/document_service.py` and indexing operations are handled by `packages/admin/src/cafetera_admin/indexer.py`. Import paths have been updated throughout the codebase to reflect the new package structure, and the modular router architecture continues to provide comprehensive functionality for document management operations.
 
 ## System Architecture
 
@@ -108,13 +70,11 @@ The Document Management System follows a layered architecture pattern with clear
 
 ```mermaid
 graph TB
-subgraph "Enhanced Testing Infrastructure"
-PostgreSQLContainer[Testcontainers PostgreSQL]
-TestFixtures[Test Fixtures & Isolation]
-AsyncOperations[Async Operations Testing]
-StreamingResponses[Streaming Response Testing]
-BatchStatusPolling[Batch Status Polling Testing]
-RouterArchitecture[Router Architecture Testing]
+subgraph "Enhanced Package Organization"
+AdminPackage[Admin Package Structure]
+CorePackage[Core Package Structure]
+IndexerModule[Indexer Module]
+DocumentService[DocumentService Class]
 EndUserExperience[Enhanced User Experience]
 end
 subgraph "PostgreSQL Storage Architecture"
@@ -124,6 +84,7 @@ SERIALPK[SERIAL Primary Keys]
 ONCONFLICT[ON CONFLICT Upsert]
 RETURNING[RETURNING Generated IDs]
 DATABASESCHEMA[Enhanced Database Schema]
+EndUserExperience[Enhanced User Experience]
 end
 subgraph "Enhanced Async Architecture"
 AsyncDocumentService[Async Document Service]
@@ -140,6 +101,7 @@ UploadRouter[Upload Router]
 BulkRouter[Bulk Operations Router]
 QARouter[QA Router]
 RouterComposition[Router Composition]
+EndUserExperience[Enhanced User Experience]
 end
 subgraph "Presentation Layer"
 WebUI[Web Interface]
@@ -181,6 +143,7 @@ TemplateContext[Template Context Manager]
 DocXValidator[DOCX Integrity Validator]
 HTMXPartialResponses[HTMX Partial Responses]
 EndUserManagement[Enhanced User Management]
+EndUserExperience[Enhanced User Experience]
 end
 subgraph "Domain Layer"
 Entities[Domain Entities]
@@ -211,14 +174,16 @@ LLM[LLM Provider]
 Parser[Enhanced Parser]
 EndUserIntegration[Enhanced Integration]
 end
-PostgreSQLContainer --> TestFixtures
-TestFixtures --> AsyncOperations
-TestFixtures --> StreamingResponses
-TestFixtures --> BatchStatusPolling
-TestFixtures --> RouterArchitecture
-PostgreSQLDB --> DATABASESCHEMA
-DATABASESCHEMA --> Repo
-DATABASESCHEMA --> CategoryRepo
+AdminPackage --> DocumentService
+AdminPackage --> IndexerModule
+CorePackage --> QAService
+DocumentService --> IndexerModule
+DocumentService --> Repo
+DocumentService --> CategoryRepo
+DocumentService --> Qdrant
+DocumentService --> S3
+IndexerModule --> Qdrant
+IndexerModule --> S3
 AsyncDocumentService --> AsyncIndexer
 AsyncDocumentService --> AsyncSemaphore
 AsyncDocumentService --> AsyncBackgroundTasks
@@ -280,22 +245,15 @@ EndUserTracking --> RecentlyFinished
 ```
 
 **Diagram sources**
-- [app/main.py:21-49](file://app/main.py#L21-L49)
-- [app/config.py:47-49](file://app/config.py#L47-L49)
-- [app/api/documents.py:50-85](file://app/api/documents.py#L50-L85)
-- [app/api/documents_auth.py:20-77](file://app/api/documents_auth.py#L20-L77)
-- [app/api/documents_upload.py:41-288](file://app/api/documents_upload.py#L41-L288)
-- [app/api/documents_bulk.py:30-224](file://app/api/documents_bulk.py#L30-L224)
-- [app/api/documents_qa.py:23-91](file://app/api/documents_qa.py#L23-L91)
-- [app/domain/document_service.py:106-155](file://app/domain/document_service.py#L106-L155)
-- [app/rag/indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
-- [app/storage/database.py:11-44](file://app/storage/database.py#L11-L44)
-- [app/storage/document_repo.py:72-104](file://app/storage/document_repo.py#L72-L104)
-- [app/storage/category_repo.py:63-95](file://app/storage/category_repo.py#L63-L95)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:18-24](file://packages/admin/src/cafetera_admin/domain/document_service.py#L18-L24)
+- [packages/admin/src/cafetera_admin/indexer.py:18-21](file://packages/admin/src/cafetera_admin/indexer.py#L18-L21)
+- [packages/admin/src/cafetera_admin/api/documents.py:39-75](file://packages/admin/src/cafetera_admin/api/documents.py#L39-L75)
+- [packages/admin/src/cafetera_admin/api/deps.py:13-18](file://packages/admin/src/cafetera_admin/api/deps.py#L13-L18)
+- [packages/core/src/cafetera_core/domain/qa_service.py:96-114](file://packages/core/src/cafetera_core/domain/qa_service.py#L96-L114)
 
 The architecture consists of five main layers with enhanced modular organization, comprehensive document type handling, modernized frontend capabilities, and revolutionary HTMX partial response system:
 
-1. **Enhanced Testing Infrastructure**: The system now includes comprehensive testing infrastructure with PostgreSQL container support, improved test isolation, and extensive coverage for all functional areas including authentication, upload operations, bulk operations, filtering/sorting, async operations, streaming responses, and batch status polling. The modular router architecture testing ensures backward compatibility while validating specialized routers.
+1. **Enhanced Package Organization**: The system now features improved package organization with DocumentService relocated to the admin package (`packages/admin/src/cafetera_admin/domain/document_service.py`) and indexing functionality extracted to a dedicated indexer module (`packages/admin/src/cafetera_admin/indexer.py`). This separation improves code organization and maintainability while preserving all functionality.
 
 2. **PostgreSQL Storage Architecture**: The system now uses PostgreSQL as the primary database with timezone-aware timestamps, SERIAL primary keys, ON CONFLICT upsert operations, and RETURNING clauses for generated IDs. The database schema includes enhanced search capabilities, pagination support, and advanced date range filtering with proper timezone handling.
 
@@ -303,7 +261,7 @@ The architecture consists of five main layers with enhanced modular organization
 
 4. **Modular Router Architecture**: The system now uses specialized routers for different functional areas with router composition maintaining backward compatibility. The main `documents.py` router includes authentication, upload, bulk operations, and QA routers while preserving all existing endpoints and functionality.
 
-5. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, plus VK social network bot integration, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, comprehensive status polling system with automatic activation, HTMX OOB swapping for efficient row updates, enhanced user experience with real-time status monitoring, and centralized batch status management.
+5. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, comprehensive status polling system with automatic activation, HTMX OOB swapping for efficient row updates, enhanced user experience with real-time status monitoring, and centralized batch status management.
 
 6. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, template context management for consistent rendering, DOCX integrity validation for file content verification, HTMX partial response system with OOB swapping capabilities, and enhanced user management with automatic polling control.
 
@@ -342,10 +300,8 @@ App->>App : Register modular routers and templates
 ```
 
 **Diagram sources**
-- [app/main.py:22-49](file://app/main.py#L22-L49)
-- [app/config.py:37-39](file://app/config.py#L37-L39)
-- [app/resources.py:208-252](file://app/resources.py#L208-L252)
-- [app/storage/database.py:32-39](file://app/storage/database.py#L32-L39)
+- [packages/admin/src/cafetera_admin/main.py:90-113](file://packages/admin/src/cafetera_admin/main.py#L90-L113)
+- [packages/admin/src/cafetera_admin/api/deps.py:13-18](file://packages/admin/src/cafetera_admin/api/deps.py#L13-L18)
 
 ### PostgreSQL Database Migration
 
@@ -382,20 +338,17 @@ CategoryFileRepository --> CategoryFileRecord : returns
 ```
 
 **Diagram sources**
-- [app/storage/database.py:11-44](file://app/storage/database.py#L11-L44)
-- [app/storage/document_repo.py:72-104](file://app/storage/document_repo.py#L72-L104)
-- [app/storage/category_repo.py:63-95](file://app/storage/category_repo.py#L63-L95)
+- [packages/core/src/cafetera_core/storage/database.py:11-44](file://packages/core/src/cafetera_core/storage/database.py#L11-L44)
+- [packages/core/src/cafetera_core/storage/document_repo.py:72-104](file://packages/core/src/cafetera_core/storage/document_repo.py#L72-L104)
+- [packages/core/src/cafetera_core/storage/category_repo.py:63-95](file://packages/core/src/cafetera_core/storage/category_repo.py#L63-L95)
 
 **Section sources**
-- [app/main.py:1-80](file://app/main.py#L1-L80)
-- [app/config.py:37-39](file://app/config.py#L37-L39)
-- [app/api/documents.py:1-539](file://app/api/documents.py#L1-L539)
-- [app/api/documents_auth.py:1-77](file://app/api/documents_auth.py#L1-L77)
-- [app/api/documents_upload.py:1-292](file://app/api/documents_upload.py#L1-L292)
-- [app/api/documents_bulk.py:1-229](file://app/api/documents_bulk.py#L1-L229)
-- [app/api/documents_qa.py:1-91](file://app/api/documents_qa.py#L1-L91)
-- [app/api/deps.py:91-92](file://app/api/deps.py#L91-L92)
-- [app/resources.py:208-252](file://app/resources.py#L208-L252)
+- [packages/admin/src/cafetera_admin/main.py:90-113](file://packages/admin/src/cafetera_admin/main.py#L90-L113)
+- [packages/admin/src/cafetera_admin/api/deps.py:13-18](file://packages/admin/src/cafetera_admin/api/deps.py#L13-L18)
+- [packages/admin/src/cafetera_admin/api/documents.py:39-75](file://packages/admin/src/cafetera_admin/api/documents.py#L39-L75)
+- [packages/core/src/cafetera_core/storage/database.py:11-44](file://packages/core/src/cafetera_core/storage/database.py#L11-L44)
+- [packages/core/src/cafetera_core/storage/document_repo.py:72-104](file://packages/core/src/cafetera_core/storage/document_repo.py#L72-L104)
+- [packages/core/src/cafetera_core/storage/category_repo.py:63-95](file://packages/core/src/cafetera_core/storage/category_repo.py#L63-L95)
 
 ## Document Management Workflow
 
@@ -487,20 +440,15 @@ end
 ```
 
 **Diagram sources**
-- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
-- [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
-- [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
-- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
-- [app/api/documents.py:386-464](file://app/api/documents.py#L386-L464)
-- [app/api/documents.py:499-539](file://app/api/documents.py#L499-L539)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
-- [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
-- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
-- [app/storage/document_repo.py:72-104](file://app/storage/document_repo.py#L72-L104)
-- [app/storage/document_repo.py:298-304](file://app/storage/document_repo.py#L298-L304)
-- [app/storage/category_repo.py:63-95](file://app/storage/category_repo.py#L63-L95)
-- [app/storage/category_repo.py:133-139](file://app/storage/category_repo.py#L133-L139)
+- [packages/admin/src/cafetera_admin/api/documents.py:327-332](file://packages/admin/src/cafetera_admin/api/documents.py#L327-L332)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:109-170](file://packages/admin/src/cafetera_admin/domain/document_service.py#L109-L170)
+- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/core/src/cafetera_core/domain/qa_service.py:189-214](file://packages/core/src/cafetera_core/domain/qa_service.py#L189-L214)
+- [packages/core/src/cafetera_core/domain/qa_service.py:250-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L250-L279)
+- [packages/core/src/cafetera_core/storage/document_repo.py:72-104](file://packages/core/src/cafetera_core/storage/document_repo.py#L72-L104)
+- [packages/core/src/cafetera_core/storage/document_repo.py:298-304](file://packages/core/src/cafetera_core/storage/document_repo.py#L298-L304)
+- [packages/core/src/cafetera_core/storage/category_repo.py:63-95](file://packages/core/src/cafetera_core/storage/category_repo.py#L63-L95)
+- [packages/core/src/cafetera_core/storage/category_repo.py:133-139](file://packages/core/src/cafetera_core/storage/category_repo.py#L133-L139)
 
 ### Upload Validation and Processing
 
@@ -522,8 +470,8 @@ The system implements comprehensive validation for uploaded documents with enhan
 | Template Context | Centralized rendering management | Ensure consistent UI rendering |
 | DOCX Integrity | Zip file validation | Check word/document.xml presence |
 | Spreadsheet Processing | XLSX workbook parsing | Handle multiple worksheets |
-| **Updated** | **Enhanced Testing Infrastructure** | **Comprehensive modular testing with PostgreSQL container support** |
-| **Updated** | **Improved Test Fixtures** | **Enhanced isolation and cleanup for test reliability** |
+| **Updated** | **Enhanced Package Organization** | **DocumentService relocated to admin package, indexing extracted to dedicated module** |
+| **Updated** | **Improved Import Paths** | **All imports updated to reflect new package structure** |
 | **Updated** | **Router Architecture Testing** | **Validates modular router composition and backward compatibility** |
 | **Updated** | **Async Operations Testing** | **Comprehensive async operation validation** |
 | **Updated** | **Streaming Response Testing** | **Extensive SSE streaming response testing** |
@@ -536,16 +484,16 @@ The system implements comprehensive validation for uploaded documents with enhan
 **Updated** The validation system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files, modern DOCX files, and spreadsheet XLSX files. The new DOCX integrity checking using `_validate_docx_bytes()` function verifies that DOCX files contain valid content by checking for the required word/document.xml structure within the ZIP archive. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The new `load_xlsx()` function in the parser module handles spreadsheet processing with worksheet-based sectioning and row formatting. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the `GLOBAL_EXPERTS_PROMPT` system prompt and specialized retriever construction. The revolutionary HTMX partial response system now includes proper OOB swapping capabilities for dynamic document row updates, automatic status polling activation that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The system now tracks recently finished documents within a 10-second window to provide final status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The enhanced async architecture now provides comprehensive semaphore-based concurrency control for background indexing operations, direct async operations throughout the document service, and streamlined background processing with improved error handling and resource management. The PostgreSQL migration provides enterprise-grade database capabilities with proper timezone handling, concurrent access support, and improved error handling.
 
 **Section sources**
-- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
-- [app/api/documents_helpers.py:31-50](file://app/api/documents_helpers.py#L31-L50)
-- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/domain/document_service.py:106-155](file://app/domain/document_service.py#L106-L155)
-- [app/rag/indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
-- [app/storage/document_repo.py:72-104](file://app/storage/document_repo.py#L72-L104)
-- [app/storage/document_repo.py:298-304](file://app/storage/document_repo.py#L298-L304)
-- [app/storage/category_repo.py:63-95](file://app/storage/category_repo.py#L63-L95)
-- [app/storage/category_repo.py:133-139](file://app/storage/category_repo.py#L133-L139)
+- [packages/admin/src/cafetera_admin/api/documents.py:327-332](file://packages/admin/src/cafetera_admin/api/documents.py#L327-L332)
+- [packages/admin/src/cafetera_admin/api/deps.py:13-18](file://packages/admin/src/cafetera_admin/api/deps.py#L13-L18)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:109-170](file://packages/admin/src/cafetera_admin/domain/document_service.py#L109-L170)
+- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/core/src/cafetera_core/domain/qa_service.py:189-214](file://packages/core/src/cafetera_core/domain/qa_service.py#L189-L214)
+- [packages/core/src/cafetera_core/domain/qa_service.py:250-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L250-L279)
+- [packages/core/src/cafetera_core/storage/document_repo.py:72-104](file://packages/core/src/cafetera_core/storage/document_repo.py#L72-L104)
+- [packages/core/src/cafetera_core/storage/document_repo.py:298-304](file://packages/core/src/cafetera_core/storage/document_repo.py#L298-L304)
+- [packages/core/src/cafetera_core/storage/category_repo.py:63-95](file://packages/core/src/cafetera_core/storage/category_repo.py#L63-L95)
+- [packages/core/src/cafetera_core/storage/category_repo.py:133-139](file://packages/core/src/cafetera_core/storage/category_repo.py#L133-L139)
 
 ## Enhanced Filtering and Sorting System
 
@@ -577,13 +525,9 @@ Client->>Client : Render filtered table with search highlighting and sort indica
 ```
 
 **Diagram sources**
-- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
-- [app/api/documents_auth.py:23-77](file://app/api/documents_auth.py#L23-L77)
-- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
-- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
-- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
+- [packages/admin/src/cafetera_admin/api/documents.py:300-321](file://packages/admin/src/cafetera_admin/api/documents.py#L300-L321)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-37](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L37)
+- [packages/core/src/cafetera_core/storage/document_repo.py:120-210](file://packages/core/src/cafetera_core/storage/document_repo.py#L120-L210)
 
 ### Filtering Implementation Details
 
@@ -638,11 +582,9 @@ The frontend provides intuitive filtering and sorting capabilities:
 - **Centralized date handling**: Date filters use standardized parsing across all components
 
 **Section sources**
-- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
-- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
-- [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
-- [templates/documents.html:59-136](file://templates/documents.html#L59-L136)
-- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
+- [packages/admin/src/cafetera_admin/api/documents.py:300-321](file://packages/admin/src/cafetera_admin/api/documents.py#L300-L321)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-37](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L37)
+- [packages/core/src/cafetera_core/storage/document_repo.py:120-210](file://packages/core/src/cafetera_core/storage/document_repo.py#L120-L210)
 
 ## Modernized User Interface
 
@@ -739,17 +681,10 @@ RecentlyFinishedTracking --> TenSecondWindow[Ten-Second Window]
 ```
 
 **Diagram sources**
-- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
-- [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
-- [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
-- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
-- [templates/partials/status_poller.html:1-14](file://templates/partials/status_poller.html#L1-L14)
-- [templates/base.html:86-279](file://templates/base.html#L86-L279)
-- [templates/documents.html:261-310](file://templates/documents.html#L261-L310)
-- [templates/documents.html:318-365](file://templates/documents.html#L318-L365)
-- [templates/documents.html:663-707](file://templates/documents.html#L663-L707)
-- [templates/documents.html:726-845](file://templates/documents.html#L726-L845)
-- [templates/documents.html:766-845](file://templates/documents.html#L766-L845)
+- [packages/admin/src/cafetera_admin/api/documents.py:91-133](file://packages/admin/src/cafetera_admin/api/documents.py#L91-L133)
+- [packages/admin/src/cafetera_admin/api/documents.py:139-181](file://packages/admin/src/cafetera_admin/api/documents.py#L139-L181)
+- [packages/admin/src/cafetera_admin/api/documents.py:184-200](file://packages/admin/src/cafetera_admin/api/documents.py#L184-L200)
+- [packages/admin/src/cafetera_admin/api/deps.py:44-45](file://packages/admin/src/cafetera_admin/api/deps.py#L44-L45)
 
 ### Interactive Features
 
@@ -889,18 +824,10 @@ The interface uses Alpine.js for comprehensive state management:
 - **OOB Swapping State**: Manage HTMX OOB swapping for efficient row updates
 
 **Section sources**
-- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
-- [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
-- [templates/documents.html:306-334](file://templates/documents.html#L306-L334)
-- [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
-- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
-- [templates/partials/status_poller.html:1-14](file://templates/partials/status_poller.html#L1-L14)
-- [templates/base.html:86-279](file://templates/base.html#L86-L279)
-- [templates/documents.html:261-310](file://templates/documents.html#L261-L310)
-- [templates/documents.html:318-365](file://templates/documents.html#L318-L365)
-- [templates/documents.html:663-707](file://templates/documents.html#L663-L707)
-- [templates/documents.html:726-845](file://templates/documents.html#L726-L845)
-- [templates/documents.html:766-845](file://templates/documents.html#L766-L845)
+- [packages/admin/src/cafetera_admin/api/documents.py:91-133](file://packages/admin/src/cafetera_admin/api/documents.py#L91-L133)
+- [packages/admin/src/cafetera_admin/api/documents.py:139-181](file://packages/admin/src/cafetera_admin/api/documents.py#L139-L181)
+- [packages/admin/src/cafetera_admin/api/documents.py:184-200](file://packages/admin/src/cafetera_admin/api/documents.py#L184-L200)
+- [packages/admin/src/cafetera_admin/api/deps.py:44-45](file://packages/admin/src/cafetera_admin/api/deps.py#L44-L45)
 
 ## Enhanced Dual-Format Document Support
 
@@ -926,9 +853,8 @@ Unsupported --> Error[Format Error Response]
 ```
 
 **Diagram sources**
-- [app/rag/parser.py:121-138](file://app/rag/parser.py#L121-L138)
-- [app/api/documents_helpers.py:16-28](file://app/api/documents_helpers.py#L16-L28)
-- [app/rag/parser.py:411-475](file://app/rag/parser.py#L411-L475)
+- [packages/admin/src/cafetera_admin/api/deps.py:68-74](file://packages/admin/src/cafetera_admin/api/deps.py#L68-L74)
+- [packages/admin/src/cafetera_admin/api/documents.py:74](file://packages/admin/src/cafetera_admin/api/documents.py#L74)
 
 ### Format Detection and Validation
 
@@ -977,10 +903,8 @@ All three formats benefit from enhanced processing capabilities:
 - **Spreadsheet Query Support**: XLSX documents can be queried with worksheet context
 
 **Section sources**
-- [app/rag/parser.py:55-138](file://app/rag/parser.py#L55-L138)
-- [app/api/documents_helpers.py:16-28](file://app/api/documents_helpers.py#L16-L28)
-- [app/rag/parser.py:273-407](file://app/rag/parser.py#L273-L407)
-- [templates/partials/document_row.html:77-97](file://templates/partials/document_row.html#L77-L97)
+- [packages/admin/src/cafetera_admin/api/deps.py:68-74](file://packages/admin/src/cafetera_admin/api/deps.py#L68-L74)
+- [packages/admin/src/cafetera_admin/api/documents.py:74](file://packages/admin/src/cafetera_admin/api/documents.py#L74)
 
 ## Enhanced Concurrency Control
 
@@ -1005,10 +929,8 @@ Semaphore-->>API : permit available
 ```
 
 **Diagram sources**
-- [app/main.py:39](file://app/main.py#L39)
-- [app/api/deps.py:69-70](file://app/api/deps.py#L69-L70)
-- [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
-- [app/api/documents_bulk.py:114-162](file://app/api/documents_bulk.py#L114-L162)
+- [packages/admin/src/cafetera_admin/main.py:90](file://packages/admin/src/cafetera_admin/main.py#L90)
+- [packages/admin/src/cafetera_admin/api/deps.py:69-70](file://packages/admin/src/cafetera_admin/api/deps.py#L69-L70)
 
 ### Concurrency Control Implementation
 
@@ -1030,9 +952,8 @@ Background tasks are coordinated through enhanced functions:
 - **Error Recovery**: Failed tasks don't block other operations
 
 **Section sources**
-- [app/main.py:39](file://app/main.py#L39)
-- [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
-- [app/api/documents_bulk.py:114-162](file://app/api/documents_bulk.py#L114-L162)
+- [packages/admin/src/cafetera_admin/main.py:90](file://packages/admin/src/cafetera_admin/main.py#L90)
+- [packages/admin/src/cafetera_admin/api/deps.py:69-70](file://packages/admin/src/cafetera_admin/api/deps.py#L69-L70)
 
 ## Comprehensive Test Coverage
 
@@ -1042,23 +963,21 @@ The system includes comprehensive testing across all layers with extensive searc
 
 | Test Module | Focus Area | Testing Approach |
 |-------------|------------|------------------|
+| `test_document_service.py` | DocumentService class with enhanced package organization | Unit and integration tests |
+| `conftest.py` | Test fixtures with admin package imports | PostgreSQL container testing |
 | `test_api_documents.py` | Main documents router functionality | Unit and integration tests |
 | `test_api_documents_auth.py` | Authentication router functionality | Unit and integration tests |
 | `test_api_documents_upload.py` | Upload router functionality | Unit and integration tests |
 | `test_api_documents_bulk.py` | Bulk operations router functionality | Unit and integration tests |
-| `test_document_service.py` | Domain service logic with async operations | Mock-based testing |
-| `test_storage.py` | PostgreSQL database operations | PostgreSQL in-memory testing |
-| `test_rag_block6.py` | RAG pipeline components | End-to-end testing |
-| `test_bot_factory.py` | VK bot integration | State machine validation |
-| `test_qa_service.py` | Question-answering logic | Scenario-based testing |
+| `test_qa_service.py` | QAService class with enhanced package organization | Scenario-based testing |
 
 ### Enhanced Test Coverage Areas
 
-**Updated** The testing strategy now includes extensive coverage for the newly modular router architecture, batch status polling, automatic polling control, recently finished documents tracking, enhanced async operations, and streamlined background processing:
+**Updated** The testing strategy now includes extensive coverage for the newly organized package structure, batch status polling, automatic polling control, recently finished documents tracking, enhanced async operations, and streamlined background processing:
 
 #### Router Architecture Testing Coverage
 - **Router Composition**: Tests that main router properly includes and delegates to specialized routers
-- **Backward Compatibility**: Validates that all existing endpoints continue to work after modular refactoring
+- **Backward Compatibility**: Validates that all existing endpoints continue to work after package restructuring
 - **Authentication Router**: Tests login, logout, and authentication guard functionality
 - **Upload Router**: Tests file upload, validation, and background indexing operations
 - **Bulk Router**: Tests bulk delete, reindex, and search toggle operations
@@ -1215,6 +1134,14 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Chunk Generation**: Tests chunk generation with worksheet context
 - **Search Compatibility**: Validates XLSX content searchability
 
+#### **Updated** Enhanced Package Organization Testing Coverage
+- **Import Path Validation**: Tests that all imports correctly reference admin package locations
+- **DocumentService Location**: Validates DocumentService import from new admin package path
+- **Indexer Module Location**: Tests that indexer module imports correctly from admin package
+- **Router Architecture Testing**: Validates that router composition works with new package structure
+- **Dependency Injection Testing**: Tests that dependencies correctly resolve from new package locations
+- **Test Fixture Updates**: Validates that test configurations use updated import paths
+
 #### **Updated** PostgreSQL Migration Testing Coverage
 - **Database Schema Testing**: Tests PostgreSQL table creation and schema initialization
 - **CRUD Operations Testing**: Tests CREATE, READ, UPDATE, DELETE operations with RETURNING clauses
@@ -1233,7 +1160,7 @@ The system includes comprehensive testing across all layers with extensive searc
 
 #### **Updated** Router Architecture Testing Coverage
 - **Router Composition Validation**: Tests that main router properly includes and delegates to specialized routers
-- **Backward Compatibility Testing**: Validates that all existing endpoints continue to work after modular refactoring
+- **Backward Compatibility Testing**: Validates that all existing endpoints continue to work after package restructuring
 - **Authentication Router Testing**: Tests login, logout, and authentication guard functionality
 - **Upload Router Testing**: Tests file upload, validation, and background indexing operations
 - **Bulk Router Testing**: Tests bulk delete, reindex, and search toggle operations
@@ -1272,17 +1199,12 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Async Test Support**: Tests async operations in isolated test environments
 - **Mock Integration**: Validates proper mocking of external dependencies
 - **Fixture Management**: Tests comprehensive fixture infrastructure with proper setup and teardown
+- **Package Import Testing**: Validates that all test imports correctly reference the new admin package structure
 
 **Section sources**
-- [pyproject.toml:45-47](file://pyproject.toml#L45-L47)
-- [tests/test_api_documents.py:506-605](file://tests/test_api_documents.py#L506-L605)
-- [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
-- [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
-- [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
-- [tests/test_storage.py:244-275](file://tests/test_storage.py#L244-L275)
-- [tests/test_qa_service.py:1-198](file://tests/test_qa_service.py#L1-L198)
-- [tests/test_document_service.py:126-325](file://tests/test_document_service.py#L126-L325)
-- [tests/conftest.py:83-116](file://tests/conftest.py#L83-L116)
+- [tests/test_document_service.py:13](file://tests/test_document_service.py#L13)
+- [tests/conftest.py:170](file://tests/conftest.py#L170)
+- [tests/conftest.py:188-193](file://tests/conftest.py#L188-L193)
 
 ## Improved Text Chunking Algorithms
 
@@ -1324,10 +1246,8 @@ The enhanced pipeline handles all three document formats appropriately:
 - **Context Preservation**: Worksheet names preserved as section information for XLSX
 
 **Section sources**
-- [app/rag/parser.py:15-17](file://app/rag/parser.py#L15-L17)
-- [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
-- [app/rag/indexer.py:23-46](file://app/rag/indexer.py#L23-L46)
-- [app/rag/parser.py:273-407](file://app/rag/parser.py#L273-L407)
+- [packages/admin/src/cafetera_admin/indexer.py:25-48](file://packages/admin/src/cafetera_admin/indexer.py#L25-L48)
+- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
 
 ## Server-Side Processing Implementation
 
@@ -1359,13 +1279,9 @@ Client->>Client : Render filtered table with search highlighting and sort indica
 ```
 
 **Diagram sources**
-- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
-- [app/api/documents_auth.py:23-77](file://app/api/documents_auth.py#L23-L77)
-- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
-- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
-- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
+- [packages/admin/src/cafetera_admin/api/documents.py:300-321](file://packages/admin/src/cafetera_admin/api/documents.py#L300-L321)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-37](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L37)
+- [packages/core/src/cafetera_core/storage/document_repo.py:120-210](file://packages/core/src/cafetera_core/storage/document_repo.py#L120-L210)
 
 ### Enhanced Database Operations
 
@@ -1446,18 +1362,19 @@ The system now includes comprehensive DOCX validation:
 - **Error Handling**: Graceful handling of corrupted or invalid DOCX files
 - **Logging**: Detailed logging for DOCX validation failures
 
-### **Updated** Modular Router Architecture
+### **Updated** Enhanced Package Organization
 
-The system now implements a revolutionary modular router architecture:
+The system now implements a revolutionary modular router architecture with enhanced package organization:
 
 - **Router Composition**: Main `documents.py` router includes authentication, upload, bulk, and QA routers
-- **Backward Compatibility**: All existing endpoints continue to work after modular refactoring
+- **Backward Compatibility**: All existing endpoints continue to work after package restructuring
 - **Specialized Routers**: Clear separation of concerns with dedicated routers for different functional areas
-- **Enhanced Organization**: Better code organization and maintainability
+- **Enhanced Organization**: Better code organization and maintainability with DocumentService in admin package
 - **Router Delegation**: Main router properly delegates to specialized routers
 - **Helper Function Re-export**: Shared utilities and validation functions remain accessible
 - **Unified Background Processing**: Centralized error handling and resource management
 - **Enhanced Testing**: Modular structure enables better test isolation and coverage
+- **Improved Import Paths**: All imports correctly reference new admin package locations
 
 ### **Updated** HTMX Partial Response System
 
@@ -1483,17 +1400,12 @@ The system now implements comprehensive async operations throughout the document
 - **Performance Optimization**: Enhanced system performance with async operations
 
 **Section sources**
-- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
-- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
-- [app/storage/document_repo.py:120-210](file://app/storage/document_repo.py#L120-L210)
-- [app/storage/document_repo.py:279-290](file://app/storage/document_repo.py#L279-L290)
-- [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
-- [app/api/documents_bulk.py:114-162](file://app/api/documents_bulk.py#L114-L162)
-- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
-- [app/api/documents_helpers.py:82-112](file://app/api/documents_helpers.py#L82-L112)
-- [app/api/documents_helpers.py:31-50](file://app/api/documents_helpers.py#L31-L50)
-- [app/domain/document_service.py:106-155](file://app/domain/document_service.py#L106-L155)
-- [app/rag/indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
+- [packages/admin/src/cafetera_admin/api/documents.py:300-321](file://packages/admin/src/cafetera_admin/api/documents.py#L300-L321)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-37](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L37)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:109-170](file://packages/admin/src/cafetera_admin/domain/document_service.py#L109-L170)
+- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/core/src/cafetera_core/storage/document_repo.py:120-210](file://packages/core/src/cafetera_core/storage/document_repo.py#L120-L210)
+- [packages/core/src/cafetera_core/storage/document_repo.py:279-290](file://packages/core/src/cafetera_core/storage/document_repo.py#L279-L290)
 
 ## Enhanced Status Display System
 
@@ -1511,8 +1423,7 @@ Failed --> Failed : Persistent error
 ```
 
 **Diagram sources**
-- [templates/partials/document_row.html:19-41](file://templates/partials/document_row.html#L19-L41)
-- [app/storage/models.py:11-18](file://app/storage/models.py#L11-L18)
+- [packages/core/src/cafetera_core/storage/models.py:11-18](file://packages/core/src/cafetera_core/storage/models.py#L11-L18)
 
 ### Status Badge Visual Indicators
 
@@ -1577,13 +1488,7 @@ The status system now supports both document-specific and global question functi
 - **Prompt Application**: Document-specific questions use `DOCUMENT_EXPERTS_PROMPT`, global questions use `GLOBAL_EXPERTS_PROMPT`
 
 **Section sources**
-- [templates/partials/document_row.html:19-41](file://templates/partials/document_row.html#L19-L41)
-- [templates/documents.html:74-87](file://templates/documents.html#L74-L87)
-- [app/storage/models.py:11-18](file://app/storage/models.py#L11-L18)
-- [app/api/documents.py:386-464](file://app/api/documents.py#L386-L464)
-- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/api/documents_helpers.py:82-112](file://app/api/documents_helpers.py#L82-L112)
+- [packages/core/src/cafetera_core/storage/models.py:11-18](file://packages/core/src/cafetera_core/storage/models.py#L11-L18)
 
 ## Advanced Pagination System
 
@@ -1615,13 +1520,9 @@ Client->>Client : Render pagination controls with search context
 ```
 
 **Diagram sources**
-- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
-- [app/api/documents_auth.py:23-77](file://app/api/documents_auth.py#L23-L77)
-- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
-- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
-- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
+- [packages/admin/src/cafetera_admin/api/documents.py:300-321](file://packages/admin/src/cafetera_admin/api/documents.py#L300-L321)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-37](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L37)
+- [packages/core/src/cafetera_core/storage/document_repo.py:120-158](file://packages/core/src/cafetera_core/storage/document_repo.py#L120-L158)
 
 ### Pagination Parameters
 
@@ -1658,8 +1559,7 @@ TableRefresh --> PageChange : Continue navigation
 ```
 
 **Diagram sources**
-- [templates/documents.html:35-41](file://templates/documents.html#L35-L41)
-- [templates/partials/pagination.html:7-10](file://templates/partials/pagination.html#L7-L10)
+- [packages/admin/src/cafetera_admin/api/documents.py:139-181](file://packages/admin/src/cafetera_admin/api/documents.py#L139-L181)
 
 ### Pagination Controls
 
@@ -1674,10 +1574,9 @@ The system provides sophisticated pagination controls with intelligent page numb
 - **Centralized Date Handling**: Date filters use standardized parsing across all components
 
 **Section sources**
-- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
-- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
-- [app/storage/document_repo.py:120-158](file://app/storage/document_repo.py#L120-L158)
-- [templates/partials/pagination.html:1-103](file://templates/partials/pagination.html#L1-L103)
+- [packages/admin/src/cafetera_admin/api/documents.py:300-321](file://packages/admin/src/cafetera_admin/api/documents.py#L300-L321)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-37](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L37)
+- [packages/core/src/cafetera_core/storage/document_repo.py:120-158](file://packages/core/src/cafetera_core/storage/document_repo.py#L120-L158)
 
 ## Bulk Operations System
 
@@ -1687,7 +1586,7 @@ The system provides comprehensive bulk operations for efficient document managem
 sequenceDiagram
 participant Client as Client Browser
 participant BulkRouter as Bulk Router
-participant Service as Document Service
+participant Service as DocumentService
 participant Repo as Document Repository
 participant S3 as Storage
 participant Semaphore as Asyncio Semaphore
@@ -1704,10 +1603,7 @@ Client->>Client : Update UI with success/error feedback
 ```
 
 **Diagram sources**
-- [app/api/documents_bulk.py:46-97](file://app/api/documents_bulk.py#L46-L97)
-- [app/api/documents_bulk.py:99-174](file://app/api/documents_bulk.py#L99-L174)
-- [app/api/documents_bulk.py:176-229](file://app/api/documents_bulk.py#L176-L229)
-- [templates/documents.html:537-561](file://templates/documents.html#L537-L561)
+- [packages/admin/src/cafetera_admin/api/documents.py:327-332](file://packages/admin/src/cafetera_admin/api/documents.py#L327-L332)
 
 ### Bulk Operations Architecture
 
@@ -1763,8 +1659,7 @@ Refresh --> NoSelection : Clear selection
 ```
 
 **Diagram sources**
-- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
-- [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
+- [packages/admin/src/cafetera_admin/api/documents.py:91-133](file://packages/admin/src/cafetera_admin/api/documents.py#L91-L133)
 
 ### Bulk Action Features
 
@@ -1782,9 +1677,7 @@ The bulk operations provide comprehensive functionality:
 - **Automatic Polling Control**: Intelligent start/stop polling for bulk operations
 
 **Section sources**
-- [app/api/documents_bulk.py:46-229](file://app/api/documents_bulk.py#L46-L229)
-- [templates/documents.html:135-186](file://templates/documents.html#L135-L186)
-- [templates/documents.html:537-611](file://templates/documents.html#L537-L611)
+- [packages/admin/src/cafetera_admin/api/documents.py:327-332](file://packages/admin/src/cafetera_admin/api/documents.py#L327-L332)
 
 ## Enhanced Date Range Filtering
 
@@ -1817,13 +1710,9 @@ Client->>Client : Update table with date-filtered results
 ```
 
 **Diagram sources**
-- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
-- [app/api/documents_auth.py:23-77](file://app/api/documents_auth.py#L23-L77)
-- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
-- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/storage/document_repo.py:120-174](file://app/storage/document_repo.py#L120-L174)
-- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
+- [packages/admin/src/cafetera_admin/api/documents.py:300-321](file://packages/admin/src/cafetera_admin/api/documents.py#L300-L321)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-37](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L37)
+- [packages/core/src/cafetera_core/storage/document_repo.py:120-174](file://packages/core/src/cafetera_core/storage/document_repo.py#L120-L174)
 
 ### Date Range Implementation Details
 
@@ -1870,12 +1759,9 @@ The system now provides standardized date range handling:
 - **Performance Optimization**: Centralized utility reduces code duplication
 
 **Section sources**
-- [app/api/documents.py:280-317](file://app/api/documents.py#L280-L317)
-- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
-- [app/storage/document_repo.py:120-174](file://app/storage/document_repo.py#L120-L174)
-- [templates/documents.html:89-131](file://templates/documents.html#L89-L131)
-- [templates/documents.html:489-494](file://templates/documents.html#L489-L494)
-- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
+- [packages/admin/src/cafetera_admin/api/documents.py:300-321](file://packages/admin/src/cafetera_admin/api/documents.py#L300-L321)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-37](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L37)
+- [packages/core/src/cafetera_core/storage/document_repo.py:120-174](file://packages/core/src/cafetera_core/storage/document_repo.py#L120-L174)
 
 ## RAG Pipeline
 
@@ -1902,12 +1788,12 @@ VectorDB->>StreamingQA : Enable streaming responses
 ```
 
 **Diagram sources**
-- [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
-- [app/rag/indexer.py:49-72](file://app/rag/indexer.py#L49-L72)
-- [app/rag/retriever.py:78-103](file://app/rag/retriever.py#L78-L103)
-- [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
-- [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
-- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
+- [packages/admin/src/cafetera_admin/indexer.py:25-48](file://packages/admin/src/cafetera_admin/indexer.py#L25-L48)
+- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/core/src/cafetera_core/rag/retriever.py:78-103](file://packages/core/src/cafetera_core/rag/retriever.py#L78-L103)
+- [packages/core/src/cafetera_core/rag/retriever.py:105-136](file://packages/core/src/cafetera_core/rag/retriever.py#L105-L136)
+- [packages/core/src/cafetera_core/domain/qa_service.py:189-214](file://packages/core/src/cafetera_core/domain/qa_service.py#L189-L214)
+- [packages/core/src/cafetera_core/domain/qa_service.py:250-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L250-L279)
 
 ### Document Chunking Strategy
 
@@ -1954,18 +1840,19 @@ The RAG pipeline now benefits from centralized background processing:
 - **Logging Consistency**: Standardized logging for all background processing activities
 - **Format Support**: Handles DOCX, DOC, and XLSX formats uniformly
 
-### **Updated** Modular Router Architecture Integration
+### **Updated** Enhanced Package Organization Integration
 
-The RAG pipeline now integrates with the revolutionary modular router architecture:
+The RAG pipeline now integrates with the revolutionary modular router architecture and enhanced package organization:
 
 - **Router Composition**: Main router includes specialized routers for different functional areas
-- **Backward Compatibility**: All existing endpoints continue to work after modular refactoring
+- **Backward Compatibility**: All existing endpoints continue to work after package restructuring
 - **OOB Swapping**: Efficient HTML updates for status monitoring without full page reloads
 - **Automatic Polling Control**: Intelligent start/stop polling for processing documents
 - **Deduplicated Updates**: Prevents duplicate updates for overlapping documents
 - **Server Load Reduction**: Dramatically reduces server load for status monitoring
 - **Real-time Status Updates**: Immediate status updates for processing documents
 - **Template Integration**: Seamless integration with document table and status poller templates
+- **Enhanced Import Paths**: All imports correctly reference new admin package locations
 
 ### **Updated** Enhanced Async Architecture Integration
 
@@ -1978,17 +1865,12 @@ The RAG pipeline now integrates with the enhanced async architecture:
 - **Performance Optimization**: Enhanced system performance with async operations
 
 **Section sources**
-- [app/rag/parser.py:15-17](file://app/rag/parser.py#L15-L17)
-- [app/rag/parser.py:54-83](file://app/rag/parser.py#L54-L83)
-- [app/rag/indexer.py:23-46](file://app/rag/indexer.py#L23-L46)
-- [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
-- [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
-- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
-- [app/rag/prompts.py:21-56](file://app/rag/prompts.py#L21-L56)
-- [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
-- [app/api/documents_bulk.py:114-162](file://app/api/documents_bulk.py#L114-L162)
-- [app/domain/document_service.py:106-155](file://app/domain/document_service.py#L106-L155)
-- [app/rag/indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
+- [packages/admin/src/cafetera_admin/indexer.py:25-48](file://packages/admin/src/cafetera_admin/indexer.py#L25-L48)
+- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/core/src/cafetera_core/rag/retriever.py:105-136](file://packages/core/src/cafetera_core/rag/retriever.py#L105-L136)
+- [packages/core/src/cafetera_core/domain/qa_service.py:189-214](file://packages/core/src/cafetera_core/domain/qa_service.py#L189-L214)
+- [packages/core/src/cafetera_core/domain/qa_service.py:250-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L250-L279)
+- [packages/core/src/cafetera_core/rag/prompts.py:21-56](file://packages/core/src/cafetera_core/rag/prompts.py#L21-L56)
 
 ## Document-Specific Question Answering
 
@@ -2022,11 +1904,9 @@ SSEClient-->>Client : Real-time response display
 ```
 
 **Diagram sources**
-- [app/api/documents_qa.py:55-91](file://app/api/documents_qa.py#L55-L91)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
-- [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
-- [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
+- [packages/admin/src/cafetera_admin/api/deps.py:16](file://packages/admin/src/cafetera_admin/api/deps.py#L16)
+- [packages/core/src/cafetera_core/domain/qa_service.py:189-214](file://packages/core/src/cafetera_core/domain/qa_service.py#L189-L214)
+- [packages/core/src/cafetera_core/rag/retriever.py:105-136](file://packages/core/src/cafetera_core/rag/retriever.py#L105-L136)
 
 ### Document Validation and Security
 
@@ -2075,16 +1955,10 @@ The system uses a specialized prompt for document-focused responses:
 - **Language Support**: Provides responses in Russian language
 
 **Section sources**
-- [app/api/documents_qa.py:55-91](file://app/api/documents_qa.py#L55-L91)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
-- [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
-- [app/rag/retriever.py:105-136](file://app/rag/retriever.py#L105-L136)
-- [app/rag/prompts.py:21-37](file://app/rag/prompts.py#L21-L37)
-- [templates/partials/document_row.html:125-134](file://templates/partials/document_row.html#L125-L134)
-- [templates/documents.html:261-310](file://templates/documents.html#L261-L310)
-- [templates/documents.html:663-707](file://templates/documents.html#L663-L707)
-- [templates/documents.html:726-845](file://templates/documents.html#L726-L845)
+- [packages/admin/src/cafetera_admin/api/deps.py:16](file://packages/admin/src/cafetera_admin/api/deps.py#L16)
+- [packages/core/src/cafetera_core/domain/qa_service.py:189-214](file://packages/core/src/cafetera_core/domain/qa_service.py#L189-L214)
+- [packages/core/src/cafetera_core/rag/retriever.py:105-136](file://packages/core/src/cafetera_core/rag/retriever.py#L105-L136)
+- [packages/core/src/cafetera_core/rag/prompts.py:21-37](file://packages/core/src/cafetera_core/rag/prompts.py#L21-L37)
 
 ## Global Question Answering
 
@@ -2115,10 +1989,10 @@ SSEClient-->>Client : Real-time response display
 ```
 
 **Diagram sources**
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
-- [app/rag/retriever.py:78-103](file://app/rag/retriever.py#L78-L103)
-- [app/rag/prompts.py:40-56](file://app/rag/prompts.py#L40-L56)
+- [packages/admin/src/cafetera_admin/api/deps.py:16](file://packages/admin/src/cafetera_admin/api/deps.py#L16)
+- [packages/core/src/cafetera_core/domain/qa_service.py:250-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L250-L279)
+- [packages/core/src/cafetera_core/rag/retriever.py:78-103](file://packages/core/src/cafetera_core/rag/retriever.py#L78-L103)
+- [packages/core/src/cafetera_core/rag/prompts.py:40-56](file://packages/core/src/cafetera_core/rag/prompts.py#L40-L56)
 
 ### Global Retrieval Implementation
 
@@ -2167,12 +2041,10 @@ The global question modal provides a dedicated interface for knowledge base-wide
 - **Error Handling**: Comprehensive error display and user guidance
 
 **Section sources**
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
-- [app/rag/retriever.py:78-103](file://app/rag/retriever.py#L78-L103)
-- [app/rag/prompts.py:40-56](file://app/rag/prompts.py#L40-L56)
-- [templates/documents.html:318-365](file://templates/documents.html#L318-L365)
-- [templates/documents.html:766-845](file://templates/documents.html#L766-L845)
+- [packages/admin/src/cafetera_admin/api/deps.py:16](file://packages/admin/src/cafetera_admin/api/deps.py#L16)
+- [packages/core/src/cafetera_core/domain/qa_service.py:250-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L250-L279)
+- [packages/core/src/cafetera_core/rag/retriever.py:78-103](file://packages/core/src/cafetera_core/rag/retriever.py#L78-L103)
+- [packages/core/src/cafetera_core/rag/prompts.py:40-56](file://packages/core/src/cafetera_core/rag/prompts.py#L40-L56)
 
 ## Real-Time Streaming with Server-Sent Events
 
@@ -2204,12 +2076,9 @@ SSEClient-->>Client : Finalize response
 ```
 
 **Diagram sources**
-- [app/api/documents_qa.py:55-91](file://app/api/documents_qa.py#L55-L91)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
-- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
-- [templates/documents.html:806-845](file://templates/documents.html#L806-L845)
-- [templates/documents.html:766-799](file://templates/documents.html#L766-L799)
+- [packages/admin/src/cafetera_admin/api/deps.py:16](file://packages/admin/src/cafetera_admin/api/deps.py#L16)
+- [packages/core/src/cafetera_core/domain/qa_service.py:216-248](file://packages/core/src/cafetera_core/domain/qa_service.py#L216-L248)
+- [packages/core/src/cafetera_core/domain/qa_service.py:250-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L250-L279)
 
 ### Streaming Response Handler
 
@@ -2247,12 +2116,9 @@ The streaming system provides comprehensive real-time capabilities:
 - **Browser Compatibility**: Works across modern browsers with proper fallbacks
 
 **Section sources**
-- [app/api/documents_qa.py:55-91](file://app/api/documents_qa.py#L55-L91)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
-- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
-- [templates/documents.html:806-845](file://templates/documents.html#L806-L845)
-- [templates/documents.html:766-799](file://templates/documents.html#L766-L799)
+- [packages/admin/src/cafetera_admin/api/deps.py:16](file://packages/admin/src/cafetera_admin/api/deps.py#L16)
+- [packages/core/src/cafetera_core/domain/qa_service.py:216-248](file://packages/core/src/cafetera_core/domain/qa_service.py#L216-L248)
+- [packages/core/src/cafetera_core/domain/qa_service.py:250-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L250-L279)
 
 ## Enhanced File Download Handling
 
@@ -2288,11 +2154,7 @@ MainRouter-->>Client : File with proper encoding
 ```
 
 **Diagram sources**
-- [app/api/documents.py:499-539](file://app/api/documents.py#L499-L539)
-- [app/api/documents_auth.py:23-77](file://app/api/documents_auth.py#L23-L77)
-- [app/api/documents_upload.py:169-288](file://app/api/documents_upload.py#L169-L288)
-- [app/api/documents_bulk.py:46-224](file://app/api/documents_bulk.py#L46-L224)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
+- [packages/admin/src/cafetera_admin/api/documents.py:327-332](file://packages/admin/src/cafetera_admin/api/documents.py#L327-L332)
 
 ### Filename Encoding Implementation
 
@@ -2317,7 +2179,7 @@ The enhanced download system provides:
 - **Security Validation**: Ensures only authorized users can download files
 
 **Section sources**
-- [app/api/documents.py:499-539](file://app/api/documents.py#L499-L539)
+- [packages/admin/src/cafetera_admin/api/documents.py:327-332](file://packages/admin/src/cafetera_admin/api/documents.py#L327-L332)
 
 ## Improved Document Status Tracking
 
@@ -2343,8 +2205,7 @@ UI-->>User : Real-time status updates
 ```
 
 **Diagram sources**
-- [app/storage/document_repo.py:279-290](file://app/storage/document_repo.py#L279-L290)
-- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
+- [packages/core/src/cafetera_core/storage/document_repo.py:279-290](file://packages/core/src/cafetera_core/storage/document_repo.py#L279-L290)
 
 ### Status Tracking Implementation
 
@@ -2383,54 +2244,7 @@ The system now includes a dedicated status poller template for efficient status 
 - **Deduplication Logic**: Prevents duplicate updates through intelligent document tracking
 
 **Section sources**
-- [app/storage/document_repo.py:279-290](file://app/storage/document_repo.py#L279-L290)
-- [app/api/documents.py:228-275](file://app/api/documents.py#L228-L275)
-- [templates/partials/status_poller.html:1-13](file://templates/partials/status_poller.html#L1-L13)
-
-## VK Bot Integration
-
-The system includes a comprehensive VK social network bot for HR assistance:
-
-```mermaid
-stateDiagram-v2
-[*] --> Start : User sends message
-Start --> Menu : Show main menu
-Menu --> Ask : User asks HR question
-Menu --> Request : User submits HR request
-Menu --> Help : User needs help
-Menu --> [*] : User exits
-Ask --> Processing : Parse question
-Processing --> Answer : Retrieve answer
-Answer --> Menu : Return to menu
-Request --> Processing : Validate request
-Processing --> Confirmation : Submit request
-Confirmation --> Menu : Return to menu
-Help --> Info : Show help text
-Info --> Menu : Return to menu
-```
-
-**Diagram sources**
-- [app/integrations/vk/states.py](file://app/integrations/vk/states.py)
-- [app/integrations/vk/bot.py](file://app/integrations/vk/bot.py)
-
-### Bot Handler Architecture
-
-The VK bot uses a handler-based architecture for different interaction modes:
-
-| Handler | Purpose | Features |
-|---------|---------|----------|
-| `start.py` | Welcome and initial greeting | Bot introduction, basic commands |
-| `ask.py` | HR question answering | RAG-powered Q&A, context awareness |
-| `hr_request.py` | Formal HR requests | Structured request forms, approval flow |
-| `hire.py` | Hiring process | Candidate screening, interview scheduling |
-| `fire.py` | Termination process | Exit procedures, final settlement |
-| `pay.py` | Payroll inquiries | Salary calculations, payment history |
-| `vacation.py` | Leave management | Vacation requests, balance tracking |
-
-**Section sources**
-- [app/integrations/vk/handlers/start.py](file://app/integrations/vk/handlers/start.py)
-- [app/integrations/vk/handlers/ask.py](file://app/integrations/vk/handlers/ask.py)
-- [app/integrations/vk/handlers/hr_request.py](file://app/integrations/vk/handlers/hr_request.py)
+- [packages/core/src/cafetera_core/storage/document_repo.py:279-290](file://packages/core/src/cafetera_core/storage/document_repo.py#L279-L290)
 
 ## Storage Layer
 
@@ -2472,11 +2286,10 @@ DOCUMENTS ||--o{ FILES : stored_in
 ```
 
 **Diagram sources**
-- [app/storage/models.py:20-37](file://app/storage/models.py#L20-L37)
-- [app/storage/category_models.py:9-21](file://app/storage/category_models.py#L9-L21)
-- [app/storage/document_repo.py:14-30](file://app/storage/document_repo.py#L14-L30)
-- [app/storage/category_repo.py:16-28](file://app/storage/category_repo.py#L16-L28)
-- [app/storage/database.py:11-44](file://app/storage/database.py#L11-L44)
+- [packages/core/src/cafetera_core/storage/models.py:20-37](file://packages/core/src/cafetera_core/storage/models.py#L20-L37)
+- [packages/core/src/cafetera_core/storage/category_models.py:9-21](file://packages/core/src/cafetera_core/storage/category_models.py#L9-L21)
+- [packages/core/src/cafetera_core/storage/document_repo.py:14-30](file://packages/core/src/cafetera_core/storage/document_repo.py#L14-L30)
+- [packages/core/src/cafetera_core/storage/category_repo.py:16-28](file://packages/core/src/cafetera_core/storage/category_repo.py#L16-L28)
 
 ### PostgreSQL Database Schema Design
 
@@ -2502,11 +2315,10 @@ The PostgreSQL schema supports comprehensive document tracking with:
 **Updated** The PostgreSQL database now provides enterprise-grade capabilities with TIMESTAMPTZ for timezone-aware timestamps, SERIAL primary keys for automatic ID generation, and enhanced search capabilities. The `is_search_enabled` column provides granular control over document inclusion in search results regardless of format type. The `created_at` and `updated_at` fields support precise date range filtering with inclusive boundaries and timezone awareness. The enhanced user interface styling is reflected in the table container design with rounded corners and sophisticated background treatments. The new document-specific question-answering feature relies on the existing database structure for document validation and status checking. The `list_recently_finished` method provides efficient tracking of documents that completed or failed within the last 10 seconds for status updates. The global question-answering capability leverages the same search enablement mechanism for knowledge base-wide queries. The revolutionary HTMX partial response system now includes enhanced tracking capabilities for OOB swapping, automatic polling control, and deduplication logic to prevent duplicate updates. The enhanced async architecture now provides comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control and streamlined background processing. The PostgreSQL migration provides improved performance, reliability, and scalability compared to the previous SQLite implementation.
 
 **Section sources**
-- [app/storage/models.py:11-37](file://app/storage/models.py#L11-L37)
-- [app/storage/category_models.py:9-21](file://app/storage/category_models.py#L9-L21)
-- [app/storage/document_repo.py:63-214](file://app/storage/document_repo.py#L63-L214)
-- [app/storage/category_repo.py:48-140](file://app/storage/category_repo.py#L48-L140)
-- [app/storage/database.py:11-44](file://app/storage/database.py#L11-L44)
+- [packages/core/src/cafetera_core/storage/models.py:11-37](file://packages/core/src/cafetera_core/storage/models.py#L11-L37)
+- [packages/core/src/cafetera_core/storage/category_models.py:9-21](file://packages/core/src/cafetera_core/storage/category_models.py#L9-L21)
+- [packages/core/src/cafetera_core/storage/document_repo.py:63-214](file://packages/core/src/cafetera_core/storage/document_repo.py#L63-L214)
+- [packages/core/src/cafetera_core/storage/category_repo.py:48-140](file://packages/core/src/cafetera_core/storage/category_repo.py#L48-L140)
 
 ## API Endpoints
 
@@ -2547,16 +2359,17 @@ The system provides a comprehensive REST API for document management with full s
 | `/api/documents/bulk/reindex` | POST | Re-index multiple documents with semaphore protection | Admin cookie |
 | `/api/documents/bulk/search` | PATCH | Toggle search participation for multiple documents | Admin cookie |
 
-### **Updated** Modular Router Architecture Endpoints
+### **Updated** Enhanced Package Organization Endpoints
 
-**Updated** All endpoints now operate within the modular router architecture with router composition maintaining backward compatibility:
+**Updated** All endpoints now operate within the modular router architecture with router composition maintaining backward compatibility and enhanced package organization:
 
 - **Router Composition**: Main `documents.py` router includes authentication, upload, bulk, and QA routers
-- **Backward Compatibility**: All existing endpoints continue to work after modular refactoring
+- **Backward Compatibility**: All existing endpoints continue to work after package restructuring
 - **Specialized Routers**: Clear separation of concerns with dedicated routers for different functional areas
-- **Enhanced Organization**: Better code organization and maintainability
+- **Enhanced Organization**: Better code organization and maintainability with DocumentService in admin package
 - **Router Delegation**: Main router properly delegates to specialized routers
 - **Helper Function Re-export**: Shared utilities and validation functions remain accessible
+- **Enhanced Import Paths**: All imports correctly reference new admin package locations
 
 ### **Updated** Enhanced HTMX Partial Endpoints
 
@@ -2588,17 +2401,12 @@ All list endpoints support the following parameters:
 - **`sort_field`**: Field to sort by (title, created_at, status)
 - **`sort_dir`**: Sort direction (asc, desc)
 
-### **Updated** Enhanced HTMX Partial Response Endpoints
+### **Updated** Enhanced Package Organization and HTMX Partial Response Endpoints
 
 **Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates with revolutionary OOB swapping capabilities, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized `parse_date_range()` utility ensures consistent date parameter handling across all endpoints, while the `_document_table_context()` function provides standardized template context management for all partials. The new DOCX integrity validation using `_validate_docx_bytes()` function ensures file content validity before processing. The revolutionary HTMX partial response system now includes proper OOB swapping for dynamic document row updates, automatic polling control that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The enhanced async architecture now provides comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control and streamlined background processing. The PostgreSQL migration provides enterprise-grade database capabilities with proper timezone handling, concurrent access support, and improved error handling.
 
 **Section sources**
-- [app/api/documents.py:1-539](file://app/api/documents.py#L1-L539)
-- [app/api/documents_auth.py:1-77](file://app/api/documents_auth.py#L1-L77)
-- [app/api/documents_upload.py:1-292](file://app/api/documents_upload.py#L1-L292)
-- [app/api/documents_bulk.py:1-229](file://app/api/documents_bulk.py#L1-L229)
-- [app/api/documents_qa.py:1-91](file://app/api/documents_qa.py#L1-L91)
-- [app/api/deps.py:54-74](file://app/api/deps.py#L54-L74)
+- [packages/admin/src/cafetera_admin/api/documents.py:1-539](file://packages/admin/src/cafetera_admin/api/documents.py#L1-L539)
 
 ## Configuration Management
 
@@ -2634,7 +2442,7 @@ Settings --> Environment : inherits
 ```
 
 **Diagram sources**
-- [app/config.py:4-39](file://app/config.py#L4-L39)
+- [packages/admin/src/cafetera_admin/config.py:4-39](file://packages/admin/src/cafetera_admin/config.py#L4-L39)
 
 ### Configuration Categories
 
@@ -2654,7 +2462,7 @@ Settings --> Environment : inherits
 | **Polling Control** | `max_concurrent_indexing` | `2` | Semaphore limit for automatic polling control |
 
 **Section sources**
-- [app/config.py:1-39](file://app/config.py#L1-L39)
+- [packages/admin/src/cafetera_admin/config.py:1-39](file://packages/admin/src/cafetera_admin/config.py#L1-L39)
 
 ## Enhanced Error Handling and Consistency
 
@@ -2676,8 +2484,8 @@ Service->>Repo : update(status=completed/failed, error=message)
 ```
 
 **Diagram sources**
-- [app/domain/document_service.py:147-181](file://app/domain/document_service.py#L147-L181)
-- [app/domain/document_service.py:184-234](file://app/domain/document_service.py#L184-L234)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:147-181](file://packages/admin/src/cafetera_admin/domain/document_service.py#L147-L181)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:184-234](file://packages/admin/src/cafetera_admin/domain/document_service.py#L184-L234)
 
 ### Error Handling Strategies
 
@@ -2732,6 +2540,18 @@ The unified `_index_document_from_s3()` function provides centralized error hand
 - **State Management**: Maintains consistent document state during failures
 - **Logging Consistency**: Standardized logging format for all background operations
 - **Format Validation**: Validates DOCX integrity and handles XLSX processing errors
+
+### **Updated** Enhanced Package Organization Error Handling
+
+The enhanced package organization implements comprehensive error handling:
+
+- **Package Import Errors**: Handles cases where import paths are incorrect or modules are missing
+- **DocumentService Location Errors**: Manages errors when DocumentService cannot be found in new location
+- **Indexer Module Errors**: Handles errors in indexer module imports and functionality
+- **Router Architecture Errors**: Manages errors in modular router structure
+- **Dependency Injection Errors**: Handles errors in dependency resolution with new package locations
+- **Error Propagation**: Ensures errors propagate correctly through package boundaries
+- **Logging Consistency**: Standardized error logging across all package modules
 
 ### **Updated** Enhanced Async Architecture Error Handling
 
@@ -2812,21 +2632,13 @@ The recently finished documents tracking system implements comprehensive error h
 - **Deduplication Logic Error Recovery**: Edge case handling for document deduplication
 
 **Section sources**
-- [app/domain/document_service.py:84-133](file://app/domain/document_service.py#L84-L133)
-- [app/domain/document_service.py:147-181](file://app/domain/document_service.py#L147-L181)
-- [app/domain/document_service.py:184-234](file://app/domain/document_service.py#L184-L234)
-- [app/api/documents_qa.py:55-91](file://app/api/documents_qa.py#L55-L91)
-- [app/api/documents_qa.py:26-91](file://app/api/documents_qa.py#L26-L91)
-- [app/domain/qa_service.py:117-151](file://app/domain/qa_service.py#L117-L151)
-- [app/domain/qa_service.py:161-201](file://app/domain/qa_service.py#L161-L201)
-- [app/domain/qa_service.py:167-187](file://app/domain/qa_service.py#L167-L187)
-- [app/api/documents_upload.py:119-167](file://app/api/documents_upload.py#L119-L167)
-- [app/api/documents_bulk.py:114-162](file://app/api/documents_bulk.py#L114-L162)
-- [app/api/deps.py:26-42](file://app/api/deps.py#L26-L42)
-- [app/api/documents_helpers.py:82-112](file://app/api/documents_helpers.py#L82-L112)
-- [app/api/documents_helpers.py:31-50](file://app/api/documents_helpers.py#L31-L50)
-- [app/domain/document_service.py:106-155](file://app/domain/document_service.py#L106-L155)
-- [app/rag/indexer.py:49-105](file://app/rag/indexer.py#L49-L105)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:109-170](file://packages/admin/src/cafetera_admin/domain/document_service.py#L109-L170)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:147-181](file://packages/admin/src/cafetera_admin/domain/document_service.py#L147-L181)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:184-234](file://packages/admin/src/cafetera_admin/domain/document_service.py#L184-L234)
+- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/admin/src/cafetera_admin/indexer.py:135-158](file://packages/admin/src/cafetera_admin/indexer.py#L135-L158)
+- [packages/admin/src/cafetera_admin/indexer.py:161-192](file://packages/admin/src/cafetera_admin/indexer.py#L161-L192)
+- [packages/admin/src/cafetera_admin/indexer.py:195-249](file://packages/admin/src/cafetera_admin/indexer.py#L195-L249)
 
 ## Deployment and Operations
 
@@ -2893,11 +2705,14 @@ Required environment variables:
 - **OOB Swapping**: `MAX_CONCURRENT_INDEXING` for OOB swapping operations
 - **Polling Control**: `MAX_CONCURRENT_INDEXING` for automatic polling control
 - **Async Operations**: `MAX_CONCURRENT_INDEXING` for async background processing
+- **Enhanced Package Organization**: `MAX_CONCURRENT_INDEXING` for admin package operations
+- **DocumentService Location**: `MAX_CONCURRENT_INDEXING` for DocumentService import operations
+- **Indexer Module Location**: `MAX_CONCURRENT_INDEXING` for indexer module import operations
 
-**Updated** The deployment configuration now supports the enhanced user interface styling with proper rounded corner rendering, sophisticated background treatments, and improved visual hierarchy. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The revolutionary HTMX partial response system with OOB swapping reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified `_index_document_from_s3()` function requires proper semaphore configuration for optimal background processing performance. The centralized `parse_date_range()` utility requires proper date format validation for consistent date parameter handling. The `_document_table_context()` function requires proper template context validation for consistent UI rendering. The new DOCX integrity validation function requires proper ZIP file handling and validation for DOCX file processing. The revolutionary batch status polling system requires proper HTMX engine configuration and OOB swapping support for optimal performance. The automatic polling control system requires proper server load monitoring and resource management for efficient operation. The recently finished documents tracking system requires proper database configuration and query optimization for reliable status updates. The modular router architecture requires proper router composition and dependency injection for optimal performance. The enhanced async architecture requires proper semaphore configuration and resource management for optimal async operations. The PostgreSQL migration requires proper database connection configuration, asyncpg driver setup, and proper timezone handling for optimal performance.
+**Updated** The deployment configuration now supports the enhanced package organization with DocumentService relocated to the admin package and indexing functionality extracted to a dedicated indexer module. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The revolutionary HTMX partial response system with OOB swapping reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified `_index_document_from_s3()` function requires proper semaphore configuration for optimal background processing performance. The centralized `parse_date_range()` utility requires proper date format validation for consistent date parameter handling. The `_document_table_context()` function requires proper template context validation for consistent UI rendering. The new DOCX integrity validation function requires proper ZIP file handling and validation for DOCX file processing. The revolutionary batch status polling system requires proper HTMX engine configuration and OOB swapping support for optimal performance. The automatic polling control system requires proper server load monitoring and resource management for efficient operation. The recently finished documents tracking system requires proper database configuration and query optimization for reliable status updates. The modular router architecture requires proper router composition and dependency injection for optimal performance. The enhanced async architecture requires proper semaphore configuration and resource management for optimal async operations. The PostgreSQL migration requires proper database connection configuration, asyncpg driver setup, and proper timezone handling for optimal performance. The enhanced package organization requires proper import path configuration and dependency resolution for optimal performance.
 
 **Section sources**
-- [docker-compose.yml](file://docker-compose.yml)
+- [packages/admin/src/cafetera_admin/main.py:90-113](file://packages/admin/src/cafetera_admin/main.py#L90-L113)
 
 ## Troubleshooting Guide
 
@@ -2962,11 +2777,18 @@ Required environment variables:
 | **PostgreSQL CRUD Issues** | CREATE/UPDATE/DELETE failures | Check RETURNING clauses, verify parameter binding, validate PostgreSQL syntax |
 | **PostgreSQL Upsert Issues** | ON CONFLICT upsert failures | Check unique constraints, verify conflict resolution logic, validate EXCLUDED values |
 | **PostgreSQL Timezone Issues** | Incorrect timestamps | Check TIMESTAMPTZ handling, verify timezone configuration, validate timestamp conversions |
+| **Enhanced Package Organization Issues** | Import errors or missing modules | Check that all imports correctly reference admin package locations, verify package structure |
+| **DocumentService Location Issues** | DocumentService import failures | Verify that DocumentService import path is correct in new admin package location |
+| **Indexer Module Issues** | Indexer module import failures | Verify that indexer module imports correctly from admin package |
 | **Enhanced Testing Infrastructure Issues** | Test failures or instability | Check PostgreSQL container configuration, verify test isolation, validate fixture cleanup |
 | **Router Architecture Testing Issues** | Modular router test failures | Check router composition, verify backward compatibility, validate specialized router functionality |
 | **Async Operations Testing Issues** | Async test failures | Check semaphore configuration in tests, verify async operation mocking, validate error handling |
 | **Streaming Response Testing Issues** | SSE test failures | Check streaming response mocking, verify token streaming, validate error recovery |
 | **Batch Status Polling Testing Issues** | Status polling test failures | Check centralized polling endpoint, verify OOB swapping, validate deduplication logic |
+| **Filtering and Sorting Testing Issues** | Filter/sort test failures | Check server-side filtering implementation, verify parameter validation, validate pagination |
+| **Authentication Testing Issues** | Authentication test failures | Check login/logout functionality, verify authentication guards, validate cookie handling |
+| **Upload Operations Testing Issues** | Upload test failures | Check file upload functionality, verify validation, validate background indexing |
+| **Bulk Operations Testing Issues** | Bulk operations test failures | Check atomic operation testing, verify concurrent processing, validate error handling |
 
 ### Logging and Monitoring
 
@@ -3011,26 +2833,26 @@ The system provides comprehensive logging at multiple levels:
 - **Async Operations Logs**: Enhanced async architecture implementation, semaphore management, resource cleanup
 - **Async Semaphore Logs**: Semaphore-based concurrency control, task queuing, error recovery
 - **PostgreSQL Migration Logs**: Database connection management, schema initialization, error handling
+- **Enhanced Package Organization Logs**: Package import validation, dependency resolution, error handling
 - **Enhanced Testing Infrastructure Logs**: PostgreSQL container testing, test isolation, fixture management
 - **Router Architecture Testing Logs**: Modular router validation, backward compatibility testing
 - **Async Operations Testing Logs**: Enhanced async operation testing, semaphore validation
 - **Streaming Response Testing Logs**: SSE streaming response testing, error recovery validation
 - **Batch Status Polling Testing Logs**: Centralized status polling testing, OOB swapping validation, deduplication logic testing
 
-**Updated** The troubleshooting guide now includes comprehensive coverage for the PostgreSQL migration, enhanced CRUD operations with RETURNING clauses, ON CONFLICT upsert operations, and enhanced async operations. The logging system provides detailed coverage for all new PostgreSQL functionality including database connection management, schema initialization, CRUD operations with RETURNING clauses, upsert operations with ON CONFLICT, and proper timezone handling. The system now includes specific troubleshooting steps for database connection failures, schema initialization issues, CREATE/UPDATE/DELETE operation failures, and ON CONFLICT upsert failures. The enhanced async architecture troubleshooting covers async operation failures, semaphore management issues, background task errors, resource cleanup problems, and performance monitoring concerns. The PostgreSQL-specific troubleshooting includes database URL format validation, asyncpg driver installation, PostgreSQL connectivity issues, and proper timezone handling for TIMESTAMPTZ fields. The enhanced testing infrastructure troubleshooting covers PostgreSQL container configuration, test isolation issues, and fixture cleanup problems.
+**Updated** The troubleshooting guide now includes comprehensive coverage for the enhanced package organization with DocumentService relocated to the admin package and indexing functionality extracted to a dedicated indexer module. The logging system provides detailed coverage for all new package organization functionality including import path validation, DocumentService location validation, indexer module location validation, and enhanced router architecture testing. The system now includes specific troubleshooting steps for package import errors, DocumentService location issues, indexer module import failures, and enhanced testing infrastructure issues. The enhanced package organization troubleshooting covers import path configuration, dependency resolution, and module location validation. The enhanced testing infrastructure troubleshooting includes PostgreSQL container configuration, test isolation issues, and fixture cleanup problems. The enhanced router architecture troubleshooting includes router composition validation, backward compatibility testing, and specialized router functionality validation. The enhanced async operations troubleshooting includes semaphore configuration in tests, async operation mocking, and error handling validation. The enhanced streaming response troubleshooting includes SSE streaming response mocking, token streaming validation, and error recovery validation. The enhanced batch status polling troubleshooting includes centralized polling endpoint validation, OOB swapping validation, and deduplication logic testing. The enhanced filtering and sorting troubleshooting includes server-side filtering implementation validation, parameter validation, and pagination testing. The enhanced authentication troubleshooting includes login/logout functionality validation, authentication guards validation, and cookie handling validation. The enhanced upload operations troubleshooting includes file upload functionality validation, validation testing, and background indexing validation. The enhanced bulk operations troubleshooting includes atomic operation testing, concurrent processing validation, and error handling validation.
 
 **Section sources**
-- [app/main.py:21-96](file://app/main.py#L21-L96)
-- [app/api/documents.py:111-130](file://app/api/documents.py#L111-L130)
+- [packages/admin/src/cafetera_admin/main.py:90-113](file://packages/admin/src/cafetera_admin/main.py#L90-L113)
 
 ## Conclusion
 
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
 
-**Updated** The system has undergone a significant transformation with the implementation of a comprehensive modular testing approach for the admin document API. The testing infrastructure now includes enhanced fixtures with PostgreSQL container support, improved isolation between test cases, and extensive coverage for authentication, upload operations, bulk operations, and filtering/sorting functionality. The modular router architecture testing ensures backward compatibility while validating the new specialized routers for authentication, upload, bulk operations, and QA functionality. The enhanced user interface now features intelligent polling control that starts/stops based on active document count, recently finished documents tracking that provides final status updates within a 10-second window, and efficient OOB swapping that enables dynamic row updates without full page reloads. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials and components. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, automatic polling control, recently finished documents tracking, enhanced async operations, streamlined background processing, PostgreSQL migration, enhanced CRUD operations, and ON CONFLICT upsert functionality. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
+**Updated** The system has undergone a significant transformation with the relocation of DocumentService from the core package to the admin package and the extraction of indexing functionality to a dedicated indexer module. These architectural changes improve code organization, separation of concerns, and maintainability while preserving all existing functionality. The DocumentService now resides in `packages/admin/src/cafetera_admin/domain/document_service.py` and indexing operations are handled by `packages/admin/src/cafetera_admin/indexer.py`. Import paths have been updated throughout the codebase to reflect the new package structure, and the modular router architecture continues to provide comprehensive functionality for document management operations. The enhanced package organization provides better code organization and maintainability, while the dedicated indexer module improves separation of concerns and allows for more focused development and testing. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials and components. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, automatic polling control, recently finished documents tracking, enhanced async operations, streamlined background processing, PostgreSQL migration, enhanced CRUD operations, and ON CONFLICT upsert functionality. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
 Key strengths include:
-- **Revolutionary PostgreSQL Migration**: Enterprise-grade database with TIMESTAMPTZ, SERIAL primary keys, and enhanced CRUD operations
+- **Enhanced Package Organization**: DocumentService relocated to admin package, indexing extracted to dedicated module, improved code organization and maintainability
 - **Enhanced Document Validation**: Comprehensive security checks for both document-specific and global operations
 - **Triple Format Support**: Support for DOCX, DOC, and XLSX document formats with unified processing pipeline
 - **DOCX Integrity Validation**: Zip file validation using `_validate_docx_bytes()` function for content verification
@@ -3048,7 +2870,7 @@ Key strengths include:
 - **Flexible Storage Backend**: Support for multiple storage providers
 - **Advanced RAG Pipeline**: Semantic search and question-answering capabilities with enhanced format handling
 - **Multi-channel Integration**: Web interface and VK social network bot
-- **Production-ready Architecture**: Proper separation of concerns and testing strategy with PostgreSQL migration
+- **Production-ready Architecture**: Proper separation of concerns and testing strategy with enhanced package organization
 - **Scalable Pagination System**: Efficient handling of large document collections
 - **Enhanced User Experience**: Dynamic pagination with HTMX integration, mobile-responsive design
 - **Powerful Search Capabilities**: Real-time filtering with case-insensitive pattern matching
@@ -3059,19 +2881,19 @@ Key strengths include:
 - **Modernized Interface**: Interactive toolbar, enhanced user experience, overlay mobile sidebar
 - **Robust Concurrency Control**: Semaphore-based throttling for background operations
 - **Enhanced Error Handling**: Atomic consistency guarantees and comprehensive error recovery
-- **Comprehensive Logging**: Detailed monitoring and debugging capabilities with PostgreSQL-specific logging
+- **Comprehensive Logging**: Detailed monitoring and debugging capabilities with enhanced package organization logging
 - **Enhanced Visual Presentation**: Modern rounded corner styling, sophisticated background treatments, and improved visual hierarchy throughout the interface
 - **Advanced Filtering and Sorting**: Comprehensive server-side processing with real-time updates and centralized date handling
-- **Enhanced Test Coverage**: Extensive testing for new functionality including filtering, sorting, concurrency control, mobile responsiveness, batch status polling, document-specific question answering, global question answering, streaming responses, unified background processing, date range utilities, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, automatic polling control, recently finished documents tracking, enhanced async operations, streamlined background processing, PostgreSQL migration, enhanced CRUD operations, and ON CONFLICT upsert functionality
+- **Enhanced Test Coverage**: Extensive testing for new package organization functionality including import path validation, DocumentService location testing, indexer module testing, enhanced router architecture testing, and comprehensive error handling validation
 - **Mobile-First Responsive Design**: Overlay sidebar, toast notifications, and adaptive layouts for all device sizes
 - **Document-Specific Prompt Engineering**: Specialized prompts for focused document responses
 - **Global Prompt Engineering**: Specialized prompts for comprehensive knowledge base responses
 - **Modal-Based User Interaction**: Intuitive question interfaces with Alpine.js integration
 - **Comprehensive Security Validation**: Document existence, status, and search enablement verification for both question types
-- **Performance Optimization**: Reduced server load through batch processing, centralized utilities, unified background processing, intelligent polling control, enhanced async operations, and PostgreSQL migration
+- **Performance Optimization**: Reduced server load through batch processing, centralized utilities, unified background processing, intelligent polling control, enhanced async operations, and enhanced package organization
 - **Real-time Streaming Response**: Immediate display of AI responses as they arrive for both question types
 - **International Character Support**: Proper filename encoding for global compatibility
-- **Enhanced Status Tracking**: Comprehensive tracking of document status changes, recently finished documents, polling activity, async operations, and PostgreSQL database operations
+- **Enhanced Status Tracking**: Comprehensive tracking of document status changes, recently finished documents, polling activity, async operations, and enhanced package organization
 - **Global Knowledge Base Access**: Unified knowledge base queries across all searchable documents
 - **Unified Background Processing**: Centralized error handling, resource management, and logging for all background operations
 - **Centralized Date Range Handling**: Standardized ISO date format parsing across all endpoints with timezone support
@@ -3079,24 +2901,19 @@ Key strengths include:
 - **Spreadsheet Query Support**: XLSX documents can be queried with worksheet context for focused analysis
 - **Format-Aware Processing**: Different handling for DOCX headings, DOC text structure, and XLSX worksheets with unified output
 - **Revolutionary Router Architecture**: Modular router structure with router composition maintaining backward compatibility
-- **Intelligent Server Load Management**: Automatic polling control and server load optimization through async operations and PostgreSQL database
-- **Enhanced User Experience**: Real-time status monitoring and efficient UI updates through async operations and PostgreSQL database
-- **Comprehensive Router Testing**: Extensive testing for router composition, backward compatibility, and modular functionality
+- **Intelligent Server Load Management**: Automatic polling control and server load optimization through async operations and enhanced package organization
+- **Enhanced User Experience**: Real-time status monitoring and efficient UI updates through async operations and enhanced package organization
+- **Comprehensive Router Testing**: Extensive testing for router composition, backward compatibility, and modular functionality with enhanced package organization
 - **Enhanced Async Architecture**: Comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control and streamlined background processing
-- **PostgreSQL Migration**: Enterprise-grade database capabilities with proper timezone handling, concurrent access support, and improved error handling
-- **Enhanced CRUD Operations**: RETURNING clauses for generated IDs in CREATE/DELETE operations
-- **ON CONFLICT Upsert**: Upsert operations with conflict resolution in CategoryFileRepository
-- **TIMESTAMPTZ Support**: Timezone-aware timestamps for accurate temporal queries
-- **SERIAL Primary Keys**: Automatic ID generation for efficient database operations
-- **Enhanced Database Schema**: Proper indexes, unique constraints, and foreign key relationships
-- **Enhanced Testing Infrastructure**: Comprehensive PostgreSQL container testing, test isolation, and fixture management
-- **Router Architecture Testing**: Extensive validation of modular router composition and backward compatibility
-- **Async Operations Testing**: Comprehensive testing of enhanced async architecture and semaphore management
-- **Streaming Response Testing**: Extensive validation of SSE streaming capabilities
-- **Batch Status Polling Testing**: Revolutionary centralized status polling with OOB swapping validation
-- **Filtering and Sorting Testing**: Comprehensive validation of enhanced filtering and sorting API endpoints
-- **Authentication Testing**: Complete validation of authentication router functionality
-- **Upload Operations Testing**: Extensive validation of upload router operations
-- **Bulk Operations Testing**: Comprehensive validation of bulk router operations
+- **Enhanced Package Organization**: Improved code organization, separation of concerns, and maintainability with DocumentService in admin package and dedicated indexer module
+- **Enhanced Testing Infrastructure**: Comprehensive testing for new package organization including import path validation, dependency resolution, and fixture management
+- **Enhanced Router Architecture Testing**: Extensive validation of modular router composition and backward compatibility with enhanced package organization
+- **Enhanced Async Operations Testing**: Comprehensive testing of enhanced async architecture and semaphore management with enhanced package organization
+- **Enhanced Streaming Response Testing**: Extensive validation of SSE streaming capabilities with enhanced package organization
+- **Enhanced Batch Status Polling Testing**: Revolutionary centralized status polling with OOB swapping validation and enhanced package organization
+- **Enhanced Filtering and Sorting Testing**: Comprehensive validation of enhanced filtering and sorting API endpoints with enhanced package organization
+- **Enhanced Authentication Testing**: Complete validation of authentication router functionality with enhanced package organization
+- **Enhanced Upload Operations Testing**: Extensive validation of upload router operations with enhanced package organization
+- **Enhanced Bulk Operations Testing**: Comprehensive validation of bulk router operations with enhanced package organization
 
-The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability. The PostgreSQL migration provides enterprise-grade database capabilities with improved performance, reliability, and scalability compared to the previous SQLite implementation. The enhanced testing infrastructure ensures comprehensive coverage of all new functionality while maintaining backward compatibility and operational stability.
+The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability. The enhanced package organization provides enterprise-grade architecture with improved performance, reliability, and scalability compared to the previous structure. The dedicated indexer module improves separation of concerns and allows for more focused development and testing. The enhanced testing infrastructure ensures comprehensive coverage of all new functionality while maintaining backward compatibility and operational stability.

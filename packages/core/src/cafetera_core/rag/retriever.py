@@ -207,7 +207,7 @@ def build_embeddings(settings: CoreSettings) -> Embeddings:
     """Create an embedding model based on ``settings.embedding_provider``."""
     if settings.embedding_provider == "openai":
         try:
-            from langchain_openai import OpenAIEmbeddings  # type: ignore[import-not-found]
+            from langchain_openai import OpenAIEmbeddings
         except ImportError as exc:
             raise ImportError(
                 "Install the 'openai_compatible' extra: "
@@ -215,8 +215,8 @@ def build_embeddings(settings: CoreSettings) -> Embeddings:
             ) from exc
         return OpenAIEmbeddings(
             model=settings.embedding_model,
-            openai_api_key=settings.embedding_api_key,
-            openai_api_base=settings.embedding_base_url or None,
+            api_key=settings.embedding_api_key,  # type: ignore[arg-type]
+            base_url=settings.embedding_base_url or None,
         )
 
     if settings.embedding_provider == "llamacpp":
@@ -229,13 +229,13 @@ def build_embeddings(settings: CoreSettings) -> Embeddings:
             ) from exc
         return OpenAIEmbeddings(
             model=settings.embedding_model,
-            openai_api_key=settings.embedding_api_key or "no-key",
-            openai_api_base=settings.embedding_base_url or "http://localhost:8080/v1",
+            api_key=settings.embedding_api_key or "no-key",  # type: ignore[arg-type]
+            base_url=settings.embedding_base_url or "http://localhost:8080/v1",
         )
 
     # Default: Ollama
     try:
-        from langchain_ollama import OllamaEmbeddings  # type: ignore[import-not-found]
+        from langchain_ollama import OllamaEmbeddings
     except ImportError as exc:
         raise ImportError(
             "Install the 'ollama' extra: uv sync --extra ollama"

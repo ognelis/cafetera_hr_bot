@@ -53,7 +53,7 @@ def build_llm(settings: CoreSettings) -> BaseChatModel:
     """Create a chat LLM instance based on ``settings.llm_provider``."""
     if settings.llm_provider == "openai":
         try:
-            from langchain_openai import ChatOpenAI  # type: ignore[import-not-found]
+            from langchain_openai import ChatOpenAI
         except ImportError as exc:
             raise ImportError(
                 "Install the 'openai_compatible' extra: "
@@ -61,7 +61,7 @@ def build_llm(settings: CoreSettings) -> BaseChatModel:
             ) from exc
         return ChatOpenAI(
             model=settings.llm_model,
-            api_key=settings.llm_api_key,
+            api_key=settings.llm_api_key,  # type: ignore[arg-type]
             base_url=settings.llm_base_url or None,
             temperature=0.3,
         )
@@ -76,14 +76,14 @@ def build_llm(settings: CoreSettings) -> BaseChatModel:
             ) from exc
         return ChatOpenAI(
             model=settings.llm_model,
-            api_key=settings.llm_api_key or "no-key",
+            api_key=settings.llm_api_key or "no-key", # type: ignore[arg-type]
             base_url=settings.llm_base_url or "http://localhost:8080/v1",
             temperature=0.3,
         )
 
     # Default: Ollama
     try:
-        from langchain_ollama import ChatOllama  # type: ignore[import-not-found]
+        from langchain_ollama import ChatOllama
     except ImportError as exc:
         raise ImportError(
             "Install the 'ollama' extra: uv sync --extra ollama"

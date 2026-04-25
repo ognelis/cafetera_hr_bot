@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from cafetera_core.domain.content import vacation_template_text
 from cafetera_vk_bot.attachments import send_category_document
+from cafetera_vk_bot.domain.content import vacation_template_text
 from cafetera_vk_bot.handlers import (
     get_category_file_service,
     get_entity_or_error,

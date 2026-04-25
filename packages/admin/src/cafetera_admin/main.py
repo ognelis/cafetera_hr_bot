@@ -12,6 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from cafetera_admin.config import AdminSettings
+from cafetera_admin.domain.document_service import DocumentService
+from cafetera_admin.prompts import GLOBAL_EXPERTS_PROMPT
 from cafetera_core.resources import build_resources, close_resources
 
 logger = logging.getLogger(__name__)
@@ -46,8 +48,32 @@ async def lifespan(app: FastAPI):
     app.state.qdrant_client = res.qdrant_client
     app.state.embeddings = res.embeddings
     app.state.doc_repo = res.doc_repo
-    app.state.doc_service = res.doc_service
-    app.state.qa_service = res.qa_service
+
+    if (
+        res.doc_repo is not None
+        and res.qdrant_client is not None
+        and res.embeddings is not None
+    ):
+        app.state.doc_service = DocumentService(
+            repo=res.doc_repo,
+            qdrant_client=res.qdrant_client,
+            embeddings=res.embeddings,
+            collection_name=settings.qdrant_collection,
+            sparse_embedding=res.sparse_embeddings,
+            colbert_embedding=res.colbert_embeddings,
+        )
+    else:
+        app.state.doc_service = None
+
+    if (
+        res.qdrant_client is not None
+        and res.embeddings is not None
+        and res.llm is not None
+    ):
+        app.state.qa_service = res.build_qa_service(GLOBAL_EXPERTS_PROMPT)
+    else:
+        app.state.qa_service = None
+
     app.state.category_file_service = res.category_file_service
     app.state.indexing_semaphore = asyncio.Semaphore(settings.max_concurrent_indexing)
 

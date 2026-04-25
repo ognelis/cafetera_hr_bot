@@ -2,24 +2,24 @@
 
 <cite>
 **Referenced Files in This Document**
-- [content.py](file://app/domain/content.py)
-- [entities.py](file://app/domain/entities.py)
-- [topic_hints.py](file://app/domain/topic_hints.py)
-- [bot.py](file://app/integrations/vk/bot.py)
-- [config.py](file://app/config.py)
-- [keyboards.py](file://app/integrations/vk/keyboards.py)
-- [states.py](file://app/integrations/vk/states.py)
-- [rules.py](file://app/integrations/vk/rules.py)
-- [start.py](file://app/integrations/vk/handlers/start.py)
-- [ask.py](file://app/integrations/vk/handlers/ask.py)
-- [hire.py](file://app/integrations/vk/handlers/hire.py)
-- [fire.py](file://app/integrations/vk/handlers/fire.py)
-- [vacation.py](file://app/integrations/vk/handlers/vacation.py)
-- [pay.py](file://app/integrations/vk/handlers/pay.py)
-- [sections.py](file://app/integrations/vk/handlers/sections.py)
-- [fallback.py](file://app/integrations/vk/handlers/fallback.py)
-- [attachments.py](file://app/integrations/vk/attachments.py)
-- [polling_vk.py](file://scripts/polling_vk.py)
+- [content.py](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py)
+- [entities.py](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py)
+- [topic_hints.py](file://packages/vk_bot/src/cafetera_vk_bot/domain/topic_hints.py)
+- [bot.py](file://packages/vk_bot/src/cafetera_vk_bot/bot.py)
+- [config.py](file://packages/vk_bot/src/cafetera_vk_bot/config.py)
+- [keyboards.py](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py)
+- [states.py](file://packages/vk_bot/src/cafetera_vk_bot/states.py)
+- [rules.py](file://packages/vk_bot/src/cafetera_vk_bot/rules.py)
+- [start.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/start.py)
+- [ask.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py)
+- [hire.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py)
+- [fire.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py)
+- [vacation.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py)
+- [pay.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py)
+- [sections.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py)
+- [fallback.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py)
+- [attachments.py](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py)
+- [polling.py](file://packages/vk_bot/src/cafetera_vk_bot/polling.py)
 - [pyproject.toml](file://pyproject.toml)
 - [test_content.py](file://tests/test_content.py)
 - [test_keyboards_block2.py](file://tests/test_keyboards_block2.py)
@@ -28,7 +28,7 @@
 
 ## Update Summary
 **Changes Made**
-- Removed TEMPLATE_DISCLAIMER constant and associated universal disclaimer from document templates
+- Updated content module location from app/domain/ to packages/vk_bot/src/cafetera_vk_bot/domain/
 - Streamlined content module to use TEMPLATE_FILE_STUB for fallback document templates
 - Simplified fire flow to maintain only essential HR templates and information
 - Enhanced vacation template functionality to support paid and unpaid vacation types with clear Russian labeling
@@ -61,16 +61,16 @@ The Domain Content Management spans three primary areas:
 ```mermaid
 graph TB
 subgraph "Domain Layer"
-CNT["app/domain/content.py"]
-ENT["app/domain/entities.py"]
-TH["app/domain/topic_hints.py"]
+CNT["packages/vk_bot/src/cafetera_vk_bot/domain/content.py"]
+ENT["packages/vk_bot/src/cafetera_vk_bot/domain/entities.py"]
+TH["packages/vk_bot/src/cafetera_vk_bot/domain/topic_hints.py"]
 end
 subgraph "Integration Layer"
-BOT["app/integrations/vk/bot.py"]
-HKY["app/integrations/vk/keyboards.py"]
-STT["app/integrations/vk/states.py"]
-RUL["app/integrations/vk/rules.py"]
-ATT["app/integrations/vk/attachments.py"]
+BOT["packages/vk_bot/src/cafetera_vk_bot/bot.py"]
+HKY["packages/vk_bot/src/cafetera_vk_bot/keyboards.py"]
+STT["packages/vk_bot/src/cafetera_vk_bot/states.py"]
+RUL["packages/vk_bot/src/cafetera_vk_bot/rules.py"]
+ATT["packages/vk_bot/src/cafetera_vk_bot/attachments.py"]
 HND["Handlers"]
 end
 subgraph "Handlers"
@@ -84,7 +84,7 @@ HSECT["sections.py"]
 HFALL["fallback.py"]
 end
 subgraph "Scripts"
-POLL["scripts/polling_vk.py"]
+POLL["packages/vk_bot/src/cafetera_vk_bot/polling.py"]
 end
 CNT --> HND
 ENT --> HND
@@ -106,34 +106,34 @@ BOT --> POLL
 ```
 
 **Diagram sources**
-- [content.py:1-121](file://app/domain/content.py#L1-L121)
-- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
-- [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
-- [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
-- [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
-- [rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
-- [attachments.py:1-121](file://app/integrations/vk/attachments.py#L1-L121)
-- [start.py:1-42](file://app/integrations/vk/handlers/start.py#L1-L42)
-- [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
-- [hire.py:1-118](file://app/integrations/vk/handlers/hire.py#L1-L118)
-- [fire.py:1-75](file://app/integrations/vk/handlers/fire.py#L1-L75)
-- [vacation.py:1-133](file://app/integrations/vk/handlers/vacation.py#L1-L133)
-- [pay.py:1-53](file://app/integrations/vk/handlers/pay.py#L1-L53)
-- [sections.py:1-42](file://app/integrations/vk/handlers/sections.py#L1-L42)
-- [fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [polling_vk.py:1-32](file://scripts/polling_vk.py#L1-L32)
+- [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
+- [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
+- [topic_hints.py:1-109](file://packages/vk_bot/src/cafetera_vk_bot/domain/topic_hints.py#L1-L109)
+- [bot.py:1-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L1-L56)
+- [keyboards.py:1-263](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L1-L263)
+- [states.py:1-9](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L1-L9)
+- [rules.py:1-31](file://packages/vk_bot/src/cafetera_vk_bot/rules.py#L1-L31)
+- [attachments.py:1-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L1-L121)
+- [start.py:1-42](file://packages/vk_bot/src/cafetera_vk_bot/handlers/start.py#L1-L42)
+- [ask.py:1-90](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L1-L90)
+- [hire.py:1-118](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L1-L118)
+- [fire.py:1-75](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L1-L75)
+- [vacation.py:1-133](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L1-L133)
+- [pay.py:1-53](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py#L1-L53)
+- [sections.py:1-42](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L1-L42)
+- [fallback.py:1-18](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py#L1-L18)
+- [polling.py:1-32](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L1-L32)
 
 **Section sources**
-- [content.py:1-121](file://app/domain/content.py#L1-L121)
-- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
-- [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
-- [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
-- [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
-- [rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
-- [attachments.py:1-121](file://app/integrations/vk/attachments.py#L1-L121)
-- [polling_vk.py:1-32](file://scripts/polling_vk.py#L1-L32)
+- [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
+- [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
+- [topic_hints.py:1-109](file://packages/vk_bot/src/cafetera_vk_bot/domain/topic_hints.py#L1-L109)
+- [bot.py:1-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L1-L56)
+- [keyboards.py:1-263](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L1-L263)
+- [states.py:1-9](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L1-L9)
+- [rules.py:1-31](file://packages/vk_bot/src/cafetera_vk_bot/rules.py#L1-L31)
+- [attachments.py:1-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L1-L121)
+- [polling.py:1-32](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L1-L32)
 
 ## Core Components
 - Domain content module: Centralizes static content, document templates, checklists, and formatters for HR-related content.
@@ -156,13 +156,13 @@ Key responsibilities:
 - **Updated** Enhanced vacation functionality: Supports both paid and unpaid vacation types with clear Russian labeling.
 
 **Section sources**
-- [content.py:1-121](file://app/domain/content.py#L1-L121)
-- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
-- [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
-- [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
-- [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
-- [attachments.py:1-121](file://app/integrations/vk/attachments.py#L1-L121)
+- [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
+- [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
+- [topic_hints.py:1-109](file://packages/vk_bot/src/cafetera_vk_bot/domain/topic_hints.py#L1-L109)
+- [bot.py:1-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L1-L56)
+- [keyboards.py:1-263](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L1-L263)
+- [states.py:1-9](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L1-L9)
+- [attachments.py:1-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L1-L121)
 
 ## Architecture Overview
 The system follows a layered architecture:
@@ -207,15 +207,15 @@ CAT --> END
 ```
 
 **Diagram sources**
-- [bot.py:44-56](file://app/integrations/vk/bot.py#L44-L56)
-- [content.py:12-17](file://app/domain/content.py#L12-L17)
-- [content.py:1-121](file://app/domain/content.py#L1-L121)
-- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
-- [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
-- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
-- [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
-- [rules.py:1-31](file://app/integrations/vk/rules.py#L1-L31)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- [bot.py:44-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L44-L56)
+- [content.py:12-17](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L12-L17)
+- [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
+- [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
+- [topic_hints.py:1-109](file://packages/vk_bot/src/cafetera_vk_bot/domain/topic_hints.py#L1-L109)
+- [keyboards.py:1-263](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L1-L263)
+- [states.py:1-9](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L1-L9)
+- [rules.py:1-31](file://packages/vk_bot/src/cafetera_vk_bot/rules.py#L1-L31)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
 
 ## Detailed Component Analysis
 
@@ -239,9 +239,6 @@ Implementation highlights:
 classDiagram
 class DomainContent {
 +TEMPLATE_FILE_STUB : string
-+ERR_DOCUMENT_UNAVAILABLE : string
-+ERR_NO_ANSWER : string
-+ERR_INTEGRATION_REQUIRED : string
 +hire_checklist(entity) string
 +onboarding_checklist(entity) string
 +hire_contract_text(entity) string
@@ -251,10 +248,10 @@ class DomainContent {
 ```
 
 **Diagram sources**
-- [content.py:12-121](file://app/domain/content.py#L12-L121)
+- [content.py:12-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L12-L102)
 
 **Section sources**
-- [content.py:1-121](file://app/domain/content.py#L1-L121)
+- [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
 
 ### Entities Module
 Defines LegalEntity dataclass and a fixed set of legal entities used across flows. Provides:
@@ -276,10 +273,10 @@ Entities --> LegalEntity : "contains"
 ```
 
 **Diagram sources**
-- [entities.py:8-24](file://app/domain/entities.py#L8-L24)
+- [entities.py:8-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L8-L23)
 
 **Section sources**
-- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
+- [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
 
 ### Topic Hints Module
 The topic hints module provides intelligent scenario detection from free-text questions:
@@ -302,10 +299,10 @@ TopicHints --> TopicHint : "returns"
 ```
 
 **Diagram sources**
-- [topic_hints.py:14-109](file://app/domain/topic_hints.py#L14-L109)
+- [topic_hints.py:14-109](file://packages/vk_bot/src/cafetera_vk_bot/domain/topic_hints.py#L14-L109)
 
 **Section sources**
-- [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
+- [topic_hints.py:1-109](file://packages/vk_bot/src/cafetera_vk_bot/domain/topic_hints.py#L1-L109)
 
 ### VK Bot Factory and Handler Wiring
 The bot factory:
@@ -315,7 +312,7 @@ The bot factory:
 
 ```mermaid
 sequenceDiagram
-participant Script as "polling_vk.py"
+participant Script as "polling.py"
 participant Config as "Settings"
 participant Factory as "create_bot()"
 participant VKBot as "VK Bot"
@@ -330,14 +327,14 @@ Factory-->>Script : Bot instance
 ```
 
 **Diagram sources**
-- [polling_vk.py:23-27](file://scripts/polling_vk.py#L23-L27)
-- [bot.py:44-56](file://app/integrations/vk/bot.py#L44-L56)
-- [config.py:4-9](file://app/config.py#L4-L9)
+- [polling.py:23-27](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L23-L27)
+- [bot.py:44-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L44-L56)
+- [config.py:4-9](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L4-L9)
 
 **Section sources**
-- [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [polling_vk.py:1-32](file://scripts/polling_vk.py#L1-L32)
-- [config.py:1-9](file://app/config.py#L1-L9)
+- [bot.py:1-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L1-L56)
+- [polling.py:1-32](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L1-L32)
+- [config.py:1-9](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L1-L9)
 
 ### Keyboard Builders and Navigation
 Keyboards provide consistent navigation and action buttons:
@@ -376,10 +373,10 @@ AddService --> End(["Keyboard JSON"])
 ```
 
 **Diagram sources**
-- [keyboards.py:75-263](file://app/integrations/vk/keyboards.py#L75-L263)
+- [keyboards.py:75-263](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L75-L263)
 
 **Section sources**
-- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
+- [keyboards.py:1-263](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L1-L263)
 
 ### Free-Text Question Handler
 The ask handler processes free-text questions through a streamlined flow:
@@ -402,12 +399,12 @@ ResponseFormat --> [*] : "send formatted answer"
 ```
 
 **Diagram sources**
-- [states.py:4-9](file://app/integrations/vk/states.py#L4-L9)
-- [ask.py:38-90](file://app/integrations/vk/handlers/ask.py#L38-L90)
+- [states.py:4-9](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L4-L9)
+- [ask.py:38-90](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L38-L90)
 
 **Section sources**
-- [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
-- [ask.py:1-90](file://app/integrations/vk/handlers/ask.py#L1-L90)
+- [states.py:1-9](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L1-L9)
+- [ask.py:1-90](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L1-L90)
 
 ### Hire Flow
 The hire flow guides users through entity selection and action choices:
@@ -434,13 +431,13 @@ Hire-->>User : Send content
 ```
 
 **Diagram sources**
-- [hire.py:32-118](file://app/integrations/vk/handlers/hire.py#L32-L118)
-- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
-- [content.py:36-68](file://app/domain/content.py#L36-L68)
+- [hire.py:32-118](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L32-L118)
+- [entities.py:16-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L16-L23)
+- [content.py:36-68](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L36-L68)
 
 **Section sources**
-- [hire.py:1-118](file://app/integrations/vk/handlers/hire.py#L1-L118)
-- [content.py:20-68](file://app/domain/content.py#L20-L68)
+- [hire.py:1-118](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L1-L118)
+- [content.py:20-68](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L20-L68)
 
 ### Streamlined Fire Flow
 The fire flow has been simplified to maintain only essential HR templates and information:
@@ -461,14 +458,14 @@ FireMenu --> Grounds["Send RAG answer: dismissal grounds"]
 ```
 
 **Diagram sources**
-- [fire.py:33-75](file://app/integrations/vk/handlers/fire.py#L33-L75)
-- [keyboards.py:179-185](file://app/integrations/vk/keyboards.py#L179-L185)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- [fire.py:33-75](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L33-L75)
+- [keyboards.py:179-185](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L179-L185)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
 
 **Section sources**
-- [fire.py:1-75](file://app/integrations/vk/handlers/fire.py#L1-L75)
-- [keyboards.py:179-185](file://app/integrations/vk/keyboards.py#L179-L185)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- [fire.py:1-75](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L1-L75)
+- [keyboards.py:179-185](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L179-L185)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
 
 ### Enhanced Vacation Flow
 The vacation flow now supports both paid and unpaid vacation types with clear Russian labeling:
@@ -502,17 +499,17 @@ Vac-->>User : Send content
 ```
 
 **Diagram sources**
-- [vacation.py:47-133](file://app/integrations/vk/handlers/vacation.py#L47-L133)
-- [entities.py:16-24](file://app/domain/entities.py#L16-L24)
-- [content.py:74-85](file://app/domain/content.py#L74-L85)
-- [keyboards.py:202-218](file://app/integrations/vk/keyboards.py#L202-L218)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- [vacation.py:47-133](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L47-L133)
+- [entities.py:16-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L16-L23)
+- [content.py:74-85](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L74-L85)
+- [keyboards.py:202-218](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L202-L218)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
 
 **Section sources**
-- [vacation.py:1-133](file://app/integrations/vk/handlers/vacation.py#L1-L133)
-- [content.py:74-85](file://app/domain/content.py#L74-L85)
-- [keyboards.py:202-218](file://app/integrations/vk/keyboards.py#L202-L218)
-- [attachments.py:19-121](file://app/integrations/vk/attachments.py#L19-L121)
+- [vacation.py:1-133](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L1-L133)
+- [content.py:74-85](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L74-L85)
+- [keyboards.py:202-218](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L202-L218)
+- [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
 
 ### Pay and Sections Flows
 - Pay flow: Overtime and bonus conditions routed to RAG stubs
@@ -521,14 +518,14 @@ Vac-->>User : Send content
 These flows demonstrate consistent patterns of delegating content to domain modules and using stubs for future enhancements.
 
 **Section sources**
-- [pay.py:1-53](file://app/integrations/vk/handlers/pay.py#L1-L53)
-- [sections.py:1-42](file://app/integrations/vk/handlers/sections.py#L1-L42)
+- [pay.py:1-53](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py#L1-L53)
+- [sections.py:1-42](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L1-L42)
 
 ### Fallback Handler
 The fallback handler ensures users stay on track by responding to arbitrary text with a reminder to use menu buttons and returning to the main menu.
 
 **Section sources**
-- [fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
+- [fallback.py:1-18](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py#L1-L18)
 
 ### Category Document System
 The category document system manages document attachments and fallback mechanisms:
@@ -538,7 +535,7 @@ The category document system manages document attachments and fallback mechanism
 - Handles error cases gracefully with logging and user feedback
 
 **Section sources**
-- [attachments.py:1-121](file://app/integrations/vk/attachments.py#L1-L121)
+- [attachments.py:1-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L1-L121)
 
 ## Dependency Analysis
 The system exhibits low coupling and high cohesion:
@@ -586,31 +583,31 @@ CAT --> FALLBACK["TEMPLATE_FILE_STUB"]
 ```
 
 **Diagram sources**
-- [bot.py:10-56](file://app/integrations/vk/bot.py#L10-L56)
-- [start.py:1-42](file://app/integrations/vk/handlers/start.py#L1-L42)
-- [ask.py:1-30](file://app/integrations/vk/handlers/ask.py#L1-L30)
-- [hire.py:1-23](file://app/integrations/vk/handlers/hire.py#L1-L23)
-- [fire.py:1-25](file://app/integrations/vk/handlers/fire.py#L1-L25)
-- [vacation.py:1-22](file://app/integrations/vk/handlers/vacation.py#L1-L22)
-- [pay.py:1-18](file://app/integrations/vk/handlers/pay.py#L1-L18)
-- [sections.py:1-18](file://app/integrations/vk/handlers/sections.py#L1-L18)
-- [fallback.py:1-18](file://app/integrations/vk/handlers/fallback.py#L1-L18)
-- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
-- [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
-- [content.py:12-17](file://app/domain/content.py#L12-L17)
-- [content.py:1-121](file://app/domain/content.py#L1-L121)
-- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
-- [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
-- [attachments.py:1-121](file://app/integrations/vk/attachments.py#L1-L121)
+- [bot.py:10-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L10-L56)
+- [start.py:1-42](file://packages/vk_bot/src/cafetera_vk_bot/handlers/start.py#L1-L42)
+- [ask.py:1-30](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L1-L30)
+- [hire.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L1-L23)
+- [fire.py:1-25](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L1-L25)
+- [vacation.py:1-22](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L1-L22)
+- [pay.py:1-18](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py#L1-L18)
+- [sections.py:1-18](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L1-L18)
+- [fallback.py:1-18](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py#L1-L18)
+- [keyboards.py:1-263](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L1-L263)
+- [states.py:1-9](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L1-L9)
+- [content.py:12-17](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L12-L17)
+- [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
+- [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
+- [topic_hints.py:1-109](file://packages/vk_bot/src/cafetera_vk_bot/domain/topic_hints.py#L1-L109)
+- [attachments.py:1-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L1-L121)
 
 **Section sources**
-- [bot.py:1-56](file://app/integrations/vk/bot.py#L1-L56)
-- [keyboards.py:1-263](file://app/integrations/vk/keyboards.py#L1-L263)
-- [states.py:1-9](file://app/integrations/vk/states.py#L1-L9)
-- [content.py:1-121](file://app/domain/content.py#L1-L121)
-- [entities.py:1-24](file://app/domain/entities.py#L1-L24)
-- [topic_hints.py:1-109](file://app/domain/topic_hints.py#L1-L109)
-- [attachments.py:1-121](file://app/integrations/vk/attachments.py#L1-L121)
+- [bot.py:1-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L1-L56)
+- [keyboards.py:1-263](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L1-L263)
+- [states.py:1-9](file://packages/vk_bot/src/cafetera_vk_bot/states.py#L1-L9)
+- [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
+- [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
+- [topic_hints.py:1-109](file://packages/vk_bot/src/cafetera_vk_bot/domain/topic_hints.py#L1-L109)
+- [attachments.py:1-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L1-L121)
 
 ## Performance Considerations
 - Content retrieval is constant-time string concatenations and lookups
@@ -650,14 +647,14 @@ Operational tips:
 - **Updated** Test fallback mechanisms when S3 storage is unavailable
 
 **Section sources**
-- [ask.py:51-90](file://app/integrations/vk/handlers/ask.py#L51-L90)
-- [hire.py:44-52](file://app/integrations/vk/handlers/hire.py#L44-L52)
-- [vacation.py:51-60](file://app/integrations/vk/handlers/vacation.py#L51-L60)
-- [vacation.py:74-86](file://app/integrations/vk/handlers/vacation.py#L74-L86)
-- [fire.py:33-75](file://app/integrations/vk/handlers/fire.py#L33-L75)
-- [fallback.py:9-12](file://app/integrations/vk/handlers/fallback.py#L9-L12)
-- [config.py:4-9](file://app/config.py#L4-L9)
-- [attachments.py:45-63](file://app/integrations/vk/attachments.py#L45-L63)
+- [ask.py:51-90](file://packages/vk_bot/src/cafetera_vk_bot/handlers/ask.py#L51-L90)
+- [hire.py:44-52](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L44-L52)
+- [vacation.py:51-60](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L51-L60)
+- [vacation.py:74-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L74-L86)
+- [fire.py:33-75](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L33-L75)
+- [fallback.py:9-12](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py#L9-L12)
+- [config.py:4-9](file://packages/vk_bot/src/cafetera_vk_bot/config.py#L4-L9)
+- [attachments.py:45-63](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L45-L63)
 
 ## Conclusion
 The Domain Content Management system successfully separates content from presentation, ensuring maintainable and scalable HR bot functionality. By centralizing content definitions, enforcing consistent entity handling, and using thin handlers with intelligent scenario detection, the system provides a solid foundation for future enhancements, including integration with a knowledge base and expanded HR workflows.

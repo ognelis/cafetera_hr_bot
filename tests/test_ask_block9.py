@@ -1,6 +1,6 @@
 """Tests for Block 9 — topic hints detection (app/domain/topic_hints.py)."""
 
-from cafetera_core.domain.topic_hints import TopicHint, detect_topic_hint
+from cafetera_vk_bot.domain.topic_hints import TopicHint, detect_topic_hint
 
 # ── 9.1: clickable-scenario detection ──────────────────────────────
 

@@ -13,8 +13,8 @@ from langchain_core.documents import Document as LCDocument
 
 from cafetera_core.config import CoreSettings
 from cafetera_core.rag.chain import _format_docs, _format_docs_with_metadata, build_rag_chain
-from cafetera_core.rag.prompts import SYSTEM_PROMPT
 from cafetera_core.rag.retriever import COLLECTION_NAME, build_vectorstore, estimate_k
+from cafetera_vk_bot.prompts import SYSTEM_PROMPT
 
 # ── Helpers ────────────────────────────────────────────────────────
 
@@ -87,7 +87,7 @@ class TestRagSettings:
 
 class TestExtractSections:
     def test_single_section_no_heading(self):
-        from cafetera_core.rag.parser import _extract_sections
+        from cafetera_admin.parser import _extract_sections
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -103,7 +103,7 @@ class TestExtractSections:
         assert section_path == ""
 
     def test_multiple_headings(self):
-        from cafetera_core.rag.parser import _extract_sections
+        from cafetera_admin.parser import _extract_sections
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -129,7 +129,7 @@ class TestExtractSections:
         assert sections[1][3] == "Chapter One > Section Two"  # section_path
 
     def test_empty_paragraphs_skipped(self):
-        from cafetera_core.rag.parser import _extract_sections
+        from cafetera_admin.parser import _extract_sections
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -144,7 +144,7 @@ class TestExtractSections:
 
 class TestLoadDocx:
     def test_returns_lc_documents(self):
-        from cafetera_core.rag.parser import load_docx
+        from cafetera_admin.parser import load_docx
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "test.docx"
@@ -155,7 +155,7 @@ class TestLoadDocx:
         assert all(isinstance(d, LCDocument) for d in docs)
 
     def test_metadata_contains_source(self):
-        from cafetera_core.rag.parser import load_docx
+        from cafetera_admin.parser import load_docx
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "policy.docx"
@@ -165,7 +165,7 @@ class TestLoadDocx:
         assert docs[0].metadata["source"] == "policy.docx"
 
     def test_metadata_contains_section(self):
-        from cafetera_core.rag.parser import load_docx
+        from cafetera_admin.parser import load_docx
 
         with TemporaryDirectory() as tmp:
             path = Path(tmp) / "manual.docx"
@@ -181,7 +181,7 @@ class TestLoadDocx:
         assert docs[0].metadata["section"] == "Vacation Policy"
 
     def test_long_text_is_chunked(self):
-        from cafetera_core.rag.parser import CHUNK_SIZE, load_docx
+        from cafetera_admin.parser import CHUNK_SIZE, load_docx
 
         # CHUNK_SIZE is in tokens (~500), so use ~2000 tokens to ensure splitting
         long_text = "Word " * 2000  # ~10000 chars, ~2000 tokens
@@ -478,8 +478,8 @@ class TestBuildEmbeddingsLlamaCpp:
             build_embeddings(s)
             fake.OpenAIEmbeddings.assert_called_once_with(
                 model="test-embed",
-                openai_api_key="no-key",
-                openai_api_base="http://localhost:8080/v1",
+                api_key="no-key",
+                base_url="http://localhost:8080/v1",
             )
 
     def test_passes_real_api_key_when_set(self):
@@ -491,8 +491,8 @@ class TestBuildEmbeddingsLlamaCpp:
             build_embeddings(s)
             fake.OpenAIEmbeddings.assert_called_once_with(
                 model="test-embed",
-                openai_api_key="real-key",
-                openai_api_base="http://localhost:8080/v1",
+                api_key="real-key",
+                base_url="http://localhost:8080/v1",
             )
 
     def test_import_error_message(self):

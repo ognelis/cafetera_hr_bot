@@ -57,7 +57,7 @@ async def main() -> None:
     app = create_app(settings)
 
     # Run with HTTP/2
-    await serve(app, config)
+    await serve(app, config)  # type: ignore[arg-type]
 
 
 if __name__ == "__main__":

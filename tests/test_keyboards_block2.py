@@ -4,7 +4,7 @@ import json
 
 from vkbottle import Keyboard
 
-from cafetera_core.domain.entities import ENTITIES
+from cafetera_vk_bot.domain.entities import ENTITIES
 from cafetera_vk_bot.keyboards import (
     CMD_FIRE_GROUNDS,
     CMD_FIRE_RESIGNATION,

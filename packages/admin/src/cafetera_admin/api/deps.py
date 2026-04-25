@@ -11,8 +11,8 @@ from fastapi import Cookie, Depends, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 
 from cafetera_admin.config import AdminSettings
+from cafetera_admin.domain.document_service import DocumentService
 from cafetera_core.domain.category_file_service import CategoryFileService
-from cafetera_core.domain.document_service import DocumentService
 from cafetera_core.domain.qa_service import QAService
 from cafetera_core.storage.document_repo import DocumentRepository
 from cafetera_core.storage.s3 import S3Storage

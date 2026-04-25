@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from cafetera_admin.indexer import index_chunks
 from cafetera_core.config import CoreSettings
 from cafetera_core.domain.qa_service import QAService
-from cafetera_core.rag.indexer import index_chunks
 from cafetera_core.rag.retriever import build_sparse_embeddings, build_vectorstore
 
 # ── build_sparse_embeddings ───────────────────────────────────────

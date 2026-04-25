@@ -18,7 +18,7 @@ import logging
 
 from vkbottle.bot import BotLabeler, Message
 
-from cafetera_core.domain.topic_hints import detect_topic_hint
+from cafetera_vk_bot.domain.topic_hints import detect_topic_hint
 from cafetera_vk_bot.handlers import get_state_dispenser, query_rag_with_wait
 from cafetera_vk_bot.keyboards import (
     CMD_ASK,

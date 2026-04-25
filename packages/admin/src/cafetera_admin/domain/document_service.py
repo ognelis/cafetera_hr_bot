@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from cafetera_core.rag.indexer import (
+from cafetera_admin.indexer import (
     delete_document_chunks,
     index_chunks,
     optimize_collection,

@@ -103,6 +103,7 @@ async def index_chunks(
             "dense": vectors[i],
         }
         if use_sparse:
+            assert sparse_vectors is not None
             sv = sparse_vectors[i]
             indices = sv.indices.tolist() if hasattr(sv.indices, "tolist") else sv.indices
             values = sv.values.tolist() if hasattr(sv.values, "tolist") else sv.values
@@ -190,26 +191,6 @@ async def set_search_enabled(
         document_id,
         collection_name,
     )
-
-
-async def count_document_chunks(
-    client: AsyncQdrantClient,
-    collection_name: str,
-    document_id: str,
-) -> int:
-    """Return the number of chunks belonging to a document in Qdrant."""
-    result = await client.count(
-        collection_name=collection_name,
-        count_filter=models.Filter(
-            must=[
-                models.FieldCondition(
-                    key="metadata.document_id",
-                    match=models.MatchValue(value=document_id),
-                )
-            ]
-        ),
-    )
-    return result.count
 
 
 async def optimize_collection(

@@ -11,7 +11,7 @@ import logging
 from collections import OrderedDict
 from typing import TYPE_CHECKING
 
-from cafetera_core.domain.content import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
+from cafetera_core.domain.errors import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
 
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings

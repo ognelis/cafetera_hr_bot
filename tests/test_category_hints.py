@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cafetera_core.domain.topic_hints import _SCENARIO_KEYWORDS
 from cafetera_core.rag.prompts import CATEGORY_HINTS
+from cafetera_vk_bot.domain.topic_hints import _SCENARIO_KEYWORDS
 
 
 class TestCategoryHintsKeysMatchKnownScenarios:

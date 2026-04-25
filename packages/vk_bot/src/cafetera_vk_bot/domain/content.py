@@ -1,11 +1,12 @@
 """Static content: checklists, disclaimers, and HR-request topics.
 
 All long texts live here so that handlers stay thin (00-architecture).
+VK-specific content — shared error constants moved to cafetera_core.domain.errors.
 """
 
 from __future__ import annotations
 
-from cafetera_core.domain.entities import LegalEntity
+from cafetera_vk_bot.domain.entities import LegalEntity
 
 # ── FR-17 disclaimer (shown before any document template) ─────────
 
@@ -98,22 +99,3 @@ def rag_stub(topic: str) -> str:
         "(в разработке).\n"
         "Обратитесь в HR или попробуйте позже."
     )
-
-
-# ── Error states (Block 4, section 4.5) ──────────────────────────
-
-ERR_DOCUMENT_UNAVAILABLE = (
-    "⚠️ Не удалось получить ответ.\n\n"
-    "Пожалуйста, задайте вопрос позже."
-)
-
-ERR_NO_ANSWER = (
-    "🔍 К сожалению, точного ответа не найдено.\n\n"
-    "Рекомендуем обратиться в HR-отдел компании."
-)
-
-ERR_INTEGRATION_REQUIRED = (
-    "🔒 Для получения этой информации требуется доступ к внутренним системам "
-    "(1С ЗУП, кадровый учёт).\n\n"
-    "Обратитесь в HR-отдел — сотрудники помогут с вашим запросом."
-)

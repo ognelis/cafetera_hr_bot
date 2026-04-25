@@ -1,6 +1,6 @@
 """Tests for Block 3 — RAG stub service and handler wiring."""
 
-from cafetera_core.domain.content import rag_stub
+from cafetera_vk_bot.domain.content import rag_stub
 
 
 class TestRagStub:

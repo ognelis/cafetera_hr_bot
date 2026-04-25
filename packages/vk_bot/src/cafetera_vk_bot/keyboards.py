@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from vkbottle import Keyboard, KeyboardButtonColor, Text
 
-from cafetera_core.domain.entities import ENTITIES
+from cafetera_vk_bot.domain.entities import ENTITIES
 
 # ── payload constants ──────────────────────────────────────────────
 

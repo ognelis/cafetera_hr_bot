@@ -9,7 +9,7 @@ import pytest
 from docx import Document as DocxDocument
 from langchain_core.documents import Document as LCDocument
 
-from cafetera_core.rag.parser import load_doc, load_document, load_docx, load_xlsx
+from cafetera_admin.parser import load_doc, load_document, load_docx, load_xlsx
 
 # ── load_doc ──────────────────────────────────────────────────────
 
@@ -18,7 +18,7 @@ class TestLoadDoc:
     def test_load_doc_returns_documents(self, tmp_path: Path):
         doc_path = tmp_path / "test.doc"
 
-        with patch("cafetera_core.rag.parser.sharepoint2text.read_file") as mock_read_file:
+        with patch("cafetera_admin.parser.sharepoint2text.read_file") as mock_read_file:
             mock_result = MagicMock()
             mock_result.get_full_text.return_value = (
                 "First paragraph.\n\nSecond paragraph with more content."
@@ -33,7 +33,7 @@ class TestLoadDoc:
     def test_load_doc_metadata(self, tmp_path: Path):
         doc_path = tmp_path / "my_document.doc"
 
-        with patch("cafetera_core.rag.parser.sharepoint2text.read_file") as mock_read_file:
+        with patch("cafetera_admin.parser.sharepoint2text.read_file") as mock_read_file:
             mock_result = MagicMock()
             mock_result.get_full_text.return_value = "Some content here."
             mock_read_file.return_value = iter([mock_result])
@@ -48,7 +48,7 @@ class TestLoadDoc:
         doc_path = tmp_path / "test.doc"
         sample_text = "Paragraph one.\n\nParagraph two.\n\nParagraph three with more text."
 
-        with patch("cafetera_core.rag.parser.sharepoint2text.read_file") as mock_read_file:
+        with patch("cafetera_admin.parser.sharepoint2text.read_file") as mock_read_file:
             mock_result = MagicMock()
             mock_result.get_full_text.return_value = sample_text
             mock_read_file.return_value = iter([mock_result])
@@ -82,7 +82,7 @@ class TestLoadDocumentDispatcher:
     def test_load_document_doc(self, tmp_path: Path):
         doc_path = tmp_path / "test.doc"
 
-        with patch("cafetera_core.rag.parser.sharepoint2text.read_file") as mock_read_file:
+        with patch("cafetera_admin.parser.sharepoint2text.read_file") as mock_read_file:
             mock_result = MagicMock()
             mock_result.get_full_text.return_value = "Legacy document content."
             mock_read_file.return_value = iter([mock_result])

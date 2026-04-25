@@ -71,7 +71,7 @@ from cafetera_admin.api.documents_upload import router as _upload_router
 from cafetera_admin.config import AdminSettings
 
 # Re-export for test-patch compatibility  (tests patch these names on this module)
-from cafetera_core.rag.parser import load_document  # noqa: F401
+from cafetera_admin.parser import load_document  # noqa: F401
 from cafetera_core.storage.models import DocumentStatus
 
 logger = logging.getLogger(__name__)

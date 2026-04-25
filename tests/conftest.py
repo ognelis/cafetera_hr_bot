@@ -167,7 +167,7 @@ def app(settings, mock_qdrant, mock_embeddings, mock_s3, mock_qa_service):
 
     from databases import Database as _Database
 
-    from cafetera_core.domain.document_service import DocumentService
+    from cafetera_admin.domain.document_service import DocumentService
     from cafetera_core.storage.database import init_db as _init_db
     from cafetera_core.storage.document_repo import DocumentRepository as _DocRepo
 

@@ -10,8 +10,8 @@ from docx import Document as DocxDocument
 from langchain_core.documents import Document as LCDocument
 from langchain_core.embeddings import Embeddings
 
+from cafetera_admin.parser import load_doc, load_document, load_docx
 from cafetera_core.config import CoreSettings
-from cafetera_core.rag.parser import load_doc, load_document, load_docx
 
 
 class FakeEmbeddings(Embeddings):
@@ -159,7 +159,7 @@ class TestLoadDocumentSemantic:
             "It enables computers to understand human language."
         )
 
-        with patch("cafetera_core.rag.parser.sharepoint2text.read_file") as mock_read_file:
+        with patch("cafetera_admin.parser.sharepoint2text.read_file") as mock_read_file:
             mock_result = MagicMock()
             mock_result.get_full_text.return_value = sample_text
             mock_read_file.return_value = iter([mock_result])
@@ -215,7 +215,7 @@ class TestSemanticStrategyRequiresEmbeddings:
     def test_load_doc_semantic_requires_embeddings(self, multi_paragraph_doc: Path):
         """Calling load_doc(path, strategy='semantic') without embeddings
         raises ValueError."""
-        with patch("cafetera_core.rag.parser.sharepoint2text.read_file") as mock_read_file:
+        with patch("cafetera_admin.parser.sharepoint2text.read_file") as mock_read_file:
             mock_result = MagicMock()
             mock_result.get_full_text.return_value = "Some content here."
             mock_read_file.return_value = iter([mock_result])

@@ -13,6 +13,7 @@ from cafetera_core.resources import build_resources, close_resources
 from cafetera_vk_bot.bot import create_bot
 from cafetera_vk_bot.config import VKSettings
 from cafetera_vk_bot.handlers import set_category_file_service, set_qa_service
+from cafetera_vk_bot.prompts import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +24,21 @@ async def _setup(bot) -> None:
     This runs via loop_wrapper.on_startup so all resources (especially the
     DB pool) bind to the same event loop that handlers will use.
     """
-    settings = bot._settings  # type: ignore[attr-defined]
+    settings = bot._settings
     res = await build_resources(settings, with_s3=True, with_db=True)
 
     # Store resources on bot for cleanup access
-    bot._app_resources = res  # type: ignore[attr-defined]
+    bot._app_resources = res
 
-    if res.vk_qa_service:
-        set_qa_service(res.vk_qa_service)
+    if (
+        res.qdrant_client is not None
+        and res.embeddings is not None
+        and res.llm is not None
+    ):
+        set_qa_service(res.build_qa_service(SYSTEM_PROMPT, include_metadata=True))
+    else:
+        logger.warning("QA service not available — bot will not answer questions")
+
     if res.category_file_service:
         set_category_file_service(res.category_file_service)
     else:

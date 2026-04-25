@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
 
-from cafetera_core.domain.content import (
+from cafetera_vk_bot.domain.content import (
     hire_checklist,
     hire_contract_text,
     onboarding_checklist,

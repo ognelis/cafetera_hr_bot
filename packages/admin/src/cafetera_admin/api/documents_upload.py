@@ -33,8 +33,8 @@ from cafetera_admin.api.documents_helpers import (
     _validate_docx_bytes,
 )
 from cafetera_admin.config import AdminSettings
+from cafetera_admin.parser import load_document
 from cafetera_core.domain.qa_service import QAService
-from cafetera_core.rag.parser import load_document
 from cafetera_core.storage.models import DocumentStatus
 from cafetera_core.storage.s3 import S3Storage
 
