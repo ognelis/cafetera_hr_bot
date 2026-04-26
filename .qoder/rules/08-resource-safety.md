@@ -28,17 +28,17 @@ trigger: always_on
 ```python
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from cafetera_core.resources import build_resources, close_resources
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup
-    app.state.http_client = httpx.AsyncClient()
-    app.state.qdrant_client = QdrantClient(url=settings.qdrant_url)
-    app.state.vectorstore = build_vectorstore(app.state.qdrant_client)
+    # startup — build all shared resources via factory
+    res = await build_resources(settings, with_s3=True, with_db=True)
+    app.state.qa_service = res.build_qa_service(SYSTEM_PROMPT)
+    app.state.category_file_service = res.category_file_service
     yield
-    # teardown
-    await app.state.http_client.aclose()
-    app.state.qdrant_client.close()
+    # teardown — close all resources
+    await close_resources(res)
 
 app = FastAPI(lifespan=lifespan)
 ```
@@ -47,17 +47,8 @@ app = FastAPI(lifespan=lifespan)
 
 ## HTTP clients
 
-- Always use `httpx.AsyncClient` for async HTTP calls — do not use `requests`.
-- Never create `httpx.AsyncClient()` inside a single request handler.
-- Always close `AsyncClient` on shutdown with `await client.aclose()`.
+- Use `httpx.AsyncClient` only (never `requests`). Initialize once in lifespan, close on shutdown with `await client.aclose()`.
 - Set reasonable timeouts on all outgoing HTTP requests.
-
-### Canonical pattern
-```python
-client = httpx.AsyncClient(timeout=httpx.Timeout(10.0))
-# on shutdown:
-await client.aclose()
-```
 
 ***
 
@@ -71,28 +62,14 @@ await client.aclose()
 
 ## aiogram Bot
 
-- `Bot` and `Dispatcher` may be declared at module level — they are configuration
-  containers with no active connection at creation time.
-- Register webhook in lifespan via `await bot.set_webhook(...)`.
-- Always delete webhook on application shutdown via `await bot.delete_webhook()`.
-- Always close bot session on shutdown via `await bot.session.close()`.
-
-### Canonical teardown
-```python
-yield
-await bot.delete_webhook()
-await bot.session.close()
-```
+- aiogram `Bot`/`Dispatcher` are safe at module level. Set webhook in lifespan, delete webhook + close session on teardown.
 
 ***
 
 ## vkbottle Bot
 
-- `BotCallback` and `Bot` may be declared at module level — they are configuration
-  containers with no active connection at creation time.
-- Call `await bot.setup_webhook()` inside lifespan startup.
-- Use `background_tasks` for event processing — never block the response.
-- Do not create a new Bot instance per request.
+- vkbottle `Bot` safe at module level. Use `loop_wrapper.on_startup`/`on_shutdown` for resource lifecycle in polling mode.
+- In webhook mode: call `await bot.setup_webhook()` in lifespan startup; use `background_tasks` for event processing.
 
 ***
 
@@ -112,3 +89,5 @@ await bot.session.close()
 - Do not ignore exceptions during resource teardown — log them explicitly.
 - Do not create new DB or vector store connections per request.
 - Do not skip client.close() / session.close() calls on shutdown.
+
+Reference: https://fastapi.tiangolo.com/advanced/events/

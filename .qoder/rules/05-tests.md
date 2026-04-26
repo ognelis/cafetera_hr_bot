@@ -27,3 +27,5 @@ glob: tests/**/*.py
 - Do not rely on external network calls in default test runs.
 - Do not make tests depend on real model credentials.
 - Do not hide important assertions in helper functions.
+
+Reference: https://docs.pytest.org/en/stable/goodpractices.html

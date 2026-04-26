@@ -19,17 +19,17 @@
 - [packages/admin/src/cafetera_admin/parser.py](file://packages/admin/src/cafetera_admin/parser.py)
 - [packages/admin/src/cafetera_admin/api/documents_helpers.py](file://packages/admin/src/cafetera_admin/api/documents_helpers.py)
 - [tests/test_parser.py](file://tests/test_parser.py)
+- [packages/core/src/cafetera_core/config.py](file://packages/core/src/cafetera_core/config.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated parser section to reflect complete rewrite using Docling for document processing
-- Removed references to semantic chunking strategies and custom DOC parsing logic
-- Updated dependency analysis to show simplified Docling-based architecture
-- Revised text processing capabilities to focus on Docling integration
-- Updated troubleshooting guide to reflect new error handling for unsupported formats
-- Added comprehensive model caching and offline processing capabilities
-- Updated supported file formats to reflect elimination of .doc format support
+- Updated parser section to reflect current Docling-based document processing implementation
+- Removed references to dropped Docling integration fixes (CAFETRA-50) while maintaining accurate documentation of current functionality
+- Updated model caching implementation to reflect actual current state with comprehensive offline processing
+- Revised troubleshooting guide to focus on current implementation details
+- Enhanced dependency analysis to show current Docling integration with maintained model caching
+- Updated supported file formats to reflect current .doc format support status
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -37,14 +37,15 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Docling-Based Document Processing](#docling-based-document-processing)
-7. [Dependency Analysis](#dependency-analysis)
-8. [Performance Considerations](#performance-considerations)
-9. [Troubleshooting Guide](#troubleshooting-guide)
-10. [Conclusion](#conclusion)
+6. [Current Docling-Based Document Processing](#current-docling-based-document-processing)
+7. [Model Caching and Offline Processing](#model-caching-and-offline-processing)
+8. [Dependency Analysis](#dependency-analysis)
+9. [Performance Considerations](#performance-considerations)
+10. [Troubleshooting Guide](#troubleshooting-guide)
+11. [Conclusion](#conclusion)
 
 ## Introduction
-This document explains how the Admin Package integrates with the broader Cafetera HR Bot ecosystem. It covers the FastAPI-based admin web UI, its routing, authentication, document lifecycle management, vector indexing, and integration with shared infrastructure (Qdrant, MinIO, PostgreSQL) through the core package. It also describes the Dockerized deployment and local development workflow.
+This document explains how the Admin Package integrates with the broader Cafetera HR Bot ecosystem. It covers the FastAPI-based admin web UI, its routing, authentication, document lifecycle management, vector indexing, and integration with shared infrastructure (Qdrant, MinIO, PostgreSQL) through the core package. It also describes the Dockerized deployment and local development workflow with current Docling-based document processing capabilities.
 
 ## Project Structure
 The project is organized as a uv workspace with three packages:
@@ -87,14 +88,14 @@ CORE --> PG
 - Indexer: Handles chunk preparation, embedding computation, upsert to Qdrant, deletion, toggling search visibility, and collection optimization.
 - API routers: Provide HTML pages, JSON endpoints, and HTMX partials for document management and category file administration.
 - Authentication: Session cookie validation against the admin API key.
-- Parser: Loads and chunks .pdf, .docx, and .xlsx files using Docling for advanced document processing.
+- Parser: Loads and chunks .pdf, .docx, and .xlsx files using Docling for advanced document processing with comprehensive model caching.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/main.py:85-114](file://packages/admin/src/cafetera_admin/main.py#L85-L114)
 - [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
 - [packages/admin/src/cafetera_admin/domain/document_service.py:38-374](file://packages/admin/src/cafetera_admin/domain/document_service.py#L38-L374)
 - [packages/admin/src/cafetera_admin/indexer.py:25-251](file://packages/admin/src/cafetera_admin/indexer.py#L25-L251)
-- [packages/admin/src/cafetera_admin/api/documents.py:1-539](file://packages/admin/src/cafetera_admin/api/documents.py#L1-L539)
+- [packages/admin/src/cafetera_admin/api/documents.py:1-534](file://packages/admin/src/cafetera_admin/api/documents.py#L1-L534)
 - [packages/admin/src/cafetera_admin/api/category_files.py:1-347](file://packages/admin/src/cafetera_admin/api/category_files.py#L1-L347)
 - [packages/admin/src/cafetera_admin/api/deps.py:77-121](file://packages/admin/src/cafetera_admin/api/deps.py#L77-L121)
 - [packages/admin/src/cafetera_admin/parser.py:45-105](file://packages/admin/src/cafetera_admin/parser.py#L45-L105)
@@ -148,6 +149,7 @@ Lifespan->>Core : build_resources(with_s3, with_db)
 Core-->>Lifespan : Resources (s3, qdrant, embeddings, repo)
 Lifespan->>App : Inject resources into app.state
 Lifespan->>App : Create DocumentService/QAService
+Lifespan->>App : Call ensure_models_cached()
 Lifespan-->>Main : Yield to app
 Main-->>Client : App ready
 ```
@@ -212,7 +214,7 @@ Docs-->>Client : Return status or HTMX partial
 - [packages/admin/src/cafetera_admin/indexer.py:51-134](file://packages/admin/src/cafetera_admin/indexer.py#L51-L134)
 
 **Section sources**
-- [packages/admin/src/cafetera_admin/api/documents.py:1-539](file://packages/admin/src/cafetera_admin/api/documents.py#L1-L539)
+- [packages/admin/src/cafetera_admin/api/documents.py:1-534](file://packages/admin/src/cafetera_admin/api/documents.py#L1-L534)
 - [packages/admin/src/cafetera_admin/domain/document_service.py:109-171](file://packages/admin/src/cafetera_admin/domain/document_service.py#L109-L171)
 
 ### Category Files Administration
@@ -272,10 +274,10 @@ Restore --> End
 **Section sources**
 - [packages/admin/src/cafetera_admin/indexer.py:25-251](file://packages/admin/src/cafetera_admin/indexer.py#L25-L251)
 
-## Docling-Based Document Processing
+## Current Docling-Based Document Processing
 
-### Advanced Document Parsing with Docling
-The parser now provides enhanced text processing capabilities through Docling, a modern document processing library that supports multiple document formats with sophisticated layout analysis and table extraction.
+### Current Docling Integration
+The parser provides document processing capabilities through Docling, a modern document processing library that supports multiple document formats with sophisticated layout analysis and table extraction.
 
 #### Docling Integration
 The parser uses Docling's `DoclingLoader` with `ExportType.DOC_CHUNKS` to process documents with intelligent chunking based on document structure and content hierarchy.
@@ -291,6 +293,8 @@ The system implements comprehensive model caching for optimal performance:
 - **Tokenizer caching**: Ensures `Qwen/Qwen3-Embedding-0.6B` tokenizer is available offline
 - **Docling model caching**: Downloads layout analysis and TableFormer models during startup
 - **Offline mode**: Disables network requests after initial model downloads
+
+**Important Note**: While the codebase currently contains Docling integration functionality, specific fixes referenced in CAFETRA-50 were removed from the codebase. The current implementation maintains the core Docling integration but without the specific enhancements that were previously planned.
 
 ```mermaid
 flowchart TD
@@ -319,25 +323,78 @@ The Docling-based processing pipeline provides sophisticated document understand
 - **Multi-format support**: Unified processing pipeline for PDF, DOCX, and XLSX
 - **Model caching**: Pre-downloads and caches all required ML models during Docker build
 
-**Updated** Removed semantic chunking strategies and custom DOC parsing logic in favor of Docling's native capabilities.
+**Updated** Current implementation maintains Docling integration for core document processing functionality, with comprehensive model caching and offline processing capabilities. The system ensures reliable operation in production environments while maintaining the flexibility for future enhancements. The specific Docling integration fixes referenced in CAFETRA-50 have been removed from the codebase, but the core Docling functionality remains intact.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/parser.py:45-105](file://packages/admin/src/cafetera_admin/parser.py#L45-L105)
 - [packages/admin/src/cafetera_admin/api/documents_upload.py:74-103](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L74-L103)
 
+## Model Caching and Offline Processing
+
+### Comprehensive Model Caching Implementation
+The system implements a two-tier model caching strategy to ensure optimal performance and offline reliability:
+
+#### Application-Level Model Caching
+During application startup, the `ensure_models_cached()` function performs the following operations:
+1. **Tokenizer Caching**: Pre-downloads and caches the `Qwen/Qwen3-Embedding-0.6B` tokenizer
+2. **Docling Model Caching**: Downloads layout analysis and TableFormer models
+3. **Offline Mode Activation**: Sets environment variables to disable future network requests
+
+#### Docker Build-Time Model Caching
+The Dockerfile implements build-time model caching to eliminate cold start delays:
+- **BM25 Sparse Embedding Model**: Pre-downloaded during build
+- **ColBERT Model**: Pre-downloaded during build  
+- **Docling Models**: Pre-downloaded during build
+- **HybridChunker Tokenizer**: Pre-downloaded during build
+
+**Important Note**: The Docker build-time model caching implementation reflects the current state of the codebase, which maintains Docling integration but without the specific fixes referenced in CAFETRA-50.
+
+```mermaid
+flowchart TD
+Startup([Application Startup]) --> Ensure["ensure_models_cached()"]
+Ensure --> CacheTokenizer["Cache Qwen/Qwen3-Embedding-0.6B tokenizer"]
+CacheTokenizer --> CacheDocling["Cache Docling layout/TableFormer models"]
+CacheDocling --> EnableOffline["Enable offline mode (HF_HUB_OFFLINE=1)"]
+EnableOffline --> Ready([Ready for document processing])
+Build([Docker Build]) --> PreDownloadBM25["Pre-download BM25 sparse model"]
+PreDownloadBM25 --> PreDownloadColBERT["Pre-download ColBERT model"]
+PreDownloadColBERT --> PreDownloadDocling["Pre-download Docling models"]
+PreDownloadDocling --> PreDownloadTokenizer["Pre-download HybridChunker tokenizer"]
+PreDownloadTokenizer --> ImageReady([Image Ready with cached models])
+```
+
+**Diagram sources**
+- [packages/admin/src/cafetera_admin/parser.py:19-43](file://packages/admin/src/cafetera_admin/parser.py#L19-L43)
+- [Dockerfile.admin:52-62](file://Dockerfile.admin#L52-L62)
+
+**Section sources**
+- [packages/admin/src/cafetera_admin/parser.py:19-43](file://packages/admin/src/cafetera_admin/parser.py#L19-L43)
+- [Dockerfile.admin:52-62](file://Dockerfile.admin#L52-L62)
+
+### Offline Processing Capabilities
+The system ensures reliable offline operation through:
+- **Environment Variable Configuration**: `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1`
+- **Local File Usage**: All models loaded with `local_files_only=True`
+- **Pre-downloaded Cache Paths**: Configured cache directories for persistent storage
+- **Thread-Safe Initialization**: Model caching performed in separate thread during startup
+
+**Section sources**
+- [packages/admin/src/cafetera_admin/parser.py:39-42](file://packages/admin/src/cafetera_admin/parser.py#L39-L42)
+- [Dockerfile.admin:97-103](file://Dockerfile.admin#L97-L103)
+
 ## Dependency Analysis
-The admin package depends on cafetera-core for shared domain services, storage, and configuration. The simplified workspace configuration focuses on Docling-based document processing with essential dependencies.
+The admin package depends on cafetera-core for shared domain services, storage, and configuration. The current workspace configuration focuses on Docling-based document processing with essential dependencies.
 
 ```mermaid
 graph LR
 ADMIN["cafetera-admin"]
 CORE["cafetera-core"]
-FASTAPI["fastapi>=0.135.3"]
+FASTAPI["fastapi>=0.136.1"]
 HYPERCORN["hypercorn>=0.18.0"]
 JINJA["jinja2>=3.1.6"]
-MULTIPART["python-multipart>=0.0.24"]
-DOCING["docling>=2.0.0"]
-LANGCHAIN_DOCLING["langchain-docling>=0.1.0"]
+MULTIPART["python-multipart>=0.0.26"]
+DOCING["docling>=2.91.0"]
+LANGCHAIN_DOCLING["langchain-docling>=2.0.0"]
 ADMIN --> CORE
 ADMIN --> FASTAPI
 ADMIN --> HYPERCORN
@@ -347,11 +404,13 @@ ADMIN --> DOCING
 ADMIN --> LANGCHAIN_DOCLING
 ```
 
-**Updated** Simplified dependencies focusing on Docling integration:
-- `docling>=2.0.0`: Core document processing library with layout analysis
-- `langchain-docling>=0.1.0`: LangChain integration for document loading
-- Removed semantic chunking dependencies (`langchain-text-splitters`, `langchain-experimental`, `tiktoken`)
-- Removed custom DOC parsing dependencies (`sharepoint-to-text`)
+**Updated** Current dependencies focusing on Docling integration:
+- `docling>=2.91.0`: Core document processing library with layout analysis
+- `langchain-docling>=2.0.0`: LangChain integration for document loading
+- Maintained semantic chunking dependencies for core functionality
+- Retained custom DOC parsing dependencies for backward compatibility
+
+**Important Note**: The current dependency structure reflects the maintained Docling integration in the codebase, while acknowledging that specific fixes referenced in CAFETRA-50 have been removed.
 
 **Diagram sources**
 - [packages/admin/pyproject.toml:6-14](file://packages/admin/pyproject.toml#L6-L14)
@@ -367,6 +426,7 @@ ADMIN --> LANGCHAIN_DOCLING
 - Model caching: Dockerfile pre-downloads Docling models and tokenizer during build to speed up cold starts.
 - HTTP/2: Production server uses Hypercorn with HTTP/2 enabled for improved throughput.
 - Layout-aware processing: Docling's native chunking preserves document structure for better retrieval performance.
+- Offline reliability: Comprehensive model caching eliminates network dependencies during operation.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/main.py:78-79](file://packages/admin/src/cafetera_admin/main.py#L78-L79)
@@ -380,17 +440,22 @@ ADMIN --> LANGCHAIN_DOCLING
 - Port conflicts: The admin server binds to port 8000 by default; override with ADMIN_PORT if needed.
 - Docker services failing: Check health checks for Qdrant and MinIO; verify ports 6333 and 9000 are free.
 - **Docling model issues**: If Docling models fail to load, check that the Docker build successfully cached models in `.cache/huggingface` and `.cache/fastembed`.
+- **Model caching failures**: Verify that the `ensure_models_cached()` function completes successfully during application startup.
+- **Offline mode problems**: Check that `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1` environment variables are set correctly.
 - **Format errors**: Legacy .doc format is no longer supported. Convert to .docx format before uploading.
 - **Unsupported formats**: Only .pdf, .docx, and .xlsx files are supported. Other formats will raise ValueError.
 
-**Updated** Added troubleshooting guidance for Docling model caching and format support.
+**Updated** Added comprehensive troubleshooting guidance for Docling model caching, offline processing, and Docker build-time model caching. Note that specific Docling integration fixes referenced in CAFETRA-50 are no longer present in the codebase.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/api/deps.py:82-89](file://packages/admin/src/cafetera_admin/api/deps.py#L82-L89)
 - [packages/admin/src/cafetera_admin/api/deps.py:62-69](file://packages/admin/src/cafetera_admin/api/deps.py#L62-L69)
 - [packages/admin/src/cafetera_admin/api/deps.py:52-59](file://packages/admin/src/cafetera_admin/api/deps.py#L52-L59)
 - [packages/admin/src/cafetera_admin/parser.py:65-71](file://packages/admin/src/cafetera_admin/parser.py#L65-L71)
+- [packages/admin/src/cafetera_admin/parser.py:19-43](file://packages/admin/src/cafetera_admin/parser.py#L19-L43)
 - [README.md:287-307](file://README.md#L287-L307)
 
 ## Conclusion
-The Admin Package provides a cohesive FastAPI-based interface for managing documents and category files within the Cafetera HR Bot ecosystem. It leverages shared infrastructure and domain services from cafetera-core, integrates HTMX for responsive UI updates, and ensures secure access via cookie-based authentication. The enhanced Docling-based text processing capabilities provide sophisticated document parsing and chunking for PDF, DOCX, and XLSX formats, replacing the previous semantic chunking strategies with modern layout-aware processing. The simplified dependency structure and comprehensive model caching ensure reliable operation in production environments while maintaining the flexibility for future enhancements.
+The Admin Package provides a cohesive FastAPI-based interface for managing documents and category files within the Cafetera HR Bot ecosystem. It leverages shared infrastructure and domain services from cafetera-core, integrates HTMX for responsive UI updates, and ensures secure access via cookie-based authentication. The current Docling-based text processing capabilities provide sophisticated document parsing and chunking for PDF, DOCX, and XLSX formats, with comprehensive model caching and offline processing capabilities. 
+
+**Important Note**: While the current codebase maintains Docling integration functionality, specific fixes referenced in CAFETRA-50 have been removed from the codebase. The system continues to operate with the core Docling integration but without the enhanced features that were previously planned. The enhanced implementation ensures reliable operation in production environments while maintaining the flexibility for future enhancements. The simplified dependency structure, comprehensive model caching, and robust error handling make the system suitable for enterprise deployment scenarios.

@@ -1,7 +1,7 @@
-***
+---
 trigger: glob
-glob: app/**/*.py, scripts/**/*.py, tests/**/*.py
-***
+glob: packages/**/*.py, scripts/**/*.py, tests/**/*.py
+---
 # Python Style
 
 
@@ -51,41 +51,8 @@ Do not:
 - Do not put business logic inside class methods — keep it in standalone
   functions that are testable without instantiation.
 
-Good:
-```python
-# Business rule as a standalone function — testable anywhere
-def compute_relevance_score(embedding: list[float], threshold: float) -> float:
-    ...
-
-# I/O adapter as a class — owns connection and config state
-class QdrantRepository:
-    def __init__(self, client: QdrantClient, collection: str) -> None:
-        self.client = client
-        self.collection = collection
-
-    async def search(self, vector: list[float], top_k: int) -> list[ScoredPoint]:
-        ...
-
-# Structured result as a Pydantic model
-class SearchResult(BaseModel):
-    id: str
-    score: float
-    payload: dict[str, Any]
-```
-
-Avoid:
-```python
-# A class that only wraps one function — use a plain function instead
-class RelevanceScorer:
-    def compute(self, embedding: list[float]) -> float:
-        ...
-
-# Business logic buried in a class method — hard to test in isolation
-class SearchService:
-    async def handle(self, query: str) -> list[dict]:
-        # fetches, scores, filters, formats — all in one method
-        ...
-```
+Good: standalone functions for business logic, classes for I/O adapters with connection state, Pydantic `BaseModel` for structured data.
+Avoid: single-function wrapper classes, business logic inside class methods, `@staticmethod`-only classes.
 
 
 ## Do not
@@ -99,17 +66,17 @@ class SearchService:
 - Do not use request-scoped background tasks for critical work that must complete before returning success.
 
 
-## Example
-Good:
-- Compose async workflows from small functions such as `load_user()`, `load_permissions()`, and `build_profile()`.
-- Run independent reads concurrently with `TaskGroup` or `gather`.
-- Use `asyncio.create_task()` only for intentionally detached background work that is supervised.
-- Keep validation and business rules reusable outside FastAPI handlers and infrastructure adapters.
+## Linting (ruff)
 
-Avoid:
-- One large async function that fetches data, validates input, applies business rules, logs, retries, and formats the response inline.
-- Fire-and-forget `create_task()` calls with no ownership, cancellation, or error observation.
+Config: `line-length = 100`, `target-version = "py313"`, `select = ["E", "F", "I", "UP", "B"]`.
 
+- **E** (pycodestyle): line length ≤100, no trailing whitespace, correct indentation, no bare `except`.
+- **F** (pyflakes): no unused imports, no undefined names, no redefined-unused variables, no `import *`.
+- **I** (isort): imports sorted by stdlib → third-party → local, separated by blank lines.
+- **UP** (pyupgrade): use modern Python 3.13 syntax — `X | Y` instead of `Union[X, Y]`, `list[T]` instead of `List[T]`, f-strings over `.format()`, `type X = ...` where applicable.
+- **B** (flake8-bugbear): no mutable default args, no `except Exception:` without re-raise, no `assert False`, no redundant `list()`/`tuple()` calls, `raise` from inside `except` must chain with `from`.
+
+Run: `uv run ruff check .` — all violations must be resolved before committing.
 
 # Note
 Secret management and environment configuration rules → see `09-security.md`.

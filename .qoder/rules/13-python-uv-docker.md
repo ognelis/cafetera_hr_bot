@@ -17,5 +17,7 @@ For uv-based Python projects, always generate a production-ready Docker setup.
 - Do not allow these anti-patterns: `COPY . .` before dependency installation, root runtime, dev dependencies in production, unpinned `latest`, shell-form `CMD`, host `.venv` inside the image, or development servers in production.
 - Use an absolute `WORKDIR`, cache-friendly layers, and JSON exec-form for `CMD` or `ENTRYPOINT`.
 - If the project is a web API, include `EXPOSE`.
+- For monorepo/workspace projects, use `uv export --package <name>` to generate per-package requirements for Docker builds.
+- Pre-download ML models (Docling, tokenizer, embedding caches) during Docker build to avoid runtime network calls. Cache them in dedicated directories and set environment variables pointing to those caches.
 - If the entrypoint, module path, app object, or port is unknown, do not invent values; leave explicit TODO markers.
 - Always output: `Dockerfile`, `.dockerignore`, brief explanations, build and run commands, and a short list of manual replacements.

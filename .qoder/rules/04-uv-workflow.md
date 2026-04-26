@@ -13,13 +13,13 @@ trigger: always_on
 
 ## Standard commands
 - `uv venv`
-- `uv sync`
-- `uv run uvicorn app.main:app --reload`
+- `uv sync` — install all workspace packages and dependencies.
 - `uv run pytest`
 
-## Local development (polling mode, no server required)
-- `uv run python scripts/polling.py` — run Telegram bot in polling mode locally.
+## Local development
+- `uv run python scripts/admin_server.py` — run admin server locally (Hypercorn, port 8000).
 - `uv run python scripts/polling_vk.py` — run VK bot in Long Poll mode locally.
+- `uv run python scripts/polling.py` — run Telegram bot in polling mode locally (Post-MVP).
 
 ## Do not
 - Do not introduce `poetry.lock`, `Pipfile`, or pip-tools workflow unless explicitly requested.

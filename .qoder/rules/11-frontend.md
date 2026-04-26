@@ -1,6 +1,6 @@
 ---
 trigger: glob
-glob: app/templates/**/*.html, app/static/**/*.js, app/static/**/*.css
+glob: templates/**/*.html, static/**/*.js, static/**/*.css
 ---
 # Frontend
 
@@ -9,9 +9,9 @@ glob: app/templates/**/*.html, app/static/**/*.js, app/static/**/*.css
 - **HTMX** — server-driven interactivity without a build pipeline.
 - **Alpine.js** — lightweight reactivity for UI state (dropzones, toggles, counters). Not a SPA framework.
 - **Tailwind CSS v4** + **DaisyUI v5** — utility-first styling with ready-made components.
-- **Jinja2** — FastAPI template engine. Templates in `app/templates/`.
+- **Jinja2** — FastAPI template engine. Templates in `templates/`.
 - **No build pipeline** — no npm, webpack, or Vite unless explicitly requested.
-- All libraries are vendored into `app/static/vendor/` — never load from CDN.
+- All libraries are vendored into `static/vendor/` — never load from CDN.
 
 ```html
 <link rel="stylesheet" href="{{ url_for('static', path='vendor/daisyui/themes.css') }}">
@@ -26,13 +26,13 @@ glob: app/templates/**/*.html, app/static/**/*.js, app/static/**/*.css
 ## Project structure
 
 ```
-app/templates/
+templates/
   base.html              ← layout, vendor scripts, sidebar nav
   partials/              ← HTMX fragments and reusable components (one component per file)
   macros/
     ui.html              ← pure rendering helpers (badges, icons, labels)
   pages/                 ← full pages extending base.html
-app/static/
+static/
   vendor/
     tailwindcss/tailwind-browser.js
     daisyui/themes.css
@@ -80,28 +80,9 @@ layout (base shell, nav, sidebar) inside a partial.
 | `Alpine.data('name', ...)` | Reusable component (≥2 uses) | Global shared state |
 | `Alpine.store('name', ...)` | Shared state across components | Server data |
 
-Define all `Alpine.data` and `Alpine.store` in `components.js`, loaded in `base.html`:
+Define all `Alpine.data()` and `Alpine.store()` in `static/js/components.js`. Use `document.addEventListener('alpine:init', ...)` for registration.
 
-```js
-// app/static/js/components.js
-document.addEventListener('alpine:init', () => {
-  Alpine.data('dropzone', () => ({
-    dragging: false,
-    dragOver()  { this.dragging = true },
-    dragLeave() { this.dragging = false },
-    drop(e)     { this.dragging = false; window.handleDrop(e) }
-  }))
-
-  Alpine.store('uploads', { active: 0, inc() { this.active++ }, dec() { this.active-- } })
-})
-```
-
-Functions called from template `onclick` attributes must use `window.*`:
-
-```js
-// app/static/js/upload.js
-window.retryUpload = function(jobId) { /* ... */ }
-```
+Functions called from template `onclick` must use `window.fnName = function(...)` in `static/js/upload.js`.
 
 ***
 
@@ -145,12 +126,12 @@ unless the page is explicitly marked as mobile-friendly in its task description.
 
 ## Do not
 
-- Do not load libraries from CDN (`jsdelivr.net`, `unpkg.com`, `cdn.*`) — use `app/static/vendor/`.
+- Do not load libraries from CDN (`jsdelivr.net`, `unpkg.com`, `cdn.*`) — use `static/vendor/`.
 - Do not introduce React, Vue, or any SPA framework unless explicitly requested.
 - Do not add npm, webpack, Vite, or any build toolchain unless explicitly requested.
 - Do not use `fetch()` for file upload progress — use `XMLHttpRequest` (see `10-doc-upload.md`).
 - Do not manage server state in Alpine.js — Alpine is for UI state only.
-- Do not inline JavaScript blocks in Jinja2 templates — put logic in `app/static/js/`.
+- Do not inline JavaScript blocks in Jinja2 templates — put logic in `static/js/`.
 - Do not declare functions called from templates as `const`/`let` — use `window.fnName = function(...)`.
 - Do not store component state as bare module-level variables — use `Alpine.store` or `Alpine.data` closures.
 - Do not return full pages from HTMX partial endpoints — return only the fragment.

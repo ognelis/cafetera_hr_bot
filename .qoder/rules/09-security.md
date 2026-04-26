@@ -132,6 +132,7 @@ trigger: always_on
 - Do not index arbitrary files without validation.
 - Do not let user input directly control filesystem paths.
 - Do not trust retrieved content as safe for direct execution or rendering.
+- System prompts must be isolated per context — never share VK bot's `SYSTEM_PROMPT` with admin panel or vice versa.
 
 ---
 
@@ -178,32 +179,11 @@ trigger: always_on
 
 ---
 
-## Canonical patterns
+## Key patterns
 
-### Secret comparison
-```python
-import secrets
-
-if not secrets.compare_digest(received_secret, settings.telegram_secret_token):
-    raise HTTPException(status_code=403, detail="Forbidden")
-```
-
-### Generic production error response
-```python
-raise HTTPException(status_code=500, detail="Internal server error")
-```
-
-### Settings-based secret loading
-```python
-from pydantic_settings import BaseSettings
-
-class Settings(BaseSettings):
-    telegram_bot_token: str
-    telegram_secret_token: str
-    vk_access_token: str
-    vk_secret: str
-    qdrant_api_key: str | None = None
-```
+- Use `secrets.compare_digest()` for webhook secret comparison (timing-safe).
+- Settings hierarchy: `CoreSettings` → `AdminSettings` / `VKSettings` in their respective packages.
+- Return generic error messages externally; log details internally.
 
 ---
 
@@ -214,3 +194,45 @@ class Settings(BaseSettings):
 - Do not expose debug information in production.
 - Do not log secrets or sensitive user content carelessly.
 - Do not deploy public expensive endpoints without rate limiting or abuse controls.
+
+---
+
+## Input Validation Patterns
+
+- Prefer allowlisting (define what IS permitted) over denylisting (blocking known bad values).
+- Apply syntactic validation first (correct format), then semantic validation (business logic correctness — e.g., start_date < end_date, valid status transitions).
+- Use strict type conversion with exception handling; rely on pydantic for this where possible.
+- For string inputs: enforce minimum and maximum length constraints.
+- For numeric inputs: enforce range checks (min/max bounds).
+- For discrete value sets: validate against an explicit list of allowed values.
+- Anchor regex patterns fully (`^...$`); avoid unbounded `.*` wildcards to prevent ReDoS.
+- Server-side validation is mandatory; client-side validation is UX convenience only.
+- For free-form Unicode text: normalize before validation to prevent homograph or encoding attacks.
+- Apply context-specific output encoding: HTML entity encoding for HTML body, JavaScript encoding for script context, JSON encoding for API responses.
+
+### Do not
+- Do not use denylisting as the primary validation strategy.
+- Do not write regex patterns without full anchoring and ReDoS review.
+
+---
+
+## Secrets Lifecycle
+
+- Automate secret rotation on a periodic schedule (monthly or quarterly), not only after suspected leaks.
+- Use gradual rotation: provision new secret, accept both old and new during transition, then revoke old.
+- For webhook secrets (Telegram, VK): support secret versioning so rotation does not cause downtime.
+- Log all secret access and rotation events for audit; alert on unusual access patterns.
+- Minimize the time window secrets remain in memory; clear variables after use when practical.
+- Review third-party dependencies (vkbottle, langchain, httpx) for accidental secret exposure in logs or exceptions.
+- When team or infrastructure grows, consider moving from environment variables to a dedicated secrets manager with fine-grained access control per service (admin, VK bot, ingestion).
+
+### Do not
+- Do not rely solely on manual rotation triggered by suspected leaks.
+- Do not allow all services to share the same secret access scope.
+
+---
+
+## Further reading
+
+- [OWASP Input Validation Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html)
+- [OWASP Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)

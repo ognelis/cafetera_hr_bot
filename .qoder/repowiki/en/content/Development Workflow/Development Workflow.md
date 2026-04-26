@@ -15,8 +15,6 @@
 - [scripts/run_admin.sh](file://scripts/run_admin.sh)
 - [scripts/run_llama_embeddings.sh](file://scripts/run_llama_embeddings.sh)
 - [scripts/run_llama_llm.sh](file://scripts/run_llama_llm.sh)
-- [scripts/run_ollama_embeddings.sh](file://scripts/run_ollama_embeddings.sh)
-- [scripts/run_ollama_llm.sh](file://scripts/run_ollama_llm.sh)
 - [docker-compose.yml](file://docker-compose.yml)
 - [Dockerfile.admin](file://Dockerfile.admin)
 - [Dockerfile.polling_vk](file://Dockerfile.polling_vk)
@@ -24,16 +22,17 @@
 - [tests/test_config.py](file://tests/test_config.py)
 - [tests/test_keyboards.py](file://tests/test_keyboards.py)
 - [tests/test_states.py](file://tests/test_states.py)
+- [AGENTS.md](file://AGENTS.md)
+- [README.md](file://README.md)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated to reflect comprehensive Docker-based development orchestration with sophisticated automation scripts
-- Enhanced documentation for run_all.sh (~441 lines) and run_admin_docker.sh (~473 lines) providing advanced Docker orchestration capabilities
-- Added detailed coverage of interactive provider selection for LLM and embedding services
-- Updated development environment setup procedures for Docker-based infrastructure management
-- Enhanced testing procedures with Docker-aware test configuration
-- Added comprehensive troubleshooting guide for Docker-based development environments
+- Updated to reflect new validation commands using uv sync and package-based testing approach
+- Enhanced documentation for uv-based development workflow with workspace-aware package management
+- Added comprehensive coverage of AGENTS.md validation commands and workspace-based testing procedures
+- Updated development environment setup to emphasize uv sync as the primary validation step
+- Enhanced testing procedures with uv run pytest and workspace-aware import validation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -45,17 +44,18 @@
 7. [Package-Specific Development](#package-specific-development)
 8. [Testing in Docker Architecture](#testing-in-docker-architecture)
 9. [Code Quality Tools](#code-quality-tools)
-10. [Running Services and Scripts](#running-services-and-scripts)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Best Practices](#best-practices)
-13. [Conclusion](#conclusion)
+10. [Validation Commands and Workspace Management](#validation-commands-and-workspace-management)
+11. [Running Services and Scripts](#running-services-and-scripts)
+12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Best Practices](#best-practices)
+14. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the development workflow and best practices for cafetera_hr_bot, a comprehensive Docker-based development environment featuring sophisticated automation scripts and modern workspace architecture using uv. The project has been restructured into separate packages for core functionality, admin interface, and VK bot integration, each with dedicated development workflows while maintaining tight integration through uv workspace management and Docker-based orchestration.
 
 The Docker-based architecture provides enhanced development experience with automated infrastructure provisioning, interactive provider selection, workspace-aware imports, package-based module execution patterns, and streamlined dependency management across multiple Python packages. This documentation covers environment setup, code quality tools (Ruff, MyPy), testing procedures, validation commands, and code review guidelines tailored for the new Docker-based development workflow.
 
-**Updated** Enhanced with comprehensive documentation for Docker-based development orchestration, sophisticated automation scripts, and workspace-based package architecture.
+**Updated** Enhanced with comprehensive documentation for Docker-based development orchestration, sophisticated automation scripts, and workspace-based package architecture with uv sync validation commands.
 
 ## Project Structure
 The repository follows a modern monorepo architecture with Docker-based development orchestration, organizing functionality into distinct packages with comprehensive automation:
@@ -84,7 +84,7 @@ cafetera_hr_bot/
 └── .env.example                     # Environment configuration template
 ```
 
-**Updated** Added comprehensive project structure documentation reflecting the new Docker-based monorepo organization with sophisticated automation scripts.
+**Updated** Added comprehensive project structure documentation reflecting the new Docker-based monorepo organization with sophisticated automation scripts and uv workspace management.
 
 **Section sources**
 - [pyproject.toml:22-28](file://pyproject.toml#L22-L28)
@@ -204,7 +204,7 @@ Setting up the development environment requires understanding the Docker-based o
 - **Workspace Sources**: uv automatically resolves workspace package dependencies
 - **Docker Networking**: Services communicate via Docker network names
 
-**Updated** Added comprehensive development environment setup covering Docker-based infrastructure management and workspace-specific requirements.
+**Updated** Added comprehensive development environment setup covering Docker-based infrastructure management and workspace-specific requirements with uv sync as the primary validation step.
 
 **Section sources**
 - [pyproject.toml:30-53](file://pyproject.toml#L30-L53)
@@ -321,7 +321,7 @@ uv run pytest -m "requires_docker"
 uv run pytest --disable-warnings
 ```
 
-**Updated** Added comprehensive testing documentation for Docker-based package structure with Docker-aware test configuration.
+**Updated** Added comprehensive testing documentation for Docker-based package structure with Docker-aware test configuration and uv workspace integration.
 
 **Section sources**
 - [pyproject.toml:30-33](file://pyproject.toml#L30-L33)
@@ -364,6 +364,54 @@ docker compose run admin ruff check
 - [pyproject.toml:36-49](file://pyproject.toml#L36-L49)
 - [pyproject.toml:44-49](file://pyproject.toml#L44-L49)
 
+## Validation Commands and Workspace Management
+The project emphasizes uv-based validation commands as the primary development workflow validation approach:
+
+### Workspace Validation Commands
+The AGENTS.md documentation defines comprehensive validation commands for ensuring code quality and workspace integrity:
+
+```bash
+# Install all workspace packages and dependencies
+uv sync
+
+# Run tests relevant to changed code
+uv run pytest
+
+# Linting with comprehensive rules
+uv run ruff check .
+
+# Type checking across all packages
+uv run mypy packages/
+
+# Import validation to catch early errors
+uv run python -c 'import cafetera_core; import cafetera_admin; import cafetera_vk_bot'
+```
+
+### Workspace Management Benefits
+- **Dependency Resolution**: uv resolves workspace dependencies automatically
+- **Package Imports**: Validates that all workspace packages can be imported successfully
+- **Testing Coverage**: Ensures test runner can discover and execute all tests
+- **Linting Scope**: Applies linting rules consistently across all workspace packages
+- **Type Checking**: Performs type checking across the entire workspace
+
+### Integration with Development Scripts
+Development scripts integrate uv sync validation:
+
+```bash
+# run_admin.sh includes uv sync validation
+if ! uv sync; then
+  log "Failed to sync dependencies"
+  log "Try: uv lock --upgrade && uv sync"
+  exit 1
+fi
+```
+
+**Updated** Added comprehensive coverage of uv-based validation commands and workspace management as the new primary validation approach, replacing previous layered architecture validation processes.
+
+**Section sources**
+- [AGENTS.md:91-100](file://AGENTS.md#L91-L100)
+- [scripts/run_admin.sh:243-246](file://scripts/run_admin.sh#L243-L246)
+
 ## Running Services and Scripts
 The Docker-based architecture provides comprehensive automation through sophisticated development scripts:
 
@@ -405,7 +453,7 @@ Alternative local development without Docker orchestration:
 - **Direct uv execution**: No Docker orchestration overhead
 - **Local provider management**: Direct Ollama and llama.cpp control
 - **Workspace-aware**: Full uv workspace integration
-- **Dependency sync**: Automatic dependency management
+- **Dependency sync**: Automatic dependency management with uv sync validation
 
 ### Provider Management Scripts
 Additional scripts support specialized AI provider configurations:
@@ -413,7 +461,7 @@ Additional scripts support specialized AI provider configurations:
 - **llama.cpp Management**: `run_llama_embeddings.sh`, `run_llama_llm.sh`
 - **Polling Integration**: `run_polling_vk.sh` for VK bot development
 
-**Updated** Added comprehensive coverage of Docker-based service management and automation scripts.
+**Updated** Added comprehensive coverage of Docker-based service management and automation scripts with emphasis on uv sync validation.
 
 **Section sources**
 - [scripts/run_all.sh:1-441](file://scripts/run_all.sh#L1-L441)
@@ -453,7 +501,13 @@ Docker-based development environment troubleshooting with comprehensive error ha
 - **Import Resolution**: Verify PYTHONPATH configuration for workspace packages
 - **Dependency Issues**: Re-run `uv sync` to refresh workspace dependencies
 
-**Updated** Enhanced troubleshooting guide covering Docker-based development environment issues and solutions.
+### Validation Command Issues
+- **uv sync Failures**: Check workspace dependencies and lock file integrity
+- **Package Import Errors**: Verify workspace package installation and import paths
+- **Test Discovery**: Ensure pytest can discover tests in workspace packages
+- **Linting Issues**: Verify ruff configuration targets all workspace packages
+
+**Updated** Enhanced troubleshooting guide covering Docker-based development environment issues, validation command problems, and workspace-specific troubleshooting.
 
 **Section sources**
 - [scripts/run_all.sh:129-163](file://scripts/run_all.sh#L129-L163)
@@ -488,13 +542,19 @@ Docker-based development best practices for cafetera_hr_bot:
 - **Documentation**: Maintain clear documentation for Docker-specific package interfaces
 - **Performance**: Utilize Docker build optimizations and model caching
 
+### Validation and Testing
+- **Workspace Validation**: Always run `uv sync` before development to validate workspace integrity
+- **Package Testing**: Use `uv run pytest` to test workspace packages comprehensively
+- **Import Validation**: Run import validation to catch workspace import errors early
+- **Linting Integration**: Use `uv run ruff check` for workspace-wide linting
+
 ### Deployment Considerations
 - **Workspace Packaging**: Ensure workspace packages can be built independently
 - **Dependency Resolution**: Verify uv.lock provides reproducible builds
 - **Environment Configuration**: Maintain environment variable documentation for all packages
 - **Docker Optimization**: Leverage multi-stage builds and model caching
 
-**Updated** Added comprehensive best practices for Docker-based development workflow.
+**Updated** Added comprehensive best practices for Docker-based development workflow with emphasis on uv sync validation and workspace management.
 
 ## Conclusion
 The Docker-based development architecture significantly enhances the development workflow for cafetera_hr_bot by providing sophisticated automation, interactive service management, and optimized Docker integration. The new architecture with comprehensive automation scripts enables better code organization, improved maintainability, and streamlined development processes across multiple Python packages with Docker-based orchestration.
@@ -506,6 +566,8 @@ Key benefits of the Docker-based architecture include:
 - **Optimized Performance**: Multi-stage Docker builds with model caching
 - **Robust Error Handling**: Comprehensive troubleshooting and cleanup mechanisms
 
-By leveraging Docker-based development orchestration, developers can efficiently work with multiple packages while maintaining clean import boundaries, proper dependency resolution, and comprehensive service management. The enhanced development environment setup, testing procedures, and troubleshooting guidance ensure a smooth development experience across all Docker-based development scenarios.
+The introduction of uv sync validation commands as the primary validation approach ensures workspace integrity and provides a standardized development workflow across all team members. This approach replaces previous layered architecture validation processes with a more efficient, workspace-aware validation strategy that leverages uv's superior dependency management capabilities.
 
-**Updated** Enhanced conclusion reflecting the benefits and advantages of the Docker-based architecture for cafetera_hr_bot development with sophisticated automation capabilities.
+By leveraging Docker-based development orchestration, developers can efficiently work with multiple packages while maintaining clean import boundaries, proper dependency resolution, and comprehensive service management. The enhanced development environment setup, testing procedures, validation commands, and troubleshooting guidance ensure a smooth development experience across all Docker-based development scenarios.
+
+**Updated** Enhanced conclusion reflecting the benefits and advantages of the Docker-based architecture for cafetera_hr_bot development with sophisticated automation capabilities and uv-based validation commands as the new standard approach.

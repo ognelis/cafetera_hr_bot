@@ -1,6 +1,6 @@
 ---
 trigger: glob
-glob: app/templates/**/*.html, app/static/**/*.css
+glob: templates/**/*.html, static/**/*.css
 ---
 # Admin UI Design
 
@@ -194,18 +194,4 @@ Do not:
 - use emoji-heavy polished UI
 - make the page look like a generic AI-generated SaaS template
 
-***
-
-## Decision rule
-
-When in doubt, choose the option that is:
-
-- calmer
-- clearer
-- denser
-- more consistent
-- easier to maintain
-- better for daily work
-
-If the result feels like a serious back-office tool, the direction is probably correct.
-If it feels like a startup marketing page, it is wrong.
+When in doubt, choose the option that is calmer, clearer, denser, more consistent, easier to maintain, and better for daily work. If the result feels like a serious back-office tool, the direction is probably correct. If it feels like a startup marketing page, it is wrong.

@@ -19,29 +19,7 @@ This repository uses agentic coding for implementation assistance, but architect
 - **Production:** webhook via FastAPI lifespan — never use polling in production.
 
 ## Secrets & Configuration
-All secrets via `pydantic-settings`. Canonical fields for this project:
-
-```python
-from pydantic_settings import BaseSettings
-
-class Settings(BaseSettings):
-    # VK (primary)
-    vk_access_token: str
-    vk_secret: str
-    vk_confirmation_token: str
-    vk_webhook_url: str
-
-    # RAG
-    qdrant_url: str
-    qdrant_api_key: str | None = None
-    llm_api_key: str
-
-    # Storage
-    s3_endpoint_url: str          # http://localhost:9000 locally; empty for AWS S3
-    s3_access_key: str
-    s3_secret_key: str
-    s3_bucket: str = "rag-documents"
-```
+Settings use inheritance: `CoreSettings` (shared RAG, storage, LLM config) → `AdminSettings` (adds `admin_api_key`) / `VKSettings` (adds `vk_access_token`, `vk_group_id`). Each uses `model_config = {"extra": "ignore"}` to share `.env` files. See `packages/*/src/*/config.py`.
 
 - Never hardcode secrets — load via `pydantic-settings` from environment variables
 - Provide `.env.example` with placeholders only; never commit real secrets
@@ -52,51 +30,34 @@ class Settings(BaseSettings):
 Reference: `.qoder/rules/09-security.md`
 
 ## Architecture
-Layers: `app/api` (transport) → `app/domain` (services) → `app/rag` (retrieval/prompts).
-Storage: `app/storage` — S3/MinIO client and DB access (separate from domain logic).
-Adapters: `app/integrations/telegram/`, `app/integrations/vk/`.
+Packages: `packages/core` (shared RAG, storage, domain) → `packages/admin` (FastAPI admin UI) / `packages/vk_bot` (VK bot).
+
+Core layers: `cafetera_core/rag` (retrieval/prompts/chains), `cafetera_core/domain` (services), `cafetera_core/storage` (DB + S3).
+Admin: `cafetera_admin/api` (routes), `cafetera_admin/domain` (admin-specific services).
+VK Bot: `cafetera_vk_bot/handlers/` (message handlers), `cafetera_vk_bot/domain/` (VK-specific content/entities).
 
 - Keep transport, business logic, and RAG pipeline separated
 - FastAPI endpoints stay thin and delegate to services
-- Shared logic for Telegram and VK lives in domain services
+- Shared logic for Telegram and VK lives in domain services in `packages/core`
 - Prefer modular files over monolithic architecture
+- New shared logic goes into `packages/core`. Package-specific logic stays in its package.
 
 Reference: `.qoder/rules/00-architecture.md`
 
 ## Resource Safety & Lifespan
-- Use FastAPI `lifespan` for all startup/shutdown logic (not deprecated `on_event`)
-- Initialize all long-lived resources (HTTP clients, DB, LLM, bots) in lifespan, attach to `app.state`
-- Always `yield` inside lifespan; teardown code runs after `yield`
-- Close all clients on shutdown: `await client.aclose()`, `client.close()`, `await bot.session.close()`
-- Prefer dependency injection via `app.state` or FastAPI `Depends`
-
+Use `build_resources()` / `close_resources()` from `cafetera_core.resources` for all resource lifecycle.
 Reference: `.qoder/rules/08-resource-safety.md`
 
 ## Security & Webhooks
-- **Telegram:** Validate `X-Telegram-Bot-Api-Secret-Token` header with `secrets.compare_digest()`
-- **VK:** Validate incoming `secret` field with `secrets.compare_digest()`
-- Never log secrets, tokens, or full webhook payloads
-- Add rate limiting on public endpoints and webhook-adjacent endpoints
-- Protect chat endpoints from flooding and accidental loops
-- Sanitize error responses — return generic messages externally, log details internally
-
+Validate all webhook secrets with `secrets.compare_digest()`. Never log secrets or full payloads.
 Reference: `.qoder/rules/07-bot-apis.md`, `.qoder/rules/09-security.md`
 
 ## Document Upload & Ingestion
-- **Storage:** S3/MinIO via `aiobotocore` for file storage; PostgreSQL via `databases` for metadata
-- **Flow:** Upload → background task → chunk → embed → store in Qdrant
-- **Validation:** Check file size, MIME type, and extension before processing
-- **Status tracking:** `idle → uploading → pending → ingesting → indexed/failed`
-
+Upload → S3/MinIO storage + PostgreSQL metadata → background Docling parsing → chunk → embed → Qdrant.
 Reference: `.qoder/rules/10-doc-upload.md`
 
 ## Frontend & Admin UI
-- **HTMX** — server-driven interactivity; return HTML fragments, never JSON
-- **Alpine.js** — local UI state only (dropzones, toggles, counters); not for server state
-- **Tailwind CSS v4 + DaisyUI v5** — DaisyUI components first, Tailwind for layout/spacing
-- **No build pipeline** — all libraries from `app/static/vendor/` directory (no CDN)
-- **Admin UI style:** clean, calm, data-first enterprise design
-
+HTMX + Alpine.js + Tailwind v4 + DaisyUI v5. No build pipeline. Vendor libs in `static/vendor/`.
 Reference: `.qoder/rules/11-frontend.md`, `.qoder/rules/12-admin-ui-design.md`
 
 ## Core workflow
@@ -129,12 +90,12 @@ Reference: `.qoder/rules/01-python-style.md`
 
 ## Validation
 Before finishing, always:
-- `uv sync --all-extras` — install all dependencies before running tests.
+- `uv sync` — install all workspace packages and dependencies before running tests.
 - `uv run pytest` — run tests relevant to changed code.
   - `asyncio_mode = "auto"` — async tests run without extra decorators
 - `uv run ruff check .` — linting with rules E/F/I/UP/B, line-length 100
-- `uv run mypy app/` — type checking with `strict = false`, `warn_unused_ignores = true`
-- `uv run python -c 'import app'` — catch import errors early
+- `uv run mypy packages/` — type checking with `strict = false`, `warn_unused_ignores = true`
+- `uv run python -c 'import cafetera_core; import cafetera_admin; import cafetera_vk_bot'` — catch import errors early
 - Check for import errors and missing dependencies.
 - Summarize: what passed, what failed, what was skipped and why.
 
