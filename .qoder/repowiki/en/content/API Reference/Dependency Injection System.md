@@ -4,6 +4,11 @@
 **Referenced Files in This Document**
 - [packages/core/src/cafetera_core/config.py](file://packages/core/src/cafetera_core/config.py)
 - [packages/admin/src/cafetera_admin/config.py](file://packages/admin/src/cafetera_admin/config.py)
+- [packages/admin/src/cafetera_admin/api/deps.py](file://packages/admin/src/cafetera_admin/api/deps.py)
+- [packages/admin/src/cafetera_admin/main.py](file://packages/admin/src/cafetera_admin/main.py)
+- [packages/admin/src/cafetera_admin/api/documents_auth.py](file://packages/admin/src/cafetera_admin/api/documents_auth.py)
+- [packages/admin/src/cafetera_admin/api/documents.py](file://packages/admin/src/cafetera_admin/api/documents.py)
+- [packages/admin/src/cafetera_admin/api/category_files.py](file://packages/admin/src/cafetera_admin/api/category_files.py)
 - [packages/core/src/cafetera_core/domain/qa_service.py](file://packages/core/src/cafetera_core/domain/qa_service.py)
 - [packages/admin/src/cafetera_admin/api/deps.py](file://packages/admin/src/cafetera_admin/api/deps.py)
 - [packages/admin/src/cafetera_admin/main.py](file://packages/admin/src/cafetera_admin/main.py)
@@ -15,11 +20,11 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced dependency management with consolidated dependencies in core package
-- Added new dependencies in admin package for improved modularity and reduced coupling
-- Implemented shared core configuration system with package-specific extensions
-- Established clear separation between core RAG services and admin-specific services
-- Maintained backward compatibility through shared QA service interface
+- Enhanced authentication system with AuthRedirectException for improved browser/HTMX handling
+- Improved require_admin function with three-tier authentication handling (browser/HTMX redirect, API 403)
+- Integrated new exception handler for AuthRedirectException in FastAPI application
+- Added comprehensive authentication testing covering browser-to-login redirection, HTMX-to-login redirection, and pure API request 403 responses
+- Updated dependency injection system to support enhanced authentication flows
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -27,10 +32,11 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
+6. [Authentication Enhancement](#authentication-enhancement)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
 
 ## Introduction
 
@@ -41,8 +47,9 @@ The dependency injection pattern in this project follows a streamlined approach 
 - Package-specific services extend core functionality through inheritance and composition
 - Service dependencies are provided through FastAPI dependency functions with robust getattr() fallback mechanisms
 - Configuration-driven instantiation ensures flexibility across different deployment scenarios
-- **Updated**: Consolidated core package provides shared dependencies for all transport handlers
-- **Updated**: Admin package extends core configuration with package-specific settings
+- **Updated**: Enhanced authentication system with AuthRedirectException for improved user experience
+- **Updated**: Three-tier authentication handling for browser/HTMX requests and pure API requests
+- **Updated**: Integrated exception handler for seamless authentication flow management
 
 ## Project Structure
 
@@ -84,6 +91,9 @@ I[S3Storage]
 J[QdrantClient]
 K[Embeddings]
 L[LLM]
+M[AuthRedirectException]
+N[require_admin]
+O[Auth Exception Handler]
 end
 A --> B
 B --> C
@@ -103,6 +113,9 @@ D --> I
 D --> J
 D --> K
 D --> L
+D --> M
+D --> N
+D --> O
 E --> F
 E --> G
 E --> H
@@ -116,6 +129,9 @@ E --> L
 - [pyproject.toml:22-28](file://pyproject.toml#L22-L28)
 - [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
 - [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-26](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L26)
+- [packages/admin/src/cafetera_admin/api/deps.py:85-105](file://packages/admin/src/cafetera_admin/api/deps.py#L85-L105)
+- [packages/admin/src/cafetera_admin/main.py:110-115](file://packages/admin/src/cafetera_admin/main.py#L110-L115)
 
 **Section sources**
 - [pyproject.toml:1-49](file://pyproject.toml#L1-L49)
@@ -152,19 +168,23 @@ The core package provides essential services that are shared across all transpor
 - **Storage Services**: S3 integration for file operations and Qdrant for vector storage
 - **CategoryFileService**: Manages document templates for VK bot categories
 
-### **Updated**: Consolidated Dependency Management
+### **Updated**: Enhanced Authentication System
 
-The system now uses consolidated dependency management where:
-- Core dependencies are defined once in the core package
-- Package-specific dependencies extend core functionality
-- Shared services are accessed through unified interfaces
-- Backward compatibility is maintained through inheritance patterns
+The system now includes a sophisticated authentication mechanism with three-tier handling:
+
+- **AuthRedirectException**: Custom exception for browser/HTMX authentication failures
+- **require_admin function**: Validates admin credentials with intelligent request type detection
+- **Exception Handler Integration**: Seamless conversion of AuthRedirectException to appropriate responses
+- **Three-Tier Authentication**: Browser/HTMX requests redirect to login, pure API requests return 403
 
 **Section sources**
 - [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
 - [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
 - [packages/core/src/cafetera_core/domain/qa_service.py:43-302](file://packages/core/src/cafetera_core/domain/qa_service.py#L43-L302)
 - [packages/core/src/cafetera_core/storage/document_repo.py:64-305](file://packages/core/src/cafetera_core/storage/document_repo.py#L64-L305)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-26](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L26)
+- [packages/admin/src/cafetera_admin/api/deps.py:85-105](file://packages/admin/src/cafetera_admin/api/deps.py#L85-L105)
+- [packages/admin/src/cafetera_admin/main.py:110-115](file://packages/admin/src/cafetera_admin/main.py#L110-L115)
 
 ## Architecture Overview
 
@@ -174,7 +194,7 @@ The dependency injection architecture follows a hierarchical pattern where core 
 sequenceDiagram
 participant Client as "Client Request"
 participant AdminApp as "Admin FastAPI App"
-participant VKBot as "VK Bot"
+participant AuthHandler as "Auth Exception Handler"
 participant Lifespan as "Lifespan Manager"
 participant CoreSettings as "CoreSettings"
 participant AdminSettings as "AdminSettings"
@@ -183,9 +203,15 @@ participant DocService as "DocumentService"
 participant Repo as "DocumentRepository"
 participant S3 as "S3Storage"
 Client->>AdminApp : HTTP Request
-Client->>VKBot : VK Message
+Client->>AdminApp : require_admin()
+AdminApp->>AdminApp : require_admin() validation
+alt Browser/HTMX Request
+AdminApp->>AuthHandler : Raise AuthRedirectException
+AuthHandler->>Client : Redirect to /login (303 or HX-Redirect)
+else Pure API Request
+AdminApp->>Client : HTTP 403 Forbidden
+end
 AdminApp->>Lifespan : Initialize Resources
-VKBot->>Lifespan : Initialize Resources
 Lifespan->>CoreSettings : Load Shared Settings
 Lifespan->>AdminSettings : Extend with Admin Settings
 Lifespan->>QAService : Build Shared QA Service
@@ -193,18 +219,17 @@ Lifespan->>DocService : Build Document Service
 Lifespan->>Repo : Create Repository
 Lifespan->>S3 : Initialize Storage
 Lifespan-->>AdminApp : Store in app.state
-Lifespan-->>VKBot : Store in app.state
 AdminApp->>QAService : Direct State Access
-VKBot->>QAService : Direct State Access
 QAService->>DocService : Coordinate Operations
 DocService->>Repo : Data Access
 DocService->>S3 : External Operations
 QAService-->>AdminApp : Response
-QAService-->>VKBot : Response
 ```
 
 **Diagram sources**
 - [packages/admin/src/cafetera_admin/main.py:40-82](file://packages/admin/src/cafetera_admin/main.py#L40-L82)
+- [packages/admin/src/cafetera_admin/api/deps.py:85-105](file://packages/admin/src/cafetera_admin/api/deps.py#L85-L105)
+- [packages/admin/src/cafetera_admin/main.py:110-115](file://packages/admin/src/cafetera_admin/main.py#L110-L115)
 - [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
 - [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
 - [packages/core/src/cafetera_core/domain/qa_service.py:43-302](file://packages/core/src/cafetera_core/domain/qa_service.py#L43-L302)
@@ -397,6 +422,109 @@ VKHandler-->>VKClient : Answer
 - [packages/core/src/cafetera_core/domain/qa_service.py:43-302](file://packages/core/src/cafetera_core/domain/qa_service.py#L43-L302)
 - [packages/vk_bot/src/cafetera_vk_bot/bot.py:42-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L42-L56)
 
+## Authentication Enhancement
+
+The dependency injection system now includes a sophisticated authentication mechanism that enhances user experience across different request types:
+
+### AuthRedirectException Class
+
+A custom exception class designed specifically for authentication failures in browser/HTMX contexts:
+
+```mermaid
+classDiagram
+class AuthRedirectException {
++is_htmx : bool
++__init__(is_htmx : bool) : None
++__str__() : str
+}
+class require_admin {
++request : Request
++admin_session : str | None
++return : None
+}
+class AuthRedirectHandler {
++_auth_redirect_handler(request, exc) : Response
++converts AuthRedirectException to redirect
+}
+AuthRedirectException <|-- Exception : "inherits"
+require_admin --> AuthRedirectException : "raises"
+AuthRedirectHandler --> AuthRedirectException : "handles"
+```
+
+**Diagram sources**
+- [packages/admin/src/cafetera_admin/api/deps.py:21-26](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L26)
+- [packages/admin/src/cafetera_admin/api/deps.py:85-105](file://packages/admin/src/cafetera_admin/api/deps.py#L85-L105)
+- [packages/admin/src/cafetera_admin/main.py:110-115](file://packages/admin/src/cafetera_admin/main.py#L110-L115)
+
+### Three-Tier Authentication Handling
+
+The require_admin function implements intelligent authentication logic based on request type:
+
+```mermaid
+flowchart TD
+Start([require_admin Called]) --> CheckSettings["Check AdminSettings.admin_api_key"]
+CheckSettings --> SettingsValid{"Admin configured?"}
+SettingsValid --> |No| Raise503["HTTPException 503"]
+SettingsValid --> |Yes| CheckSession["Validate admin_session cookie"]
+CheckSession --> SessionValid{"Session valid?"}
+SessionValid --> |Yes| Success["Return None (authorized)"]
+SessionValid --> |No| CheckRequestType["Check request type"]
+CheckRequestType --> IsHTMX{"HX-Request: true?"}
+CheckRequestType --> AcceptsHTML{"Accept contains text/html?"}
+IsHTMX --> |Yes| RaiseAuthRedirect["Raise AuthRedirectException(is_htmx=True)"]
+AcceptsHTML --> |Yes| RaiseAuthRedirect
+AcceptsHTML --> |No| Raise403["HTTPException 403"]
+RaiseAuthRedirect --> End([Exception Raised])
+Raise403 --> End
+Raise503 --> End
+Success --> End
+```
+
+**Diagram sources**
+- [packages/admin/src/cafetera_admin/api/deps.py:85-105](file://packages/admin/src/cafetera_admin/api/deps.py#L85-L105)
+
+### Exception Handler Integration
+
+The FastAPI application integrates the AuthRedirectException handler for seamless authentication flow:
+
+```mermaid
+sequenceDiagram
+participant App as "FastAPI App"
+participant Router as "Route Handler"
+participant RequireAdmin as "require_admin()"
+participant Handler as "_auth_redirect_handler()"
+participant Client as "Client"
+App->>RequireAdmin : Call require_admin()
+RequireAdmin->>RequireAdmin : Validate session
+alt Browser/HTMX Request
+RequireAdmin->>App : Raise AuthRedirectException
+App->>Handler : Route to exception handler
+Handler->>Client : Redirect to /login (303 or HX-Redirect)
+else API Request
+RequireAdmin->>Client : HTTP 403 Forbidden
+end
+```
+
+**Diagram sources**
+- [packages/admin/src/cafetera_admin/main.py:110-115](file://packages/admin/src/cafetera_admin/main.py#L110-L115)
+- [packages/admin/src/cafetera_admin/api/deps.py:85-105](file://packages/admin/src/cafetera_admin/api/deps.py#L85-L105)
+
+### Authentication Testing Coverage
+
+The authentication system includes comprehensive test coverage validating different request scenarios:
+
+- **Browser-to-login redirection**: Requests with `Accept: text/html` redirect to `/login` with 303 status
+- **HTMX-to-login redirection**: Requests with `HX-Request: true` return 200 with `HX-Redirect: /login` header
+- **Pure API request 403**: Requests without browser indicators return HTTP 403 Forbidden
+- **Login/logout functionality**: Full authentication cycle testing with cookie management
+
+**Section sources**
+- [packages/admin/src/cafetera_admin/api/deps.py:21-26](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L26)
+- [packages/admin/src/cafetera_admin/api/deps.py:85-105](file://packages/admin/src/cafetera_admin/api/deps.py#L85-L105)
+- [packages/admin/src/cafetera_admin/main.py:110-115](file://packages/admin/src/cafetera_admin/main.py#L110-L115)
+- [packages/admin/src/cafetera_admin/api/documents_auth.py:36-76](file://packages/admin/src/cafetera_admin/api/documents_auth.py#L36-L76)
+- [tests/test_api_documents_auth.py:35-65](file://tests/test_api_documents_auth.py#L35-L65)
+
 ## Dependency Analysis
 
 The dependency injection system creates a clear hierarchical dependency graph with well-defined relationships:
@@ -427,6 +555,11 @@ subgraph "Package Services"
 AdminDocService[Admin DocumentService]
 AdminQAService[Admin QAService]
 end
+subgraph "Authentication Layer"
+AuthException[AuthRedirectException]
+RequireAdmin[require_admin]
+AuthHandler[_auth_redirect_handler]
+end
 subgraph "Presentation Layer"
 AdminRouter[Admin Router]
 VKHandlers[VK Handlers]
@@ -435,6 +568,7 @@ subgraph "Dependency Management"
 ConsolidatedDeps[Consolidated Dependencies]
 PackageExtensions[Package Extensions]
 DirectStateAccess[Direct State Access]
+AuthIntegration[Auth Integration]
 End
 CoreSettings --> DocService
 CoreSettings --> Repo
@@ -446,41 +580,42 @@ CoreSettings --> LLM
 CoreSettings --> CategoryFileService
 AdminSettings --> AdminDocService
 AdminSettings --> AdminQAService
-DB --> Repo
-S3 --> DocService
-S3 --> CategoryFileService
-Qdrant --> DocService
-Qdrant --> QAService
-Embeddings --> DocService
-Embeddings --> QAService
-LLM --> QAService
-Repo --> DocService
-CategoryFileService --> AdminDocService
-AdminDocService --> AdminQAService
+AuthException --> AuthHandler
+RequireAdmin --> AuthException
+AuthHandler --> AdminRouter
 AdminRouter --> DirectStateAccess
 VKHandlers --> DirectStateAccess
 ConsolidatedDeps --> DirectStateAccess
 PackageExtensions --> ConsolidatedDeps
+AuthIntegration --> AuthException
+AuthIntegration --> RequireAdmin
+AuthIntegration --> AuthHandler
 ```
 
 **Diagram sources**
 - [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
 - [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
 - [packages/admin/src/cafetera_admin/main.py:40-82](file://packages/admin/src/cafetera_admin/main.py#L40-L82)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-26](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L26)
+- [packages/admin/src/cafetera_admin/api/deps.py:85-105](file://packages/admin/src/cafetera_admin/api/deps.py#L85-L105)
+- [packages/admin/src/cafetera_admin/main.py:110-115](file://packages/admin/src/cafetera_admin/main.py#L110-L115)
 
 The dependency relationships demonstrate:
 - **Hierarchical Configuration**: CoreSettings serves as the foundation for all package-specific settings
 - **Shared Infrastructure**: Core services are shared across all transport handlers
 - **Package Extension**: Each package extends core functionality with minimal overrides
 - **Unified Access**: All packages access shared services through direct state attribute access
-- ****Updated**: **Consolidated Dependencies**: Core package manages shared dependencies for improved modularity
-- **Updated**: **Package-Specific Extensions**: Admin package extends core with package-specific services
-- **Updated**: **Reduced Coupling**: Clear separation between core and package-specific functionality
+- **Enhanced Authentication**: AuthRedirectException and require_admin provide three-tier authentication handling
+- **Exception Integration**: AuthRedirectException is seamlessly integrated into FastAPI's exception handling system
+- **Comprehensive Testing**: Authentication system includes extensive test coverage for different request scenarios
 
 **Section sources**
 - [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
 - [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
 - [packages/admin/src/cafetera_admin/main.py:40-82](file://packages/admin/src/cafetera_admin/main.py#L40-L82)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-26](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L26)
+- [packages/admin/src/cafetera_admin/api/deps.py:85-105](file://packages/admin/src/cafetera_admin/api/deps.py#L85-L105)
+- [packages/admin/src/cafetera_admin/main.py:110-115](file://packages/admin/src/cafetera_admin/main.py#L110-L115)
 
 ## Performance Considerations
 
@@ -491,34 +626,33 @@ The dependency injection system provides several performance benefits through co
 - **Database Connection Pooling**: PostgreSQL connections pooled and reused efficiently
 - **S3 Client Reuse**: S3 client instances maintained throughout application lifecycle
 - **Qdrant Connection Pooling**: Qdrant client connections pooled for optimal performance
-- ****Updated**: **Consolidated Resource Management**: Core package manages shared resources centrally
-- **Updated**: **Reduced Memory Footprint**: Shared services eliminate duplicate resource instances
+- **Enhanced Authentication Performance**: AuthRedirectException avoids expensive redirect processing for API requests
 
 ### Lazy Initialization Strategy
 - **Optional Services**: Admin-specific services initialized only when needed
 - **Conditional Dependencies**: Services check availability before initialization
 - **Background Task Integration**: Heavy operations handled asynchronously
-- ****Updated**: **Efficient State Access**: Direct getattr() calls minimize overhead
-- **Updated**: **Optimized Import Patterns**: Package-specific imports reduce startup time
+- **Efficient State Access**: Direct getattr() calls minimize overhead
+- **Optimized Import Patterns**: Package-specific imports reduce startup time
 
 ### Memory Management Optimizations
 - **Service Caching**: QAService maintains LRU cache for document chains
 - **Connection Pooling**: Database and external service connections pooled efficiently
 - **Resource Cleanup**: Proper cleanup in lifespan context prevents memory leaks
-- ****Updated**: **Centralized Cleanup**: Core package manages shared resource cleanup
-- **Updated**: **Efficient Resource Disposal**: Proper async context management
+- **Exception Handler Efficiency**: AuthRedirectException handler minimizes processing overhead
 
-### **Updated**: Enhanced Modularity Benefits
-- ****Performance**: Consolidated core package reduces duplication and improves efficiency
-- ****Maintainability**: Clear separation between core and package-specific functionality
-- ****Scalability**: Modular design supports easy addition of new transport handlers
-- ****Compatibility**: Backward compatibility maintained through inheritance patterns
-- ****Development**: Simplified dependency management improves development workflow
+### **Updated**: Enhanced Authentication Performance Benefits
+- **Three-Tier Optimization**: require_admin function quickly identifies request type and handles appropriately
+- **Exception Handler Efficiency**: AuthRedirectException handler provides fast response routing
+- **Reduced Processing Overhead**: Browser/HTMX requests get immediate redirect without additional processing
+- **API Request Optimization**: Pure API requests bypass authentication flow entirely
+- **Cookie Validation Efficiency**: secrets.compare_digest provides secure and efficient session validation
 
 **Section sources**
 - [packages/core/src/cafetera_core/domain/qa_service.py:72-121](file://packages/core/src/cafetera_core/domain/qa_service.py#L72-L121)
 - [packages/admin/src/cafetera_admin/main.py:77-82](file://packages/admin/src/cafetera_admin/main.py#L77-L82)
 - [packages/core/src/cafetera_core/domain/category_file_service.py:22-116](file://packages/core/src/cafetera_core/domain/category_file_service.py#L22-L116)
+- [packages/admin/src/cafetera_admin/api/deps.py:85-105](file://packages/admin/src/cafetera_admin/api/deps.py#L85-L105)
 
 ## Troubleshooting Guide
 
@@ -572,14 +706,14 @@ LogWarning --> ReturnNone["Return None/Unavailable"]
 - [packages/admin/src/cafetera_admin/api/deps.py:52-99](file://packages/admin/src/cafetera_admin/api/deps.py#L52-L99)
 - [packages/admin/src/cafetera_admin/main.py:52-76](file://packages/admin/src/cafetera_admin/main.py#L52-L76)
 
-### **Updated**: Consolidated Dependency Issues
-Consolidated dependency-related problems and solutions:
+### **Updated**: Authentication System Issues
+Authentication-related problems and their solutions:
 
-1. **Core Configuration Conflicts**: Ensure AdminSettings properly extends CoreSettings
-2. **Shared Service Initialization**: Verify QAService initializes before package-specific services
-3. **Resource Availability**: Check that shared resources are available in app.state
-4. **Package-Specific Dependencies**: Ensure package-specific services inherit from core interfaces
-5. **State Attribute Access**: Verify getattr() fallback mechanisms work correctly
+1. **AuthRedirectException Not Handled**: Ensure `_auth_redirect_handler` is registered in FastAPI app
+2. **require_admin Function Errors**: Verify `admin_api_key` is properly configured in AdminSettings
+3. **Browser/HTMX Redirect Issues**: Check that `HX-Request` and `Accept` headers are correctly processed
+4. **Cookie Validation Failures**: Ensure `admin_session` cookie matches `admin_api_key` exactly
+5. **Exception Handler Not Triggered**: Verify AuthRedirectException is raised before other exceptions
 
 ### **Updated**: Package-Specific Issues
 Package-specific dependency problems and solutions:
@@ -595,13 +729,15 @@ Proper shutdown requires:
 - **Shared Resource Cleanup**: Core package manages cleanup of shared resources
 - **Package-Specific Cleanup**: Each package cleans up its own resources
 - **Connection Pooling**: Ensure database and external service connections are properly closed
-- ****Updated**: **Centralized Cleanup**: Core package coordinates cleanup of shared resources
-- ****Updated**: **Proper Resource Disposal**: Async context managers ensure proper cleanup
+- **Exception Handler Cleanup**: AuthRedirectException handler properly manages response creation
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/api/deps.py:52-99](file://packages/admin/src/cafetera_admin/api/deps.py#L52-L99)
 - [packages/admin/src/cafetera_admin/main.py:77-82](file://packages/admin/src/cafetera_admin/main.py#L77-L82)
 - [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
+- [packages/admin/src/cafetera_admin/api/deps.py:21-26](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L26)
+- [packages/admin/src/cafetera_admin/api/deps.py:85-105](file://packages/admin/src/cafetera_admin/api/deps.py#L85-L105)
+- [packages/admin/src/cafetera_admin/main.py:110-115](file://packages/admin/src/cafetera_admin/main.py#L110-L115)
 
 ## Conclusion
 
@@ -611,11 +747,9 @@ The dependency injection system in the Cafetera HR Bot project demonstrates a mo
 - **Maintainability**: Shared core services reduce code duplication and improve consistency
 - **Scalability**: Hierarchical dependency management supports easy addition of new transport handlers
 - **Reliability**: Proper resource lifecycle management prevents memory leaks and connection issues
-- ****Updated**: **Consolidated Core Package**: Unified dependency management reduces complexity
-- ****Updated**: **Package Extensions**: Minimal overrides enable package-specific customization
-- ****Updated**: **Shared Services**: Centralized services improve performance and resource utilization
-- ****Updated**: **Reduced Coupling**: Clear separation between core and package-specific functionality
-- ****Updated**: **Enhanced Developer Experience**: Simplified dependency management improves productivity
+- **Enhanced Authentication**: Three-tier authentication system provides excellent user experience across different request types
+- **Exception Handling**: Seamless integration of AuthRedirectException into FastAPI's exception handling system
+- **Comprehensive Testing**: Extensive test coverage validates authentication behavior across browser, HTMX, and API scenarios
 
 The implementation leverages FastAPI's built-in dependency injection capabilities while adding custom providers for specialized services, utilizing direct state attribute access patterns. This creates a robust foundation for multiple transport handlers (admin web UI and VK bot) with proper resource control, performance optimization, and consistent access patterns throughout the application.
 
@@ -624,8 +758,8 @@ The enhanced dependency management provides:
 - **Improved Code Quality**: Clear separation between core and package-specific functionality
 - **Enhanced Developer Experience**: Simplified dependency management and clear interfaces
 - **Future-Proof Architecture**: Modular design supports easy evolution and maintenance
-- ****Updated**: **Reduced Coupling**: Package-specific dependencies minimize inter-package dependencies
-- ****Updated**: **Shared Infrastructure**: Core package manages common infrastructure efficiently
-- ****Updated**: **Flexible Configuration**: Inheritance-based settings enable easy customization
+- **Superior User Experience**: Three-tier authentication system handles browser, HTMX, and API requests appropriately
+- **Robust Security**: Secure cookie validation and efficient exception handling
+- **Comprehensive Testing**: Extensive test coverage ensures reliability across all authentication scenarios
 
-This creates a production-ready dependency injection system that balances functionality, performance, and developer experience through modernized state access patterns, consolidated core dependencies, and package-specific extensions within a monorepo architecture.
+This creates a production-ready dependency injection system that balances functionality, performance, and developer experience through modernized state access patterns, consolidated core dependencies, and package-specific extensions within a monorepo architecture, enhanced by sophisticated authentication handling and comprehensive testing coverage.

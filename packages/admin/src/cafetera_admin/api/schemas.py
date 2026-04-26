@@ -27,6 +27,7 @@ class DocumentResponse(BaseModel):
     updated_at: str
     indexed_at: str | None
     chunk_count: int
+    indexing_config: dict[str, Any] | None = None
 
 
 class DocumentTableContext(TypedDict):

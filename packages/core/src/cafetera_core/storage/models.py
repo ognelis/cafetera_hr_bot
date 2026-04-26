@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -15,6 +16,7 @@ class DocumentStatus(StrEnum):
     processing = "processing"
     completed = "completed"
     failed = "failed"
+    stale = "stale"
 
 
 class DocumentRecord(BaseModel):
@@ -34,3 +36,4 @@ class DocumentRecord(BaseModel):
     updated_at: datetime
     indexed_at: datetime | None = None
     chunk_count: int = 0
+    indexing_config: dict[str, Any] | None = None

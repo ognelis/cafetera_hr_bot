@@ -93,6 +93,7 @@
         <li><a @click.prevent="statusFilter = 'processing'" :class="statusFilter === 'processing' ? 'active' : ''">Индексация</a></li>
         <li><a @click.prevent="statusFilter = 'pending'" :class="statusFilter === 'pending' ? 'active' : ''">Ожидание</a></li>
         <li><a @click.prevent="statusFilter = 'failed'" :class="statusFilter === 'failed' ? 'active' : ''">Ошибка</a></li>
+        <li><a @click.prevent="statusFilter = 'stale'" :class="statusFilter === 'stale' ? 'active' : ''">Устарел</a></li>
       </ul>
     </div>
 

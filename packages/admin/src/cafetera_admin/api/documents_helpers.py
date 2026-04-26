@@ -76,6 +76,7 @@ def _doc_to_dict(doc: DocumentRecord) -> dict:
         updated_at=doc.updated_at.isoformat(),
         indexed_at=doc.indexed_at.isoformat() if doc.indexed_at else None,
         chunk_count=doc.chunk_count,
+        indexing_config=doc.indexing_config,
     ).model_dump()
 
 

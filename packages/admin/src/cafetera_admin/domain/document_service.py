@@ -22,6 +22,7 @@ from cafetera_admin.indexer import (
     prepare_chunks,
     set_search_enabled,
 )
+from cafetera_core.config import build_indexing_config
 from cafetera_core.storage.models import DocumentRecord, DocumentStatus
 
 if TYPE_CHECKING:
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
     from qdrant_client import AsyncQdrantClient
 
+    from cafetera_core.config import CoreSettings
     from cafetera_core.storage.document_repo import DocumentRepository
     from cafetera_core.storage.s3 import S3Storage
 
@@ -50,6 +52,7 @@ class DocumentService:
         collection_name: str = "hr_documents",
         sparse_embedding: object | None = None,
         colbert_embedding: object | None = None,
+        settings: CoreSettings | None = None,
     ) -> None:
         self._repo = repo
         self._qdrant = qdrant_client
@@ -57,6 +60,7 @@ class DocumentService:
         self._collection = collection_name
         self._sparse_embedding = sparse_embedding
         self._colbert_embedding = colbert_embedding
+        self._settings = settings
 
     # ── S3 key helpers ─────────────────────────────────────────────
 
@@ -157,6 +161,11 @@ class DocumentService:
                 chunk_count=count,
                 indexed_at=datetime.now(UTC),
                 error=None,
+                indexing_config=(
+                    build_indexing_config(self._settings)
+                    if self._settings
+                    else None
+                ),
             )
         except Exception as exc:
             logger.error(
@@ -228,6 +237,10 @@ class DocumentService:
 
         The caller is responsible for parsing the file into *chunks*
         (e.g. by downloading from MinIO and running the docx splitter).
+
+        After successful reindexing the document is always restored to
+        ``completed`` with ``is_search_enabled=True`` (handles the
+        ``stale`` -> ``completed`` transition).
         """
         record = await self._repo.get(document_id)
         if record is None:
@@ -240,12 +253,13 @@ class DocumentService:
         try:
             await delete_document_chunks(self._qdrant, self._collection, document_id)
 
+            # Always index with is_search_enabled=True — fresh chunks are valid.
             enriched = prepare_chunks(
                 chunks,
                 document_id=document_id,
                 filename=record.filename,
                 s3_key=record.s3_key,
-                is_search_enabled=record.is_search_enabled,
+                is_search_enabled=True,
             )
             count = await index_chunks(
                 self._qdrant,
@@ -266,12 +280,20 @@ class DocumentService:
                     exc_info=True,
                 )
 
+            # Atomically set status + is_search_enabled so the UI never
+            # sees completed with is_search_enabled=False.
             return await self._repo.update(
                 document_id,
                 status=DocumentStatus.completed,
+                is_search_enabled=True,
                 chunk_count=count,
                 indexed_at=datetime.now(UTC),
                 error=None,
+                indexing_config=(
+                    build_indexing_config(self._settings)
+                    if self._settings
+                    else None
+                ),
             )
         except Exception as exc:
             logger.error(

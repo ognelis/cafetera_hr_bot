@@ -100,7 +100,8 @@ document.addEventListener('alpine:init', () => {
         completed: 'Готов',
         processing: 'Индексация',
         pending: 'Ожидание',
-        failed: 'Ошибка'
+        failed: 'Ошибка',
+        stale: 'Устарел'
       };
       return labels[this.statusFilter] || 'Все';
     },

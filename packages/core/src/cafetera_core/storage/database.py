@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS documents (
     created_at      TIMESTAMPTZ    NOT NULL,
     updated_at      TIMESTAMPTZ    NOT NULL,
     indexed_at      TIMESTAMPTZ,
-    chunk_count     INTEGER NOT NULL DEFAULT 0
+    chunk_count     INTEGER NOT NULL DEFAULT 0,
+    indexing_config TEXT
 );
 """
 
@@ -49,9 +50,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_cat_sub_entity
 """
 
 
+_ADD_INDEXING_CONFIG_COLUMN = """\
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS indexing_config TEXT;
+"""
+
+
 async def init_db(db: Database) -> None:
     """Create the database tables if they do not exist yet."""
     await db.execute(query=_CREATE_DOCUMENTS_TABLE)
+    await db.execute(query=_ADD_INDEXING_CONFIG_COLUMN)
     await db.execute(query=_CREATE_CATEGORY_FILES_TABLE)
     await db.execute(query=_CREATE_CATEGORY_FILES_INDEX)
     logger.info("Database tables initialised")

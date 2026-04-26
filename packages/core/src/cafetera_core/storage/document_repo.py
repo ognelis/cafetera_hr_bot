@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -27,11 +28,14 @@ _COLUMNS = (
     "updated_at",
     "indexed_at",
     "chunk_count",
+    "indexing_config",
 )
 
 
 def _row_to_record(row: Any) -> DocumentRecord:
     """Convert a database row to a ``DocumentRecord``."""
+    raw_config = row["indexing_config"]
+    indexing_config = json.loads(raw_config) if raw_config else None
     return DocumentRecord(
         id=row["id"],
         document_id=row["document_id"],
@@ -47,6 +51,7 @@ def _row_to_record(row: Any) -> DocumentRecord:
         updated_at=row["updated_at"],
         indexed_at=row["indexed_at"],
         chunk_count=row["chunk_count"],
+        indexing_config=indexing_config,
     )
 
 
@@ -78,10 +83,12 @@ class DocumentRepository:
                 INSERT INTO documents
                     (document_id, filename, title, s3_key, mime_type,
                      size_bytes, status, is_search_enabled, error,
-                     created_at, updated_at, indexed_at, chunk_count)
+                     created_at, updated_at, indexed_at, chunk_count,
+                     indexing_config)
                 VALUES (:document_id, :filename, :title, :s3_key, :mime_type,
                         :size_bytes, :status, :is_search_enabled, :error,
-                        :created_at, :updated_at, :indexed_at, :chunk_count)
+                        :created_at, :updated_at, :indexed_at, :chunk_count,
+                        :indexing_config)
                 RETURNING id
             """,
             values={
@@ -98,6 +105,11 @@ class DocumentRepository:
                 "updated_at": record.updated_at,
                 "indexed_at": record.indexed_at,
                 "chunk_count": record.chunk_count,
+                "indexing_config": (
+                    json.dumps(record.indexing_config)
+                    if record.indexing_config
+                    else None
+                ),
             },
         )
         record = record.model_copy(update={"id": row_id})
@@ -214,9 +226,11 @@ class DocumentRepository:
         *,
         title: str | None = None,
         status: DocumentStatus | None = None,
+        is_search_enabled: bool | _SentinelType = _SENTINEL,
         error: str | None | _SentinelType = _SENTINEL,
         chunk_count: int | None = None,
         indexed_at: datetime | None | _SentinelType = _SENTINEL,
+        indexing_config: dict | None | _SentinelType = _SENTINEL,
     ) -> DocumentRecord | None:
         """Update selected fields of a document.  Returns the updated record."""
         sets: list[str] = []
@@ -236,6 +250,10 @@ class DocumentRepository:
             param = _next_param()
             sets.append(f"status = :{param}")
             params[param] = status.value
+        if not isinstance(is_search_enabled, _SentinelType):
+            param = _next_param()
+            sets.append(f"is_search_enabled = :{param}")
+            params[param] = is_search_enabled
         if not isinstance(error, _SentinelType):
             param = _next_param()
             sets.append(f"error = :{param}")
@@ -248,6 +266,12 @@ class DocumentRepository:
             param = _next_param()
             sets.append(f"indexed_at = :{param}")
             params[param] = indexed_at
+        if not isinstance(indexing_config, _SentinelType):
+            param = _next_param()
+            sets.append(f"indexing_config = :{param}")
+            params[param] = (
+                json.dumps(indexing_config) if indexing_config else None
+            )
 
         if not sets:
             return await self.get(document_id)

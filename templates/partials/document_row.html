@@ -28,6 +28,13 @@
       </span>
     {% elif doc.status.value == 'completed' %}
       <span class="badge badge-success badge-sm">Готов</span>
+    {% elif doc.status.value == 'stale' %}
+      <span class="badge badge-warning badge-sm tooltip" data-tip="Необходима переиндексация — конфигурация эмбеддингов изменилась">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182" />
+        </svg>
+        Устарел
+      </span>
     {% elif doc.status.value == 'failed' %}
       <span class="badge badge-error badge-sm tooltip" data-tip="{{ doc.error or 'Неизвестная ошибка' }}">
         <svg xmlns="http://www.w3.org/2000/svg" class="size-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -45,12 +52,13 @@
         type="checkbox"
         class="checkbox checkbox-sm checkbox-primary"
         {% if doc.is_search_enabled %}checked{% endif %}
+        {% if doc.status.value == 'stale' %}disabled{% endif %}
         hx-patch="/api/documents/{{ doc.document_id }}/search"
         hx-target="#row-{{ doc.document_id }}"
         hx-swap="outerHTML"
         hx-vals='{"enabled": "{{ 'false' if doc.is_search_enabled else 'true' }}"}'
         hx-trigger="change"
-        title="{{ 'Выключить из поиска' if doc.is_search_enabled else 'Включить в поиск' }}"
+        title="{% if doc.status.value == 'stale' %}Документ устарел — переиндексируйте для включения в поиск{% elif doc.is_search_enabled %}Выключить из поиска{% else %}Включить в поиск{% endif %}"
       />
     </form>
   </td>

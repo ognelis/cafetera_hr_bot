@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from pydantic_settings import BaseSettings
 
@@ -65,3 +66,27 @@ class CoreSettings(BaseSettings):
 
 # Backward compatibility alias — will be removed after full migration
 Settings = CoreSettings
+
+
+def build_indexing_config(settings: CoreSettings) -> dict[str, Any]:
+    """Extract RAG-relevant config fields into a plain dict for per-document storage.
+
+    This snapshot is stored alongside each document so that staleness can be
+    detected when any of these parameters change.
+    """
+    return {
+        "embedding_provider": settings.embedding_provider,
+        "embedding_model": settings.embedding_model,
+        "chunk_size": settings.chunk_size,
+        "chunker_tokenizer_model": settings.chunker_tokenizer_model,
+        "sparse_embedding_model": settings.sparse_embedding_model,
+        "reranking_enabled": settings.reranking_enabled,
+        "colbert_rerank_model": settings.colbert_rerank_model,
+    }
+
+
+def is_config_stale(stored: dict[str, Any] | None, current: dict[str, Any]) -> bool:
+    """Return ``True`` if the stored indexing config differs from *current* or is missing."""
+    if stored is None:
+        return True
+    return stored != current

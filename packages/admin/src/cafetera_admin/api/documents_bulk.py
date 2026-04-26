@@ -221,3 +221,6 @@ async def bulk_toggle_search(
         "partials/document_table.html",
         dict(_document_table_context(documents=documents, total=total)),
     )
+
+
+

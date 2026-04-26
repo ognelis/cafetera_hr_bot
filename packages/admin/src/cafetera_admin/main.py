@@ -69,6 +69,7 @@ async def lifespan(app: FastAPI):
             collection_name=settings.qdrant_collection,
             sparse_embedding=res.sparse_embeddings,
             colbert_embedding=res.colbert_embeddings,
+            settings=settings,
         )
     else:
         app.state.doc_service = None
@@ -78,12 +79,28 @@ async def lifespan(app: FastAPI):
         and res.embeddings is not None
         and res.llm is not None
     ):
-        app.state.qa_service = res.build_qa_service(GLOBAL_EXPERTS_PROMPT)
+        app.state.qa_service = res.build_qa_service(GLOBAL_EXPERTS_PROMPT, include_metadata=True)
     else:
         app.state.qa_service = None
 
     app.state.category_file_service = res.category_file_service
     app.state.indexing_semaphore = asyncio.Semaphore(settings.max_concurrent_indexing)
+
+    # Detect documents indexed with outdated RAG config and mark them stale
+    if res.doc_repo is not None and res.qdrant_client is not None:
+        try:
+            from cafetera_admin.domain.staleness import detect_and_mark_stale
+            from cafetera_core.config import build_indexing_config
+
+            current_config = build_indexing_config(settings)
+            await detect_and_mark_stale(
+                doc_repo=res.doc_repo,
+                qdrant_client=res.qdrant_client,
+                collection_name=settings.qdrant_collection,
+                current_config=current_config,
+            )
+        except Exception:
+            logger.warning("Startup staleness check failed", exc_info=True)
 
     yield
 
