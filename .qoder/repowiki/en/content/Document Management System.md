@@ -2,11 +2,14 @@
 
 <cite>
 **Referenced Files in This Document**
-- [packages/admin/src/cafetera_admin/domain/document_service.py](file://packages/admin/src/cafetera_admin/domain/document_service.py)
+- [packages/admin/src/cafetera_admin/parser.py](file://packages/admin/src/cafetera_admin/parser.py)
+- [packages/admin/src/cafetera_admin/api/documents_upload.py](file://packages/admin/src/cafetera_admin/api/documents_upload.py)
+- [packages/admin/src/cafetera_admin/api/documents_helpers.py](file://packages/admin/src/cafetera_admin/api/documents_helpers.py)
 - [packages/admin/src/cafetera_admin/indexer.py](file://packages/admin/src/cafetera_admin/indexer.py)
+- [packages/admin/src/cafetera_admin/main.py](file://packages/admin/src/cafetera_admin/main.py)
+- [packages/core/src/cafetera_core/config.py](file://packages/core/src/cafetera_core/config.py)
 - [packages/admin/src/cafetera_admin/api/documents.py](file://packages/admin/src/cafetera_admin/api/documents.py)
 - [packages/admin/src/cafetera_admin/api/deps.py](file://packages/admin/src/cafetera_admin/api/deps.py)
-- [packages/admin/src/cafetera_admin/main.py](file://packages/admin/src/cafetera_admin/main.py)
 - [packages/core/src/cafetera_core/domain/qa_service.py](file://packages/core/src/cafetera_core/domain/qa_service.py)
 - [packages/core/src/cafetera_core/storage/models.py](file://packages/core/src/cafetera_core/storage/models.py)
 - [packages/core/src/cafetera_core/storage/document_repo.py](file://packages/core/src/cafetera_core/storage/document_repo.py)
@@ -16,17 +19,18 @@
 - [packages/core/src/cafetera_core/rag/retriever.py](file://packages/core/src/cafetera_core/rag/retriever.py)
 - [packages/core/src/cafetera_core/rag/chain.py](file://packages/core/src/cafetera_core/rag/chain.py)
 - [packages/core/src/cafetera_core/rag/prompts.py](file://packages/core/src/cafetera_core/rag/prompts.py)
-- [tests/test_document_service.py](file://tests/test_document_service.py)
+- [tests/test_parser.py](file://tests/test_parser.py)
 - [tests/conftest.py](file://tests/conftest.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated DocumentService import paths from core package to admin package
-- Extracted indexing functionality to dedicated indexer module in admin package
-- Updated import statements to reflect new package organization
-- Modified API dependencies to use new admin package imports
-- Updated test configurations to reference new admin package locations
+- Updated to reflect removal of custom DOCX, DOC, and XLSX parsing implementations
+- Updated to reflect new Docling-based processing system with enhanced metadata extraction
+- Updated to reflect simplified chunking approach using HybridChunker
+- Updated to reflect enhanced Docling model caching and offline mode support
+- Updated to reflect removal of legacy DOC format support
+- Updated to reflect enhanced metadata extraction from Docling chunks
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -62,7 +66,7 @@
 
 The Document Management System is a comprehensive RAG (Retrieval-Augmented Generation) platform designed for HR document processing and management. Built with FastAPI, the system provides a web-based administrative interface for uploading, managing, and organizing HR-related documents while maintaining a robust backend for AI-powered document retrieval and processing.
 
-**Updated** The system has undergone significant architectural changes with the relocation of DocumentService from the core package to the admin package and the extraction of indexing functionality to a dedicated indexer module. These changes improve code organization, separation of concerns, and maintainability while preserving all existing functionality. The DocumentService now resides in `packages/admin/src/cafetera_admin/domain/document_service.py` and indexing operations are handled by `packages/admin/src/cafetera_admin/indexer.py`. Import paths have been updated throughout the codebase to reflect the new package structure, and the modular router architecture continues to provide comprehensive functionality for document management operations.
+**Updated** The system has undergone a significant transformation with the complete removal of custom DOCX, DOC, and XLSX parsing implementations in favor of a unified Docling-based processing system. This new architecture leverages Docling for PDF, DOCX, and XLSX document parsing with enhanced metadata extraction and simplified chunking using HybridChunker. The system now supports DOCX, PDF, and XLSX formats while removing legacy DOC format support. The Docling integration provides improved document structure preservation, enhanced metadata extraction, and more reliable parsing across different document types. The new system maintains all existing functionality while offering superior document processing capabilities through the Docling ecosystem.
 
 ## System Architecture
 
@@ -70,11 +74,12 @@ The Document Management System follows a layered architecture pattern with clear
 
 ```mermaid
 graph TB
-subgraph "Enhanced Package Organization"
-AdminPackage[Admin Package Structure]
-CorePackage[Core Package Structure]
-IndexerModule[Indexer Module]
-DocumentService[DocumentService Class]
+subgraph "Docling-Based Processing Architecture"
+DoclingParser[Docling Parser with HybridChunker]
+ModelCaching[Model Caching & Offline Mode]
+DoclingLoader[LangChain Docling Loader]
+HybridChunker[HybridChunker with Tokenizer]
+EnhancedMetadata[Enhanced Metadata Extraction]
 EndUserExperience[Enhanced User Experience]
 end
 subgraph "PostgreSQL Storage Architecture"
@@ -171,19 +176,19 @@ subgraph "External Services"
 S3[MinIO/S3 Storage]
 Qdrant[Qdrant Vector DB]
 LLM[LLM Provider]
-Parser[Enhanced Parser]
 EndUserIntegration[Enhanced Integration]
 end
-AdminPackage --> DocumentService
-AdminPackage --> IndexerModule
-CorePackage --> QAService
-DocumentService --> IndexerModule
-DocumentService --> Repo
-DocumentService --> CategoryRepo
-DocumentService --> Qdrant
-DocumentService --> S3
-IndexerModule --> Qdrant
-IndexerModule --> S3
+DoclingParser --> ModelCaching
+DoclingParser --> DoclingLoader
+DoclingParser --> HybridChunker
+DoclingParser --> EnhancedMetadata
+DoclingLoader --> HybridChunker
+HybridChunker --> EnhancedMetadata
+EnhancedMetadata --> Service
+Service --> Repo
+Service --> CategoryRepo
+Service --> Qdrant
+Service --> S3
 AsyncDocumentService --> AsyncIndexer
 AsyncDocumentService --> AsyncSemaphore
 AsyncDocumentService --> AsyncBackgroundTasks
@@ -231,8 +236,8 @@ BulkOps --> Service
 BulkOps --> Repo
 BulkOps --> AsyncSemaphore
 BatchPoller --> OOBSwapper
-FormatHandler --> FormatDispatch
-FormatHandler --> Parser
+FormatHandler --> EnhancedMetadata
+FormatHandler --> DoclingParser
 FormatHandler --> DocXValidator
 FilterSortAPI --> FilterSortDB
 FilterSortAPI --> DateRangeUtility
@@ -245,15 +250,15 @@ EndUserTracking --> RecentlyFinished
 ```
 
 **Diagram sources**
-- [packages/admin/src/cafetera_admin/domain/document_service.py:18-24](file://packages/admin/src/cafetera_admin/domain/document_service.py#L18-L24)
-- [packages/admin/src/cafetera_admin/indexer.py:18-21](file://packages/admin/src/cafetera_admin/indexer.py#L18-L21)
-- [packages/admin/src/cafetera_admin/api/documents.py:39-75](file://packages/admin/src/cafetera_admin/api/documents.py#L39-L75)
-- [packages/admin/src/cafetera_admin/api/deps.py:13-18](file://packages/admin/src/cafetera_admin/api/deps.py#L13-L18)
-- [packages/core/src/cafetera_core/domain/qa_service.py:96-114](file://packages/core/src/cafetera_core/domain/qa_service.py#L96-L114)
+- [packages/admin/src/cafetera_admin/parser.py:19-42](file://packages/admin/src/cafetera_admin/parser.py#L19-L42)
+- [packages/admin/src/cafetera_admin/parser.py:45-71](file://packages/admin/src/cafetera_admin/parser.py#L45-L71)
+- [packages/admin/src/cafetera_admin/parser.py:91-104](file://packages/admin/src/cafetera_admin/parser.py#L91-L104)
+- [packages/admin/src/cafetera_admin/api/documents_upload.py:106-144](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L106-L144)
+- [packages/admin/src/cafetera_admin/main.py:41-48](file://packages/admin/src/cafetera_admin/main.py#L41-L48)
 
 The architecture consists of five main layers with enhanced modular organization, comprehensive document type handling, modernized frontend capabilities, and revolutionary HTMX partial response system:
 
-1. **Enhanced Package Organization**: The system now features improved package organization with DocumentService relocated to the admin package (`packages/admin/src/cafetera_admin/domain/document_service.py`) and indexing functionality extracted to a dedicated indexer module (`packages/admin/src/cafetera_admin/indexer.py`). This separation improves code organization and maintainability while preserving all functionality.
+1. **Docling-Based Processing Architecture**: The system now features a unified Docling-based processing system that replaces custom parsing implementations. The DoclingParser uses DoclingLoader with HybridChunker for enhanced document parsing, including model caching and offline mode support. The system extracts enhanced metadata from Docling chunks, including page numbers, headings, and document structure information. Model caching ensures offline operation by downloading and storing tokenizer and Docling models during application startup.
 
 2. **PostgreSQL Storage Architecture**: The system now uses PostgreSQL as the primary database with timezone-aware timestamps, SERIAL primary keys, ON CONFLICT upsert operations, and RETURNING clauses for generated IDs. The database schema includes enhanced search capabilities, pagination support, and advanced date range filtering with proper timezone handling.
 
@@ -261,15 +266,15 @@ The architecture consists of five main layers with enhanced modular organization
 
 4. **Modular Router Architecture**: The system now uses specialized routers for different functional areas with router composition maintaining backward compatibility. The main `documents.py` router includes authentication, upload, bulk operations, and QA routers while preserving all existing endpoints and functionality.
 
-5. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, DOC, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, comprehensive status polling system with automatic activation, HTMX OOB swapping for efficient row updates, enhanced user experience with real-time status monitoring, and centralized batch status management.
+5. **Presentation Layer**: Web interface built with FastAPI and Jinja2 templates, real-time search with HTMX, dynamic pagination controls, visual status indicators, bulk actions toolbar, enhanced date range filtering, format-specific icon display for DOCX, PDF, and XLSX formats, enhanced table styling with rounded corners, sophisticated background styling, improved visual hierarchy, overlay mobile sidebar with responsive design, toast notification system, document-specific question modal with Alpine.js integration, global question modal with SSE streaming, real-time SSE client for streaming responses, enhanced user interaction patterns, comprehensive status polling system with automatic activation, HTMX OOB swapping for efficient row updates, enhanced user experience with real-time status monitoring, and centralized batch status management.
 
 6. **Application Layer**: Business logic encapsulated in domain services and API routers with format-aware endpoints, enhanced status management with batch polling, comprehensive operation orchestration, dual-format processing capabilities, semaphore-based concurrency control for background tasks, batch status polling system with recently finished documents tracking, out-of-band HTML swapping for efficient updates, document-specific question-answering handler with streaming support, global question-answering handler with streaming support, specialized document-scoped retriever implementation, specialized global retriever implementation, streaming response handler for real-time feedback, unified document indexing function for background processing, centralized date range parsing utility, template context management for consistent rendering, DOCX integrity validation for file content verification, HTMX partial response system with OOB swapping capabilities, and enhanced user management with automatic polling control.
 
-7. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms supporting DOCX, DOC, and XLSX formats, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, recently finished documents tracking for status updates, and enhanced monitoring capabilities for user activity.
+7. **Domain Layer**: Core business entities and state management for bot interactions plus bulk operation request models, format detection mechanisms supporting DOCX, PDF, and XLSX formats, document-scoped retriever construction for focused document queries, global retriever construction for knowledge base-wide queries, streaming question answering capabilities, recently finished documents tracking for status updates, and enhanced monitoring capabilities for user activity.
 
 8. **Data Access Layer**: Async repository pattern for PostgreSQL database operations with comprehensive search functionality, pagination support, advanced date range filtering capabilities, format-specific metadata tracking for all supported document types, enhanced filtering/sorting database operations, recently finished documents functionality for status tracking, and enhanced tracking for user interactions and document processing.
 
-9. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced parser support for DOC, DOCX, and XLSX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, streaming response generation for real-time feedback, and enhanced integration with HTMX for real-time UI updates.
+9. **Integration Layer**: External services for storage, vector databases, and AI providers with enhanced Docling-based parser support for DOCX, PDF, and XLSX formats, proper resource management, document-scoped retrieval capabilities, global retrieval capabilities, streaming response generation for real-time feedback, and enhanced integration with HTMX for real-time UI updates.
 
 ## Core Components
 
@@ -288,10 +293,14 @@ participant Service as DocumentService
 participant QAService as QAService
 participant Semaphore as Asyncio Semaphore
 participant HTMX as HTMX Engine
+participant Docling as Docling Parser
 App->>Config : Load configuration with PostgreSQL URL
 App->>DB : Initialize PostgreSQL with asyncpg driver
 App->>S3 : Connect to storage
 App->>Qdrant : Connect to vector database
+App->>Docling : Cache models and enable offline mode
+Docling->>Docling : Download tokenizer and Docling models
+Docling->>Docling : Enable HF_HUB_OFFLINE and TRANSFORMERS_OFFLINE
 App->>Service : Create document service with async operations
 App->>QAService : Initialize QA service with global and document-scoped retrievers
 App->>Semaphore : Initialize with max_concurrent_indexing
@@ -300,6 +309,7 @@ App->>App : Register modular routers and templates
 ```
 
 **Diagram sources**
+- [packages/admin/src/cafetera_admin/main.py:41-48](file://packages/admin/src/cafetera_admin/main.py#L41-L48)
 - [packages/admin/src/cafetera_admin/main.py:90-113](file://packages/admin/src/cafetera_admin/main.py#L90-L113)
 - [packages/admin/src/cafetera_admin/api/deps.py:13-18](file://packages/admin/src/cafetera_admin/api/deps.py#L13-L18)
 
@@ -343,6 +353,7 @@ CategoryFileRepository --> CategoryFileRecord : returns
 - [packages/core/src/cafetera_core/storage/category_repo.py:63-95](file://packages/core/src/cafetera_core/storage/category_repo.py#L63-L95)
 
 **Section sources**
+- [packages/admin/src/cafetera_admin/main.py:41-48](file://packages/admin/src/cafetera_admin/main.py#L41-L48)
 - [packages/admin/src/cafetera_admin/main.py:90-113](file://packages/admin/src/cafetera_admin/main.py#L90-L113)
 - [packages/admin/src/cafetera_admin/api/deps.py:13-18](file://packages/admin/src/cafetera_admin/api/deps.py#L13-L18)
 - [packages/admin/src/cafetera_admin/api/documents.py:39-75](file://packages/admin/src/cafetera_admin/api/documents.py#L39-L75)
@@ -360,8 +371,8 @@ Start([Document Upload]) --> DetectFormat[Detect Document Format]
 DetectFormat --> Validate[Validate File Type & Size]
 Validate --> Upload[Upload to S3 Storage]
 Upload --> CreateMeta[Create Metadata Record in PostgreSQL]
-CreateMeta --> Parse[Parse DOC/DOCX/XLSX Content]
-Parse --> Chunk[Chunk Text Content]
+CreateMeta --> Parse[Parse with Docling Parser]
+Parse --> Chunk[Chunk with HybridChunker]
 Chunk --> Index[Index in Qdrant Vector DB]
 Index --> Complete[Mark as Completed]
 Validate --> |Invalid| Error[Return Error Response]
@@ -395,7 +406,7 @@ end
 subgraph "Unified Background Processing with Concurrency Control"
 Parse --> Download[Download from S3]
 Download --> TempFile[Create Temporary File]
-TempFile --> Process[Process Content]
+TempFile --> Process[Process with Docling]
 Process --> Semaphore[Acquire Semaphore]
 Semaphore --> UnifiedIndexing[_index_document_from_s3 Function]
 UnifiedIndexing --> Indexed[Indexed Successfully]
@@ -437,12 +448,18 @@ DownloadRequest --> RFC5987Encoding[RFC 5987 Filename Encoding]
 RFC5987Encoding --> InternationalChars[International Characters Support]
 InternationalChars --> End
 end
+subgraph "Enhanced Docling Model Caching"
+Complete --> ModelCache[Cache Models at Startup]
+ModelCache --> OfflineMode[Enable Offline Mode]
+OfflineMode --> End
+end
 ```
 
 **Diagram sources**
-- [packages/admin/src/cafetera_admin/api/documents.py:327-332](file://packages/admin/src/cafetera_admin/api/documents.py#L327-L332)
-- [packages/admin/src/cafetera_admin/domain/document_service.py:109-170](file://packages/admin/src/cafetera_admin/domain/document_service.py#L109-L170)
-- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/admin/src/cafetera_admin/api/documents_upload.py:146-255](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L146-L255)
+- [packages/admin/src/cafetera_admin/api/documents_upload.py:106-144](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L106-L144)
+- [packages/admin/src/cafetera_admin/parser.py:19-42](file://packages/admin/src/cafetera_admin/parser.py#L19-L42)
+- [packages/admin/src/cafetera_admin/parser.py:91-104](file://packages/admin/src/cafetera_admin/parser.py#L91-L104)
 - [packages/core/src/cafetera_core/domain/qa_service.py:189-214](file://packages/core/src/cafetera_core/domain/qa_service.py#L189-L214)
 - [packages/core/src/cafetera_core/domain/qa_service.py:250-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L250-L279)
 - [packages/core/src/cafetera_core/storage/document_repo.py:72-104](file://packages/core/src/cafetera_core/storage/document_repo.py#L72-L104)
@@ -456,10 +473,10 @@ The system implements comprehensive validation for uploaded documents with enhan
 
 | Validation Step | Criteria | Action |
 |----------------|----------|---------|
-| File Extension | .docx, .doc, and .xlsx allowed | Accept all three formats |
+| File Extension | .docx, .pdf, and .xlsx allowed | Accept all three formats |
 | File Size | Maximum 10MB | Reject if exceeded |
-| Content Type | DOCX/DOC/XLSX MIME types | Validate against allowed types |
-| Format Detection | Automatic extension-based detection | Route to appropriate parser |
+| Content Type | DOCX/PDF/XLSX MIME types | Validate against allowed types |
+| Format Detection | Automatic extension-based detection | Route to Docling parser |
 | Duplicate Prevention | Unique S3 keys | Append counter suffix |
 | Concurrency Control | Semaphore-based throttling | Limit concurrent indexing operations |
 | Status Tracking | Real-time status updates | Provide immediate feedback during processing |
@@ -470,8 +487,12 @@ The system implements comprehensive validation for uploaded documents with enhan
 | Template Context | Centralized rendering management | Ensure consistent UI rendering |
 | DOCX Integrity | Zip file validation | Check word/document.xml presence |
 | Spreadsheet Processing | XLSX workbook parsing | Handle multiple worksheets |
-| **Updated** | **Enhanced Package Organization** | **DocumentService relocated to admin package, indexing extracted to dedicated module** |
-| **Updated** | **Improved Import Paths** | **All imports updated to reflect new package structure** |
+| **Updated** | **Enhanced Docling Integration** | **Unified parsing with Docling for all formats** |
+| **Updated** | **Removed Legacy DOC Support** | **Legacy .doc format no longer supported** |
+| **Updated** | **Enhanced Metadata Extraction** | **Extract page numbers, headings, and document structure** |
+| **Updated** | **Model Caching** | **Cache tokenizer and Docling models at startup** |
+| **Updated** | **Offline Mode Support** | **Enable offline operation after initial cache** |
+| **Updated** | **HybridChunker Integration** | **Simplified chunking with token-based sizing** |
 | **Updated** | **Router Architecture Testing** | **Validates modular router composition and backward compatibility** |
 | **Updated** | **Async Operations Testing** | **Comprehensive async operation validation** |
 | **Updated** | **Streaming Response Testing** | **Extensive SSE streaming response testing** |
@@ -481,13 +502,15 @@ The system implements comprehensive validation for uploaded documents with enhan
 | **Updated** | **Upload Operations Testing** | **File upload, validation, and background indexing testing** |
 | **Updated** | **Bulk Operations Testing** | **Delete, reindex, and search toggle operations testing** |
 
-**Updated** The validation system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the appropriate parser based on file extension, ensuring proper handling of legacy DOC files, modern DOCX files, and spreadsheet XLSX files. The new DOCX integrity checking using `_validate_docx_bytes()` function verifies that DOCX files contain valid content by checking for the required word/document.xml structure within the ZIP archive. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The new `load_xlsx()` function in the parser module handles spreadsheet processing with worksheet-based sectioning and row formatting. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the `GLOBAL_EXPERTS_PROMPT` system prompt and specialized retriever construction. The revolutionary HTMX partial response system now includes proper OOB swapping capabilities for dynamic document row updates, automatic status polling activation that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The system now tracks recently finished documents within a 10-second window to provide final status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The enhanced async architecture now provides comprehensive semaphore-based concurrency control for background indexing operations, direct async operations throughout the document service, and streamlined background processing with improved error handling and resource management. The PostgreSQL migration provides enterprise-grade database capabilities with proper timezone handling, concurrent access support, and improved error handling.
+**Updated** The validation system now supports DOCX, PDF, and XLSX formats with comprehensive MIME type validation. The format detection mechanism automatically routes documents to the Docling parser based on file extension, ensuring proper handling of DOCX, PDF, and XLSX files. The new Docling-based parsing system provides enhanced document structure preservation and metadata extraction. The Docling integration includes model caching functionality that downloads and stores tokenizer and Docling models during application startup, followed by enabling offline mode to prevent subsequent network requests. The HybridChunker provides simplified chunking with token-based sizing and overlap management. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new global question-answering capability provides comprehensive knowledge base access through the `GLOBAL_EXPERTS_PROMPT` system prompt and specialized retriever construction. The revolutionary HTMX partial response system now includes proper OOB swapping capabilities for dynamic document row updates, automatic status polling activation that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The system now tracks recently finished documents within a 10-second window to provide final status updates, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The enhanced async architecture now provides comprehensive semaphore-based concurrency control for background indexing operations, direct async operations throughout the document service, and streamlined background processing with improved error handling and resource management. The PostgreSQL migration provides enterprise-grade database capabilities with proper timezone handling, concurrent access support, and improved error handling.
 
 **Section sources**
-- [packages/admin/src/cafetera_admin/api/documents.py:327-332](file://packages/admin/src/cafetera_admin/api/documents.py#L327-L332)
-- [packages/admin/src/cafetera_admin/api/deps.py:13-18](file://packages/admin/src/cafetera_admin/api/deps.py#L13-L18)
-- [packages/admin/src/cafetera_admin/domain/document_service.py:109-170](file://packages/admin/src/cafetera_admin/domain/document_service.py#L109-L170)
-- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/admin/src/cafetera_admin/api/documents_upload.py:146-255](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L146-L255)
+- [packages/admin/src/cafetera_admin/api/documents_upload.py:106-144](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L106-L144)
+- [packages/admin/src/cafetera_admin/api/documents_helpers.py:14-28](file://packages/admin/src/cafetera_admin/api/documents_helpers.py#L14-L28)
+- [packages/admin/src/cafetera_admin/parser.py:19-42](file://packages/admin/src/cafetera_admin/parser.py#L19-L42)
+- [packages/admin/src/cafetera_admin/parser.py:45-71](file://packages/admin/src/cafetera_admin/parser.py#L45-L71)
+- [packages/admin/src/cafetera_admin/parser.py:91-104](file://packages/admin/src/cafetera_admin/parser.py#L91-L104)
 - [packages/core/src/cafetera_core/domain/qa_service.py:189-214](file://packages/core/src/cafetera_core/domain/qa_service.py#L189-L214)
 - [packages/core/src/cafetera_core/domain/qa_service.py:250-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L250-L279)
 - [packages/core/src/cafetera_core/storage/document_repo.py:72-104](file://packages/core/src/cafetera_core/storage/document_repo.py#L72-L104)
@@ -515,9 +538,9 @@ API->>UploadRouter : Upload operations
 API->>BulkRouter : Bulk operations
 API->>QARouter : QA operations
 API->>Repo : list_page(search=query, status=completed, source_type=xlsx, sort_field=title, sort_dir=asc, page=1, per_page=10)
-Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.doc' OR filename LIKE '%.xlsx') ORDER BY LOWER(title) ASC
+Repo->>DB : SELECT COUNT(*) WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.pdf' OR filename LIKE '%.xlsx') ORDER BY LOWER(title) ASC
 DB-->>Repo : Total count
-Repo->>DB : SELECT ... WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.doc' OR filename LIKE '%.xlsx') ORDER BY LOWER(title) ASC LIMIT 10 OFFSET 0
+Repo->>DB : SELECT ... WHERE LOWER(title) LIKE LOWER(?) AND status = ? AND (filename LIKE '%.docx' OR filename LIKE '%.pdf' OR filename LIKE '%.xlsx') ORDER BY LOWER(title) ASC LIMIT 10 OFFSET 0
 DB-->>Repo : Documents with pagination
 Repo-->>API : (documents, total)
 API-->>Client : JSON with filtered and sorted results
@@ -536,7 +559,7 @@ The filtering system provides comprehensive filtering capabilities across multip
 - **Case-insensitive matching**: Uses `LOWER()` function for case-insensitive pattern matching
 - **Dual-field search**: Searches both document titles and filenames simultaneously
 - **Status filtering**: Filters by processing status (pending, processing, completed, failed)
-- **Source type filtering**: Distinguishes between DOCX, DOC, XLSX, and other document types
+- **Source type filtering**: Distinguishes between DOCX, PDF, XLSX, and other document types
 - **Real-time filtering**: Integrated with HTMX for immediate filtered results
 - **Pattern matching**: Supports partial matches with wildcard patterns
 - **Performance optimization**: Efficient LIKE queries with proper indexing considerations
@@ -561,7 +584,7 @@ The system supports the following parameters:
 |-----------|------|-------------|
 | `search` | String | Search query for filtering documents by title or filename |
 | `status` | String | Filter by processing status (all, completed, processing, pending, failed) |
-| `source_type` | String | Filter by document type (all, docx, doc, xlsx, other) |
+| `source_type` | String | Filter by document type (all, docx, pdf, xlsx, other) |
 | `sort_field` | String | Field to sort by (title, created_at, status) |
 | `sort_dir` | String | Sort direction (asc, desc) |
 | `page` | Integer | Current page number (1-indexed) |
@@ -636,6 +659,7 @@ Status --> AutoRefresh[Auto-refresh]
 Status --> Tooltips[Error Tooltips]
 FormatIcons --> DocIcon[DOC Format Icon]
 FormatIcons --> DocxIcon[DOCX Format Icon]
+FormatIcons --> PdfIcon[PDF Format Icon]
 FormatIcons --> XlsxIcon[XLSX Format Icon]
 TableStyling --> BorderStyling[Border Styling]
 TableStyling --> BackgroundStyling[Background Treatment]
@@ -738,10 +762,10 @@ The modernized interface includes several key interactive elements:
 - **Responsive Design**: Mobile-optimized pagination controls
 
 #### Format Type Display
-- **Visual Icons**: Distinct icons for DOC, DOCX, and XLSX formats
+- **Visual Icons**: Distinct icons for DOCX, PDF, and XLSX formats
 - **Color Coding**: Different visual treatments for different formats
 - **Tooltip Information**: Hover details showing exact format type
-- **Filtering Support**: Separate filters for DOC, DOCX, and XLSX formats
+- **Filtering Support**: Separate filters for DOCX, PDF, and XLSX formats
 
 #### Enhanced Filtering and Sorting
 - **Filter Chips**: Visual filter indicators with active state highlighting
@@ -831,80 +855,79 @@ The interface uses Alpine.js for comprehensive state management:
 
 ## Enhanced Dual-Format Document Support
 
-The system now provides comprehensive support for DOCX, DOC, and XLSX document formats with enhanced validation and processing capabilities:
+The system now provides comprehensive support for DOCX, PDF, and XLSX document formats with enhanced validation and processing capabilities through the Docling-based system:
 
 ```mermaid
 flowchart TD
 FormatDetection[Format Detection] --> DocxCheck{Is .docx?}
-DocxCheck --> |Yes| DocxParser[DOCX Parser with Integrity Check]
-DocxCheck --> |No| DocCheck{Is .doc?}
-DocCheck --> |Yes| DocParser[Legacy DOC Parser]
-DocCheck --> |No| XlsxCheck{Is .xlsx?}
-XlsxCheck --> |Yes| XlsxParser[XLSX Parser with Worksheet Processing]
+DocxCheck --> |Yes| DoclingParser[Docling Parser with HybridChunker]
+DocxCheck --> |No| PdfCheck{Is .pdf?}
+PdfCheck --> |Yes| DoclingParser
+PdfCheck --> |No| XlsxCheck{Is .xlsx?}
+XlsxCheck --> |Yes| DoclingParser
 XlsxCheck --> |No| Unsupported[Unsupported Format]
-DocxParser --> DocxChunks[Generate DOCX Chunks with Validation]
-DocParser --> DocChunks[Generate DOC Chunks]
-XlsxParser --> XlsxChunks[Generate XLSX Chunks with Worksheet Metadata]
-DocxChunks --> CombinedChunks[Combined Chunks]
-DocChunks --> CombinedChunks
-XlsxChunks --> CombinedChunks
+DoclingParser --> EnhancedMetadata[Enhanced Metadata Extraction]
+EnhancedMetadata --> CombinedChunks[Combined Chunks with Metadata]
 CombinedChunks --> VectorStore[Vector Store Indexing]
 Unsupported --> Error[Format Error Response]
 ```
 
 **Diagram sources**
-- [packages/admin/src/cafetera_admin/api/deps.py:68-74](file://packages/admin/src/cafetera_admin/api/deps.py#L68-L74)
-- [packages/admin/src/cafetera_admin/api/documents.py:74](file://packages/admin/src/cafetera_admin/api/documents.py#L74)
+- [packages/admin/src/cafetera_admin/api/documents_helpers.py:16-28](file://packages/admin/src/cafetera_admin/api/documents_helpers.py#L16-L28)
+- [packages/admin/src/cafetera_admin/parser.py:45-71](file://packages/admin/src/cafetera_admin/parser.py#L45-L71)
+- [packages/admin/src/cafetera_admin/parser.py:91-104](file://packages/admin/src/cafetera_admin/parser.py#L91-L104)
 
 ### Format Detection and Validation
 
 The system implements comprehensive format detection and validation:
 
-- **Allowed Extensions**: .docx, .doc, and .xlsx are supported
+- **Allowed Extensions**: .docx, .pdf, and .xlsx are supported
 - **MIME Type Validation**: Comprehensive MIME type checking for all three formats
-- **Automatic Routing**: Format detection determines appropriate parsing strategy
+- **Automatic Routing**: Format detection determines appropriate Docling parsing strategy
 - **Error Handling**: Graceful handling of unsupported formats with clear error messages
 - **DOCX Integrity Check**: Zip file validation using `_validate_docx_bytes()` function
-- **Spreadsheet Processing**: Worksheet-based parsing with metadata preservation
+- **Enhanced Metadata Extraction**: Docling provides page numbers, headings, and document structure information
 
-### Enhanced Parser Architecture
+### Enhanced Docling Parser Architecture
 
-The enhanced parser system supports all three document formats:
+The enhanced Docling-based parser system supports all three document formats:
 
-#### DOCX Parser with Integrity Validation
-- **Structured Content**: Preserves document structure with heading-based sections
-- **Metadata Enrichment**: Maintains source filename and section information
-- **Chunk Processing**: Generates semantic chunks with proper metadata
-- **Vector Embedding**: Creates embeddings for semantic search
-- **Integrity Verification**: Validates DOCX content before processing
+#### Docling Parser with HybridChunker
+- **Unified Processing**: Single DoclingLoader handles DOCX, PDF, and XLSX formats
+- **Enhanced Metadata**: Extracts page numbers, headings, and document structure from Docling chunks
+- **Token-Based Chunking**: Uses HybridChunker with configured tokenizer model and chunk size
+- **Vector Embedding**: Creates embeddings for semantic search with enhanced metadata
+- **Model Caching**: Downloads and caches tokenizer and Docling models during startup
+- **Offline Mode**: Enables offline operation after initial model download
 
-#### Legacy DOC Parser
-- **Text Extraction**: Uses `docx2txt` for reliable text extraction
-- **Single Section**: Treats entire document as single section
-- **Filename-Based Section**: Uses document stem as section heading
-- **Consistent Processing**: Mirrors DOCX processing approach for uniform results
+#### Legacy DOC Removal
+- **Format Deprecation**: Legacy .doc format support has been completely removed
+- **Migration Requirement**: Users must convert .doc files to .docx format
+- **Clear Error Messages**: Explicit error messages guide users to convert files
 
 #### XLSX Parser with Worksheet Processing
-- **Worksheet Sections**: Each Excel worksheet becomes a separate section
+- **Worksheet Sections**: Each Excel worksheet becomes a separate section with enhanced metadata
 - **Row Formatting**: Preserves column structure with pipe separators
 - **Empty Row Handling**: Skips completely empty rows for clean content
-- **Metadata Enrichment**: Includes worksheet names as section information
-- **Chunk Processing**: Generates semantic chunks with worksheet context
-- **Vector Embedding**: Creates embeddings for spreadsheet content
+- **Metadata Enrichment**: Includes worksheet names and page numbers as section information
+- **Chunk Processing**: Generates semantic chunks with worksheet context and enhanced metadata
 
 ### Format-Specific Features
 
 All three formats benefit from enhanced processing capabilities:
 
-- **Unified Metadata**: Consistent metadata structure regardless of format
-- **Chunk Size Optimization**: Same chunk size and overlap for all formats
-- **Vector Database Integration**: Seamless integration with Qdrant vector store
-- **Search Compatibility**: Identical search behavior across all document types
-- **Spreadsheet Query Support**: XLSX documents can be queried with worksheet context
+- **Unified Metadata**: Consistent metadata structure regardless of format, including Docling-specific fields
+- **Enhanced Chunk Size Optimization**: Same chunk size and overlap for all formats with token-based sizing
+- **Vector Database Integration**: Seamless integration with Qdrant vector store with enhanced metadata
+- **Search Compatibility**: Identical search behavior across all document types with improved metadata
+- **Spreadsheet Query Support**: XLSX documents can be queried with worksheet context and page numbers
+- **Offline Operation**: Docling models cached during startup for offline processing
+- **Model Caching**: Tokenizer and Docling models downloaded and cached for performance
 
 **Section sources**
-- [packages/admin/src/cafetera_admin/api/deps.py:68-74](file://packages/admin/src/cafetera_admin/api/deps.py#L68-L74)
-- [packages/admin/src/cafetera_admin/api/documents.py:74](file://packages/admin/src/cafetera_admin/api/documents.py#L74)
+- [packages/admin/src/cafetera_admin/api/documents_helpers.py:16-28](file://packages/admin/src/cafetera_admin/api/documents_helpers.py#L16-L28)
+- [packages/admin/src/cafetera_admin/parser.py:45-71](file://packages/admin/src/cafetera_admin/parser.py#L45-L71)
+- [packages/admin/src/cafetera_admin/parser.py:91-104](file://packages/admin/src/cafetera_admin/parser.py#L91-L104)
 
 ## Enhanced Concurrency Control
 
@@ -929,7 +952,7 @@ Semaphore-->>API : permit available
 ```
 
 **Diagram sources**
-- [packages/admin/src/cafetera_admin/main.py:90](file://packages/admin/src/cafetera_admin/main.py#L90)
+- [packages/admin/src/cafetera_admin/main.py:84](file://packages/admin/src/cafetera_admin/main.py#L84)
 - [packages/admin/src/cafetera_admin/api/deps.py:69-70](file://packages/admin/src/cafetera_admin/api/deps.py#L69-L70)
 
 ### Concurrency Control Implementation
@@ -952,7 +975,7 @@ Background tasks are coordinated through enhanced functions:
 - **Error Recovery**: Failed tasks don't block other operations
 
 **Section sources**
-- [packages/admin/src/cafetera_admin/main.py:90](file://packages/admin/src/cafetera_admin/main.py#L90)
+- [packages/admin/src/cafetera_admin/main.py:84](file://packages/admin/src/cafetera_admin/main.py#L84)
 - [packages/admin/src/cafetera_admin/api/deps.py:69-70](file://packages/admin/src/cafetera_admin/api/deps.py#L69-L70)
 
 ## Comprehensive Test Coverage
@@ -970,10 +993,11 @@ The system includes comprehensive testing across all layers with extensive searc
 | `test_api_documents_upload.py` | Upload router functionality | Unit and integration tests |
 | `test_api_documents_bulk.py` | Bulk operations router functionality | Unit and integration tests |
 | `test_qa_service.py` | QAService class with enhanced package organization | Scenario-based testing |
+| `test_parser.py` | Docling-based parser functionality | Unit and integration tests |
 
 ### Enhanced Test Coverage Areas
 
-**Updated** The testing strategy now includes extensive coverage for the newly organized package structure, batch status polling, automatic polling control, recently finished documents tracking, enhanced async operations, and streamlined background processing:
+**Updated** The testing strategy now includes extensive coverage for the new Docling-based processing system, enhanced metadata extraction, model caching functionality, and streamlined background processing:
 
 #### Router Architecture Testing Coverage
 - **Router Composition**: Tests that main router properly includes and delegates to specialized routers
@@ -1031,12 +1055,14 @@ The system includes comprehensive testing across all layers with extensive searc
 
 #### Enhanced Format Testing Coverage
 - **DOCX Upload**: Tests upload and processing of modern DOCX files with integrity validation
-- **DOC Upload**: Tests upload and processing of legacy DOC files
+- **PDF Upload**: Tests upload and processing of PDF files with Docling parsing
 - **XLSX Upload**: Tests upload and processing of spreadsheet XLSX files with worksheet parsing
-- **Format Detection**: Validates automatic format detection and routing
-- **Parser Compatibility**: Ensures all formats produce identical chunk structures
-- **Metadata Consistency**: Verifies consistent metadata across formats
+- **Format Detection**: Validates automatic format detection and routing to Docling parser
+- **Parser Compatibility**: Ensures all formats produce identical chunk structures with enhanced metadata
+- **Metadata Consistency**: Verifies consistent metadata across formats including Docling-specific fields
 - **DOCX Integrity Testing**: Validates `_validate_docx_bytes()` function with various DOCX samples
+- **Docling Model Caching Testing**: Tests model caching functionality and offline mode enablement
+- **HybridChunker Testing**: Validates token-based chunking with proper sizing and overlap
 
 #### Concurrency Control Testing Coverage
 - **Semaphore Limits**: Tests maximum concurrent indexing operations
@@ -1047,7 +1073,7 @@ The system includes comprehensive testing across all layers with extensive searc
 
 #### Filtering and Sorting Testing Coverage
 - **Status Filter**: Tests filtering by processing status
-- **Source Type Filter**: Tests filtering by document type (DOCX, DOC, XLSX, other)
+- **Source Type Filter**: Tests filtering by document type (DOCX, PDF, XLSX, other)
 - **Sort Fields**: Tests sorting by title, created_at, and status
 - **Sort Directions**: Tests ascending and descending sort orders
 - **Combined Filters**: Tests multiple filters applied simultaneously
@@ -1111,7 +1137,7 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Semaphore Protection**: Validates proper concurrency control during background tasks
 - **Error Handling**: Tests comprehensive error recovery and logging
 - **Resource Cleanup**: Validates temporary file cleanup after processing
-- **Chunk Processing**: Tests document chunk generation and indexing for all formats
+- **Chunk Processing**: Tests document chunk generation and indexing for all formats with enhanced metadata
 
 #### Date Range Utility Testing Coverage
 - **ISO Date Parsing**: Tests `parse_date_range()` function for consistent date parameter handling
@@ -1131,8 +1157,16 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Row Formatting**: Validates proper row formatting with pipe separators
 - **Empty Row Handling**: Tests skipping of completely empty rows
 - **Metadata Preservation**: Validates worksheet name preservation as section information
-- **Chunk Generation**: Tests chunk generation with worksheet context
-- **Search Compatibility**: Validates XLSX content searchability
+- **Chunk Generation**: Tests chunk generation with worksheet context and enhanced metadata
+- **Search Compatibility**: Validates XLSX content searchability with worksheet context
+
+#### **Updated** Enhanced Docling Integration Testing Coverage
+- **Docling Parser Testing**: Tests Docling-based parsing for DOCX, PDF, and XLSX formats
+- **Model Caching Testing**: Validates model caching functionality and offline mode enablement
+- **HybridChunker Testing**: Tests token-based chunking with proper sizing and overlap
+- **Metadata Extraction Testing**: Validates enhanced metadata extraction including page numbers and headings
+- **Legacy DOC Removal Testing**: Tests that .doc format raises appropriate ValueError
+- **Unsupported Format Testing**: Tests that unsupported formats raise ValueError with clear messages
 
 #### **Updated** Enhanced Package Organization Testing Coverage
 - **Import Path Validation**: Tests that all imports correctly reference admin package locations
@@ -1200,54 +1234,54 @@ The system includes comprehensive testing across all layers with extensive searc
 - **Mock Integration**: Validates proper mocking of external dependencies
 - **Fixture Management**: Tests comprehensive fixture infrastructure with proper setup and teardown
 - **Package Import Testing**: Validates that all test imports correctly reference the new admin package structure
+- **Docling Model Caching Testing**: Tests model caching functionality and offline mode enablement in test environment
 
 **Section sources**
 - [tests/test_document_service.py:13](file://tests/test_document_service.py#L13)
 - [tests/conftest.py:170](file://tests/conftest.py#L170)
 - [tests/conftest.py:188-193](file://tests/conftest.py#L188-L193)
+- [tests/test_parser.py:1-90](file://tests/test_parser.py#L1-L90)
 
 ## Improved Text Chunking Algorithms
 
-The system employs intelligent chunking for optimal retrieval performance with enhanced token-based processing:
+The system employs intelligent chunking for optimal retrieval performance with enhanced token-based processing and simplified approach:
 
 ### Document Chunking Strategy
 
-The system uses sophisticated chunking algorithms:
+The system uses sophisticated chunking algorithms powered by Docling's HybridChunker:
 
-- **Chunk Size**: 500 characters with 50-character overlap
-- **Splitting Strategy**: Hierarchical splitting by paragraphs, sentences, and words
-- **Token-Based Processing**: Uses tiktoken encoder for accurate token counting
-- **Section Preservation**: Maintains semantic boundaries using heading-based sections for DOCX
-- **Legacy Support**: Single-section processing for DOC files with filename-based sectioning
-- **Spreadsheet Support**: Worksheet-based sectioning for XLSX files with row formatting
-- **Metadata Enrichment**: Each chunk carries document ID, chunk ID, filename, and search enablement status
-- **Worksheet Context**: XLSX chunks include worksheet name as section metadata
+- **Token-Based Processing**: Uses HuggingFace tokenizer for accurate token counting with configured `chunker_tokenizer_model`
+- **HybridChunker Integration**: Leverages Docling's HybridChunker for intelligent hierarchical splitting
+- **Enhanced Metadata**: Each chunk carries rich metadata including document_id, chunk_id, filename, s3_key, and search enablement status
+- **Docling-Specific Fields**: Extracts page numbers, headings, and document structure from Docling metadata
+- **Worksheet Context**: XLSX chunks include worksheet names as section information for focused queries
+- **Simplified Approach**: Replaces custom parsing implementations with unified Docling-based processing
 
 ### Enhanced Chunk Processing
 
 The enhanced chunking system provides:
 
-- **Token-Accurate Sizing**: Uses tiktoken encoding for precise character-to-token conversion
-- **Hierarchical Splitting**: Multi-level splitting strategy for optimal semantic boundaries
-- **Overlap Management**: Consistent 10% overlap between chunks for context preservation
-- **Metadata Integration**: Rich metadata embedded in each chunk for retrieval optimization
-- **Format-Aware Processing**: Different handling for DOCX headings, DOC text structure, and XLSX worksheets
+- **Token-Accurate Sizing**: Uses configured tokenizer model for precise character-to-token conversion
+- **HybridChunker Intelligence**: Multi-level splitting strategy for optimal semantic boundaries
+- **Overlap Management**: Consistent overlap management for context preservation
+- **Rich Metadata Integration**: Comprehensive metadata embedded in each chunk for retrieval optimization
+- **Format-Aware Processing**: Different handling for DOCX, PDF, and XLSX formats through unified Docling interface
+- **Enhanced Structure Preservation**: Preserves document structure including page numbers and headings
+
+### Docling-Based Processing
+
+The enhanced pipeline leverages Docling for all document formats:
+
+- **Unified Processing**: Single DoclingLoader handles DOCX, PDF, and XLSX formats with ExportType.DOC_CHUNKS
+- **Enhanced Metadata Extraction**: Extracts page numbers, headings, and document structure from Docling chunks
 - **Worksheet Awareness**: XLSX chunks preserve worksheet context for focused queries
-
-### Format-Aware Processing
-
-The enhanced pipeline handles all three document formats appropriately:
-
-- **DOCX Processing**: Structured section extraction with heading preservation
-- **DOC Processing**: Text extraction with single-section approach
-- **XLSX Processing**: Worksheet extraction with row formatting and metadata preservation
-- **Unified Output**: Consistent chunk structure for all formats
-- **Metadata Consistency**: Same metadata schema regardless of source format
-- **Context Preservation**: Worksheet names preserved as section information for XLSX
+- **Model Caching**: Tokenizer and Docling models cached during startup for offline operation
+- **Offline Mode**: HF_HUB_OFFLINE and TRANSFORMERS_OFFLINE environment variables prevent network requests
 
 **Section sources**
-- [packages/admin/src/cafetera_admin/indexer.py:25-48](file://packages/admin/src/cafetera_admin/indexer.py#L25-L48)
-- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/admin/src/cafetera_admin/parser.py:74-88](file://packages/admin/src/cafetera_admin/parser.py#L74-L88)
+- [packages/admin/src/cafetera_admin/parser.py:91-104](file://packages/admin/src/cafetera_admin/parser.py#L91-L104)
+- [packages/admin/src/cafetera_admin/indexer.py:25-59](file://packages/admin/src/cafetera_admin/indexer.py#L25-L59)
 
 ## Server-Side Processing Implementation
 
@@ -1333,7 +1367,7 @@ The system now provides centralized background processing through the `_index_do
 - **Semaphore Protection**: Unified concurrency control for all background operations
 - **Resource Management**: Consistent temporary file cleanup across all operations
 - **Logging Consistency**: Standardized logging for all background processing
-- **Format Support**: Handles DOCX, DOC, and XLSX formats uniformly
+- **Format Support**: Handles DOCX, PDF, and XLSX formats uniformly through Docling
 
 ### Centralized Date Range Processing
 
@@ -1362,19 +1396,18 @@ The system now includes comprehensive DOCX validation:
 - **Error Handling**: Graceful handling of corrupted or invalid DOCX files
 - **Logging**: Detailed logging for DOCX validation failures
 
-### **Updated** Enhanced Package Organization
+### **Updated** Enhanced Docling Integration
 
-The system now implements a revolutionary modular router architecture with enhanced package organization:
+The system now implements a revolutionary Docling-based processing architecture with enhanced package organization:
 
-- **Router Composition**: Main `documents.py` router includes authentication, upload, bulk, and QA routers
-- **Backward Compatibility**: All existing endpoints continue to work after package restructuring
-- **Specialized Routers**: Clear separation of concerns with dedicated routers for different functional areas
-- **Enhanced Organization**: Better code organization and maintainability with DocumentService in admin package
-- **Router Delegation**: Main router properly delegates to specialized routers
-- **Helper Function Re-export**: Shared utilities and validation functions remain accessible
-- **Unified Background Processing**: Centralized error handling and resource management
-- **Enhanced Testing**: Modular structure enables better test isolation and coverage
-- **Improved Import Paths**: All imports correctly reference new admin package locations
+- **Docling Parser Integration**: Unified Docling-based parsing for all supported formats
+- **Model Caching**: Automatic model caching and offline mode enablement during application startup
+- **HybridChunker Integration**: Token-based chunking with configurable tokenizer model
+- **Enhanced Metadata Extraction**: Rich metadata extraction including page numbers and headings
+- **Legacy DOC Removal**: Complete removal of custom DOC parsing with explicit migration guidance
+- **Simplified Architecture**: Replaced custom parsing implementations with unified Docling system
+- **Offline Operation**: Docling models cached for offline processing after initial download
+- **Enhanced Testing**: Comprehensive testing for Docling integration and model caching functionality
 
 ### **Updated** HTMX Partial Response System
 
@@ -1402,8 +1435,9 @@ The system now implements comprehensive async operations throughout the document
 **Section sources**
 - [packages/admin/src/cafetera_admin/api/documents.py:300-321](file://packages/admin/src/cafetera_admin/api/documents.py#L300-L321)
 - [packages/admin/src/cafetera_admin/api/deps.py:21-37](file://packages/admin/src/cafetera_admin/api/deps.py#L21-L37)
-- [packages/admin/src/cafetera_admin/domain/document_service.py:109-170](file://packages/admin/src/cafetera_admin/domain/document_service.py#L109-L170)
-- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/admin/src/cafetera_admin/api/documents_upload.py:106-144](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L106-L144)
+- [packages/admin/src/cafetera_admin/parser.py:19-42](file://packages/admin/src/cafetera_admin/parser.py#L19-L42)
+- [packages/admin/src/cafetera_admin/parser.py:91-104](file://packages/admin/src/cafetera_admin/parser.py#L91-L104)
 - [packages/core/src/cafetera_core/storage/document_repo.py:120-210](file://packages/core/src/cafetera_core/storage/document_repo.py#L120-L210)
 - [packages/core/src/cafetera_core/storage/document_repo.py:279-290](file://packages/core/src/cafetera_core/storage/document_repo.py#L279-L290)
 
@@ -1629,7 +1663,7 @@ The bulk operations system provides three core capabilities with enhanced concur
 - **Error Handling**: Logs errors and continues with remaining documents
 - **Concurrency Control**: Each reindex operation acquires semaphore before processing
 - **Unified Processing**: Uses `_index_document_from_s3()` function for consistent background processing
-- **Format Support**: Handles DOCX, DOC, and XLSX formats uniformly
+- **Format Support**: Handles DOCX, PDF, and XLSX formats uniformly through Docling
 
 #### Search Toggle Operation
 - **Endpoint**: `PATCH /api/documents/bulk/search`
@@ -1769,18 +1803,18 @@ The Retrieval-Augmented Generation pipeline processes documents through multiple
 
 ```mermaid
 sequenceDiagram
-participant Parser as Enhanced Parser
-participant Splitter as Text Splitter
+participant Parser as Docling Parser
+participant HybridChunker as HybridChunker
 participant Embedder as Embeddings
 participant VectorDB as Qdrant
 participant DenseRetriever as Dense Retriever
 participant DocScopedRetriever as Document Scoped Retriever
 participant GlobalRetriever as Global Retriever
 participant StreamingQA as Streaming Question Answering
-Parser->>Parser : Detect format and extract sections
-Parser->>Splitter : Split text into chunks
-Splitter->>Embedder : Generate embeddings
-Embedder->>VectorDB : Store vectors with metadata
+Parser->>Parser : Detect format and extract sections with Docling
+Parser->>HybridChunker : Split text into chunks with token-based sizing
+HybridChunker->>Embedder : Generate embeddings with enhanced metadata
+Embedder->>VectorDB : Store vectors with metadata including page numbers
 VectorDB->>DenseRetriever : Enable semantic search
 VectorDB->>DocScopedRetriever : Enable document-scoped search
 VectorDB->>GlobalRetriever : Enable global knowledge base search
@@ -1788,8 +1822,8 @@ VectorDB->>StreamingQA : Enable streaming responses
 ```
 
 **Diagram sources**
-- [packages/admin/src/cafetera_admin/indexer.py:25-48](file://packages/admin/src/cafetera_admin/indexer.py#L25-L48)
-- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/admin/src/cafetera_admin/parser.py:91-104](file://packages/admin/src/cafetera_admin/parser.py#L91-L104)
+- [packages/admin/src/cafetera_admin/indexer.py:25-59](file://packages/admin/src/cafetera_admin/indexer.py#L25-L59)
 - [packages/core/src/cafetera_core/rag/retriever.py:78-103](file://packages/core/src/cafetera_core/rag/retriever.py#L78-L103)
 - [packages/core/src/cafetera_core/rag/retriever.py:105-136](file://packages/core/src/cafetera_core/rag/retriever.py#L105-L136)
 - [packages/core/src/cafetera_core/domain/qa_service.py:189-214](file://packages/core/src/cafetera_core/domain/qa_service.py#L189-L214)
@@ -1797,25 +1831,25 @@ VectorDB->>StreamingQA : Enable streaming responses
 
 ### Document Chunking Strategy
 
-The system employs intelligent chunking for optimal retrieval performance:
+The system employs intelligent chunking for optimal retrieval performance powered by Docling's HybridChunker:
 
-- **Chunk Size**: 500 characters with 50-character overlap
-- **Splitting Strategy**: Hierarchical splitting by paragraphs, sentences, and words
-- **Section Preservation**: Maintains semantic boundaries using heading-based sections for DOCX
-- **Legacy Support**: Single-section processing for DOC files with filename-based sectioning
-- **Spreadsheet Support**: Worksheet-based sectioning for XLSX files with row formatting
-- **Metadata Enrichment**: Each chunk carries document ID, chunk ID, filename, and search enablement status
+- **Token-Based Processing**: Uses configured tokenizer model for accurate token counting
+- **HybridChunker Integration**: Leverages Docling's HybridChunker for intelligent hierarchical splitting
+- **Enhanced Metadata**: Each chunk carries comprehensive metadata including document_id, chunk_id, filename, s3_key, and search enablement status
+- **Docling-Specific Fields**: Extracts page numbers, headings, and document structure from Docling metadata
+- **Worksheet Context**: XLSX chunks include worksheet names as section information for focused queries
+- **Simplified Approach**: Replaces custom parsing implementations with unified Docling-based processing
 
 ### Enhanced Format-Aware Processing
 
-The enhanced pipeline handles all three document formats appropriately:
+The enhanced pipeline leverages Docling for all supported document formats:
 
-- **DOCX Processing**: Structured section extraction with heading preservation
-- **DOC Processing**: Text extraction with single-section approach
-- **XLSX Processing**: Worksheet extraction with row formatting and metadata preservation
-- **Unified Output**: Consistent chunk structure for all formats
-- **Metadata Consistency**: Same metadata schema regardless of source format
-- **Context Preservation**: Worksheet names preserved as section information for XLSX
+- **Unified Processing**: Single DoclingLoader handles DOCX, PDF, and XLSX formats with ExportType.DOC_CHUNKS
+- **Enhanced Metadata Extraction**: Extracts page numbers, headings, and document structure from Docling chunks
+- **Worksheet Awareness**: XLSX chunks preserve worksheet context for focused queries
+- **Model Caching**: Tokenizer and Docling models cached during startup for offline operation
+- **Offline Mode**: HF_HUB_OFFLINE and TRANSFORMERS_OFFLINE environment variables prevent network requests
+- **Legacy DOC Removal**: Complete removal of custom DOC parsing with explicit migration guidance
 
 ### Document-Scoped and Global Retrieval
 
@@ -1838,21 +1872,20 @@ The RAG pipeline now benefits from centralized background processing:
 - **Semaphore Protection**: Consistent concurrency control for all background operations
 - **Resource Management**: Unified temporary file cleanup across all operations
 - **Logging Consistency**: Standardized logging for all background processing activities
-- **Format Support**: Handles DOCX, DOC, and XLSX formats uniformly
+- **Format Support**: Handles DOCX, PDF, and XLSX formats uniformly through Docling
 
-### **Updated** Enhanced Package Organization Integration
+### **Updated** Enhanced Docling Integration
 
-The RAG pipeline now integrates with the revolutionary modular router architecture and enhanced package organization:
+The RAG pipeline now integrates with the revolutionary Docling-based processing system and enhanced package organization:
 
-- **Router Composition**: Main router includes specialized routers for different functional areas
-- **Backward Compatibility**: All existing endpoints continue to work after package restructuring
-- **OOB Swapping**: Efficient HTML updates for status monitoring without full page reloads
-- **Automatic Polling Control**: Intelligent start/stop polling for processing documents
-- **Deduplicated Updates**: Prevents duplicate updates for overlapping documents
-- **Server Load Reduction**: Dramatically reduces server load for status monitoring
-- **Real-time Status Updates**: Immediate status updates for processing documents
-- **Template Integration**: Seamless integration with document table and status poller templates
-- **Enhanced Import Paths**: All imports correctly reference new admin package locations
+- **Docling Parser Integration**: Unified Docling-based parsing for all supported formats
+- **Model Caching**: Automatic model caching and offline mode enablement during application startup
+- **HybridChunker Integration**: Token-based chunking with configurable tokenizer model
+- **Enhanced Metadata Extraction**: Rich metadata extraction including page numbers and headings
+- **Legacy DOC Removal**: Complete removal of custom DOC parsing with explicit migration guidance
+- **Simplified Architecture**: Replaced custom parsing implementations with unified Docling system
+- **Offline Operation**: Docling models cached for offline processing after initial download
+- **Enhanced Testing**: Comprehensive testing for Docling integration and model caching functionality
 
 ### **Updated** Enhanced Async Architecture Integration
 
@@ -1865,8 +1898,8 @@ The RAG pipeline now integrates with the enhanced async architecture:
 - **Performance Optimization**: Enhanced system performance with async operations
 
 **Section sources**
-- [packages/admin/src/cafetera_admin/indexer.py:25-48](file://packages/admin/src/cafetera_admin/indexer.py#L25-L48)
-- [packages/admin/src/cafetera_admin/indexer.py:51-132](file://packages/admin/src/cafetera_admin/indexer.py#L51-L132)
+- [packages/admin/src/cafetera_admin/parser.py:91-104](file://packages/admin/src/cafetera_admin/parser.py#L91-L104)
+- [packages/admin/src/cafetera_admin/indexer.py:25-59](file://packages/admin/src/cafetera_admin/indexer.py#L25-L59)
 - [packages/core/src/cafetera_core/rag/retriever.py:105-136](file://packages/core/src/cafetera_core/rag/retriever.py#L105-L136)
 - [packages/core/src/cafetera_core/domain/qa_service.py:189-214](file://packages/core/src/cafetera_core/domain/qa_service.py#L189-L214)
 - [packages/core/src/cafetera_core/domain/qa_service.py:250-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L250-L279)
@@ -2304,7 +2337,7 @@ The PostgreSQL schema supports comprehensive document tracking with:
 - **Pagination Support**: Efficient ordering by ID for pagination queries
 - **Search Indexing**: Case-insensitive search columns for optimal query performance
 - **Date Filtering**: Precise timestamptz fields for temporal queries with timezone support
-- **Format Support**: MIME type tracking for DOC, DOCX, and XLSX formats
+- **Format Support**: MIME type tracking for DOCX, PDF, and XLSX formats
 - **Recently Finished Tracking**: Timestamp-based tracking for status updates
 - **Global Question Support**: Knowledge base-wide search participation
 - **Router Architecture**: Modular router structure enables better organization and maintenance
@@ -2336,7 +2369,7 @@ The system provides a comprehensive REST API for document management with full s
 
 | Endpoint | Method | Description | Authentication |
 |----------|--------|-------------|----------------|
-| `/api/documents/upload` | POST | Upload multiple DOC/DOCX/XLSX files | Admin cookie |
+| `/api/documents/upload` | POST | Upload multiple DOCX/PDF/XLSX files | Admin cookie |
 | `/api/documents` | GET | List all documents with search, pagination, and date filtering | Admin cookie |
 | `/api/documents/{id}` | GET/PATCH/DELETE | Document operations | Admin cookie |
 | `/api/documents/{id}/title` | PATCH | Update document title | Admin cookie |
@@ -2359,9 +2392,9 @@ The system provides a comprehensive REST API for document management with full s
 | `/api/documents/bulk/reindex` | POST | Re-index multiple documents with semaphore protection | Admin cookie |
 | `/api/documents/bulk/search` | PATCH | Toggle search participation for multiple documents | Admin cookie |
 
-### **Updated** Enhanced Package Organization Endpoints
+### **Updated** Enhanced Docling Integration Endpoints
 
-**Updated** All endpoints now operate within the modular router architecture with router composition maintaining backward compatibility and enhanced package organization:
+**Updated** All endpoints now operate within the modular router architecture with router composition maintaining backward compatibility and enhanced Docling-based processing:
 
 - **Router Composition**: Main `documents.py` router includes authentication, upload, bulk, and QA routers
 - **Backward Compatibility**: All existing endpoints continue to work after package restructuring
@@ -2397,11 +2430,11 @@ All list endpoints support the following parameters:
 - **`date_from`**: ISO date string for minimum creation date (inclusive)
 - **`date_to`**: ISO date string for maximum creation date (inclusive)
 - **`status`**: Filter by processing status (all, completed, processing, pending, failed)
-- **`source_type`**: Filter by document type (all, docx, doc, xlsx, other)
+- **`source_type`**: Filter by document type (all, docx, pdf, xlsx, other)
 - **`sort_field`**: Field to sort by (title, created_at, status)
 - **`sort_dir`**: Sort direction (asc, desc)
 
-### **Updated** Enhanced Package Organization and HTMX Partial Response Endpoints
+### **Updated** Enhanced Docling Integration and HTMX Partial Response Endpoints
 
 **Updated** All endpoints now support comprehensive search functionality with case-insensitive pattern matching against document titles and filenames. The main `/api/documents` endpoint returns detailed pagination metadata including total count, current page, items per page, and total pages. Bulk operations endpoints provide atomic operations on multiple documents with comprehensive error handling and HTMX partial responses for seamless user experience. Background indexing operations are now handled by the unified `_index_document_from_s3()` function, which eliminates code duplication and provides centralized error handling. The enhanced download functionality now includes RFC 5987-compliant filename encoding for proper international character support across different browsers and systems. The new `/partials/documents-status` endpoint provides centralized batch status updates with revolutionary OOB swapping capabilities, dramatically reducing server load by eliminating N concurrent requests for individual row polling. The new `/api/documents/{document_id}/ask` endpoint enables document-specific question-answering with comprehensive validation, security checks, and real-time streaming responses. The new `/api/qa/ask-global` endpoint enables global knowledge base question-answering with comprehensive validation, security checks, and real-time streaming responses. The centralized `parse_date_range()` utility ensures consistent date parameter handling across all endpoints, while the `_document_table_context()` function provides standardized template context management for all partials. The new DOCX integrity validation using `_validate_docx_bytes()` function ensures file content validity before processing. The revolutionary HTMX partial response system now includes proper OOB swapping for dynamic document row updates, automatic polling control that starts/stops based on active document count, and centralized batch status updates through the new '/partials/documents-status' endpoint. The enhanced async architecture now provides comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control and streamlined background processing. The PostgreSQL migration provides enterprise-grade database capabilities with proper timezone handling, concurrent access support, and improved error handling.
 
@@ -2432,7 +2465,10 @@ class Settings {
 +string admin_api_key
 +int max_concurrent_indexing
 +int chunk_size
-+int chunk_overlap
++string chunker_tokenizer_model
++string sparse_embedding_model
++string colbert_rerank_model
++bool reranking_enabled
 }
 class Environment {
 +string env_file
@@ -2443,6 +2479,7 @@ Settings --> Environment : inherits
 
 **Diagram sources**
 - [packages/admin/src/cafetera_admin/config.py:4-39](file://packages/admin/src/cafetera_admin/config.py#L4-L39)
+- [packages/core/src/cafetera_core/config.py:14-67](file://packages/core/src/cafetera_core/config.py#L14-L67)
 
 ### Configuration Categories
 
@@ -2455,7 +2492,10 @@ Settings --> Environment : inherits
 | **Admin Security** | `admin_api_key` | Empty string | Administrative access |
 | **Concurrency Control** | `max_concurrent_indexing` | `2` | Semaphore limit for indexing |
 | **Chunking** | `chunk_size` | `500` | Token-based chunk size |
-| **Chunking** | `chunk_overlap` | `50` | Token-based chunk overlap |
+| **Docling Integration** | `chunker_tokenizer_model` | `Qwen/Qwen3-Embedding-0.6B` | HuggingFace tokenizer model |
+| **Sparse Embeddings** | `sparse_embedding_model` | `Qdrant/bm25` | Sparse embedding model |
+| **Reranking** | `reranking_enabled` | `False` | Enable ColBERT reranking |
+| **ColBERT Models** | `colbert_rerank_model` | `colbert-ir/colbertv2.0` | ColBERT rerank model |
 | **Router Architecture** | `max_concurrent_indexing` | `2` | Semaphore limit for modular router operations |
 | **HTMX Configuration** | `max_concurrent_indexing` | `2` | Semaphore limit for HTMX partial responses |
 | **OOB Swapping** | `max_concurrent_indexing` | `2` | Semaphore limit for OOB swapping operations |
@@ -2463,6 +2503,7 @@ Settings --> Environment : inherits
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/config.py:1-39](file://packages/admin/src/cafetera_admin/config.py#L1-L39)
+- [packages/core/src/cafetera_core/config.py:14-67](file://packages/core/src/cafetera_core/config.py#L14-L67)
 
 ## Enhanced Error Handling and Consistency
 
@@ -2506,7 +2547,7 @@ Background tasks implement robust error recovery through the unified `_index_doc
 - **Error Propagation**: Errors are logged but don't crash the system
 - **Resource Management**: Proper cleanup of temporary resources
 - **Centralized Logging**: Standardized error logging for all background operations
-- **Format Support**: Handles DOCX, DOC, and XLSX formats with appropriate validation
+- **Format Support**: Handles DOCX, PDF, and XLSX formats through Docling
 
 ### Document-Specific and Global Question Error Handling
 
@@ -2539,7 +2580,20 @@ The unified `_index_document_from_s3()` function provides centralized error hand
 - **Semaphore Release**: Guarantees semaphore release even on errors
 - **State Management**: Maintains consistent document state during failures
 - **Logging Consistency**: Standardized logging format for all background operations
-- **Format Validation**: Validates DOCX integrity and handles XLSX processing errors
+- **Format Support**: Handles DOCX, PDF, and XLSX formats through Docling
+
+### **Updated** Enhanced Docling Integration Error Handling
+
+The enhanced Docling integration implements comprehensive error handling:
+
+- **Docling Model Caching**: Handles model download failures and offline mode configuration
+- **Format Detection**: Manages errors in format detection and routing
+- **HybridChunker Errors**: Handles tokenization and chunking failures
+- **Metadata Extraction**: Manages errors in enhanced metadata extraction
+- **Legacy DOC Removal**: Handles explicit ValueError for unsupported .doc format
+- **Unsupported Format Errors**: Manages ValueError for unsupported file extensions
+- **Error Propagation**: Ensures Docling-related errors propagate correctly
+- **Logging Consistency**: Standardized error logging for all Docling operations
 
 ### **Updated** Enhanced Package Organization Error Handling
 
@@ -2639,6 +2693,9 @@ The recently finished documents tracking system implements comprehensive error h
 - [packages/admin/src/cafetera_admin/indexer.py:135-158](file://packages/admin/src/cafetera_admin/indexer.py#L135-L158)
 - [packages/admin/src/cafetera_admin/indexer.py:161-192](file://packages/admin/src/cafetera_admin/indexer.py#L161-L192)
 - [packages/admin/src/cafetera_admin/indexer.py:195-249](file://packages/admin/src/cafetera_admin/indexer.py#L195-L249)
+- [packages/admin/src/cafetera_admin/parser.py:19-42](file://packages/admin/src/cafetera_admin/parser.py#L19-L42)
+- [packages/admin/src/cafetera_admin/parser.py:45-71](file://packages/admin/src/cafetera_admin/parser.py#L45-L71)
+- [packages/admin/src/cafetera_admin/parser.py:91-104](file://packages/admin/src/cafetera_admin/parser.py#L91-L104)
 
 ## Deployment and Operations
 
@@ -2654,6 +2711,8 @@ Bot[VK Bot Worker]
 Poller[Message Poller]
 Streaming[Streaming Service]
 HTMXEngine[HTMX Engine]
+DoclingParser[Docling Parser]
+ModelCache[Model Cache]
 EndUserIntegration[Enhanced User Integration]
 RouterArchitecture[Modular Router Architecture]
 EndUserExperience[Enhanced Experience]
@@ -2679,6 +2738,8 @@ Poller --> Bot
 Web --> Ollama
 Streaming --> Web
 HTMXEngine --> Web
+DoclingParser --> ModelCache
+ModelCache --> DoclingParser
 EndUserIntegration --> HTMXEngine
 RouterArchitecture --> Web
 EndUserMonitoring --> PostgreSQLDB
@@ -2699,7 +2760,10 @@ Required environment variables:
 - `OLLAMA_BASE_URL`: LLM service endpoint
 - `MAX_CONCURRENT_INDEXING`: Semaphore limit for concurrency control
 - `CHUNK_SIZE`: Token-based chunk size for text processing
-- `CHUNK_OVERLAP`: Token-based chunk overlap for context preservation
+- `CHUNKER_TOKENIZER_MODEL`: HuggingFace tokenizer model for HybridChunker
+- `SPARSE_EMBEDDING_MODEL`: Sparse embedding model for BM25
+- `RERANKING_ENABLED`: Enable ColBERT reranking
+- `COLBERT_RERANK_MODEL`: ColBERT rerank model
 - **Router Architecture**: `MAX_CONCURRENT_INDEXING` for modular router operations
 - **HTMX Configuration**: `MAX_CONCURRENT_INDEXING` for HTMX partial responses
 - **OOB Swapping**: `MAX_CONCURRENT_INDEXING` for OOB swapping operations
@@ -2708,11 +2772,14 @@ Required environment variables:
 - **Enhanced Package Organization**: `MAX_CONCURRENT_INDEXING` for admin package operations
 - **DocumentService Location**: `MAX_CONCURRENT_INDEXING` for DocumentService import operations
 - **Indexer Module Location**: `MAX_CONCURRENT_INDEXING` for indexer module import operations
+- **Docling Integration**: `CHUNKER_TOKENIZER_MODEL` for Docling model caching
+- **Model Caching**: `CHUNKER_TOKENIZER_MODEL` for offline model operation
 
-**Updated** The deployment configuration now supports the enhanced package organization with DocumentService relocated to the admin package and indexing functionality extracted to a dedicated indexer module. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The revolutionary HTMX partial response system with OOB swapping reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified `_index_document_from_s3()` function requires proper semaphore configuration for optimal background processing performance. The centralized `parse_date_range()` utility requires proper date format validation for consistent date parameter handling. The `_document_table_context()` function requires proper template context validation for consistent UI rendering. The new DOCX integrity validation function requires proper ZIP file handling and validation for DOCX file processing. The revolutionary batch status polling system requires proper HTMX engine configuration and OOB swapping support for optimal performance. The automatic polling control system requires proper server load monitoring and resource management for efficient operation. The recently finished documents tracking system requires proper database configuration and query optimization for reliable status updates. The modular router architecture requires proper router composition and dependency injection for optimal performance. The enhanced async architecture requires proper semaphore configuration and resource management for optimal async operations. The PostgreSQL migration requires proper database connection configuration, asyncpg driver setup, and proper timezone handling for optimal performance. The enhanced package organization requires proper import path configuration and dependency resolution for optimal performance.
+**Updated** The deployment configuration now supports the enhanced Docling-based processing system with model caching and offline mode support. The system provides configurable concurrency limits through environment variables and includes comprehensive logging for monitoring and debugging purposes. The enhanced UI styling requires proper CSS framework integration and responsive design considerations. The revolutionary HTMX partial response system with OOB swapping reduces server load and improves performance, making the deployment more scalable and efficient. The document-specific and global question-answering features with streaming capabilities require proper LLM provider configuration and vector database setup for optimal performance. The enhanced download functionality with RFC 5987 encoding requires proper browser compatibility testing and international character support validation. The global question-answering capability requires proper knowledge base population and search enablement configuration. The unified `_index_document_from_s3()` function requires proper semaphore configuration for optimal background processing performance. The centralized `parse_date_range()` utility requires proper date format validation for consistent date parameter handling. The `_document_table_context()` function requires proper template context validation for consistent UI rendering. The new Docling-based parsing system requires proper model caching configuration and offline mode enablement. The revolutionary batch status polling system requires proper HTMX engine configuration and OOB swapping support for optimal performance. The automatic polling control system requires proper server load monitoring and resource management for efficient operation. The recently finished documents tracking system requires proper database configuration and query optimization for reliable status updates. The modular router architecture requires proper router composition and dependency injection for optimal performance. The enhanced async architecture requires proper semaphore configuration and resource management for optimal async operations. The PostgreSQL migration requires proper database connection configuration, asyncpg driver setup, and proper timezone handling for optimal performance. The enhanced package organization requires proper import path configuration and dependency resolution for optimal performance. The Docling integration requires proper model caching and offline mode configuration for optimal performance.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/main.py:90-113](file://packages/admin/src/cafetera_admin/main.py#L90-L113)
+- [packages/admin/src/cafetera_admin/parser.py:19-42](file://packages/admin/src/cafetera_admin/parser.py#L19-L42)
 
 ## Troubleshooting Guide
 
@@ -2720,7 +2787,7 @@ Required environment variables:
 
 | Issue | Symptoms | Solution |
 |-------|----------|----------|
-| **Document Upload Fails** | 400 errors on upload | Check file size limit (10MB), supported formats (.docx, .doc, .xlsx) |
+| **Document Upload Fails** | 400 errors on upload | Check file size limit (10MB), supported formats (.docx, .pdf, .xlsx) |
 | **Vector Indexing Errors** | Documents show "failed" status | Verify Qdrant connectivity, embedding model availability, check semaphore limits |
 | **S3 Storage Issues** | Files not accessible | Confirm bucket existence, credentials, network connectivity |
 | **Admin Authentication Problems** | 403 Forbidden errors | Verify `admin_api_key` matches cookie value |
@@ -2730,7 +2797,7 @@ Required environment variables:
 | **Pagination Problems** | Incorrect page counts or empty results | Verify database auto-increment setup, check pagination parameters |
 | **Bulk Operations Fail** | Partial bulk operation success | Check individual document IDs, verify file existence in storage, review concurrency limits |
 | **Date Filter Issues** | Incorrect date range results | Verify ISO date format (YYYY-MM-DD), check timezone handling |
-| **Format Detection Problems** | Unsupported format errors | Verify file extension and MIME type, check format-specific parsers |
+| **Format Detection Problems** | Unsupported format errors | Verify file extension and MIME type, check Docling format support |
 | **Frontend Not Updating** | UI not reflecting changes | Check HTMX configuration, verify partial endpoint responses |
 | **Concurrency Issues** | Background tasks failing or delayed | Check `MAX_CONCURRENT_INDEXING` setting, verify semaphore configuration |
 | **Memory Leaks** | Increasing memory usage | Monitor background task cleanup, check temporary file handling |
@@ -2763,7 +2830,10 @@ Required environment variables:
 | **Unified Indexing Function Issues** | Background processing failures | Check `_index_document_from_s3()` function, verify semaphore protection, validate error handling |
 | **Date Range Utility Issues** | Inconsistent date parsing | Check `parse_date_range()` function, verify ISO date format handling, validate error recovery |
 | **Template Context Issues** | Inconsistent UI rendering | Check `_document_table_context()` function, verify parameter validation, ensure proper context building |
-| **DOCX Integrity Validation Issues** | DOCX validation failures | Check `_validate_docx_bytes()` function, verify ZIP file handling, validate word/document.xml presence |
+| **Docling Model Caching Issues** | Model download failures | Check `ensure_models_cached()` function, verify internet connectivity, validate offline mode |
+| **HybridChunker Issues** | Chunking failures | Check HybridChunker configuration, verify tokenizer model availability, validate chunk size |
+| **Enhanced Metadata Extraction Issues** | Missing page numbers or headings | Verify Docling metadata extraction, check chunk metadata structure |
+| **Legacy DOC Format Issues** | .doc format still supported | Verify removal of custom DOC parsing, check error messages for migration guidance |
 | **XLSX Processing Issues** | Spreadsheet parsing failures | Verify openpyxl installation, check worksheet processing, validate row formatting |
 | **Spreadsheet Search Issues** | XLSX content not searchable | Check worksheet metadata preservation, verify chunk generation with section information |
 | **HTMX Partial Response Issues** | OOB swapping not working | Verify HTMX engine configuration, check OOB swapping syntax, validate template integration |
@@ -2789,6 +2859,8 @@ Required environment variables:
 | **Authentication Testing Issues** | Authentication test failures | Check login/logout functionality, verify authentication guards, validate cookie handling |
 | **Upload Operations Testing Issues** | Upload test failures | Check file upload functionality, verify validation, validate background indexing |
 | **Bulk Operations Testing Issues** | Bulk operations test failures | Check atomic operation testing, verify concurrent processing, validate error handling |
+| **Docling Integration Testing Issues** | Docling test failures | Check Docling parser functionality, verify model caching, validate HybridChunker |
+| **Model Caching Testing Issues** | Model caching test failures | Check ensure_models_cached() function, verify offline mode enablement, validate model availability |
 
 ### Logging and Monitoring
 
@@ -2802,8 +2874,10 @@ The system provides comprehensive logging at multiple levels:
 - **Pagination logs**: Page calculation, query performance
 - **Bulk operations logs**: Atomic operation execution, error handling
 - **Date filter logs**: Temporal query processing, boundary handling
-- **Format detection logs**: Parser routing, format validation
-- **Parser logs**: Text extraction, chunk generation, metadata processing
+- **Format detection logs**: Docling format support, routing validation
+- **Docling Parser logs**: Enhanced metadata extraction, chunk generation
+- **Model caching logs**: Docling model download, offline mode enablement
+- **HybridChunker logs**: Token-based chunking, sizing validation
 - **Concurrency logs**: Semaphore acquisition/release, task queuing
 - **Background task logs**: Resource management, error recovery
 - **UI Styling logs**: Component rendering, visual hierarchy validation
@@ -2825,7 +2899,10 @@ The system provides comprehensive logging at multiple levels:
 - **Unified Indexing Function Logs**: Centralized background processing, error handling, resource management
 - **Date Range Utility Logs**: Consistent date parsing, error recovery, boundary validation
 - **Template Context Logs**: Centralized rendering management, parameter validation, UI state consistency
-- **DOCX Integrity Validation Logs**: Zip file validation, word/document.xml verification, error handling
+- **Docling Model Caching Logs**: Model download validation, offline mode configuration, error handling
+- **HybridChunker Logs**: Token-based chunking validation, sizing configuration, error handling
+- **Enhanced Metadata Extraction Logs**: Page number extraction, heading preservation, error handling
+- **Legacy DOC Removal Logs**: Migration guidance validation, error message verification
 - **XLSX Processing Logs**: Worksheet parsing, row formatting, metadata preservation, chunk generation
 - **HTMX Engine Logs**: OOB swapping operations, polling management, partial response handling
 - **Server Load Monitoring Logs**: Performance optimization, resource management, error recovery
@@ -2839,8 +2916,14 @@ The system provides comprehensive logging at multiple levels:
 - **Async Operations Testing Logs**: Enhanced async operation testing, semaphore validation
 - **Streaming Response Testing Logs**: SSE streaming response testing, error recovery validation
 - **Batch Status Polling Testing Logs**: Centralized status polling testing, OOB swapping validation, deduplication logic testing
+- **Filtering and Sorting Testing Logs**: Server-side filtering implementation validation, parameter validation, pagination testing
+- **Authentication Testing Logs**: Login/logout functionality validation, authentication guards validation, cookie handling validation
+- **Upload Operations Testing Logs**: File upload functionality validation, validation testing, background indexing validation
+- **Bulk Operations Testing Logs**: Atomic operation testing, concurrent processing validation, error handling validation
+- **Docling Integration Testing Logs**: Docling parser validation, model caching validation, HybridChunker validation
+- **Model Caching Testing Logs**: ensure_models_cached() validation, offline mode enablement validation, model availability validation
 
-**Updated** The troubleshooting guide now includes comprehensive coverage for the enhanced package organization with DocumentService relocated to the admin package and indexing functionality extracted to a dedicated indexer module. The logging system provides detailed coverage for all new package organization functionality including import path validation, DocumentService location validation, indexer module location validation, and enhanced router architecture testing. The system now includes specific troubleshooting steps for package import errors, DocumentService location issues, indexer module import failures, and enhanced testing infrastructure issues. The enhanced package organization troubleshooting covers import path configuration, dependency resolution, and module location validation. The enhanced testing infrastructure troubleshooting includes PostgreSQL container configuration, test isolation issues, and fixture cleanup problems. The enhanced router architecture troubleshooting includes router composition validation, backward compatibility testing, and specialized router functionality validation. The enhanced async operations troubleshooting includes semaphore configuration in tests, async operation mocking, and error handling validation. The enhanced streaming response troubleshooting includes SSE streaming response mocking, token streaming validation, and error recovery validation. The enhanced batch status polling troubleshooting includes centralized polling endpoint validation, OOB swapping validation, and deduplication logic testing. The enhanced filtering and sorting troubleshooting includes server-side filtering implementation validation, parameter validation, and pagination testing. The enhanced authentication troubleshooting includes login/logout functionality validation, authentication guards validation, and cookie handling validation. The enhanced upload operations troubleshooting includes file upload functionality validation, validation testing, and background indexing validation. The enhanced bulk operations troubleshooting includes atomic operation testing, concurrent processing validation, and error handling validation.
+**Updated** The troubleshooting guide now includes comprehensive coverage for the enhanced Docling-based processing system with model caching and offline mode support. The logging system provides detailed coverage for all new Docling integration functionality including model caching, HybridChunker configuration, enhanced metadata extraction, and legacy DOC removal. The system now includes specific troubleshooting steps for Docling model caching failures, HybridChunker configuration issues, enhanced metadata extraction problems, and legacy DOC format migration. The enhanced Docling integration troubleshooting covers model download validation, offline mode configuration, tokenizer model availability, and error handling. The enhanced testing infrastructure troubleshooting includes Docling model caching testing, HybridChunker validation testing, and enhanced metadata extraction testing. The enhanced router architecture troubleshooting includes router composition validation, backward compatibility testing, and specialized router functionality validation. The enhanced async operations troubleshooting includes semaphore configuration in tests, async operation mocking, and error handling validation. The enhanced streaming response troubleshooting includes SSE streaming response mocking, token streaming validation, and error recovery validation. The enhanced batch status polling troubleshooting includes centralized polling endpoint validation, OOB swapping validation, and deduplication logic testing. The enhanced filtering and sorting troubleshooting includes server-side filtering implementation validation, parameter validation, and pagination testing. The enhanced authentication troubleshooting includes login/logout functionality validation, authentication guards validation, and cookie handling validation. The enhanced upload operations troubleshooting includes file upload functionality validation, validation testing, and background indexing validation. The enhanced bulk operations troubleshooting includes atomic operation testing, concurrent processing validation, and error handling validation. The enhanced Docling integration troubleshooting includes Docling parser validation, model caching validation, HybridChunker validation, and enhanced metadata extraction validation. The enhanced model caching troubleshooting includes ensure_models_cached() validation, offline mode enablement validation, model availability validation, and error recovery validation. The enhanced HybridChunker troubleshooting includes token-based chunking validation, sizing configuration validation, and error handling validation. The enhanced metadata extraction troubleshooting includes page number extraction validation, heading preservation validation, and error handling validation. The enhanced legacy DOC removal troubleshooting includes migration guidance validation, error message verification, and format detection validation.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/main.py:90-113](file://packages/admin/src/cafetera_admin/main.py#L90-L113)
@@ -2849,12 +2932,18 @@ The system provides comprehensive logging at multiple levels:
 
 The Document Management System provides a robust, scalable solution for HR document processing and management. Its modular architecture, comprehensive API, and integrated RAG capabilities make it suitable for enterprise-scale document management scenarios.
 
-**Updated** The system has undergone a significant transformation with the relocation of DocumentService from the core package to the admin package and the extraction of indexing functionality to a dedicated indexer module. These architectural changes improve code organization, separation of concerns, and maintainability while preserving all existing functionality. The DocumentService now resides in `packages/admin/src/cafetera_admin/domain/document_service.py` and indexing operations are handled by `packages/admin/src/cafetera_admin/indexer.py`. Import paths have been updated throughout the codebase to reflect the new package structure, and the modular router architecture continues to provide comprehensive functionality for document management operations. The enhanced package organization provides better code organization and maintainability, while the dedicated indexer module improves separation of concerns and allows for more focused development and testing. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials and components. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, DOC, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new functionality including document-specific question answering, global question answering, Alpine.js state management, comprehensive error handling, real-time streaming responses, enhanced file download functionality, unified background processing, centralized date range handling, template context management, DOCX integrity validation, XLSX processing, HTMX partial responses, automatic polling control, recently finished documents tracking, enhanced async operations, streamlined background processing, PostgreSQL migration, enhanced CRUD operations, and ON CONFLICT upsert functionality. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
+**Updated** The system has undergone a significant transformation with the complete removal of custom DOCX, DOC, and XLSX parsing implementations in favor of a unified Docling-based processing system. This new architecture leverages Docling for PDF, DOCX, and XLSX document parsing with enhanced metadata extraction and simplified chunking using HybridChunker. The system now supports DOCX, PDF, and XLSX formats while removing legacy DOC format support. The Docling integration provides improved document structure preservation, enhanced metadata extraction, and more reliable parsing across different document types. The new system maintains all existing functionality while offering superior document processing capabilities through the Docling ecosystem. The enhanced Docling model caching and offline mode support ensure reliable operation without network dependencies. The simplified chunking approach using HybridChunker provides consistent token-based sizing and overlap management. The enhanced metadata extraction preserves page numbers, headings, and document structure information for improved search and retrieval capabilities. The system continues to offer revolutionary global question-answering capabilities with real-time streaming responses and comprehensive AI-powered HR assistance. The unified background processing function centralizes error handling and resource management, while the standardized date range parsing ensures consistent date parameter handling across all endpoints. The centralized template context management provides consistent UI rendering for all partials and components. The enhanced mobile responsiveness provides seamless cross-device experiences with overlay sidebars and responsive design patterns. Backend processing has been optimized with async operations and semaphore-based concurrency control, while the frontend has been enhanced with sophisticated HTMX partial endpoints and out-of-band swaps for improved interactivity. The modernized interface with format-specific icons and filtering capabilities, combined with comprehensive logging and monitoring, provides excellent operational visibility and maintainability for production deployments. The enhanced UI styling ensures consistent visual presentation across all components while maintaining accessibility and responsive design principles. The system now supports DOCX, PDF, and XLSX formats with comprehensive MIME type validation and proper resource management. The enhanced test coverage validates all new Docling integration functionality including model caching, HybridChunker validation, enhanced metadata extraction, and legacy DOC removal. The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability.
 
 Key strengths include:
-- **Enhanced Package Organization**: DocumentService relocated to admin package, indexing extracted to dedicated module, improved code organization and maintainability
+- **Enhanced Docling Integration**: Complete replacement of custom parsing with unified Docling-based system
+- **Model Caching and Offline Mode**: Automatic model caching and offline operation support
+- **HybridChunker Integration**: Simplified token-based chunking with enhanced metadata extraction
+- **Enhanced Metadata Extraction**: Rich metadata including page numbers, headings, and document structure
+- **Legacy DOC Removal**: Complete removal of unsupported .doc format with migration guidance
+- **Unified Processing Architecture**: Single DoclingLoader handles all supported formats
+- **Enhanced Package Organization**: DocumentService relocated to admin package, improved code organization
 - **Enhanced Document Validation**: Comprehensive security checks for both document-specific and global operations
-- **Triple Format Support**: Support for DOCX, DOC, and XLSX document formats with unified processing pipeline
+- **Triple Format Support**: Support for DOCX, PDF, and XLSX document formats with unified processing pipeline
 - **DOCX Integrity Validation**: Zip file validation using `_validate_docx_bytes()` function for content verification
 - **Spreadsheet Processing**: Comprehensive XLSX parsing with worksheet-based sectioning and metadata preservation
 - **Dual Question-Answering Modes**: Support for both document-specific and global knowledge base queries
@@ -2870,7 +2959,7 @@ Key strengths include:
 - **Flexible Storage Backend**: Support for multiple storage providers
 - **Advanced RAG Pipeline**: Semantic search and question-answering capabilities with enhanced format handling
 - **Multi-channel Integration**: Web interface and VK social network bot
-- **Production-ready Architecture**: Proper separation of concerns and testing strategy with enhanced package organization
+- **Production-ready Architecture**: Proper separation of concerns and testing strategy with enhanced Docling integration
 - **Scalable Pagination System**: Efficient handling of large document collections
 - **Enhanced User Experience**: Dynamic pagination with HTMX integration, mobile-responsive design
 - **Powerful Search Capabilities**: Real-time filtering with case-insensitive pattern matching
@@ -2881,39 +2970,43 @@ Key strengths include:
 - **Modernized Interface**: Interactive toolbar, enhanced user experience, overlay mobile sidebar
 - **Robust Concurrency Control**: Semaphore-based throttling for background operations
 - **Enhanced Error Handling**: Atomic consistency guarantees and comprehensive error recovery
-- **Comprehensive Logging**: Detailed monitoring and debugging capabilities with enhanced package organization logging
+- **Comprehensive Logging**: Detailed monitoring and debugging capabilities with enhanced Docling integration logging
 - **Enhanced Visual Presentation**: Modern rounded corner styling, sophisticated background treatments, and improved visual hierarchy throughout the interface
 - **Advanced Filtering and Sorting**: Comprehensive server-side processing with real-time updates and centralized date handling
-- **Enhanced Test Coverage**: Extensive testing for new package organization functionality including import path validation, DocumentService location testing, indexer module testing, enhanced router architecture testing, and comprehensive error handling validation
+- **Enhanced Test Coverage**: Extensive testing for new Docling integration functionality including model caching, HybridChunker validation, enhanced metadata extraction, and legacy DOC removal
 - **Mobile-First Responsive Design**: Overlay sidebar, toast notifications, and adaptive layouts for all device sizes
 - **Document-Specific Prompt Engineering**: Specialized prompts for focused document responses
 - **Global Prompt Engineering**: Specialized prompts for comprehensive knowledge base responses
 - **Modal-Based User Interaction**: Intuitive question interfaces with Alpine.js integration
 - **Comprehensive Security Validation**: Document existence, status, and search enablement verification for both question types
-- **Performance Optimization**: Reduced server load through batch processing, centralized utilities, unified background processing, intelligent polling control, enhanced async operations, and enhanced package organization
+- **Performance Optimization**: Reduced server load through batch processing, centralized utilities, unified background processing, intelligent polling control, enhanced async operations, and enhanced Docling integration
 - **Real-time Streaming Response**: Immediate display of AI responses as they arrive for both question types
 - **International Character Support**: Proper filename encoding for global compatibility
-- **Enhanced Status Tracking**: Comprehensive tracking of document status changes, recently finished documents, polling activity, async operations, and enhanced package organization
+- **Enhanced Status Tracking**: Comprehensive tracking of document status changes, recently finished documents, polling activity, async operations, and enhanced Docling integration
 - **Global Knowledge Base Access**: Unified knowledge base queries across all searchable documents
 - **Unified Background Processing**: Centralized error handling, resource management, and logging for all background operations
 - **Centralized Date Range Handling**: Standardized ISO date format parsing across all endpoints with timezone support
 - **Consistent Template Rendering**: Standardized UI context management for all partials and components
-- **Spreadsheet Query Support**: XLSX documents can be queried with worksheet context for focused analysis
-- **Format-Aware Processing**: Different handling for DOCX headings, DOC text structure, and XLSX worksheets with unified output
+- **Spreadsheet Query Support**: XLSX documents can be queried with worksheet context and page numbers for focused analysis
+- **Format-Aware Processing**: Different handling for DOCX, PDF, and XLSX formats through unified Docling interface with enhanced metadata
 - **Revolutionary Router Architecture**: Modular router structure with router composition maintaining backward compatibility
-- **Intelligent Server Load Management**: Automatic polling control and server load optimization through async operations and enhanced package organization
-- **Enhanced User Experience**: Real-time status monitoring and efficient UI updates through async operations and enhanced package organization
-- **Comprehensive Router Testing**: Extensive testing for router composition, backward compatibility, and modular functionality with enhanced package organization
+- **Intelligent Server Load Management**: Automatic polling control and server load optimization through async operations and enhanced Docling integration
+- **Enhanced User Experience**: Real-time status monitoring and efficient UI updates through async operations and enhanced Docling integration
+- **Comprehensive Router Testing**: Extensive testing for router composition, backward compatibility, and modular functionality with enhanced Docling integration
 - **Enhanced Async Architecture**: Comprehensive async operations throughout the document processing pipeline with semaphore-based concurrency control and streamlined background processing
-- **Enhanced Package Organization**: Improved code organization, separation of concerns, and maintainability with DocumentService in admin package and dedicated indexer module
-- **Enhanced Testing Infrastructure**: Comprehensive testing for new package organization including import path validation, dependency resolution, and fixture management
-- **Enhanced Router Architecture Testing**: Extensive validation of modular router composition and backward compatibility with enhanced package organization
-- **Enhanced Async Operations Testing**: Comprehensive testing of enhanced async architecture and semaphore management with enhanced package organization
-- **Enhanced Streaming Response Testing**: Extensive validation of SSE streaming capabilities with enhanced package organization
-- **Enhanced Batch Status Polling Testing**: Revolutionary centralized status polling with OOB swapping validation and enhanced package organization
-- **Enhanced Filtering and Sorting Testing**: Comprehensive validation of enhanced filtering and sorting API endpoints with enhanced package organization
-- **Enhanced Authentication Testing**: Complete validation of authentication router functionality with enhanced package organization
-- **Enhanced Upload Operations Testing**: Extensive validation of upload router operations with enhanced package organization
-- **Enhanced Bulk Operations Testing**: Comprehensive validation of bulk router operations with enhanced package organization
+- **Enhanced Docling Integration**: Complete replacement of custom parsing with unified Docling-based system including model caching, HybridChunker integration, and enhanced metadata extraction
+- **Enhanced Testing Infrastructure**: Comprehensive testing for new Docling integration including model caching validation, HybridChunker testing, and enhanced metadata extraction validation
+- **Enhanced Router Architecture Testing**: Extensive validation of modular router composition and backward compatibility with enhanced Docling integration
+- **Enhanced Async Operations Testing**: Comprehensive testing of enhanced async architecture and semaphore management with enhanced Docling integration
+- **Enhanced Streaming Response Testing**: Extensive validation of SSE streaming capabilities with enhanced Docling integration
+- **Enhanced Batch Status Polling Testing**: Revolutionary centralized status polling with OOB swapping validation and enhanced Docling integration
+- **Enhanced Filtering and Sorting Testing**: Comprehensive validation of enhanced filtering and sorting API endpoints with enhanced Docling integration
+- **Enhanced Authentication Testing**: Complete validation of authentication router functionality with enhanced Docling integration
+- **Enhanced Upload Operations Testing**: Extensive validation of upload router operations with enhanced Docling integration
+- **Enhanced Bulk Operations Testing**: Comprehensive validation of bulk router operations with enhanced Docling integration
+- **Enhanced Docling Integration Testing**: Extensive validation of Docling parser functionality, model caching, HybridChunker, and enhanced metadata extraction
+- **Enhanced Model Caching Testing**: Comprehensive validation of ensure_models_cached() function, offline mode enablement, and model availability
+- **Enhanced HybridChunker Testing**: Extensive validation of token-based chunking, sizing configuration, and error handling
+- **Enhanced Metadata Extraction Testing**: Comprehensive validation of page number extraction, heading preservation, and error handling
 
-The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability. The enhanced package organization provides enterprise-grade architecture with improved performance, reliability, and scalability compared to the previous structure. The dedicated indexer module improves separation of concerns and allows for more focused development and testing. The enhanced testing infrastructure ensures comprehensive coverage of all new functionality while maintaining backward compatibility and operational stability.
+The system is designed for extensibility, allowing easy addition of new document formats, storage backends, and AI providers while maintaining backward compatibility and operational reliability. The enhanced Docling integration provides enterprise-grade architecture with improved performance, reliability, and scalability compared to the previous custom parsing system. The unified Docling-based processing system improves separation of concerns and allows for more focused development and testing. The enhanced testing infrastructure ensures comprehensive coverage of all new Docling integration functionality while maintaining backward compatibility and operational stability.

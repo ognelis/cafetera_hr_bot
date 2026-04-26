@@ -15,14 +15,21 @@
 - [packages/admin/src/cafetera_admin/api/documents.py](file://packages/admin/src/cafetera_admin/api/documents.py)
 - [packages/admin/src/cafetera_admin/api/category_files.py](file://packages/admin/src/cafetera_admin/api/category_files.py)
 - [packages/admin/src/cafetera_admin/api/deps.py](file://packages/admin/src/cafetera_admin/api/deps.py)
+- [packages/admin/src/cafetera_admin/api/documents_upload.py](file://packages/admin/src/cafetera_admin/api/documents_upload.py)
 - [packages/admin/src/cafetera_admin/parser.py](file://packages/admin/src/cafetera_admin/parser.py)
+- [packages/admin/src/cafetera_admin/api/documents_helpers.py](file://packages/admin/src/cafetera_admin/api/documents_helpers.py)
+- [tests/test_parser.py](file://tests/test_parser.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated dependency analysis section to reflect new langchain-text-splitters, langchain-experimental, and tiktoken dependencies
-- Enhanced document parsing and chunking section to explain the new semantic chunking capabilities
-- Updated architecture diagrams to show the enhanced text processing pipeline
+- Updated parser section to reflect complete rewrite using Docling for document processing
+- Removed references to semantic chunking strategies and custom DOC parsing logic
+- Updated dependency analysis to show simplified Docling-based architecture
+- Revised text processing capabilities to focus on Docling integration
+- Updated troubleshooting guide to reflect new error handling for unsupported formats
+- Added comprehensive model caching and offline processing capabilities
+- Updated supported file formats to reflect elimination of .doc format support
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -30,7 +37,7 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Enhanced Text Processing Capabilities](#enhanced-text-processing-capabilities)
+6. [Docling-Based Document Processing](#docling-based-document-processing)
 7. [Dependency Analysis](#dependency-analysis)
 8. [Performance Considerations](#performance-considerations)
 9. [Troubleshooting Guide](#troubleshooting-guide)
@@ -80,7 +87,7 @@ CORE --> PG
 - Indexer: Handles chunk preparation, embedding computation, upsert to Qdrant, deletion, toggling search visibility, and collection optimization.
 - API routers: Provide HTML pages, JSON endpoints, and HTMX partials for document management and category file administration.
 - Authentication: Session cookie validation against the admin API key.
-- Parser: Loads and chunks .docx, .doc, and .xlsx files for indexing with enhanced semantic chunking capabilities.
+- Parser: Loads and chunks .pdf, .docx, and .xlsx files using Docling for advanced document processing.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/main.py:85-114](file://packages/admin/src/cafetera_admin/main.py#L85-L114)
@@ -90,7 +97,7 @@ CORE --> PG
 - [packages/admin/src/cafetera_admin/api/documents.py:1-539](file://packages/admin/src/cafetera_admin/api/documents.py#L1-L539)
 - [packages/admin/src/cafetera_admin/api/category_files.py:1-347](file://packages/admin/src/cafetera_admin/api/category_files.py#L1-L347)
 - [packages/admin/src/cafetera_admin/api/deps.py:77-121](file://packages/admin/src/cafetera_admin/api/deps.py#L77-L121)
-- [packages/admin/src/cafetera_admin/parser.py:585-649](file://packages/admin/src/cafetera_admin/parser.py#L585-L649)
+- [packages/admin/src/cafetera_admin/parser.py:45-105](file://packages/admin/src/cafetera_admin/parser.py#L45-L105)
 
 ## Architecture Overview
 The admin package runs as a FastAPI application with Hypercorn in production and supports local development. It authenticates requests via a session cookie validated against the admin API key. The app state holds shared resources built by the core package, including S3 storage, Qdrant client, embeddings, document repository, and QA service.
@@ -265,49 +272,61 @@ Restore --> End
 **Section sources**
 - [packages/admin/src/cafetera_admin/indexer.py:25-251](file://packages/admin/src/cafetera_admin/indexer.py#L25-L251)
 
-## Enhanced Text Processing Capabilities
+## Docling-Based Document Processing
 
-### Advanced Document Parsing and Chunking
-The parser now provides enhanced text processing capabilities through three distinct chunking strategies:
+### Advanced Document Parsing with Docling
+The parser now provides enhanced text processing capabilities through Docling, a modern document processing library that supports multiple document formats with sophisticated layout analysis and table extraction.
 
-#### Recursive Character Text Splitting
-Uses `RecursiveCharacterTextSplitter.from_tiktoken_encoder()` with `tiktoken>=0.12.0` for token-aware splitting based on the `cl100k_base` encoding. This ensures chunks align with token boundaries for optimal embedding efficiency.
+#### Docling Integration
+The parser uses Docling's `DoclingLoader` with `ExportType.DOC_CHUNKS` to process documents with intelligent chunking based on document structure and content hierarchy.
 
-#### Semantic Chunking
-Powered by `langchain-experimental>=0.4.1` and `SemanticChunker`, this approach analyzes text semantics to create meaningful chunks that preserve contextual coherence, automatically detecting natural breakpoints in the content.
+#### Supported Document Formats
+The parser supports three document formats through Docling integration:
+- **PDF files**: Full-text extraction with layout preservation and table detection
+- **DOCX files**: Rich text processing with paragraph structure and table handling
+- **XLSX files**: Spreadsheet conversion to structured markdown tables with column headers
 
-#### Enhanced Text Processing Pipeline
-The parser processes .docx, .doc, and .xlsx files with sophisticated handling:
-- **.docx files**: Extract sections with heading preservation, table formatting, and hierarchical breadcrumb paths
-- **.doc files**: Convert legacy Microsoft Word format using `sharepoint-to-text>=1.1.1`
-- **.xlsx files**: Transform spreadsheets into structured markdown tables with column header preservation
+#### Model Caching and Offline Processing
+The system implements comprehensive model caching for optimal performance:
+- **Tokenizer caching**: Ensures `Qwen/Qwen3-Embedding-0.6B` tokenizer is available offline
+- **Docling model caching**: Downloads layout analysis and TableFormer models during startup
+- **Offline mode**: Disables network requests after initial model downloads
 
 ```mermaid
 flowchart TD
 Load([Load Document]) --> Detect["Detect file type"]
-Detect --> Docx[".docx: Extract sections + tables"]
-Detect --> Doc[".doc: Extract text via sharepoint2text"]
-Detect --> Xlsx[".xlsx: Iterate sheets, collect rows"]
-Docx --> Strategy{"Chunking Strategy"}
-Doc --> Strategy
-Xlsx --> Strategy
-Strategy --> |Recursive| TikToken["RecursiveCharacterTextSplitter<br/>with tiktoken encoder"]
-Strategy --> |Semantic| Semantic["SemanticChunker<br/>from langchain-experimental"]
-TikToken --> Output([Chunked Documents])
-Semantic --> Output
+Detect --> PDF[".pdf: Docling PDF processing"]
+Detect --> DOCX[".docx: Docling DOCX processing"]
+Detect --> XLSX[".xlsx: Docling XLSX processing"]
+PDF --> Chunker["HybridChunker with cached tokenizer"]
+DOCX --> Chunker
+XLSX --> Chunker
+Chunker --> Output([Chunked Documents])
 ```
 
 **Diagram sources**
-- [packages/admin/src/cafetera_admin/parser.py:585-649](file://packages/admin/src/cafetera_admin/parser.py#L585-L649)
-- [packages/admin/src/cafetera_admin/parser.py:229-235](file://packages/admin/src/cafetera_admin/parser.py#L229-L235)
-- [packages/admin/src/cafetera_admin/parser.py:275-281](file://packages/admin/src/cafetera_admin/parser.py#L275-L281)
+- [packages/admin/src/cafetera_admin/parser.py:45-105](file://packages/admin/src/cafetera_admin/parser.py#L45-L105)
+- [packages/admin/src/cafetera_admin/parser.py:19-43](file://packages/admin/src/cafetera_admin/parser.py#L19-L43)
 
 **Section sources**
-- [packages/admin/src/cafetera_admin/parser.py:102-420](file://packages/admin/src/cafetera_admin/parser.py#L102-L420)
-- [packages/admin/src/cafetera_admin/parser.py:585-649](file://packages/admin/src/cafetera_admin/parser.py#L585-L649)
+- [packages/admin/src/cafetera_admin/parser.py:1-105](file://packages/admin/src/cafetera_admin/parser.py#L1-L105)
+- [packages/admin/src/cafetera_admin/api/documents_upload.py:74-103](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L74-L103)
+
+### Enhanced Text Processing Pipeline
+The Docling-based processing pipeline provides sophisticated document understanding:
+- **Layout-aware chunking**: Preserves document structure and content hierarchy
+- **Intelligent table extraction**: Converts spreadsheets to structured markdown tables
+- **Multi-format support**: Unified processing pipeline for PDF, DOCX, and XLSX
+- **Model caching**: Pre-downloads and caches all required ML models during Docker build
+
+**Updated** Removed semantic chunking strategies and custom DOC parsing logic in favor of Docling's native capabilities.
+
+**Section sources**
+- [packages/admin/src/cafetera_admin/parser.py:45-105](file://packages/admin/src/cafetera_admin/parser.py#L45-L105)
+- [packages/admin/src/cafetera_admin/api/documents_upload.py:74-103](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L74-L103)
 
 ## Dependency Analysis
-The admin package depends on cafetera-core for shared domain services, storage, and configuration. The enhanced workspace configuration ensures consistent dependency resolution across packages with the latest text processing capabilities.
+The admin package depends on cafetera-core for shared domain services, storage, and configuration. The simplified workspace configuration focuses on Docling-based document processing with essential dependencies.
 
 ```mermaid
 graph LR
@@ -317,49 +336,42 @@ FASTAPI["fastapi>=0.135.3"]
 HYPERCORN["hypercorn>=0.18.0"]
 JINJA["jinja2>=3.1.6"]
 MULTIPART["python-multipart>=0.0.24"]
-DOCX["python-docx>=1.2.0"]
-XLSX["openpyxl>=3.1.5"]
-SHAREPOINT["sharepoint-to-text>=1.1.1"]
-SPLITTERS["langchain-text-splitters>=1.1.1"]
-EXPERIMENTAL["langchain-experimental>=0.4.1"]
-TIKTOKEN["tiktoken>=0.12.0"]
+DOCING["docling>=2.0.0"]
+LANGCHAIN_DOCLING["langchain-docling>=0.1.0"]
 ADMIN --> CORE
 ADMIN --> FASTAPI
 ADMIN --> HYPERCORN
 ADMIN --> JINJA
 ADMIN --> MULTIPART
-ADMIN --> DOCX
-ADMIN --> XLSX
-ADMIN --> SHAREPOINT
-ADMIN --> SPLITTERS
-ADMIN --> EXPERIMENTAL
-ADMIN --> TIKTOKEN
+ADMIN --> DOCING
+ADMIN --> LANGCHAIN_DOCLING
 ```
 
-**Updated** Added three new dependencies for enhanced text processing:
-- `langchain-text-splitters>=1.1.1`: Provides `RecursiveCharacterTextSplitter.from_tiktoken_encoder()` for token-aware splitting
-- `langchain-experimental>=0.4.1`: Enables `SemanticChunker` for intelligent semantic chunking
-- `tiktoken>=0.12.0`: Supports tokenization with `cl100k_base` encoding for optimal embedding alignment
+**Updated** Simplified dependencies focusing on Docling integration:
+- `docling>=2.0.0`: Core document processing library with layout analysis
+- `langchain-docling>=0.1.0`: LangChain integration for document loading
+- Removed semantic chunking dependencies (`langchain-text-splitters`, `langchain-experimental`, `tiktoken`)
+- Removed custom DOC parsing dependencies (`sharepoint-to-text`)
 
 **Diagram sources**
-- [packages/admin/pyproject.toml:6-18](file://packages/admin/pyproject.toml#L6-L18)
+- [packages/admin/pyproject.toml:6-14](file://packages/admin/pyproject.toml#L6-L14)
 - [pyproject.toml:22-28](file://pyproject.toml#L22-L28)
 
 **Section sources**
-- [packages/admin/pyproject.toml:1-25](file://packages/admin/pyproject.toml#L1-L25)
+- [packages/admin/pyproject.toml:1-21](file://packages/admin/pyproject.toml#L1-L21)
 - [pyproject.toml:22-28](file://pyproject.toml#L22-L28)
 
 ## Performance Considerations
 - Concurrency control: A semaphore limits concurrent indexing tasks to prevent resource exhaustion.
 - Collection optimization: Post-index optimization temporarily lowers the indexing threshold to merge segments, reducing storage overhead and improving query performance.
-- Embedding caching: The Dockerfile pre-downloads FastEmbed models to speed up cold starts.
+- Model caching: Dockerfile pre-downloads Docling models and tokenizer during build to speed up cold starts.
 - HTTP/2: Production server uses Hypercorn with HTTP/2 enabled for improved throughput.
-- Token-aware chunking: Enhanced text processing ensures optimal chunk sizes aligned with token boundaries for better embedding efficiency.
+- Layout-aware processing: Docling's native chunking preserves document structure for better retrieval performance.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/main.py:78-79](file://packages/admin/src/cafetera_admin/main.py#L78-L79)
 - [packages/admin/src/cafetera_admin/indexer.py:196-251](file://packages/admin/src/cafetera_admin/indexer.py#L196-L251)
-- [Dockerfile.admin:44-50](file://Dockerfile.admin#L44-L50)
+- [Dockerfile.admin:51-57](file://Dockerfile.admin#L51-L57)
 - [packages/admin/src/cafetera_admin/server.py:50-55](file://packages/admin/src/cafetera_admin/server.py#L50-L55)
 
 ## Troubleshooting Guide
@@ -367,13 +379,18 @@ ADMIN --> TIKTOKEN
 - Resource unavailability: If S3, Qdrant, or DocumentService is missing from app state, handlers return HTTP 503.
 - Port conflicts: The admin server binds to port 8000 by default; override with ADMIN_PORT if needed.
 - Docker services failing: Check health checks for Qdrant and MinIO; verify ports 6333 and 9000 are free.
-- Text processing errors: Ensure `langchain-text-splitters`, `langchain-experimental`, and `tiktoken` dependencies are properly installed for semantic chunking functionality.
+- **Docling model issues**: If Docling models fail to load, check that the Docker build successfully cached models in `.cache/huggingface` and `.cache/fastembed`.
+- **Format errors**: Legacy .doc format is no longer supported. Convert to .docx format before uploading.
+- **Unsupported formats**: Only .pdf, .docx, and .xlsx files are supported. Other formats will raise ValueError.
+
+**Updated** Added troubleshooting guidance for Docling model caching and format support.
 
 **Section sources**
 - [packages/admin/src/cafetera_admin/api/deps.py:82-89](file://packages/admin/src/cafetera_admin/api/deps.py#L82-L89)
 - [packages/admin/src/cafetera_admin/api/deps.py:62-69](file://packages/admin/src/cafetera_admin/api/deps.py#L62-L69)
 - [packages/admin/src/cafetera_admin/api/deps.py:52-59](file://packages/admin/src/cafetera_admin/api/deps.py#L52-L59)
+- [packages/admin/src/cafetera_admin/parser.py:65-71](file://packages/admin/src/cafetera_admin/parser.py#L65-L71)
 - [README.md:287-307](file://README.md#L287-L307)
 
 ## Conclusion
-The Admin Package provides a cohesive FastAPI-based interface for managing documents and category files within the Cafetera HR Bot ecosystem. It leverages shared infrastructure and domain services from cafetera-core, integrates HTMX for responsive UI updates, and ensures secure access via cookie-based authentication. The enhanced text processing capabilities through `langchain-text-splitters`, `langchain-experimental`, and `tiktoken` enable sophisticated document parsing and chunking strategies, supporting both token-aware recursive splitting and intelligent semantic chunking for improved RAG performance. The Dockerized deployment and workspace configuration simplify local development and production operations.
+The Admin Package provides a cohesive FastAPI-based interface for managing documents and category files within the Cafetera HR Bot ecosystem. It leverages shared infrastructure and domain services from cafetera-core, integrates HTMX for responsive UI updates, and ensures secure access via cookie-based authentication. The enhanced Docling-based text processing capabilities provide sophisticated document parsing and chunking for PDF, DOCX, and XLSX formats, replacing the previous semantic chunking strategies with modern layout-aware processing. The simplified dependency structure and comprehensive model caching ensure reliable operation in production environments while maintaining the flexibility for future enhancements.
