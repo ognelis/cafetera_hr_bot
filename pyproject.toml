@@ -11,12 +11,12 @@ dev = [
     "cafetera-core",
     "cafetera-admin",
     "cafetera-vk-bot",
-    "ruff>=0.15.10",
-    "mypy>=1.20.0",
+    "ruff>=0.15.12",
+    "mypy>=1.20.2",
     "types-openpyxl>=3.1.0",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
-    "testcontainers[postgres]>=4.0.0",
+    "testcontainers[postgres]>=4.14.2"
 ]
 
 [tool.uv.workspace]

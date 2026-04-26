@@ -27,10 +27,15 @@ RUN mkdir -p packages/core/src/cafetera_core \
           packages/admin/src/cafetera_admin/__init__.py \
           packages/vk_bot/src/cafetera_vk_bot/__init__.py
 
-# Create venv, generate requirements, and install dependencies
+# Create venv, generate requirements, and install CPU-only dependencies
+# 1. Install torch + torchvision from CPU-only index FIRST (prevents GPU deps)
+# 2. Export locked requirements, filter out GPU-only packages
+# 3. Install remaining packages (torch dependency already satisfied)
 RUN uv venv .venv && \
+    uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
     uv export --format=requirements-txt --package=cafetera-admin --no-dev --locked > requirements.txt && \
-    uv pip install -r requirements.txt
+    grep -viE '^(nvidia|triton|torch)' requirements.txt | grep -vE '^[[:space:]].*--hash' > requirements-cpu.txt && \
+    uv pip install -r requirements-cpu.txt
 
 # Now copy real source code and install workspace packages
 COPY packages/core/ ./packages/core/
@@ -43,24 +48,29 @@ COPY static/ ./static/
 
 # Pre-download BM25 sparse embedding model during build
 ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
-RUN .venv/bin/python -c "from langchain_qdrant import FastEmbedSparse; FastEmbedSparse(model_name='Qdrant/bm25')"
-
-# Pre-download ColBERT rerank model during build
-RUN .venv/bin/python -c "from fastembed import LateInteractionTextEmbedding; LateInteractionTextEmbedding(model_name='colbert-ir/colbertv2.0')"
 
 # Pre-download Docling ML models during build (layout analysis, TableFormer)
 ENV HF_HOME=/app/.cache/huggingface
-RUN .venv/bin/python -c "from docling.document_converter import DocumentConverter; DocumentConverter()"
 
 # Pre-download HybridChunker tokenizer (must match CHUNKER_TOKENIZER_MODEL) during build
 ENV CHUNKER_TOKENIZER_MODEL=Qwen/Qwen3-Embedding-0.6B
-RUN .venv/bin/python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('$CHUNKER_TOKENIZER_MODEL')"
 
-# Cleanup: remove test files and caches to reduce image size
+# Pre-download all ML models in a single layer
+RUN .venv/bin/python -c "from langchain_qdrant import FastEmbedSparse; FastEmbedSparse(model_name='Qdrant/bm25')" && \
+    .venv/bin/python -c "from fastembed import LateInteractionTextEmbedding; LateInteractionTextEmbedding(model_name='colbert-ir/colbertv2.0')" && \
+    .venv/bin/python -c "from docling.document_converter import DocumentConverter; DocumentConverter()" && \
+    .venv/bin/python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('${CHUNKER_TOKENIZER_MODEL}')"
+
+# Cleanup: remove test files, caches, docs, and NVIDIA stubs to reduce image size
 RUN find /app/.venv/lib/python3.13/site-packages \
+        -not -path '*/torch/*' \
+        -not -path '*/transformers/*' \
         \( -type d -name 'tests' -o -type d -name 'test' \
            -o -type d -name '*_tests' -o -name 'test_*.py' \) \
         -exec rm -rf {} + 2>/dev/null; \
+    find /app/.venv/lib/python3.13/site-packages -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null; \
+    find /app/.venv/lib/python3.13/site-packages -type d \( -name 'docs' -o -name 'examples' \) -not -path '*/botocore/docs*' -exec rm -rf {} + 2>/dev/null; \
+    find /app/.venv/lib/python3.13/site-packages -type d -name 'nvidia' -exec rm -rf {} + 2>/dev/null; \
     rm -rf /root/.cache/pip /root/.cache/uv /tmp/* 2>/dev/null; \
     true
 

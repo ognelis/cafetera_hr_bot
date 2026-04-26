@@ -5,12 +5,12 @@ description = "Admin web UI (FastAPI + HTMX) for Cafetera HR Bot"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "cafetera-core",
-    "fastapi>=0.135.3",
+    "fastapi>=0.136.1",
     "hypercorn>=0.18.0",
     "jinja2>=3.1.6",
-    "python-multipart>=0.0.24",
-    "langchain-docling>=0.1.0",
-    "docling>=2.0.0",
+    "python-multipart>=0.0.26",
+    "langchain-docling>=2.0.0",
+    "docling>=2.91.0",
 ]
 
 [tool.uv.sources]

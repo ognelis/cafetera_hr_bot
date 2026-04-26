@@ -4,15 +4,15 @@ version = "0.1.0"
 description = "Core domain logic, RAG pipeline, and storage for Cafetera HR Bot"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "pydantic>=2.12.5",
-    "pydantic-settings>=2.13.1",
+    "pydantic>=2.13.3",
+    "pydantic-settings>=2.14.0",
     "langchain-qdrant>=1.1.0",
     "langchain-ollama>=1.1.0",
-    "langchain-openai>=1.1.12",
+    "langchain-openai>=1.2.1",
     "qdrant-client>=1.17.1",
     "fastembed>=0.8.0",
     "databases[asyncpg]>=0.9.0",
-    "aiobotocore>=2.26.0",
+    "aiobotocore>=3.5.0"
 ]
 
 [build-system]
