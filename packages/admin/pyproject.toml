@@ -11,6 +11,8 @@ dependencies = [
     "python-multipart>=0.0.26",
     "langchain-docling>=2.0.0",
     "docling>=2.91.0",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
 ]
 
 [tool.uv.sources]

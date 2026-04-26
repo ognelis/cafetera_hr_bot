@@ -22,10 +22,21 @@ dev = [
 [tool.uv.workspace]
 members = ["packages/*"]
 
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.uv.sources]
 cafetera-core = { workspace = true }
 cafetera-admin = { workspace = true }
 cafetera-vk-bot = { workspace = true }
+torch = [
+  { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+]
+torchvision = [
+  { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

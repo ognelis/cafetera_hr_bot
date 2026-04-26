@@ -11,7 +11,19 @@
 - [fallback.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py)
 - [sections.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py)
 - [config.py](file://packages/admin/src/cafetera_admin/config.py)
+- [main.py](file://packages/admin/src/cafetera_admin/main.py)
+- [staleness.py](file://packages/admin/src/cafetera_admin/domain/staleness.py)
+- [indexer.py](file://packages/admin/src/cafetera_admin/indexer.py)
+- [document_service.py](file://packages/admin/src/cafetera_admin/domain/document_service.py)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated Configuration Model and Indexing section to remove references to automatic staleness detection
+- Removed documentation about startup staleness detection during application lifecycle
+- Updated troubleshooting guide to reflect manual document management processes
+- Revised performance considerations to remove automatic cleanup procedures
+- Updated conclusion to reflect current manual document management approach
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -26,6 +38,8 @@
 
 ## Introduction
 This document describes the Document Management System built around a VKontakte (VK) bot integrated with a Retrieval-Augmented Generation (RAG) backend. The system manages HR-related documents and provides conversational access to policies, procedures, and templates through an intuitive chat interface. It leverages configurable settings for LLM providers, vector storage, and document chunking, while offering modular handlers for different HR workflows such as hiring, termination, vacation, payroll, and general questions.
+
+**Updated** Removed automatic staleness detection and management system. The system now operates with manual document management processes where administrators manually handle document updates and reindexing when configuration changes occur.
 
 ## Project Structure
 The project follows a monorepo workspace managed by uv, with three main packages:
@@ -66,7 +80,7 @@ TESTS --> VKBOT
 - [pyproject.toml:1-49](file://pyproject.toml#L1-L49)
 
 ## Core Components
-- Core Settings: Centralized configuration for RAG, LLM, embeddings, storage, chunking, hybrid search, and reranking. Includes helpers to serialize indexing configuration and detect staleness.
+- Core Settings: Centralized configuration for RAG, LLM, embeddings, storage, chunking, hybrid search, and reranking. Includes helpers to serialize indexing configuration.
 - VK Bot Factory: Creates a configured VK bot instance, registers handlers in priority order, and wires a shared state dispenser.
 - VK Handlers: Modular handlers for start/home navigation, fallback responses, and section entry points (including RAG-powered flows).
 - VK Keyboards: Builder functions for main menu, entity selection, and contextual sub-menus with standardized service buttons.
@@ -199,7 +213,7 @@ class KeyboardBuilders {
 - [keyboards.py:1-263](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L1-L263)
 
 ### Configuration Model and Indexing
-Core settings encapsulate RAG, LLM, embeddings, storage, chunking, hybrid search, and reranking parameters. A helper extracts indexing configuration for document metadata and detects staleness when parameters change.
+Core settings encapsulate RAG, LLM, embeddings, storage, chunking, hybrid search, and reranking parameters. A helper extracts indexing configuration for document metadata. **Updated** Automatic staleness detection during startup has been removed in favor of manual document management processes.
 
 ```mermaid
 classDiagram
@@ -231,7 +245,6 @@ class CoreSettings {
 }
 class ConfigHelpers {
 +build_indexing_config(settings) dict
-+is_config_stale(stored, current) bool
 }
 CoreSettings <.. ConfigHelpers : "used by"
 ```
@@ -291,6 +304,7 @@ UV --> TESTS
 - Hybrid Search: Sparse BM25 embeddings can improve recall for keyword-heavy HR documents.
 - Reranking: Optional ColBERT reranking enhances precision but adds latency; tune prefetch and rerank limits accordingly.
 - Storage: S3-compatible storage and PostgreSQL-backed metadata enable scalable document management.
+- **Updated** Manual document management: Administrators manually handle document updates and reindexing when configuration changes occur, providing more control over document lifecycle management.
 
 ## Troubleshooting Guide
 - Logging: Configure global logging for consistent log formatting across the system.
@@ -299,6 +313,8 @@ UV --> TESTS
 - State Dispenser: Confirm the shared state dispenser is assigned before loading labelers.
 - Keyboard Payloads: Validate payload constants and service rows to avoid navigation errors.
 - Admin Coexistence: Use separate admin API key configuration to avoid conflicts with VK bot settings.
+- **Updated** Manual document management: When configuration changes occur, administrators must manually reindex documents through the admin interface. The system no longer automatically detects and marks stale documents during startup.
+- **Updated** Document status monitoring: Use the admin interface to monitor document statuses and manually trigger reindexing for documents that need updates after configuration changes.
 
 **Section sources**
 - [config.py:7-12](file://packages/core/src/cafetera_core/config.py#L7-L12)
@@ -307,4 +323,4 @@ UV --> TESTS
 - [config.py:17-19](file://packages/admin/src/cafetera_admin/config.py#L17-L19)
 
 ## Conclusion
-The Document Management System provides a robust, extensible foundation for HR document access via a VK bot. Its modular design, centralized configuration, and structured handler routing enable efficient development and maintenance. By tuning RAG parameters and leveraging hybrid search capabilities, the system delivers accurate and relevant information to users while maintaining operational simplicity.
+The Document Management System provides a robust, extensible foundation for HR document access via a VK bot. Its modular design, centralized configuration, and structured handler routing enable efficient development and maintenance. **Updated** The system now operates with manual document management processes, where administrators manually handle document updates and reindexing when configuration changes occur. By tuning RAG parameters and leveraging hybrid search capabilities, the system delivers accurate and relevant information to users while maintaining operational simplicity and giving administrators full control over document lifecycle management.

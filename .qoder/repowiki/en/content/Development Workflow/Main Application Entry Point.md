@@ -10,6 +10,7 @@
 - [resources.py](file://packages/core/src/cafetera_core/resources.py)
 - [config.py](file://packages/admin/src/cafetera_admin/config.py)
 - [config.py](file://packages/vk_bot/src/cafetera_vk_bot/config.py)
+- [staleness.py](file://packages/admin/src/cafetera_admin/domain/staleness.py)
 - [pyproject.toml](file://pyproject.toml)
 - [packages/admin/pyproject.toml](file://packages/admin/pyproject.toml)
 - [packages/vk_bot/pyproject.toml](file://packages/vk_bot/pyproject.toml)
@@ -22,11 +23,10 @@
 
 ## Update Summary
 **Changes Made**
-- Updated to reflect new centralized resource management architecture with build_resources()/close_resources() functions
-- Added comprehensive coverage of the new AppResources container and resource lifecycle management
-- Updated package-based architecture documentation to show how FastAPI and VK bot now use centralized resource initialization
-- Enhanced troubleshooting guide to address resource management patterns
-- Updated Python project configuration to reflect monorepo workspace with centralized dependencies
+- Updated to reflect the simplified application startup process that removes stale document detection from main.py entry point
+- Documented the streamlined resource management approach that focuses on core dependencies
+- Updated troubleshooting guide to address the simplified startup workflow
+- Enhanced package-based architecture documentation to show the current centralized resource initialization without stale detection
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -44,7 +44,7 @@
 
 The Cafetera HR Bot is a comprehensive RAG (Retrieval-Augmented Generation) application designed to manage HR-related documents and provide intelligent Q&A capabilities through VKontakte integration. This document focuses specifically on the main application entry points and their modernized package-based execution patterns, explaining how the FastAPI application and VK bot are initialized, configured, and executed as proper Python packages with centralized resource management.
 
-The application has been modernized to use a centralized resource management architecture with build_resources()/close_resources() functions, replacing the previous layered architecture approach. This provides better dependency isolation, cleaner resource lifecycle management, and more reliable deployment across different environments.
+The application has been modernized to use a centralized resource management architecture with build_resources()/close_resources() functions, replacing the previous layered architecture approach. This provides better dependency isolation, cleaner resource lifecycle management, and more reliable deployment across different environments. The startup process has been simplified to focus on core resource management and dependency injection without stale document detection overhead.
 
 ## Application Architecture Overview
 
@@ -90,7 +90,7 @@ VkPolling --> VkLoop
 
 ## Centralized Resource Management
 
-**Updated** The application now uses a centralized resource management system that provides consistent initialization and cleanup across all packages.
+**Updated** The application now uses a centralized resource management system that provides consistent initialization and cleanup across all packages, with a simplified startup process that focuses on essential dependencies.
 
 ### AppResources Container
 
@@ -156,11 +156,11 @@ The build_resources() function orchestrates resource initialization with try/exc
 
 ## Entry Point Analysis
 
-The main application entry points have been restructured to use proper package module execution patterns with centralized resource management.
+**Updated** The main application entry points have been restructured to use proper package module execution patterns with centralized resource management, with a simplified startup process that removes stale document detection overhead.
 
 ### Admin Application Entry Point
 
-The admin application entry point now uses centralized resource management through the lifespan context manager.
+The admin application entry point now uses centralized resource management through the lifespan context manager, with a streamlined startup process.
 
 **Updated** The admin server uses the FastAPI lifespan mechanism with centralized resource initialization:
 
@@ -233,7 +233,7 @@ async def _cleanup(bot) -> None:
 
 ## Package Module Execution
 
-**Updated** The application now uses proper Python package module execution patterns with centralized resource management that provides better dependency resolution and import management.
+**Updated** The application now uses proper Python package module execution patterns with centralized resource management that provides better dependency resolution and import management, with a simplified startup process.
 
 ### Module Execution Commands
 
@@ -295,7 +295,7 @@ The new package structure provides better import resolution with centralized res
 
 ## Development Server Setup
 
-**Updated** The development server setup now emphasizes proper package module execution with centralized resource management over legacy script wrappers.
+**Updated** The development server setup now emphasizes proper package module execution with centralized resource management over legacy script wrappers, with a simplified startup process.
 
 ### Modern Development Workflow
 
@@ -344,7 +344,7 @@ The new package structure supports:
 
 ## Production Deployment
 
-**Updated** Production deployment now uses Docker containers that execute the applications as proper Python modules with centralized resource management.
+**Updated** Production deployment now uses Docker containers that execute the applications as proper Python modules with centralized resource management, with a simplified startup process.
 
 ### Docker Container Configuration
 
@@ -414,7 +414,7 @@ Containers support:
 
 ## Python Project Configuration
 
-**Updated** The Python project configuration has been modernized to support the new monorepo structure with centralized workspace management and resource management.
+**Updated** The Python project configuration has been modernized to support the new monorepo structure with centralized workspace management and resource management, with a simplified package structure.
 
 ### Workspace Configuration
 
@@ -443,7 +443,7 @@ pythonpath = ["packages/core/src", "packages/admin/src", "packages/vk_bot/src"]
 - Centralized resource factory functions
 
 **Admin Package (cafetera-admin):**
-- FastAPI web application with lifespan resource management
+- FastAPI web application with streamlined lifespan resource management
 - Admin interface and API with dependency injection
 - Document management UI with centralized resource access
 - Static file serving with repository root resolution
@@ -471,7 +471,7 @@ The workspace includes comprehensive development tooling:
 
 ## Legacy Script Migration
 
-**Updated** The legacy script-based entry points have been replaced with proper package module execution with centralized resource management, but thin wrapper scripts are maintained for backward compatibility.
+**Updated** The legacy script-based entry points have been replaced with proper package module execution with centralized resource management, but thin wrapper scripts are maintained for backward compatibility, with a simplified startup process.
 
 ### Migration Path
 

@@ -618,6 +618,18 @@ EMBED_N_GPU_LAYERS=0 bash scripts/run_llama_embeddings.sh
 
 ---
 
+## GPU-ускорение (PyTorch)
+
+По умолчанию на Linux (включая Docker) `torch` устанавливается как CPU-only версию через `[tool.uv.sources]` в `pyproject.toml`. На macOS Apple Silicon torch из PyPI автоматически включает поддержку MPS (Metal) GPU.
+
+Если у вас NVIDIA GPU на Linux и нужно CUDA-ускорение, после `uv sync` переустановите torch:
+
+```bash
+uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128 --reinstall
+```
+
+---
+
 ## Структура проекта
 
 | Папка | Назначение |

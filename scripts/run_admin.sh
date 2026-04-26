@@ -249,6 +249,16 @@ if ! uv sync; then
 fi
 log "Dependencies OK"
 
+# Auto-detect NVIDIA GPU and install CUDA-enabled PyTorch on Linux
+if [[ "$(uname -s)" == "Linux" ]] && command_exists nvidia-smi && nvidia-smi >/dev/null 2>&1; then
+  log "NVIDIA GPU detected — installing CUDA-enabled PyTorch..."
+  if uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128 --reinstall; then
+    log "CUDA PyTorch installed successfully"
+  else
+    log "WARNING: Failed to install CUDA PyTorch, continuing with CPU version"
+  fi
+fi
+
 # Start infrastructure
 log "Starting infrastructure via docker compose..."
 docker compose up -d qdrant minio postgres

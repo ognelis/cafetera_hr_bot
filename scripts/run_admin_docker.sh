@@ -448,6 +448,9 @@ fi
 log "Building and starting admin service..."
 docker compose up -d --build admin
 
+# Note: Docker admin image uses CPU-only PyTorch (configured via [tool.uv.sources])
+# For GPU support in Docker, use nvidia-docker runtime with a CUDA base image
+
 # Print startup info
 echo
 log "=========================================="

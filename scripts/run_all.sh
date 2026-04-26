@@ -295,6 +295,8 @@ select_embedding_provider
 log "Starting infrastructure via docker compose..."
 docker compose up -d
 
+# Note: Docker services use CPU-only PyTorch (configured via [tool.uv.sources])
+
 # Wait for PostgreSQL (uses docker compose exec)
 if ! wait_for_postgres; then
   log "ERROR: PostgreSQL failed to start"
