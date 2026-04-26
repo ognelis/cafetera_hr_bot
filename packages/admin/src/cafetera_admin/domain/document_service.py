@@ -143,6 +143,9 @@ class DocumentService:
                 enriched,
                 sparse_embedding=self._sparse_embedding,
                 colbert_embedding=self._colbert_embedding,
+                batch_size=self._settings.qdrant_upsert_batch_size
+                if self._settings
+                else 64,
             )
 
             # Merge segments to reduce BM25 storage overhead
@@ -268,6 +271,9 @@ class DocumentService:
                 enriched,
                 sparse_embedding=self._sparse_embedding,
                 colbert_embedding=self._colbert_embedding,
+                batch_size=self._settings.qdrant_upsert_batch_size
+                if self._settings
+                else 64,
             )
 
             # Merge segments to reduce BM25 storage overhead

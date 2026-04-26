@@ -12,14 +12,45 @@ import logging
 import uuid
 from typing import TYPE_CHECKING, Any
 
+import httpx
 from qdrant_client import models
 from qdrant_client.async_qdrant_client import AsyncQdrantClient
+from qdrant_client.http.exceptions import ResponseHandlingException
 
 if TYPE_CHECKING:
     from langchain_core.documents import Document as LCDocument
     from langchain_core.embeddings import Embeddings
 
 logger = logging.getLogger(__name__)
+
+_INDEXING_THRESHOLD = 10_000
+
+
+async def _upsert_with_retry(
+    client: AsyncQdrantClient,
+    collection_name: str,
+    points: list[models.PointStruct],
+    *,
+    max_retries: int = 3,
+) -> None:
+    """Upsert a batch of points with exponential backoff on transient errors."""
+    for attempt in range(1, max_retries + 1):
+        try:
+            await client.upsert(
+                collection_name=collection_name, points=points
+            )
+            return
+        except (ResponseHandlingException, httpx.ReadError):
+            if attempt == max_retries:
+                raise
+            sleep = 2**attempt
+            logger.warning(
+                "Upsert batch failed (attempt %d/%d), retrying in %ds...",
+                attempt,
+                max_retries,
+                sleep,
+            )
+            await asyncio.sleep(sleep)
 
 
 def prepare_chunks(
@@ -66,6 +97,7 @@ async def index_chunks(
     chunks: list[LCDocument],
     sparse_embedding=None,
     colbert_embedding=None,
+    batch_size: int = 32,
 ) -> int:
     """Add pre-prepared chunks to the Qdrant collection.
 
@@ -80,22 +112,32 @@ async def index_chunks(
 
     # Compute embeddings for all chunks
     texts = [chunk.page_content for chunk in chunks]
-    vectors = embeddings.embed_documents(texts)
 
-    # Compute sparse embeddings if provided
+    # --- parallel embedding generation ---
+    coros: list[Any] = [embeddings.aembed_documents(texts)]
+
+    use_sparse = sparse_embedding is not None
+    if use_sparse:
+        coros.append(asyncio.to_thread(sparse_embedding.embed_documents, texts))
+
+    use_colbert = colbert_embedding is not None
+    if use_colbert:
+        coros.append(asyncio.to_thread(colbert_embedding.embed_documents, texts))
+
+    results = await asyncio.gather(*coros)
+
+    vectors = results[0]
+    idx = 1
     sparse_vectors = None
-    if sparse_embedding is not None:
-        sparse_vectors = sparse_embedding.embed_documents(texts)
-
-    # Compute ColBERT embeddings if provided
+    if use_sparse:
+        sparse_vectors = results[idx]
+        idx += 1
     colbert_vectors = None
-    if colbert_embedding is not None:
-        colbert_vectors = colbert_embedding.embed_documents(texts)
+    if use_colbert:
+        colbert_vectors = results[idx]
 
     # Build points for upsert — collection always uses named vectors:
     # "dense" + optional "bm25" + optional "colbert"
-    use_colbert = colbert_vectors is not None
-    use_sparse = sparse_vectors is not None
     points = []
     for i, chunk in enumerate(chunks):
         point_id = chunk.metadata.get("chunk_id", uuid.uuid4().hex)
@@ -134,11 +176,31 @@ async def index_chunks(
             )
         )
 
-    # Upsert to Qdrant
-    await client.upsert(
-        collection_name=collection_name,
-        points=points,
-    )
+    # Upsert to Qdrant (batched with deferred indexing for large sets)
+    need_batching = len(points) > batch_size
+
+    if need_batching:
+        logger.info(
+            "Batched upsert: %d points in batches of %d (deferred indexing)",
+            len(points),
+            batch_size,
+        )
+        await client.update_collection(
+            collection_name=collection_name,
+            optimizers_config=models.OptimizersConfigDiff(indexing_threshold=0),
+        )
+    try:
+        for i in range(0, len(points), batch_size):
+            batch = points[i : i + batch_size]
+            await _upsert_with_retry(client, collection_name, batch)
+    finally:
+        if need_batching:
+            await client.update_collection(
+                collection_name=collection_name,
+                optimizers_config=models.OptimizersConfigDiff(
+                    indexing_threshold=_INDEXING_THRESHOLD,
+                ),
+            )
 
     logger.info("Indexed %d chunk(s) in '%s'", len(chunks), collection_name)
     return len(chunks)
@@ -208,7 +270,7 @@ async def optimize_collection(
     client: AsyncQdrantClient,
     collection_name: str,
     *,
-    indexing_threshold: int = 10000,
+    indexing_threshold: int = _INDEXING_THRESHOLD,
 ) -> None:
     """Trigger segment optimization on a Qdrant collection.
 
@@ -259,3 +321,4 @@ async def optimize_collection(
         indexing_threshold,
         collection_name,
     )
+

@@ -57,6 +57,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.admin
+      args:
+        COLBERT_RERANK_MODEL: ${COLBERT_RERANK_MODEL:-jinaai/jina-colbert-v2}
+        CHUNKER_TOKENIZER_MODEL: ${CHUNKER_TOKENIZER_MODEL:-Qwen/Qwen3-Embedding-0.6B}
     container_name: rag-bot-admin
     restart: unless-stopped
     ports:
@@ -86,6 +89,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.polling_vk
+      args:
+        COLBERT_RERANK_MODEL: ${COLBERT_RERANK_MODEL:-jinaai/jina-colbert-v2}
     container_name: rag-bot-vk
     restart: unless-stopped
     env_file:

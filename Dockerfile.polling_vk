@@ -11,6 +11,9 @@ ENV UV_PYTHON_DOWNLOADS=never \
 
 WORKDIR /app
 
+# Build-time argument for ColBERT model name (passed from docker-compose or --build-arg)
+ARG COLBERT_RERANK_MODEL=jinaai/jina-colbert-v2
+
 # Copy root workspace files
 COPY pyproject.toml uv.lock ./
 
@@ -42,7 +45,7 @@ ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
 RUN .venv/bin/python -c "from langchain_qdrant import FastEmbedSparse; FastEmbedSparse(model_name='Qdrant/bm25')"
 
 # Pre-download ColBERT rerank model during build
-RUN .venv/bin/python -c "from fastembed import LateInteractionTextEmbedding; LateInteractionTextEmbedding(model_name='colbert-ir/colbertv2.0')"
+RUN .venv/bin/python -c "from fastembed import LateInteractionTextEmbedding; LateInteractionTextEmbedding(model_name='${COLBERT_RERANK_MODEL}')"
 
 # Cleanup: remove test files and caches to reduce image size
 RUN find /app/.venv/lib/python3.13/site-packages \

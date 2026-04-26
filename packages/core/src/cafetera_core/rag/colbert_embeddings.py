@@ -29,7 +29,7 @@ class ColbertEmbeddingAdapter:
 
         Args:
             model_name: HuggingFace model identifier, e.g.
-                ``"colbert-ir/colbertv2.0"``.
+                ``"jinaai/jina-colbert-v2"``.
         """
         try:
             from fastembed import LateInteractionTextEmbedding

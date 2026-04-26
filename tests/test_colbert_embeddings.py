@@ -27,7 +27,7 @@ def test_build_colbert_embeddings_returns_adapter_when_enabled():
     """When reranking_enabled=True, returns adapter."""
     settings = CoreSettings(
         reranking_enabled=True,
-        colbert_rerank_model="colbert-ir/colbertv2.0",
+        colbert_rerank_model="jinaai/jina-colbert-v2",
         _env_file=None,
     )
 
@@ -40,7 +40,7 @@ def test_build_colbert_embeddings_returns_adapter_when_enabled():
     ) as mock_cls:
         result = build_colbert_embeddings(settings)
 
-    mock_cls.assert_called_once_with(model_name="colbert-ir/colbertv2.0")
+    mock_cls.assert_called_once_with(model_name="jinaai/jina-colbert-v2")
     assert result is mock_adapter
 
 

@@ -115,7 +115,7 @@ async def test_index_chunks_uses_sparse_embedding():
     """
     mock_client = AsyncMock()
     mock_embeddings = MagicMock()
-    mock_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]]
+    mock_embeddings.aembed_documents = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
     mock_sparse = MagicMock()
     mock_sparse.embed_documents.return_value = [
         MagicMock(indices=[1, 2], values=[0.5, 0.5]),
@@ -153,7 +153,7 @@ async def test_index_chunks_with_colbert_uses_named_vectors():
 
     mock_client = AsyncMock()
     mock_embeddings = MagicMock()
-    mock_embeddings.embed_documents.return_value = [[0.1, 0.2, 0.3]]
+    mock_embeddings.aembed_documents = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
 
     mock_sparse = MagicMock()
     idx_arr = np.array([1, 2])
@@ -225,6 +225,6 @@ def test_reranking_settings_defaults():
     """Default reranking settings are disabled with sensible defaults."""
     settings = CoreSettings(_env_file=None)
     assert settings.reranking_enabled is False
-    assert settings.colbert_rerank_model == "colbert-ir/colbertv2.0"
+    assert settings.colbert_rerank_model == "jinaai/jina-colbert-v2"
     assert settings.colbert_prefetch_limit == 20
     assert settings.colbert_rerank_limit == 10

@@ -11,6 +11,12 @@ ENV UV_PYTHON_DOWNLOADS=never \
 
 WORKDIR /app
 
+# Build-time argument for ColBERT model name (passed from docker-compose or --build-arg)
+ARG COLBERT_RERANK_MODEL=jinaai/jina-colbert-v2
+
+# Build-time argument for HybridChunker tokenizer model (passed from docker-compose or --build-arg)
+ARG CHUNKER_TOKENIZER_MODEL=Qwen/Qwen3-Embedding-0.6B
+
 # Copy root workspace files
 COPY pyproject.toml uv.lock ./
 
@@ -47,12 +53,12 @@ ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
 # Pre-download Docling ML models during build (layout analysis, TableFormer)
 ENV HF_HOME=/app/.cache/huggingface
 
-# Pre-download HybridChunker tokenizer (must match CHUNKER_TOKENIZER_MODEL) during build
-ENV CHUNKER_TOKENIZER_MODEL=Qwen/Qwen3-Embedding-0.6B
+# Pre-download HybridChunker tokenizer (must match EMBEDDING_MODEL) during build
+# Note: CHUNKER_TOKENIZER_MODEL is set via ARG above
 
 # Pre-download all ML models in a single layer
 RUN .venv/bin/python -c "from langchain_qdrant import FastEmbedSparse; FastEmbedSparse(model_name='Qdrant/bm25')" && \
-    .venv/bin/python -c "from fastembed import LateInteractionTextEmbedding; LateInteractionTextEmbedding(model_name='colbert-ir/colbertv2.0')" && \
+    .venv/bin/python -c "from fastembed import LateInteractionTextEmbedding; LateInteractionTextEmbedding(model_name='${COLBERT_RERANK_MODEL}')" && \
     .venv/bin/python -c "from docling.document_converter import DocumentConverter; DocumentConverter()" && \
     .venv/bin/python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('${CHUNKER_TOKENIZER_MODEL}')"
 

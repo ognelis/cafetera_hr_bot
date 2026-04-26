@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import math
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from langchain_core.documents import Document as LCDocument
+from qdrant_client.http.exceptions import ResponseHandlingException
 
-from cafetera_admin.indexer import index_chunks, optimize_collection, prepare_chunks
+from cafetera_admin.indexer import (
+    _INDEXING_THRESHOLD,
+    _upsert_with_retry,
+    index_chunks,
+    optimize_collection,
+    prepare_chunks,
+)
 
 # ── prepare_chunks ────────────────────────────────────────────────
 
@@ -199,7 +208,9 @@ class TestIndexChunks:
         chunks = self._make_chunks(2)
         client = AsyncMock()
         embeddings = MagicMock()
-        embeddings.embed_documents.return_value = [[0.1, 0.2], [0.3, 0.4]]
+        embeddings.aembed_documents = AsyncMock(
+            return_value=[[0.1, 0.2], [0.3, 0.4]]
+        )
 
         await index_chunks(client, embeddings, "test-collection", chunks)
 
@@ -234,7 +245,9 @@ class TestIndexChunks:
         ]
         client = AsyncMock()
         embeddings = MagicMock()
-        embeddings.embed_documents.return_value = [[0.1, 0.2]]
+        embeddings.aembed_documents = AsyncMock(
+            return_value=[[0.1, 0.2]]
+        )
 
         await index_chunks(client, embeddings, "test-collection", chunks)
 
@@ -255,7 +268,9 @@ class TestIndexChunks:
         chunks = self._make_chunks(1)
         client = AsyncMock()
         embeddings = MagicMock()
-        embeddings.embed_documents.return_value = [[0.1, 0.2]]
+        embeddings.aembed_documents = AsyncMock(
+            return_value=[[0.1, 0.2]]
+        )
 
         await index_chunks(client, embeddings, "test-collection", chunks)
 
@@ -350,3 +365,253 @@ class TestOptimizeCollection:
         assert client.update_collection.call_count == 2
         restore_call = client.update_collection.call_args_list[-1]
         assert restore_call.kwargs["optimizers_config"].indexing_threshold == 10000
+
+
+# ── index_chunks batching ──────────────────────────────────────────
+
+
+class TestIndexChunksBatching:
+    """Tests for batched upsert and deferred indexing in index_chunks."""
+
+    def _make_chunks(self, n: int) -> list[LCDocument]:
+        return [
+            LCDocument(
+                page_content=f"chunk {i}",
+                metadata={
+                    "source": "test.docx",
+                    "document_id": "doc-1",
+                    "chunk_id": f"chunk-{i}",
+                    "filename": "test.docx",
+                    "s3_key": "documents/test.docx",
+                    "is_search_enabled": True,
+                },
+            )
+            for i in range(n)
+        ]
+
+    def _mock_embeddings(self, n: int) -> MagicMock:
+        embeddings = MagicMock()
+        embeddings.aembed_documents = AsyncMock(
+            return_value=[[0.1] * 4 for _ in range(n)]
+        )
+        return embeddings
+
+    @pytest.mark.asyncio
+    async def test_batched_upserts(self):
+        """When chunks > batch_size, upsert is called multiple times."""
+        n = 5
+        batch_size = 2
+        chunks = self._make_chunks(n)
+        client = AsyncMock()
+        embeddings = self._mock_embeddings(n)
+
+        result = await index_chunks(
+            client, embeddings, "col", chunks, batch_size=batch_size,
+        )
+
+        assert result == n
+        expected_batches = math.ceil(n / batch_size)
+        assert client.upsert.call_count == expected_batches
+
+        # All points are upserted across batches
+        all_points = []
+        for c in client.upsert.call_args_list:
+            all_points.extend(c.kwargs["points"])
+        assert len(all_points) == n
+
+    @pytest.mark.asyncio
+    async def test_batched_upserts_deferred_indexing(self):
+        """Deferred indexing: threshold=0 before batches, restored after."""
+        chunks = self._make_chunks(5)
+        client = AsyncMock()
+        embeddings = self._mock_embeddings(5)
+
+        await index_chunks(
+            client, embeddings, "col", chunks, batch_size=2,
+        )
+
+        assert client.update_collection.call_count == 2
+        first = client.update_collection.call_args_list[0]
+        second = client.update_collection.call_args_list[1]
+        assert first.kwargs["optimizers_config"].indexing_threshold == 0
+        assert (
+            second.kwargs["optimizers_config"].indexing_threshold
+            == _INDEXING_THRESHOLD
+        )
+
+    @pytest.mark.asyncio
+    async def test_single_batch_no_deferred_indexing(self):
+        """When chunks <= batch_size, one upsert, no update_collection."""
+        chunks = self._make_chunks(3)
+        client = AsyncMock()
+        embeddings = self._mock_embeddings(3)
+
+        result = await index_chunks(
+            client, embeddings, "col", chunks, batch_size=64,
+        )
+
+        assert result == 3
+        assert client.upsert.call_count == 1
+        client.update_collection.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_deferred_indexing_restored_on_error(self):
+        """Threshold restored in finally even when upsert raises."""
+        chunks = self._make_chunks(5)
+        client = AsyncMock()
+        # First upsert succeeds, second raises
+        client.upsert.side_effect = [None, RuntimeError("boom")]
+        embeddings = self._mock_embeddings(5)
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await index_chunks(
+                client, embeddings, "col", chunks, batch_size=2,
+            )
+
+        # Threshold must still be restored (finally block)
+        restore_calls = [
+            c
+            for c in client.update_collection.call_args_list
+            if c.kwargs["optimizers_config"].indexing_threshold
+            == _INDEXING_THRESHOLD
+        ]
+        assert len(restore_calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_parallel_embeddings_all_called(self):
+        """Dense, sparse, and ColBERT embeddings run concurrently."""
+        chunks = self._make_chunks(2)
+        client = AsyncMock()
+        embeddings = self._mock_embeddings(2)
+
+        sparse_emb = MagicMock()
+        sparse_vec = MagicMock()
+        sparse_vec.indices = [0, 1]
+        sparse_vec.values = [0.5, 0.6]
+        sparse_emb.embed_documents.return_value = [sparse_vec, sparse_vec]
+
+        colbert_emb = MagicMock()
+        colbert_emb.embed_documents.return_value = [
+            [[0.1, 0.2]], [[0.3, 0.4]],
+        ]
+
+        await index_chunks(
+            client,
+            embeddings,
+            "col",
+            chunks,
+            sparse_embedding=sparse_emb,
+            colbert_embedding=colbert_emb,
+        )
+
+        embeddings.aembed_documents.assert_called_once()
+        sparse_emb.embed_documents.assert_called_once()
+        colbert_emb.embed_documents.assert_called_once()
+
+        points = client.upsert.call_args.kwargs["points"]
+        for p in points:
+            assert "dense" in p.vector
+            assert "bm25" in p.vector
+            assert "colbert" in p.vector
+
+
+# ── _upsert_with_retry ─────────────────────────────────────────────
+
+
+class TestUpsertWithRetry:
+    """Tests for the retry wrapper around Qdrant upsert."""
+
+    def _make_points(self, n: int = 2) -> list:
+        from qdrant_client import models
+
+        return [
+            models.PointStruct(
+                id=f"pt-{i}", vector={"dense": [0.1, 0.2]}, payload={},
+            )
+            for i in range(n)
+        ]
+
+    async def test_upsert_succeeds_first_attempt(self):
+        client = AsyncMock()
+        points = self._make_points()
+
+        await _upsert_with_retry(client, "col", points)
+
+        client.upsert.assert_called_once_with(
+            collection_name="col", points=points,
+        )
+
+    async def test_upsert_retries_on_response_handling_exception(self, caplog):
+        client = AsyncMock()
+        client.upsert.side_effect = [
+            ResponseHandlingException("timeout"),
+            None,
+        ]
+        points = self._make_points()
+
+        with patch(
+            "cafetera_admin.indexer.asyncio.sleep", new_callable=AsyncMock,
+        ):
+            await _upsert_with_retry(client, "col", points)
+
+        assert client.upsert.call_count == 2
+        assert any("retrying" in r.message.lower() for r in caplog.records)
+
+    async def test_upsert_retries_on_httpx_read_error(self, caplog):
+        client = AsyncMock()
+        client.upsert.side_effect = [
+            httpx.ReadError("connection reset"),
+            None,
+        ]
+        points = self._make_points()
+
+        with patch(
+            "cafetera_admin.indexer.asyncio.sleep", new_callable=AsyncMock,
+        ):
+            await _upsert_with_retry(client, "col", points)
+
+        assert client.upsert.call_count == 2
+        assert any("retrying" in r.message.lower() for r in caplog.records)
+
+    async def test_upsert_raises_after_max_retries(self):
+        client = AsyncMock()
+        client.upsert.side_effect = ResponseHandlingException("timeout")
+        points = self._make_points()
+        max_retries = 3
+
+        with (
+            patch(
+                "cafetera_admin.indexer.asyncio.sleep",
+                new_callable=AsyncMock,
+            ),
+            pytest.raises(ResponseHandlingException),
+        ):
+            await _upsert_with_retry(
+                client, "col", points, max_retries=max_retries,
+            )
+
+        # initial attempt + max_retries - 1 retries = max_retries total
+        assert client.upsert.call_count == max_retries
+
+    async def test_upsert_retry_uses_exponential_backoff(self):
+        client = AsyncMock()
+        client.upsert.side_effect = ResponseHandlingException("timeout")
+        points = self._make_points()
+        max_retries = 4
+
+        with (
+            patch(
+                "cafetera_admin.indexer.asyncio.sleep",
+                new_callable=AsyncMock,
+            ) as mock_sleep,
+            pytest.raises(ResponseHandlingException),
+        ):
+            await _upsert_with_retry(
+                client, "col", points, max_retries=max_retries,
+            )
+
+        # Backoff: 2^1, 2^2, 2^3 (last attempt re-raises, no sleep)
+        assert mock_sleep.call_count == max_retries - 1
+        for i, call in enumerate(mock_sleep.call_args_list):
+            expected = 2 ** (i + 1)
+            assert call.args[0] == expected

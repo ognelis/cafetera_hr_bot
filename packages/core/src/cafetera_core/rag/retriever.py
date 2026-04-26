@@ -199,8 +199,16 @@ COLLECTION_NAME = "hr_documents"
 
 
 def build_qdrant_client(settings: CoreSettings) -> AsyncQdrantClient:
-    """Create an async Qdrant client from settings."""
-    return AsyncQdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key)
+    """Create an async Qdrant client from settings.
+
+    Configures explicit timeout to prevent httpx.ReadError during
+    large upsert operations (e.g. ColBERT multivector indexing).
+    """
+    return AsyncQdrantClient(
+        url=settings.qdrant_url,
+        api_key=settings.qdrant_api_key,
+        timeout=settings.qdrant_timeout,  # type: ignore[arg-type]  # SDK accepts float at runtime
+    )
 
 
 def build_embeddings(settings: CoreSettings) -> Embeddings:

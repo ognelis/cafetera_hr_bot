@@ -25,6 +25,8 @@ class CoreSettings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None
     qdrant_collection: str = "hr_documents"
+    qdrant_timeout: float = 300.0  # seconds — increased for ColBERT upserts
+    qdrant_upsert_batch_size: int = 32
 
     # LLM
     llm_provider: str = "ollama"  # "ollama" | "openai" | "llamacpp"
@@ -59,7 +61,7 @@ class CoreSettings(BaseSettings):
 
     # Reranking
     reranking_enabled: bool = False
-    colbert_rerank_model: str = "colbert-ir/colbertv2.0"
+    colbert_rerank_model: str = "jinaai/jina-colbert-v2"
     colbert_prefetch_limit: int = 20
     colbert_rerank_limit: int = 10
 
