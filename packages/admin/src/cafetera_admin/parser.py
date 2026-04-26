@@ -85,7 +85,7 @@ def _get_chunker(tokenizer_model: str, max_tokens: int):
         tokenizer=AutoTokenizer.from_pretrained(tokenizer_model, local_files_only=True),
         max_tokens=max_tokens,
     )
-    return HybridChunker(tokenizer=tokenizer, max_tokens=max_tokens)
+    return HybridChunker(tokenizer=tokenizer, max_tokens=max_tokens)  # type: ignore[call-arg]
 
 
 def _load_with_docling(path: Path, settings: CoreSettings) -> list[Document]:

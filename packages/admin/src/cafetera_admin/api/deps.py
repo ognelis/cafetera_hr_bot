@@ -18,6 +18,14 @@ from cafetera_core.storage.document_repo import DocumentRepository
 from cafetera_core.storage.s3 import S3Storage
 
 
+class AuthRedirectException(Exception):
+    """Raised when an unauthenticated browser/HTMX request hits a protected route."""
+
+    def __init__(self, *, is_htmx: bool = False) -> None:
+        self.is_htmx = is_htmx
+        super().__init__("Unauthenticated browser/HTMX request")
+
+
 def parse_date_range(
     date_from: str | None, date_to: str | None,
 ) -> tuple[datetime | None, datetime | None]:
@@ -78,13 +86,22 @@ def require_admin(
     request: Request,
     admin_session: Annotated[str | None, Cookie()] = None,
 ) -> None:
-    """Validate admin cookie.  Raises 403 if invalid or missing."""
+    """Validate admin cookie.
+
+    For browser/HTMX requests with missing or invalid credentials, raises
+    ``AuthRedirectException`` so the exception handler can redirect to
+    ``/login``.  For pure API requests, raises HTTP 403 as before.
+    """
     settings = request.app.state.settings
     if not settings.admin_api_key:
         raise HTTPException(status_code=503, detail="Admin not configured")
     if admin_session is None or not secrets.compare_digest(
         admin_session, settings.admin_api_key
     ):
+        is_htmx = request.headers.get("hx-request") == "true"
+        accepts_html = "text/html" in request.headers.get("accept", "")
+        if is_htmx or accepts_html:
+            raise AuthRedirectException(is_htmx=is_htmx)
         raise HTTPException(status_code=403, detail="Forbidden")
 
 

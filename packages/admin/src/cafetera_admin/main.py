@@ -7,10 +7,12 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from cafetera_admin.api.deps import AuthRedirectException
 from cafetera_admin.config import AdminSettings
 from cafetera_admin.domain.document_service import DocumentService
 from cafetera_admin.parser import ensure_models_cached
@@ -88,6 +90,14 @@ async def lifespan(app: FastAPI):
     await close_resources(res)
 
 
+def _auth_redirect_handler(_request: Request, exc: Exception) -> Response:
+    """Convert AuthRedirectException into the appropriate redirect response."""
+    assert isinstance(exc, AuthRedirectException)
+    if exc.is_htmx:
+        return Response(status_code=200, headers={"HX-Redirect": "/login"})
+    return RedirectResponse(url="/login", status_code=303)
+
+
 def create_app(settings: AdminSettings | None = None) -> FastAPI:
     """Build and configure the FastAPI application."""
     if settings is None:
@@ -97,6 +107,8 @@ def create_app(settings: AdminSettings | None = None) -> FastAPI:
         title="Cafetera HR Bot Admin",
         lifespan=lifespan,
     )
+    app.add_exception_handler(AuthRedirectException, _auth_redirect_handler)
+
     # Initialize state
     app.state.settings = settings
 
