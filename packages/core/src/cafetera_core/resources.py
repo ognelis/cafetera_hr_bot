@@ -183,6 +183,24 @@ async def _ensure_collection(
         collection_name,
     )
 
+    # Create KEYWORD indexes for high-cardinality fields used in filtered operations
+    await client.create_payload_index(
+        collection_name=collection_name,
+        field_name="metadata.document_id",
+        field_schema=models.PayloadSchemaType.KEYWORD,
+    )
+    await client.create_payload_index(
+        collection_name=collection_name,
+        field_name="metadata.filename",
+        field_schema=models.PayloadSchemaType.KEYWORD,
+    )
+    logger.info(
+        "Created KEYWORD payload indexes on '%s.metadata.document_id' "
+        "and '%s.metadata.filename'",
+        collection_name,
+        collection_name,
+    )
+
 logger = logging.getLogger(__name__)
 
 
