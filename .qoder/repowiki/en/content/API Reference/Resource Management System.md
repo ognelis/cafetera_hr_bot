@@ -18,17 +18,19 @@
 - [core_storage_s3.py](file://packages/core/src/cafetera_core/storage/s3.py)
 - [core_rag_retriever.py](file://packages/core/src/cafetera_core/rag/retriever.py)
 - [core_rag_chain.py](file://packages/core/src/cafetera_core/rag/chain.py)
+- [core_rag_reranker.py](file://packages/core/src/cafetera_core/rag/reranker.py)
 - [docker-compose.yml](file://docker-compose.yml)
 - [pyproject.toml](file://pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Updated to reflect new architecture where shared resources are provided by core package while package-specific prompts and service creation are handled by individual packages
-- Core resources system now uses factory pattern with build_qa_service() method instead of directly initializing QAService
-- DocumentService and QAService initialization removed from core resources, moving to package-specific implementations
-- Package-specific implementations now handle their own prompt configuration and service instantiation
-- QAService lifecycle management moved from core to package-specific code
+- Updated to reflect new architecture with simplified hybrid search using dense vectors + BM25 sparse vectors
+- Integrated cross-encoder reranking system with new CrossEncoderReranker and RerankingRetriever classes
+- Removed ColBERT embedding dependencies and complex multivector setup
+- Added new reranking configuration settings and resource management
+- Updated _ensure_collection function to use standard dense vector configurations
+- Enhanced QAService integration with cross-encoder reranking capabilities
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -38,15 +40,18 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Package-Specific Implementations](#package-specific-implementations)
 7. [Hybrid Search Configuration and Setup](#hybrid-search-configuration-and-setup)
-8. [Dependency Analysis](#dependency-analysis)
-9. [Performance Considerations](#performance-considerations)
-10. [Troubleshooting Guide](#troubleshooting-guide)
-11. [Conclusion](#conclusion)
+8. [Cross-Encoder Reranking System](#cross-encoder-reranking-system)
+9. [Dependency Analysis](#dependency-analysis)
+10. [Performance Considerations](#performance-considerations)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the Resource Management System that orchestrates shared resources across the Cafetera HR Bot application. The system ensures proper initialization, sharing, and cleanup of critical components such as PostgreSQL database, S3 storage, Qdrant vector store, embeddings, LLM, and domain services. It provides a centralized factory pattern for building resources and a lifecycle manager that coordinates startup and shutdown sequences for both the FastAPI application and background workers.
 
 **Updated** The system now operates on PostgreSQL with enhanced schema management, supporting advanced data types including TIMESTAMPTZ and BOOLEAN, and provides robust connection pooling through the asyncpg driver. The resource management has been consolidated into a unified AppResources container that enables graceful degradation when services are unavailable. The new architecture separates shared resource management from package-specific service creation, allowing each package to define its own prompts and service configurations.
+
+**Updated** The system now includes a simplified hybrid search architecture using dense vectors + BM25 sparse vectors, replacing the previous complex ColBERT multivector setup. A new cross-encoder reranking system has been integrated to provide advanced document ranking capabilities through the CrossEncoderReranker and RerankingRetriever components.
 
 ## Project Structure
 The Resource Management System spans several modules organized by package structure:
@@ -66,40 +71,44 @@ B[build_resources()<br/>resources.py]
 C[build_qa_service()<br/>resources.py]
 D[close_resources()<br/>resources.py]
 E[_ensure_collection()<br/>resources.py]
+F[build_reranker()<br/>resources.py]
 end
 subgraph "Admin Package"
-F[FastAPI App<br/>admin_main.py]
-G[GLOBAL_EXPERTS_PROMPT<br/>admin_prompts.py]
-H[DocumentService<br/>admin_domain_document_service.py]
+G[FastAPI App<br/>admin_main.py]
+H[GLOBAL_EXPERTS_PROMPT<br/>admin_prompts.py]
+I[DocumentService<br/>admin_domain_document_service.py]
 end
 subgraph "VK Bot Package"
-I[VK Bot<br/>vk_polling.py]
-J[SYSTEM_PROMPT<br/>vk_prompts.py]
-K[QAService Usage<br/>vk_handlers]
+J[VK Bot<br/>vk_polling.py]
+K[SYSTEM_PROMPT<br/>vk_prompts.py]
+L[QAService Usage<br/>vk_handlers]
 end
 subgraph "Shared Resources"
-L[PostgreSQL DB<br/>core_config.py]
-M[S3Storage<br/>core_storage_s3.py]
-N[Qdrant Client<br/>core_rag_retriever.py]
-O[Embeddings<br/>core_rag_retriever.py]
-P[LLM<br/>core_rag_chain.py]
+M[PostgreSQL DB<br/>core_config.py]
+N[S3Storage<br/>core_storage_s3.py]
+O[Qdrant Client<br/>core_rag_retriever.py]
+P[Embeddings<br/>core_rag_retriever.py]
+Q[LLM<br/>core_rag_chain.py]
+R[CrossEncoderReranker<br/>core_rag_reranker.py]
 end
 subgraph "Infrastructure"
-Q[Docker Compose<br/>docker-compose.yml]
-R[PyProject<br/>pyproject.toml]
+S[Docker Compose<br/>docker-compose.yml]
+T[PyProject<br/>pyproject.toml]
 end
 A --> B
 A --> C
 A --> D
 A --> E
-F --> A
-I --> A
-G --> F
-J --> I
-H --> L
-H --> M
-N --> O
-N --> P
+A --> F
+G --> A
+J --> A
+H --> G
+K --> J
+I --> M
+I --> N
+O --> P
+O --> Q
+O --> R
 ```
 
 **Diagram sources**
@@ -127,13 +136,17 @@ Key elements:
 - build_qa_service(): Factory method that creates QAService instances with package-specific prompts and configurations
 - close_resources(): Ensures orderly shutdown and cleanup
 - Package-specific implementations: Each package handles its own prompt configuration and service instantiation
+- build_reranker(): New factory method for creating cross-encoder rerankers when enabled
 
 **Updated** The system now manages PostgreSQL connections through the databases library with asyncpg driver, providing robust connection pooling and transaction management for document metadata operations. The resource management has been consolidated into a unified AppResources container that enables graceful degradation when services are unavailable. Package-specific implementations now handle their own prompt configuration and service creation, allowing for flexible customization across different deployment targets.
+
+**Updated** The system now includes cross-encoder reranking capabilities through the CrossEncoderReranker class, which provides advanced document ranking using sentence-transformers models. The reranker is conditionally initialized based on settings and integrated into the QAService workflow.
 
 **Section sources**
 - [resources.py:189-252](file://packages/core/src/cafetera_core/resources.py#L189-L252)
 - [resources.py:255-402](file://packages/core/src/cafetera_core/resources.py#L255-L402)
 - [resources.py:405-449](file://packages/core/src/cafetera_core/resources.py#L405-L449)
+- [resources.py:152-168](file://packages/core/src/cafetera_core/resources.py#L152-L168)
 
 ## Architecture Overview
 The system follows a layered architecture with clear separation of concerns:
@@ -144,6 +157,8 @@ The system follows a layered architecture with clear separation of concerns:
 - Infrastructure layer: Qdrant vector store with automatic collection management and embeddings
 
 **Updated** The architecture now includes PostgreSQL database management with proper schema initialization, supporting advanced data types and connection pooling for production deployments. The resource management system provides unified initialization patterns across all application components while allowing package-specific customization through separate prompt and service creation logic.
+
+**Updated** The architecture now incorporates a simplified hybrid search system using dense vectors + BM25 sparse vectors, eliminating the need for complex ColBERT multivector configurations. Cross-encoder reranking is handled by a dedicated RerankingRetriever wrapper that enhances the basic hybrid search with advanced ranking capabilities.
 
 ```mermaid
 sequenceDiagram
@@ -156,6 +171,7 @@ Core->>Core : "build_resources() initializes shared resources"
 Core->>DB : "Connect with asyncpg driver"
 Core->>Qdr : "Initialize Qdrant client"
 Core->>Core : "_ensure_collection() creates vector store"
+Core->>Core : "build_reranker() creates cross-encoder"
 Admin->>Core : "Access shared resources"
 Admin->>Core : "res.build_qa_service(EXPERTS_PROMPT)"
 Admin->>Admin : "Create DocumentService with shared resources"
@@ -183,6 +199,8 @@ The AppResources container encapsulates all shared resources with optional field
 
 **Updated** The factory method now includes PostgreSQL database initialization through the databases library, establishing connection pools and creating tables with proper SERIAL primary keys and PostgreSQL-specific data types. The resource management has been consolidated into a unified AppResources container that enables graceful degradation across all components. The new build_qa_service() method allows package-specific QAService creation with custom prompts and configurations.
 
+**Updated** The factory method now includes conditional cross-encoder reranker initialization through the build_reranker() function. When reranking is enabled in settings, a CrossEncoderReranker instance is created and stored in the AppResources container for use by QAService instances.
+
 ```mermaid
 classDiagram
 class AppResources {
@@ -196,13 +214,14 @@ class AppResources {
 +CategoryFileRepository category_file_repo
 +CategoryFileService category_file_service
 +Embeddings sparse_embeddings
-+Embeddings colbert_embeddings
++CrossEncoderReranker reranker
 +build_qa_service(system_prompt, include_metadata) QAService
 }
 class ResourcesFactory {
 +build_resources(settings, with_s3, with_db) AppResources
 +close_resources(res) void
-+_ensure_collection(client, embeddings, settings, sparse_embedding, colbert_embedding) void
++_ensure_collection(client, embeddings, settings, sparse_embedding) void
++build_reranker(settings) CrossEncoderReranker
 }
 AppResources <.. ResourcesFactory : "constructed by"
 ```
@@ -211,11 +230,13 @@ AppResources <.. ResourcesFactory : "constructed by"
 - [resources.py:189-252](file://packages/core/src/cafetera_core/resources.py#L189-L252)
 - [resources.py:255-402](file://packages/core/src/cafetera_core/resources.py#L255-L402)
 - [resources.py:37-184](file://packages/core/src/cafetera_core/resources.py#L37-L184)
+- [resources.py:152-168](file://packages/core/src/cafetera_core/resources.py#L152-L168)
 
 **Section sources**
 - [resources.py:189-252](file://packages/core/src/cafetera_core/resources.py#L189-L252)
 - [resources.py:255-402](file://packages/core/src/cafetera_core/resources.py#L255-L402)
 - [resources.py:37-184](file://packages/core/src/cafetera_core/resources.py#L37-L184)
+- [resources.py:152-168](file://packages/core/src/cafetera_core/resources.py#L152-L168)
 
 ### Application Lifecycle Management
 The FastAPI lifespan manager coordinates resource initialization and cleanup:
@@ -228,12 +249,16 @@ The FastAPI lifespan manager coordinates resource initialization and cleanup:
 
 **Updated** The lifecycle manager now includes PostgreSQL database connection establishment and schema initialization during resource building, ensuring the system is ready for document operations from startup. The resource management has been streamlined to use the unified AppResources container across all application components. Package-specific implementations handle their own QAService creation with custom prompts and configurations.
 
+**Updated** The lifecycle manager now includes cross-encoder reranker initialization when settings.reranking_enabled is True. The reranker is conditionally created and stored in the AppResources container for use by QAService instances throughout the application.
+
 ```mermaid
 flowchart TD
 Start([App Startup]) --> InitDB["Connect to PostgreSQL<br/>asyncpg driver"]
 InitDB --> BuildRes["build_resources()"]
 BuildRes --> EnsureColl["_ensure_collection()"]
+BuildRes --> BuildReranker["build_reranker()"]
 EnsureColl --> StoreState["Store in app.state"]
+BuildReranker --> StoreState
 StoreState --> AdminSetup["Admin: Create DocumentService<br/>and QAService with EXPERTS_PROMPT"]
 StoreState --> VKSetup["VK Bot: Configure QAService<br/>with SYSTEM_PROMPT + metadata"]
 AdminSetup --> Running["App Running"]
@@ -348,6 +373,8 @@ Background ingestion script demonstrates resource reuse outside the web app:
 
 **Updated** QAService now operates with PostgreSQL-backed document metadata, enabling complex queries and filtering capabilities through the enhanced repository layer. The resource management system provides unified initialization patterns for both FastAPI applications and standalone scripts like the VK bot integration. Package-specific implementations handle their own QAService creation with custom prompts and configurations.
 
+**Updated** QAService now supports cross-encoder reranking when a reranker is provided in the AppResources container. The reranker is integrated into the RAG chain through a RerankingRetriever wrapper, which enhances the basic hybrid search with advanced ranking capabilities.
+
 **Section sources**
 - [vk_polling.py:21-47](file://packages/vk_bot/src/cafetera_vk_bot/polling.py#L21-L47)
 - [core_domain_qa_service.py:43-279](file://packages/core/src/cafetera_core/domain/qa_service.py#L43-L279)
@@ -423,26 +450,63 @@ The `_ensure_collection()` function provides automatic Qdrant collection managem
 
 - **Collection Existence Check**: Verifies if the target collection already exists
 - **Dynamic Vector Size Detection**: Tests embedding dimensions using a sample document
-- **Dense Vector Configuration**: Creates standard vector parameters with cosine distance
-- **Sparse Vector Support**: Adds sparse vector configuration for hybrid search mode
-- **ColBERT Reranking**: Supports advanced reranking with multiple vector spaces
+- **Dense Vector Configuration**: Creates standard vector parameters with cosine distance and INT8 quantization
+- **Sparse Vector Support**: Adds sparse vector configuration for hybrid search mode using BM25
+- **Simplified Schema**: Eliminates complex ColBERT multivector setup in favor of named dense + BM25 sparse vectors
 - **Graceful Error Handling**: Logs warnings and raises exceptions on configuration failures
+
+**Updated** The collection creation process now uses a simplified hybrid search schema with named dense and bm25 sparse vectors. This eliminates the need for complex ColBERT multivector configurations and provides better performance characteristics. The system automatically creates appropriate payload indexes for efficient filtering and querying.
 
 ### Hybrid Search Capabilities
 The system supports multiple retrieval modes through configuration:
 
 - **Dense Mode**: Standard vector similarity search using dense embeddings
 - **Hybrid Mode**: Combined dense vector and sparse BM25 search for improved recall
-- **Reranking Mode**: Advanced hybrid search with ColBERT embeddings and BM25
+- **Reranking Mode**: Advanced hybrid search with cross-encoder reranking for improved precision
 
 **Configuration Options**:
 - `retrieval_mode`: Set to "dense", "hybrid", or "reranking"
 - `sparse_embedding_model`: Model name for sparse embeddings (default: "Qdrant/bm25")
-- `reranking_enabled`: Enable advanced reranking with ColBERT embeddings
+- `reranking_enabled`: Enable advanced reranking with cross-encoder models
+- `reranker_model`: Cross-encoder model name (default: "BAAI/bge-reranker-v2-m3")
+- `reranker_top_n`: Number of top results to return after reranking
+- `reranker_prefetch_limit`: Number of candidates to fetch before reranking
 
 **Section sources**
 - [resources.py:37-184](file://packages/core/src/cafetera_core/resources.py#L37-L184)
 - [core_rag_retriever.py:92-107](file://packages/core/src/cafetera_core/rag/retriever.py#L92-L107)
+
+## Cross-Encoder Reranking System
+
+### CrossEncoderReranker Implementation
+The CrossEncoderReranker provides advanced document ranking capabilities:
+
+- **Sentence Transformers Integration**: Wraps the sentence-transformers CrossEncoder model
+- **Asynchronous Processing**: Supports both synchronous and asynchronous reranking
+- **Thread Pool Execution**: Uses asyncio.to_thread for CPU-intensive scoring operations
+- **Top-N Selection**: Returns the highest scoring documents based on threshold
+- **Flexible Configuration**: Configurable model name and top-N selection parameters
+
+### RerankingRetriever Integration
+The RerankingRetriever composes a base retriever with cross-encoder reranking:
+
+- **Wrapper Pattern**: Enhances existing retrievers with reranking capabilities
+- **Dual API Support**: Supports both sync and async retrieval interfaces
+- **Prefetch Limit Control**: Uses settings.reranker_prefetch_limit for optimal performance
+- **Transparent Integration**: Works seamlessly with existing retriever implementations
+
+### Configuration and Usage
+The reranking system is controlled through CoreSettings:
+
+- **Conditional Initialization**: Only created when reranking_enabled is True
+- **Model Selection**: Configurable cross-encoder model for different use cases
+- **Performance Tuning**: Adjustable prefetch limits and top-N selections
+- **Integration Points**: Available throughout the QAService and retriever pipeline
+
+**Section sources**
+- [core_rag_reranker.py:20-73](file://packages/core/src/cafetera_core/rag/reranker.py#L20-L73)
+- [core_rag_chain.py:107-142](file://packages/core/src/cafetera_core/rag/chain.py#L107-L142)
+- [core_config.py:62-66](file://packages/core/src/cafetera_core/config.py#L62-L66)
 
 ## Dependency Analysis
 The system exhibits loose coupling through dependency injection and shared resource containers:
@@ -452,13 +516,17 @@ The system exhibits loose coupling through dependency injection and shared resou
 - Background scripts reuse the same resource construction logic
 - Automatic collection management reduces external dependencies for first-time setup
 - Package-specific implementations handle their own prompt and service configuration
+- Cross-encoder reranking provides optional enhancement to basic hybrid search
 
 **Updated** The dependency graph now includes PostgreSQL database management through the databases library with asyncpg driver, providing robust connection pooling and transaction management for production deployments. The unified AppResources container ensures consistent resource initialization across all application components. Package-specific implementations maintain their own prompt configurations while sharing common infrastructure.
+
+**Updated** The dependency graph now includes cross-encoder reranking as an optional enhancement layer. The reranker is conditionally initialized and integrated into the QAService workflow, providing advanced document ranking capabilities when enabled.
 
 ```mermaid
 graph LR
 Config[Settings] --> Factory[build_resources]
 Factory --> CollMgr[_ensure_collection]
+Factory --> Reranker[build_reranker]
 Factory --> AppRes[AppResources]
 AppRes --> Admin[Admin Package]
 AppRes --> VKBot[VK Bot Package]
@@ -468,8 +536,11 @@ Admin --> AdminQA[QAService]
 VKBot --> VKPrompt[SYSTEM_PROMPT]
 VKBot --> VKQA[QAService]
 AdminQA --> CollMgr
+AdminQA --> Reranker
 VKQA --> CollMgr
+VKQA --> Reranker
 CollMgr --> Qdrant[Qdrant Client]
+Reranker --> CrossEncoder[CrossEncoder Model]
 PG[PostgreSQL DB] --> Documents[Documents Table]
 PG --> Categories[Category Files Table]
 ```
@@ -496,8 +567,12 @@ PG --> Categories[Category Files Table]
 - **Unified Resource Management**: Consolidated initialization patterns reduce duplication and improve maintainability
 - **Package-Specific Optimization**: Each package can optimize resources for its specific use case
 - **Resource Sharing**: Multiple packages share common infrastructure while maintaining flexibility
+- **Simplified Hybrid Search**: Dense + BM25 sparse vectors provide better performance than complex ColBERT setups
+- **Cross-Encoder Reranking**: Optional enhancement that improves precision at the cost of additional computational overhead
 
 **Updated** The PostgreSQL implementation provides superior performance through connection pooling, prepared statements, and optimized queries with proper indexing strategies. The unified resource management system eliminates redundant initialization code and improves overall system reliability. Package-specific implementations can optimize resource usage based on their particular requirements while benefiting from shared infrastructure.
+
+**Updated** The simplified hybrid search architecture using dense + BM25 sparse vectors provides better performance characteristics than the previous ColBERT multivector setup. Cross-encoder reranking adds precision improvements but requires careful tuning of prefetch limits and top-N selections to balance quality and performance.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -514,8 +589,13 @@ Common issues and resolutions:
 - **Resource cleanup issues**: Verify close_resources() is called during shutdown to prevent resource leaks
 - **Package-specific prompt issues**: Verify that package-specific prompts are properly configured
 - **QAService creation failures**: Check that build_qa_service() is called with required parameters
+- **Cross-encoder model loading**: Verify that reranker_model is accessible and properly configured
+- **Reranking performance issues**: Adjust reranker_prefetch_limit and reranker_top_n settings
+- **Memory usage with reranking**: Monitor memory consumption when using cross-encoder models
 
 **Updated** Added troubleshooting guidance for PostgreSQL-specific issues including connection problems, schema initialization failures, and asyncpg driver configuration. The unified resource management system provides better error reporting and cleanup mechanisms. Package-specific implementations should verify their prompt configurations and service creation parameters.
+
+**Updated** Added troubleshooting guidance for cross-encoder reranking issues including model loading failures, performance tuning recommendations, and memory usage considerations. The conditional reranker initialization provides graceful fallback when cross-encoder models are unavailable.
 
 **Section sources**
 - [resources.py:70-111](file://packages/core/src/cafetera_core/resources.py#L70-L111)
@@ -528,6 +608,10 @@ The Resource Management System provides a robust foundation for the Cafetera HR 
 
 **Updated** The addition of PostgreSQL database management significantly enhances the system's reliability and scalability for production deployments. The migration provides better data integrity, connection pooling, and performance characteristics compared to the previous SQLite implementation. The automatic collection creation through the `_ensure_collection()` function continues to simplify deployment while the PostgreSQL schema ensures proper data types and constraints for enterprise-grade document management.
 
+**Updated** The integration of cross-encoder reranking capabilities through the CrossEncoderReranker and RerankingRetriever components provides advanced document ranking capabilities that significantly improve search quality. The simplified hybrid search architecture using dense + BM25 sparse vectors offers better performance than the previous ColBERT multivector setup while maintaining the benefits of hybrid search.
+
 The consolidation of resource management into the AppResources container has improved code maintainability and reduced duplication across the application. The unified initialization patterns enable seamless integration between FastAPI applications, background scripts, and VK bot integration, while the enhanced graceful degradation capabilities ensure system stability even when individual services are unavailable.
 
-**Updated** The new architecture with package-specific service creation through build_qa_service() provides greater flexibility and customization options. Each package can now define its own prompts and service configurations while sharing common infrastructure. This separation of concerns allows for easier maintenance, testing, and extension of the system across different deployment targets and use cases.
+**Updated** The new architecture with package-specific service creation through build_qa_service() provides greater flexibility and customization options. Each package can now define its own prompts and service configurations while sharing common infrastructure. The conditional cross-encoder reranking system provides optional enhancement capabilities that can be enabled or disabled based on deployment requirements and performance considerations.
+
+The simplified hybrid search system eliminates the complexity of ColBERT multivector configurations while maintaining the benefits of hybrid search through dense + BM25 sparse vectors. This provides better performance characteristics and easier maintenance while preserving the core functionality of advanced document retrieval.

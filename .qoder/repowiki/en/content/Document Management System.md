@@ -15,22 +15,27 @@
 - [staleness.py](file://packages/admin/src/cafetera_admin/domain/staleness.py)
 - [indexer.py](file://packages/admin/src/cafetera_admin/indexer.py)
 - [document_service.py](file://packages/admin/src/cafetera_admin/domain/document_service.py)
+- [qa_service.py](file://packages/core/src/cafetera_core/domain/qa_service.py)
+- [documents_qa.py](file://packages/admin/src/cafetera_admin/api/documents_qa.py)
 - [test_indexer.py](file://tests/test_indexer.py)
 - [run_all.sh](file://scripts/run_all.sh)
 - [run_admin_docker.sh](file://scripts/run_admin_docker.sh)
 - [docker-compose.yml](file://docker-compose.yml)
 - [Dockerfile.admin](file://Dockerfile.admin)
 - [Dockerfile.polling_vk](file://Dockerfile.polling_vk)
+- [documents.html](file://templates/documents.html)
+- [components.js](file://static/js/components.js)
+- [upload.js](file://static/js/upload.js)
+- [style.css](file://static/css/style.css)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced document indexing system with batch processing capabilities and deferred indexing for large document sets
-- Implemented parallel embedding generation supporting dense, sparse BM25, and ColBERT embeddings
-- Added comprehensive retry mechanisms with exponential backoff for Qdrant upsert operations
-- Improved Docker deployment configuration with pre-downloaded ML models and optimized caching
-- Added extensive testing coverage for new indexing functionality including batch processing and parallel embeddings
-- Updated performance considerations to reflect new indexing optimizations and Docker improvements
+- Enhanced modal window system with improved layout, automatic scrolling functionality, and better user experience for document questions and global questions
+- Implemented streaming response support for real-time question answering with automatic content scrolling
+- Added fixed header and footer layout patterns for modal dialogs with scrollable content areas
+- Improved user experience with automatic scrolling to latest content during streaming responses
+- Enhanced modal accessibility with proper backdrop handling and keyboard navigation support
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -38,17 +43,18 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Enhanced Indexing System](#enhanced-indexing-system)
-7. [Docker Deployment Improvements](#docker-deployment-improvements)
-8. [Testing Coverage](#testing-coverage)
-9. [Performance Considerations](#performance-considerations)
-10. [Troubleshooting Guide](#troubleshooting-guide)
-11. [Conclusion](#conclusion)
+6. [Enhanced Modal Window System](#enhanced-modal-window-system)
+7. [Streaming Question Answering](#streaming-question-answering)
+8. [Docker Deployment Improvements](#docker-deployment-improvements)
+9. [Testing Coverage](#testing-coverage)
+10. [Performance Considerations](#performance-considerations)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the Document Management System built around a VKontakte (VK) bot integrated with a Retrieval-Augmented Generation (RAG) backend. The system manages HR-related documents and provides conversational access to policies, procedures, and templates through an intuitive chat interface. It leverages configurable settings for LLM providers, vector storage, and document chunking, while offering modular handlers for different HR workflows such as hiring, termination, vacation, payroll, and general questions.
 
-**Updated** The system now features an enhanced document indexing system with batch processing, parallel embedding generation, retry mechanisms, and improved Docker deployment configuration. These enhancements significantly improve indexing performance and reliability for large document sets.
+**Updated** The system now features an enhanced modal window system with improved layout, automatic scrolling functionality, and better user experience for document questions and global questions. The modal system now supports streaming responses with automatic content scrolling, providing a more responsive and engaging user experience.
 
 ## Project Structure
 The project follows a monorepo workspace managed by uv, with three main packages:
@@ -73,6 +79,7 @@ end
 subgraph "Admin Package"
 INDEXER["indexer.py"]
 DOC_SERVICE["document_service.py"]
+QA_API["documents_qa.py"]
 end
 CORE --> ADMIN
 CORE --> VKBOT
@@ -83,6 +90,7 @@ VKBOT --> KEYBOARDS
 VKBOT --> HANDLERS
 TESTS --> VKBOT
 TESTS --> INDEXER
+TESTS --> QA_API
 ```
 
 **Diagram sources**
@@ -92,6 +100,8 @@ TESTS --> INDEXER
 - [keyboards.py:1-263](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L1-L263)
 - [indexer.py:1-325](file://packages/admin/src/cafetera_admin/indexer.py#L1-325)
 - [document_service.py:1-402](file://packages/admin/src/cafetera_admin/domain/document_service.py#L1-402)
+- [qa_service.py:1-303](file://packages/core/src/cafetera_core/domain/qa_service.py#L1-303)
+- [documents_qa.py:1-90](file://packages/admin/src/cafetera_admin/api/documents_qa.py#L1-90)
 
 **Section sources**
 - [pyproject.toml:1-49](file://pyproject.toml#L1-L49)
@@ -102,7 +112,8 @@ TESTS --> INDEXER
 - VK Handlers: Modular handlers for start/home navigation, fallback responses, and section entry points (including RAG-powered flows).
 - VK Keyboards: Builder functions for main menu, entity selection, and contextual sub-menus with standardized service buttons.
 - VK States: Multi-step dialog states, currently focused on free-text questions.
-- **Updated** Enhanced Indexing Engine: Parallel embedding generation, batch processing, retry mechanisms, and deferred indexing for large document sets.
+- **Updated** Enhanced Modal System: Improved layout with fixed headers and footers, scrollable content areas, and automatic scrolling for streaming responses.
+- **Updated** Streaming QA Service: Real-time question answering with SSE streaming and automatic content updates.
 
 **Section sources**
 - [config.py:15-93](file://packages/core/src/cafetera_core/config.py#L15-L93)
@@ -115,7 +126,7 @@ TESTS --> INDEXER
 - [indexer.py:29-54](file://packages/admin/src/cafetera_admin/indexer.py#L29-L54)
 
 ## Architecture Overview
-The system integrates VK bot routing with RAG-powered responses. Handlers trigger RAG queries and present templated answers with navigation back to relevant sections. Configuration is shared across packages to maintain consistent behavior for indexing and retrieval. **Updated** The enhanced indexing system now supports parallel processing and batch operations for improved performance.
+The system integrates VK bot routing with RAG-powered responses. Handlers trigger RAG queries and present templated answers with navigation back to relevant sections. Configuration is shared across packages to maintain consistent behavior for indexing and retrieval. **Updated** The enhanced modal system now supports streaming responses with automatic content scrolling, providing a more responsive user experience.
 
 ```mermaid
 graph TB
@@ -128,7 +139,9 @@ CORECFG["Core Settings<br/>config.py"]
 ADMINCFG["Admin Settings<br/>config.py"]
 INDEXER["Enhanced Indexer<br/>indexer.py"]
 DOCSVC["Document Service<br/>document_service.py"]
-TESTS["Comprehensive Tests<br/>test_indexer.py"]
+QA_SERVICE["QA Service<br/>qa_service.py"]
+MODAL_SYS["Enhanced Modal System<br/>documents.html + components.js"]
+TESTS["Comprehensive Tests<br/>test_indexer.py + qa tests"]
 DOCKER["Docker Deployment<br/>docker-compose.yml"]
 USER --> BOT
 BOT --> LABELERS
@@ -137,7 +150,9 @@ LABELERS --> KB
 BOT --> CORECFG
 ADMINCFG --> CORECFG
 INDEXER --> DOCSVC
-DOCSVC --> TESTS
+DOCSVC --> QA_SERVICE
+QA_SERVICE --> MODAL_SYS
+MODAL_SYS --> TESTS
 DOCKER --> INDEXER
 ```
 
@@ -152,6 +167,9 @@ DOCKER --> INDEXER
 - [config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
 - [indexer.py:93-206](file://packages/admin/src/cafetera_admin/indexer.py#L93-L206)
 - [document_service.py:113-182](file://packages/admin/src/cafetera_admin/domain/document_service.py#L113-L182)
+- [qa_service.py:217-280](file://packages/core/src/cafetera_core/domain/qa_service.py#L217-L280)
+- [documents.html:270-371](file://templates/documents.html#L270-L371)
+- [components.js:417-558](file://static/js/components.js#L417-L558)
 - [test_indexer.py:1-618](file://tests/test_indexer.py#L1-618)
 - [docker-compose.yml:1-120](file://docker-compose.yml#L1-120)
 
@@ -306,74 +324,142 @@ AdminSettings --|> CoreSettings : "inherits"
 **Section sources**
 - [config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
 
-## Enhanced Indexing System
+## Enhanced Modal Window System
 
-### Parallel Embedding Generation
-The enhanced indexing system now supports parallel generation of multiple embedding types simultaneously, significantly improving indexing performance for large document sets.
+### Improved Layout Architecture
+The enhanced modal system now features a sophisticated layout architecture with fixed headers, scrollable content areas, and fixed footers to provide better user experience.
 
 ```mermaid
 sequenceDiagram
-participant Indexer as "index_chunks()"
-participant DenseEmb as "Dense Embeddings"
-participant SparseEmb as "Sparse Embeddings"
-participant ColBERTEmb as "ColBERT Embeddings"
-participant Qdrant as "Qdrant Client"
-Indexer->>DenseEmb : "aembed_documents(texts)"
-Indexer->>SparseEmb : "embed_documents(texts)"
-Indexer->>ColBERTEmb : "embed_documents(texts)"
-par Parallel Execution
-DenseEmb-->>Indexer : "dense_vectors"
-SparseEmb-->>Indexer : "sparse_vectors"
-ColBERTEmb-->>Indexer : "colbert_vectors"
-end
-Indexer->>Qdrant : "Build PointStruct with all vectors"
-Indexer->>Qdrant : "Upsert batch with retry"
+participant User as "User Interaction"
+participant Modal as "Modal Dialog"
+participant Header as "Fixed Header"
+participant Content as "Scrollable Content"
+participant Footer as "Fixed Footer"
+User->>Modal : "Open Modal"
+Modal->>Header : "Display Title"
+Modal->>Content : "Initialize Scroll Area"
+Modal->>Footer : "Show Action Buttons"
+User->>Content : "Enter Question"
+User->>Footer : "Click Submit"
+Modal->>Content : "Show Loading State"
+Modal->>Content : "Display Streaming Response"
+Content->>Content : "Auto-scroll to Latest"
 ```
 
 **Diagram sources**
-- [indexer.py:116-127](file://packages/admin/src/cafetera_admin/indexer.py#L116-L127)
-- [indexer.py:171-177](file://packages/admin/src/cafetera_admin/indexer.py#L171-L177)
+- [documents.html:270-371](file://templates/documents.html#L270-L371)
+- [components.js:417-558](file://static/js/components.js#L417-L558)
 
-### Batch Processing and Deferred Indexing
-Large document sets are processed in batches with deferred indexing to optimize performance and reduce memory usage.
+### Fixed Header and Footer Pattern
+The modal system implements a three-section layout pattern:
+- Fixed header section for titles and metadata
+- Scrollable content area for questions and answers
+- Fixed footer with action buttons
 
 ```mermaid
-flowchart TD
-Start(["Index Document"]) --> CheckSize["Check Document Size"]
-CheckSize --> |Large| EnableBatching["Enable Batch Processing"]
-CheckSize --> |Small| SingleBatch["Single Batch Operation"]
-EnableBatching --> SetThreshold["Set Indexing Threshold = 0"]
-SetThreshold --> ProcessBatches["Process in Batches"]
-ProcessBatches --> RetryMechanism["Retry with Exponential Backoff"]
-RetryMechanism --> RestoreThreshold["Restore Indexing Threshold"]
-RestoreThreshold --> Complete["Complete Indexing"]
-SingleBatch --> Complete
+classDiagram
+class ModalLayout {
++fixed_header : "h3.title + subtitle"
++scrollable_content : "overflow-y-auto min-h-0"
++fixed_footer : "border-t + action_buttons"
+}
+class DocumentQuestionModal {
++header : "Вопрос по документу : <title>"
++content : "textarea + markdown_answer"
++footer : "Close + Ask buttons"
+}
+class GlobalQuestionModal {
++header : "Задать общий вопрос"
++content : "textarea + markdown_answer"
++footer : "Close + Ask buttons"
+}
+ModalLayout <|-- DocumentQuestionModal
+ModalLayout <|-- GlobalQuestionModal
 ```
 
 **Diagram sources**
-- [indexer.py:182-203](file://packages/admin/src/cafetera_admin/indexer.py#L182-L203)
-- [indexer.py:299-318](file://packages/admin/src/cafetera_admin/indexer.py#L299-L318)
-
-### Retry Mechanisms with Exponential Backoff
-Robust retry logic with exponential backoff ensures reliable Qdrant upsert operations under transient failures.
-
-```mermaid
-flowchart TD
-Attempt["Attempt Upsert"] --> Success{"Success?"}
-Success --> |Yes| Complete["Complete"]
-Success --> |No| CheckRetries{"Max Retries Reached?"}
-CheckRetries --> |No| Wait["Exponential Backoff Wait"]
-Wait --> Attempt
-CheckRetries --> |Yes| RaiseError["Raise Exception"]
-```
-
-**Diagram sources**
-- [indexer.py:36-53](file://packages/admin/src/cafetera_admin/indexer.py#L36-L53)
+- [documents.html:270-371](file://templates/documents.html#L270-L371)
 
 **Section sources**
-- [indexer.py:29-54](file://packages/admin/src/cafetera_admin/indexer.py#L29-L54)
-- [indexer.py:93-206](file://packages/admin/src/cafetera_admin/indexer.py#L93-L206)
-- [indexer.py:269-323](file://packages/admin/src/cafetera_admin/indexer.py#L269-L323)
+- [documents.html:270-371](file://templates/documents.html#L270-L371)
+
+### Automatic Scrolling Implementation
+The system implements automatic scrolling to the latest content during streaming responses using Alpine.js reactive properties and DOM manipulation.
+
+```mermaid
+flowchart TD
+Start(["Receive Stream Token"]) --> Append["Append Token to Answer"]
+Append --> NextTick["Alpine $nextTick()"]
+NextTick --> GetElement["Get Scroll Container Ref"]
+GetElement --> CheckElement{"Element Exists?"}
+CheckElement --> |Yes| AutoScroll["el.scrollTop = el.scrollHeight"]
+CheckElement --> |No| Skip["Skip Scrolling"]
+AutoScroll --> Complete["Continue Streaming"]
+Skip --> Complete
+```
+
+**Diagram sources**
+- [components.js:477-481](file://static/js/components.js#L477-L481)
+- [components.js:539-543](file://static/js/components.js#L539-L543)
+
+**Section sources**
+- [components.js:477-481](file://static/js/components.js#L477-L481)
+- [components.js:539-543](file://static/js/components.js#L539-L543)
+
+## Streaming Question Answering
+
+### Real-Time Response Streaming
+The system now supports real-time streaming of question answers using Server-Sent Events (SSE) with automatic content updates and scrolling.
+
+```mermaid
+sequenceDiagram
+participant Client as "Client Browser"
+participant API as "API Endpoint"
+participant QA as "QA Service"
+participant LLM as "LLM Provider"
+Client->>API : "POST /api/qa/ask-global"
+API->>QA : "stream_ask(question)"
+QA->>LLM : "astream(question)"
+LLM-->>QA : "token stream"
+QA-->>API : "token stream"
+API-->>Client : "SSE stream"
+Client->>Client : "Append token to answer"
+Client->>Client : "Auto-scroll to latest"
+```
+
+**Diagram sources**
+- [documents_qa.py:26-52](file://packages/admin/src/cafetera_admin/api/documents_qa.py#L26-L52)
+- [qa_service.py:217-249](file://packages/core/src/cafetera_core/domain/qa_service.py#L217-L249)
+- [components.js:436-496](file://static/js/components.js#L436-L496)
+
+### Document-Specific Streaming
+The system also supports document-specific streaming responses with enhanced error handling and validation.
+
+```mermaid
+flowchart TD
+DocumentRequest["Document Question Request"] --> Validate["Validate Document Status"]
+Validate --> Ready{"Status = completed?"}
+Ready --> |No| Error["Return Error: Document Not Ready"]
+Ready --> |Yes| Stream["Start Streaming Response"]
+Stream --> Process["Process Tokens"]
+Process --> Update["Update Answer Content"]
+Update --> Scroll["Auto-Scroll to Latest"]
+Process --> ErrorCheck{"Error Occurred?"}
+ErrorCheck --> |Yes| ShowError["Display Error Message"]
+ErrorCheck --> |No| Continue["Continue Streaming"]
+ShowError --> Complete["Streaming Complete"]
+Continue --> Stream
+```
+
+**Diagram sources**
+- [documents_qa.py:55-90](file://packages/admin/src/cafetera_admin/api/documents_qa.py#L55-L90)
+- [components.js:498-558](file://static/js/components.js#L498-L558)
+
+**Section sources**
+- [documents_qa.py:26-90](file://packages/admin/src/cafetera_admin/api/documents_qa.py#L26-L90)
+- [qa_service.py:217-280](file://packages/core/src/cafetera_core/domain/qa_service.py#L217-L280)
+- [components.js:436-558](file://static/js/components.js#L436-L558)
 
 ## Docker Deployment Improvements
 
@@ -437,16 +523,24 @@ ParallelTests["Parallel Embeddings Tests"]
 BatchTests["Batch Processing Tests"]
 RetryTests["Retry Mechanism Tests"]
 OptimizeTests["Collection Optimization Tests"]
+ModalTests["Modal System Tests"]
+StreamingTests["Streaming Response Tests"]
 TestSuite --> ParallelTests
 TestSuite --> BatchTests
 TestSuite --> RetryTests
 TestSuite --> OptimizeTests
+TestSuite --> ModalTests
+TestSuite --> StreamingTests
 ParallelTests --> DenseSparseColBERT["Dense + Sparse + ColBERT"]
 BatchTests --> BatchUpsert["Batched Upserts"]
 BatchTests --> DeferredIndexing["Deferred Indexing"]
 RetryTests --> ExponentialBackoff["Exponential Backoff"]
 RetryTests --> MaxRetries["Max Retries Handling"]
 OptimizeTests --> ThresholdManagement["Threshold Management"]
+ModalTests --> LayoutStructure["Layout Structure Tests"]
+ModalTests --> AutoScrolling["Auto-Scrolling Tests"]
+StreamingTests --> SSEIntegration["SSE Integration Tests"]
+StreamingTests --> ErrorHandling["Error Handling Tests"]
 ```
 
 **Diagram sources**
@@ -460,6 +554,8 @@ OptimizeTests --> ThresholdManagement["Threshold Management"]
 - **Batch Processing**: Tests batched upsert operations and deferred indexing functionality
 - **Retry Mechanisms**: Ensures exponential backoff and proper error handling
 - **Collection Optimization**: Verifies threshold management and segment optimization
+- **Modal System**: Tests layout structure, auto-scrolling functionality, and user interaction patterns
+- **Streaming Responses**: Validates SSE integration, error handling, and real-time content updates
 
 **Section sources**
 - [test_indexer.py:1-618](file://tests/test_indexer.py#L1-618)
@@ -475,6 +571,9 @@ OptimizeTests --> ThresholdManagement["Threshold Management"]
 - **Updated** Retry Mechanisms: Exponential backoff ensures reliable Qdrant operations under transient network failures.
 - **Updated** Docker Optimization: Pre-downloaded ML models and optimized caching reduce container startup times and improve reliability.
 - **Updated** Deferred Indexing: Large batch operations temporarily disable indexing threshold to improve batch processing performance.
+- **Updated** Modal Layout Optimization: Fixed header/footer layout reduces layout shift and improves perceived performance.
+- **Updated** Auto-Scrolling Performance: Efficient DOM manipulation with Alpine.js reactive properties minimizes layout thrashing.
+- **Updated** Streaming Efficiency: SSE streaming with incremental content updates provides responsive user experience without full page reloads.
 
 ## Troubleshooting Guide
 - Logging: Configure global logging for consistent log formatting across the system.
@@ -488,6 +587,9 @@ OptimizeTests --> ThresholdManagement["Threshold Management"]
 - **Updated** Retry Failures: Check Qdrant connectivity and network stability if retry mechanisms are triggered frequently.
 - **Updated** Docker Issues: Verify ML model caches are properly mounted and accessible in Docker containers.
 - **Updated** Model Loading: Ensure pre-downloaded models are available in the cached directories within Docker containers.
+- **Updated** Modal Layout Issues: Check CSS classes for proper modal layout and ensure Alpine.js reactive properties are properly initialized.
+- **Updated** Auto-Scrolling Problems: Verify that scroll container references are correctly set and DOM elements exist before attempting to scroll.
+- **Updated** Streaming Response Errors: Monitor SSE connection status and validate that server-side streaming endpoints are properly configured.
 
 **Section sources**
 - [config.py:7-12](file://packages/core/src/cafetera_core/config.py#L7-L12)
@@ -496,6 +598,8 @@ OptimizeTests --> ThresholdManagement["Threshold Management"]
 - [config.py:17-19](file://packages/admin/src/cafetera_admin/config.py#L17-L19)
 - [indexer.py:182-203](file://packages/admin/src/cafetera_admin/indexer.py#L182-L203)
 - [docker-compose.yml:178-187](file://docker-compose.yml#L178-L187)
+- [documents.html:270-371](file://templates/documents.html#L270-L371)
+- [components.js:417-558](file://static/js/components.js#L417-L558)
 
 ## Conclusion
-The Document Management System provides a robust, extensible foundation for HR document access via a VK bot. Its modular design, centralized configuration, and structured handler routing enable efficient development and maintenance. **Updated** The system now features significant enhancements to the document indexing system, including batch processing, parallel embedding generation, retry mechanisms, and improved Docker deployment configuration. These improvements deliver substantial performance gains for large document sets while maintaining operational reliability and giving administrators full control over document lifecycle management. The comprehensive testing coverage ensures these new features function correctly under various conditions, making the system more robust and maintainable.
+The Document Management System provides a robust, extensible foundation for HR document access via a VK bot. Its modular design, centralized configuration, and structured handler routing enable efficient development and maintenance. **Updated** The system now features significant enhancements to the modal window system, including improved layout architecture, automatic scrolling functionality, and better user experience for document questions and global questions. The enhanced modal system with fixed headers, scrollable content areas, and automatic scrolling provides a more responsive and engaging user interface. Combined with real-time streaming responses and SSE integration, the system delivers a modern, efficient user experience for HR document management. The comprehensive testing coverage ensures these new features function correctly under various conditions, making the system more robust and maintainable.

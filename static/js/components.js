@@ -474,6 +474,10 @@ document.addEventListener('alpine:init', () => {
                 if (data.token) {
                   const unescapedToken = data.token.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
                   this.globalAnswer += unescapedToken;
+                  this.$nextTick(() => {
+                    const el = this.$refs.globalQuestionScroll;
+                    if (el) el.scrollTop = el.scrollHeight;
+                  });
                 }
                 if (data.error) {
                   this.globalError = data.error;
@@ -532,6 +536,10 @@ document.addEventListener('alpine:init', () => {
                 if (data.token) {
                   const unescapedToken = data.token.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
                   this.docQuestionAnswer += unescapedToken;
+                  this.$nextTick(() => {
+                    const el = this.$refs.docQuestionScroll;
+                    if (el) el.scrollTop = el.scrollHeight;
+                  });
                 }
                 if (data.error) {
                   this.docQuestionError = data.error;
