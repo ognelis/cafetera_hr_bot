@@ -25,7 +25,7 @@ class CoreSettings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
     qdrant_api_key: str | None = None
     qdrant_collection: str = "hr_documents"
-    qdrant_timeout: float = 300.0  # seconds — increased for ColBERT upserts
+    qdrant_timeout: float = 300.0  # seconds — increased for large batch upserts
     qdrant_upsert_batch_size: int = 32
 
     # LLM
@@ -61,9 +61,9 @@ class CoreSettings(BaseSettings):
 
     # Reranking
     reranking_enabled: bool = False
-    colbert_rerank_model: str = "jinaai/jina-colbert-v2"
-    colbert_prefetch_limit: int = 20
-    colbert_rerank_limit: int = 10
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_top_n: int = 5
+    reranker_prefetch_limit: int = 20
 
 
 # Backward compatibility alias — will be removed after full migration
@@ -83,7 +83,7 @@ def build_indexing_config(settings: CoreSettings) -> dict[str, Any]:
         "chunker_tokenizer_model": settings.chunker_tokenizer_model,
         "sparse_embedding_model": settings.sparse_embedding_model,
         "reranking_enabled": settings.reranking_enabled,
-        "colbert_rerank_model": settings.colbert_rerank_model,
+        "reranker_model": settings.reranker_model,
     }
 
 

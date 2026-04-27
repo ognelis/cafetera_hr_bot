@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from langchain_core.runnables import Runnable
 
     from cafetera_core.config import CoreSettings
+    from cafetera_core.rag.reranker import CrossEncoderReranker
 
 logger = logging.getLogger(__name__)
 
@@ -102,19 +103,36 @@ def build_rag_chain(
     system_prompt: str | None,
     include_metadata: bool = False,
     category_hint: str | None = None,
+    reranker: CrossEncoderReranker | None = None,
 ) -> Runnable:
     """Build a RAG chain: retrieve -> format context -> prompt -> LLM -> text."""
     prompt_template = system_prompt or ""
     if category_hint:
-        prompt_template = f"{prompt_template}\n\nДополнительный контекст:\n{category_hint}"
+        prompt_template = (
+            f"{prompt_template}\n\n"
+            f"Дополнительный контекст:\n{category_hint}"
+        )
     prompt = ChatPromptTemplate.from_messages([
         ("system", prompt_template),
         ("human", "{question}"),
     ])
 
-    formatter = _format_docs_with_metadata if include_metadata else _format_docs
+    if reranker is not None:
+        from cafetera_core.rag.reranker import RerankingRetriever
+
+        retriever = RerankingRetriever(
+            base_retriever=retriever,
+            reranker=reranker,
+        )
+
+    formatter = (
+        _format_docs_with_metadata if include_metadata else _format_docs
+    )
     chain: Runnable = (
-        {"context": retriever | formatter, "question": RunnablePassthrough()}
+        {
+            "context": retriever | formatter,
+            "question": RunnablePassthrough(),
+        }
         | prompt
         | llm
         | StrOutputParser()

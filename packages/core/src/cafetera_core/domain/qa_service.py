@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from qdrant_client import AsyncQdrantClient
 
     from cafetera_core.config import CoreSettings
+    from cafetera_core.rag.reranker import CrossEncoderReranker
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ class QAService:
         global_system_prompt: str | None = None,
         include_metadata: bool = False,
         sparse_embedding: object | None = None,
-        colbert_embedding: object | None = None,
+        reranker: CrossEncoderReranker | None = None,
     ) -> None:
         self._chain = chain
         self._qdrant_client = qdrant_client
@@ -68,7 +69,7 @@ class QAService:
         self._global_system_prompt = global_system_prompt
         self._include_metadata = include_metadata
         self._sparse_embedding = sparse_embedding
-        self._colbert_embedding = colbert_embedding
+        self._reranker = reranker
         self._document_chains_cache: OrderedDict[str, Runnable] = OrderedDict()
         self._max_cache_size = 50
 
@@ -104,13 +105,13 @@ class QAService:
             embeddings=self._embeddings,
             collection_name=self._settings.qdrant_collection,
             sparse_embedding=self._sparse_embedding,
-            colbert_embedding=self._colbert_embedding,
         )
         chain = build_rag_chain(
             retriever,
             self._llm,
             system_prompt=DOCUMENT_EXPERTS_PROMPT,
             include_metadata=self._include_metadata,
+            reranker=self._reranker,
         )
 
         # Add to cache, evicting oldest if at capacity
@@ -145,7 +146,6 @@ class QAService:
             collection_name=self._settings.qdrant_collection,
             k=k,
             sparse_embedding=self._sparse_embedding,
-            colbert_embedding=self._colbert_embedding,
         )
         category_hint = CATEGORY_HINTS.get(category) if category else None
         return build_rag_chain(
@@ -154,6 +154,7 @@ class QAService:
             system_prompt=self._global_system_prompt,
             include_metadata=self._include_metadata,
             category_hint=category_hint,
+            reranker=self._reranker,
         )
 
     async def ask(self, question: str, category: str | None = None) -> str:
@@ -297,5 +298,5 @@ class QAService:
         self._embeddings = None
         self._llm = None
         self._sparse_embedding = None
-        self._colbert_embedding = None
+        self._reranker = None
         self._document_chains_cache.clear()

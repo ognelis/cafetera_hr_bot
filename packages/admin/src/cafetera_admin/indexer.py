@@ -96,16 +96,12 @@ async def index_chunks(
     collection_name: str,
     chunks: list[LCDocument],
     sparse_embedding=None,
-    colbert_embedding=None,
     batch_size: int = 32,
 ) -> int:
     """Add pre-prepared chunks to the Qdrant collection.
 
     The collection must already exist.  Returns the number of indexed chunks.
-
-    When ``colbert_embedding`` is provided, each point stores three vector
-    spaces: ``"dense"``, ``"bm25"``, and ``"colbert"``.  Otherwise stores
-    ``"dense"`` + optional ``"bm25"`` sparse.
+    Stores ``"dense"`` + optional ``"bm25"`` sparse vectors per point.
     """
     if not chunks:
         return 0
@@ -118,55 +114,54 @@ async def index_chunks(
 
     use_sparse = sparse_embedding is not None
     if use_sparse:
-        coros.append(asyncio.to_thread(sparse_embedding.embed_documents, texts))
-
-    use_colbert = colbert_embedding is not None
-    if use_colbert:
-        coros.append(asyncio.to_thread(colbert_embedding.embed_documents, texts))
+        coros.append(
+            asyncio.to_thread(sparse_embedding.embed_documents, texts)
+        )
 
     results = await asyncio.gather(*coros)
 
     vectors = results[0]
-    idx = 1
-    sparse_vectors = None
-    if use_sparse:
-        sparse_vectors = results[idx]
-        idx += 1
-    colbert_vectors = None
-    if use_colbert:
-        colbert_vectors = results[idx]
+    sparse_vectors = results[1] if use_sparse else None
 
-    # Build points for upsert — collection always uses named vectors:
-    # "dense" + optional "bm25" + optional "colbert"
+    # Build points for upsert — collection uses named vectors:
+    # "dense" + optional "bm25"
     points = []
     for i, chunk in enumerate(chunks):
         point_id = chunk.metadata.get("chunk_id", uuid.uuid4().hex)
-        # Extract is_search_enabled and store as top-level field (no dotted key)
-        # to avoid Qdrant's inconsistent dot interpretation across operations
-        clean_meta = {k: v for k, v in chunk.metadata.items() if k != "is_search_enabled"}
-        is_search_enabled = chunk.metadata.get("is_search_enabled", True)
+        clean_meta = {
+            k: v
+            for k, v in chunk.metadata.items()
+            if k != "is_search_enabled"
+        }
+        is_search_enabled = chunk.metadata.get(
+            "is_search_enabled", True
+        )
         payload = {
             "page_content": chunk.page_content,
             "metadata": clean_meta,
             "is_search_enabled": is_search_enabled,
         }
 
-        # Always use named vector layout matching collection's vectors_config
         vector: dict[str, Any] = {
             "dense": vectors[i],
         }
         if use_sparse:
             assert sparse_vectors is not None
             sv = sparse_vectors[i]
-            indices = sv.indices.tolist() if hasattr(sv.indices, "tolist") else sv.indices
-            values = sv.values.tolist() if hasattr(sv.values, "tolist") else sv.values
+            indices = (
+                sv.indices.tolist()
+                if hasattr(sv.indices, "tolist")
+                else sv.indices
+            )
+            values = (
+                sv.values.tolist()
+                if hasattr(sv.values, "tolist")
+                else sv.values
+            )
             vector["bm25"] = models.SparseVector(
                 indices=indices,
                 values=values,
             )
-        if use_colbert:
-            assert colbert_vectors is not None  # guaranteed by use_colbert
-            vector["colbert"] = colbert_vectors[i]
 
         points.append(
             models.PointStruct(

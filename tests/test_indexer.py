@@ -478,8 +478,8 @@ class TestIndexChunksBatching:
         assert len(restore_calls) == 1
 
     @pytest.mark.asyncio
-    async def test_parallel_embeddings_all_called(self):
-        """Dense, sparse, and ColBERT embeddings run concurrently."""
+    async def test_parallel_embeddings_dense_and_sparse(self):
+        """Dense and sparse embeddings run concurrently."""
         chunks = self._make_chunks(2)
         client = AsyncMock()
         embeddings = self._mock_embeddings(2)
@@ -490,29 +490,22 @@ class TestIndexChunksBatching:
         sparse_vec.values = [0.5, 0.6]
         sparse_emb.embed_documents.return_value = [sparse_vec, sparse_vec]
 
-        colbert_emb = MagicMock()
-        colbert_emb.embed_documents.return_value = [
-            [[0.1, 0.2]], [[0.3, 0.4]],
-        ]
-
         await index_chunks(
             client,
             embeddings,
             "col",
             chunks,
             sparse_embedding=sparse_emb,
-            colbert_embedding=colbert_emb,
         )
 
         embeddings.aembed_documents.assert_called_once()
         sparse_emb.embed_documents.assert_called_once()
-        colbert_emb.embed_documents.assert_called_once()
 
         points = client.upsert.call_args.kwargs["points"]
         for p in points:
             assert "dense" in p.vector
             assert "bm25" in p.vector
-            assert "colbert" in p.vector
+            assert "colbert" not in p.vector
 
 
 # ── _upsert_with_retry ─────────────────────────────────────────────

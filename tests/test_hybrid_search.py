@@ -145,9 +145,9 @@ async def test_index_chunks_uses_sparse_embedding():
     assert "bm25" in point.vector
 
 
-async def test_index_chunks_with_colbert_uses_named_vectors():
-    """index_chunks() with colbert_embedding produces named vectors
-    (dense + bm25 + colbert) in a single upsert.
+async def test_index_chunks_dense_plus_sparse_named_vectors():
+    """index_chunks() with sparse_embedding produces named vectors
+    (dense + bm25) in a single upsert — no colbert vector.
     """
     import numpy as np
 
@@ -165,9 +165,6 @@ async def test_index_chunks_with_colbert_uses_named_vectors():
     mock_sparse_result.values.tolist.return_value = val_arr.tolist()
     mock_sparse.embed_documents.return_value = [mock_sparse_result]
 
-    mock_colbert = MagicMock()
-    mock_colbert.embed_documents.return_value = [[[0.1, 0.2], [0.3, 0.4]]]
-
     from langchain_core.documents import Document as LCDocument
 
     mock_chunk = LCDocument(
@@ -181,7 +178,6 @@ async def test_index_chunks_with_colbert_uses_named_vectors():
         collection_name="test_collection",
         chunks=[mock_chunk],
         sparse_embedding=mock_sparse,
-        colbert_embedding=mock_colbert,
     )
 
     assert mock_client.upsert.call_count == 1
@@ -189,7 +185,7 @@ async def test_index_chunks_with_colbert_uses_named_vectors():
     point = call_kwargs["points"][0]
     assert "dense" in point.vector
     assert "bm25" in point.vector
-    assert "colbert" in point.vector
+    assert "colbert" not in point.vector
 
 
 # ── QAService ─────────────────────────────────────────────────────
@@ -202,11 +198,11 @@ def test_qa_service_stores_sparse_embedding():
     assert service._sparse_embedding is mock_sparse
 
 
-def test_qa_service_stores_colbert_embedding():
-    """QAService(colbert_embedding=mock_colbert) stores it as _colbert_embedding."""
-    mock_colbert = MagicMock()
-    service = QAService(colbert_embedding=mock_colbert)
-    assert service._colbert_embedding is mock_colbert
+def test_qa_service_stores_reranker():
+    """QAService(reranker=mock_reranker) stores it as _reranker."""
+    mock_reranker = MagicMock()
+    service = QAService(reranker=mock_reranker)
+    assert service._reranker is mock_reranker
 
 
 # ── Settings defaults ─────────────────────────────────────────────
@@ -225,6 +221,6 @@ def test_reranking_settings_defaults():
     """Default reranking settings are disabled with sensible defaults."""
     settings = CoreSettings(_env_file=None)
     assert settings.reranking_enabled is False
-    assert settings.colbert_rerank_model == "jinaai/jina-colbert-v2"
-    assert settings.colbert_prefetch_limit == 20
-    assert settings.colbert_rerank_limit == 10
+    assert settings.reranker_model == "BAAI/bge-reranker-v2-m3"
+    assert settings.reranker_prefetch_limit == 20
+    assert settings.reranker_top_n == 5

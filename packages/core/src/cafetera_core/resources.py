@@ -18,7 +18,7 @@ from cafetera_core.config import CoreSettings
 from cafetera_core.domain.category_file_service import CategoryFileService
 from cafetera_core.domain.qa_service import QAService
 from cafetera_core.rag.chain import build_llm
-from cafetera_core.rag.colbert_embeddings import build_colbert_embeddings
+from cafetera_core.rag.reranker import CrossEncoderReranker
 from cafetera_core.rag.retriever import (
     build_embeddings,
     build_qdrant_client,
@@ -39,18 +39,12 @@ async def _ensure_collection(
     embeddings: Embeddings,
     settings: CoreSettings,
     sparse_embedding=None,
-    colbert_embedding=None,
 ) -> None:
     """Ensure the Qdrant collection exists, creating it if necessary.
 
-    This function checks if the collection exists and creates it with the
-    correct vector configuration if it doesn't. This allows the QA service
-    to initialize properly even on first startup before any documents are
-    indexed.
-
-    When reranking is enabled, the collection uses named vector spaces:
-    ``"dense"``, ``"colbert"``, and ``"bm25"``.  Otherwise it uses
-    named dense + ``"bm25"`` sparse layout.
+    Creates the collection with named dense vector + optional BM25 sparse
+    layout.  Reranking is handled downstream by the cross-encoder
+    retriever wrapper, so the collection schema no longer varies.
     """
     from qdrant_client import models
 
@@ -72,44 +66,20 @@ async def _ensure_collection(
         logger.warning("Failed to get embedding dimensions: %s", exc)
         raise
 
-    use_reranking = (
-        settings.reranking_enabled
-        and colbert_embedding is not None
+    # Hybrid search: dense + sparse (bm25)
+    dense_vector_config = models.VectorParams(
+        size=vector_size,
+        distance=models.Distance.COSINE,
+        quantization_config=models.ScalarQuantization(
+            scalar=models.ScalarQuantizationConfig(
+                type=models.ScalarType.INT8,
+                quantile=0.99,
+                always_ram=False,
+            ),
+        ),
     )
-
-    if use_reranking:
-        # Named vector config for hybrid reranking
-        colbert_dim = colbert_embedding.dimension
-
-        vectors_config: dict[str, models.VectorParams] | models.VectorParams = {
-            "dense": models.VectorParams(
-                size=vector_size,
-                distance=models.Distance.COSINE,
-                quantization_config=models.ScalarQuantization(
-                    scalar=models.ScalarQuantizationConfig(
-                        type=models.ScalarType.INT8,
-                        quantile=0.99,
-                        always_ram=False,
-                    ),
-                ),
-            ),
-            "colbert": models.VectorParams(
-                size=colbert_dim,
-                distance=models.Distance.COSINE,
-                multivector_config=models.MultiVectorConfig(
-                    comparator=models.MultiVectorComparator.MAX_SIM,
-                ),
-                hnsw_config=models.HnswConfigDiff(m=0),
-                on_disk=True,
-                quantization_config=models.ScalarQuantization(
-                    scalar=models.ScalarQuantizationConfig(
-                        type=models.ScalarType.INT8,
-                        quantile=0.99,
-                        always_ram=False,
-                    ),
-                ),
-            ),
-        }
+    sparse_vectors_config = None
+    if sparse_embedding is not None:
         sparse_vectors_config = {
             "bm25": models.SparseVectorParams(
                 modifier=models.Modifier.IDF,
@@ -117,38 +87,12 @@ async def _ensure_collection(
             ),
         }
         logger.info(
-            "Creating collection '%s' with reranking config "
-            "(dense_dim=%d, colbert_dim=%d, bm25, INT8 quantization)",
-            collection_name,
-            vector_size,
-            colbert_dim,
+            "Hybrid search enabled - adding sparse vector configuration"
         )
-    else:
-        # Hybrid search: dense + sparse (bm25)
-        dense_vector_config = models.VectorParams(
-            size=vector_size,
-            distance=models.Distance.COSINE,
-            quantization_config=models.ScalarQuantization(
-                scalar=models.ScalarQuantizationConfig(
-                    type=models.ScalarType.INT8,
-                    quantile=0.99,
-                    always_ram=False,
-                ),
-            ),
-        )
-        sparse_vectors_config = None
-        if sparse_embedding is not None:
-            sparse_vectors_config = {
-                "bm25": models.SparseVectorParams(
-                    modifier=models.Modifier.IDF,
-                    index=models.SparseIndexParams(on_disk=True),
-                ),
-            }
-            logger.info("Hybrid search enabled - adding sparse vector configuration")
 
-        vectors_config = {
-            "dense": dense_vector_config,
-        }
+    vectors_config: dict[str, models.VectorParams] = {
+        "dense": dense_vector_config,
+    }
 
     # Create the collection with INT8 scalar quantization
     await client.create_collection(
@@ -168,7 +112,8 @@ async def _ensure_collection(
         ),
     )
     logger.info(
-        "Created Qdrant collection '%s' with vector_size=%d, INT8 scalar quantization",
+        "Created Qdrant collection '%s' with vector_size=%d, "
+        "INT8 scalar quantization",
         collection_name,
         vector_size,
     )
@@ -183,7 +128,7 @@ async def _ensure_collection(
         collection_name,
     )
 
-    # Create KEYWORD indexes for high-cardinality fields used in filtered operations
+    # Create KEYWORD indexes for high-cardinality fields
     await client.create_payload_index(
         collection_name=collection_name,
         field_name="metadata.document_id",
@@ -202,6 +147,25 @@ async def _ensure_collection(
     )
 
 logger = logging.getLogger(__name__)
+
+
+def build_reranker(settings: CoreSettings) -> CrossEncoderReranker | None:
+    """Build a cross-encoder reranker from settings.
+
+    Returns ``None`` when reranking is disabled.
+    """
+    if not settings.reranking_enabled:
+        return None
+
+    logger.info(
+        "Loading cross-encoder reranker (model=%s, top_n=%d)",
+        settings.reranker_model,
+        settings.reranker_top_n,
+    )
+    return CrossEncoderReranker(
+        model_name=settings.reranker_model,
+        top_n=settings.reranker_top_n,
+    )
 
 
 @dataclass
@@ -224,7 +188,7 @@ class AppResources:
     db: Database | None = None
     doc_repo: DocumentRepository | None = None
     sparse_embeddings: object | None = None
-    colbert_embeddings: object | None = None
+    reranker: CrossEncoderReranker | None = None
     category_file_repo: CategoryFileRepository | None = None
     category_file_service: CategoryFileService | None = None
 
@@ -266,7 +230,7 @@ class AppResources:
             global_system_prompt=system_prompt,
             include_metadata=include_metadata,
             sparse_embedding=self.sparse_embeddings,
-            colbert_embedding=self.colbert_embeddings,
+            reranker=self.reranker,
         )
 
 
@@ -347,18 +311,18 @@ async def build_resources(
             )
             res.sparse_embeddings = None
 
-    # 2c. ColBERT embeddings for reranking (optional, degrades gracefully)
+    # 2c. Cross-encoder reranker (optional, degrades gracefully)
     if res.embeddings is not None:
         try:
-            res.colbert_embeddings = build_colbert_embeddings(settings)
-            if res.colbert_embeddings is not None:
-                logger.info("ColBERT embeddings initialized (reranking enabled)")
+            res.reranker = build_reranker(settings)
+            if res.reranker is not None:
+                logger.info("Cross-encoder reranker initialized")
         except Exception:
             logger.warning(
-                "ColBERT embeddings not available — falling back to dense+sparse",
+                "Reranker not available — falling back to dense+sparse",
                 exc_info=True,
             )
-            res.colbert_embeddings = None
+            res.reranker = None
 
     # 3. Document repository and service (if requested)
     if with_db:
@@ -404,7 +368,6 @@ async def build_resources(
                 embeddings,
                 settings,
                 sparse_embedding=res.sparse_embeddings,
-                colbert_embedding=res.colbert_embeddings,
             )
 
             llm = build_llm(settings)
@@ -459,7 +422,7 @@ async def close_resources(res: AppResources) -> None:
     res.qdrant_client = None
     res.embeddings = None
     res.sparse_embeddings = None
-    res.colbert_embeddings = None
+    res.reranker = None
     res.llm = None
     res.doc_repo = None
     res.category_file_repo = None

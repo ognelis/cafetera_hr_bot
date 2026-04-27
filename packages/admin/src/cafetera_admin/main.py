@@ -68,7 +68,6 @@ async def lifespan(app: FastAPI):
             embeddings=res.embeddings,
             collection_name=settings.qdrant_collection,
             sparse_embedding=res.sparse_embeddings,
-            colbert_embedding=res.colbert_embeddings,
             settings=settings,
         )
     else:

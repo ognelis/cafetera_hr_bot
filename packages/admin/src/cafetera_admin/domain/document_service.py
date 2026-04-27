@@ -51,7 +51,6 @@ class DocumentService:
         embeddings: Embeddings,
         collection_name: str = "hr_documents",
         sparse_embedding: object | None = None,
-        colbert_embedding: object | None = None,
         settings: CoreSettings | None = None,
     ) -> None:
         self._repo = repo
@@ -59,7 +58,6 @@ class DocumentService:
         self._embeddings = embeddings
         self._collection = collection_name
         self._sparse_embedding = sparse_embedding
-        self._colbert_embedding = colbert_embedding
         self._settings = settings
 
     # ── S3 key helpers ─────────────────────────────────────────────
@@ -142,7 +140,6 @@ class DocumentService:
                 self._collection,
                 enriched,
                 sparse_embedding=self._sparse_embedding,
-                colbert_embedding=self._colbert_embedding,
                 batch_size=self._settings.qdrant_upsert_batch_size
                 if self._settings
                 else 64,
@@ -270,7 +267,6 @@ class DocumentService:
                 self._collection,
                 enriched,
                 sparse_embedding=self._sparse_embedding,
-                colbert_embedding=self._colbert_embedding,
                 batch_size=self._settings.qdrant_upsert_batch_size
                 if self._settings
                 else 64,
