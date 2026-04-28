@@ -170,6 +170,7 @@ load_env_var OLLAMA_URL
 load_env_var LLM_N_GPU_LAYERS
 load_env_var EMBED_N_GPU_LAYERS
 load_env_var OLLAMA_NUM_GPU
+load_env_var RAG_SERVICE_API_KEY
 # NOTE: Do NOT load DATABASE_URL, QDRANT_URL, S3_ENDPOINT_URL from .env
 # These will be overridden with Docker service names below
 
@@ -228,6 +229,7 @@ select_llm_provider() {
   esac
 
   export LLM_PROVIDER LLM_MODEL LLM_BASE_URL LLM_API_KEY
+  export DOCKER_LLM_BASE_URL="$LLM_BASE_URL"
   log "Selected LLM provider: $LLM_PROVIDER"
 }
 
@@ -269,6 +271,7 @@ select_embedding_provider() {
   esac
 
   export EMBEDDING_PROVIDER EMBEDDING_MODEL EMBEDDING_BASE_URL EMBEDDING_API_KEY
+  export DOCKER_EMBEDDING_BASE_URL="$EMBEDDING_BASE_URL"
   log "Selected Embedding provider: $EMBEDDING_PROVIDER"
 }
 
@@ -444,6 +447,16 @@ if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
   log "Embedding provider: OpenAI (remote, no local server needed)"
 fi
 
+# Start RAG service via docker compose (must be healthy before admin)
+log "Building and starting RAG service..."
+docker compose up -d --build rag-service
+
+if ! wait_for_healthy "rag-service" 60 3; then
+  log "ERROR: RAG service failed to become healthy"
+  log "FIX:   Check docker logs: docker compose logs rag-service"
+  exit 1
+fi
+
 # Start admin service via docker compose
 log "Building and starting admin service..."
 docker compose up -d --build admin
@@ -458,6 +471,7 @@ log "Starting admin server via Docker Compose"
 log "=========================================="
 log "Admin UI:    http://${ADMIN_HOST}:${ADMIN_PORT}/documents"
 log "API docs:    http://${ADMIN_HOST}:${ADMIN_PORT}/docs"
+log "RAG Service: http://localhost:8001 (host) / http://rag-service:8001 (container)"
 log "Qdrant:      $(mask_credentials "$QDRANT_URL") (host) / $(mask_credentials "$QDRANT_CONTAINER_URL") (container)"
 log "MinIO:       $(mask_credentials "$MINIO_URL") (host) / $(mask_credentials "$MINIO_CONTAINER_URL") (container)"
 log "PostgreSQL:  $(mask_credentials "$DATABASE_CONTAINER_URL")"
@@ -472,4 +486,4 @@ log "Press Ctrl+C to stop"
 echo
 
 # Follow admin logs, keeping the script alive until Ctrl+C
-docker compose logs -f admin
+docker compose logs -f rag-service admin

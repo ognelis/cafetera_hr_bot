@@ -145,6 +145,8 @@ load_env_var LLM_N_GPU_LAYERS
 load_env_var EMBED_N_GPU_LAYERS
 load_env_var OLLAMA_NUM_GPU
 load_env_var DATABASE_URL
+load_env_var RAG_SERVICE_URL
+load_env_var RAG_SERVICE_API_KEY
 
 log "Loaded .env overrides (if any)"
 
@@ -152,6 +154,7 @@ log "Loaded .env overrides (if any)"
 QDRANT_URL="${QDRANT_URL:-http://localhost:6333}"
 MINIO_URL="${S3_ENDPOINT_URL:-${MINIO_URL:-http://localhost:9000}}"
 OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
+RAG_SERVICE_URL="${RAG_SERVICE_URL:-http://localhost:8001}"
 
 # Interactive provider selection
 select_llm_provider() {
@@ -238,6 +241,8 @@ select_embedding_provider() {
 
 select_llm_provider
 select_embedding_provider
+
+export RAG_SERVICE_URL RAG_SERVICE_API_KEY
 
 # Sync dependencies (all LLM/embedding providers are now included in cafetera-core)
 log "Syncing Python dependencies..."
@@ -430,6 +435,19 @@ if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
   log "Embedding provider: OpenAI (remote, no local server needed)"
 fi
 
+# Start RAG service in background
+log "Starting RAG service..."
+uv run python scripts/rag_server.py > /tmp/rag_server.log 2>&1 &
+BG_PIDS+=("$!")
+log "RAG service PID=$!"
+
+if ! wait_for_service "RAG Service" "${RAG_SERVICE_URL}/api/health" 30 2; then
+  log "ERROR: RAG service failed to start"
+  log "FIX:   Check /tmp/rag_server.log for errors"
+  log "       Make sure port 8001 is not in use: lsof -i :8001"
+  exit 1
+fi
+
 # Print startup info
 echo
 log "=========================================="
@@ -437,6 +455,7 @@ log "Starting admin server"
 log "=========================================="
 log "Admin UI:    http://${ADMIN_HOST}:${ADMIN_PORT}/documents"
 log "API docs:    http://${ADMIN_HOST}:${ADMIN_PORT}/docs"
+log "RAG Service: $RAG_SERVICE_URL"
 log "Qdrant:      $QDRANT_URL"
 log "MinIO:       $MINIO_URL"
 log "PostgreSQL:  $(mask_credentials "${DATABASE_URL:-postgresql://localhost:5432/cafetera}")"

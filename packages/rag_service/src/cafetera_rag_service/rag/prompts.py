@@ -52,5 +52,3 @@ DOCUMENT_EXPERTS_PROMPT = """\
 
 Контекст документа:
 {context}"""
-
-

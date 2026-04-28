@@ -15,7 +15,6 @@ from fastapi.templating import Jinja2Templates
 from cafetera_admin.api.deps import AuthRedirectException
 from cafetera_admin.config import AdminSettings
 from cafetera_admin.domain.document_service import DocumentService
-from cafetera_admin.parser import ensure_models_cached
 from cafetera_admin.prompts import GLOBAL_EXPERTS_PROMPT
 from cafetera_core.resources import build_resources, close_resources
 
@@ -44,62 +43,24 @@ def _resolve_repo_root() -> Path:
 async def lifespan(app: FastAPI):
     settings: AdminSettings = app.state.settings
 
-    # Ensure tokenizer and Docling models are cached before any document
-    # parsing, then enable HuggingFace offline mode. This is a blocking call
-    # that may download files on first run, so we run it in a thread.
-    await asyncio.to_thread(ensure_models_cached, settings.chunker_tokenizer_model)
-
     res = await build_resources(settings, with_s3=True, with_db=True)
 
     # Store in app.state for FastAPI deps
     app.state.s3 = res.s3
-    app.state.qdrant_client = res.qdrant_client
-    app.state.embeddings = res.embeddings
     app.state.doc_repo = res.doc_repo
+    app.state.rag_client = res.rag_client
+    app.state.system_prompt = GLOBAL_EXPERTS_PROMPT
 
-    if (
-        res.doc_repo is not None
-        and res.qdrant_client is not None
-        and res.embeddings is not None
-    ):
+    if res.doc_repo is not None and res.rag_client is not None:
         app.state.doc_service = DocumentService(
             repo=res.doc_repo,
-            qdrant_client=res.qdrant_client,
-            embeddings=res.embeddings,
-            collection_name=settings.qdrant_collection,
-            sparse_embedding=res.sparse_embeddings,
-            settings=settings,
+            rag_client=res.rag_client,
         )
     else:
         app.state.doc_service = None
 
-    if (
-        res.qdrant_client is not None
-        and res.embeddings is not None
-        and res.llm is not None
-    ):
-        app.state.qa_service = res.build_qa_service(GLOBAL_EXPERTS_PROMPT, include_metadata=True)
-    else:
-        app.state.qa_service = None
-
     app.state.category_file_service = res.category_file_service
     app.state.indexing_semaphore = asyncio.Semaphore(settings.max_concurrent_indexing)
-
-    # Detect documents indexed with outdated RAG config and mark them stale
-    if res.doc_repo is not None and res.qdrant_client is not None:
-        try:
-            from cafetera_admin.domain.staleness import detect_and_mark_stale
-            from cafetera_core.config import build_indexing_config
-
-            current_config = build_indexing_config(settings)
-            await detect_and_mark_stale(
-                doc_repo=res.doc_repo,
-                qdrant_client=res.qdrant_client,
-                collection_name=settings.qdrant_collection,
-                current_config=current_config,
-            )
-        except Exception:
-            logger.warning("Startup staleness check failed", exc_info=True)
 
     yield
 

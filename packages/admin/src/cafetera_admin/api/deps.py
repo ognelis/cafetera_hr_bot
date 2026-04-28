@@ -13,7 +13,7 @@ from fastapi.templating import Jinja2Templates
 from cafetera_admin.config import AdminSettings
 from cafetera_admin.domain.document_service import DocumentService
 from cafetera_core.domain.category_file_service import CategoryFileService
-from cafetera_core.domain.qa_service import QAService
+from cafetera_core.rag_client import RAGClient
 from cafetera_core.storage.document_repo import DocumentRepository
 from cafetera_core.storage.s3 import S3Storage
 
@@ -109,11 +109,15 @@ def get_indexing_semaphore(request: Request) -> asyncio.Semaphore:
     return request.app.state.indexing_semaphore
 
 
-def get_qa_service(request: Request) -> QAService:
-    svc = getattr(request.app.state, "qa_service", None)
-    if svc is None:
-        raise HTTPException(status_code=503, detail="QA service unavailable")
-    return svc
+def get_rag_client(request: Request) -> RAGClient:
+    client = getattr(request.app.state, "rag_client", None)
+    if client is None:
+        raise HTTPException(status_code=503, detail="RAG service unavailable")
+    return client
+
+
+def get_system_prompt(request: Request) -> str:
+    return request.app.state.system_prompt
 
 
 def get_category_file_service(request: Request) -> CategoryFileService:
@@ -133,5 +137,6 @@ RepoDep = Annotated[DocumentRepository, Depends(get_doc_repo)]
 ServiceDep = Annotated[DocumentService, Depends(get_doc_service)]
 S3Dep = Annotated[S3Storage, Depends(get_s3)]
 IndexingSemaphoreDep = Annotated[asyncio.Semaphore, Depends(get_indexing_semaphore)]
-QAServiceDep = Annotated[QAService, Depends(get_qa_service)]
+RAGClientDep = Annotated[RAGClient, Depends(get_rag_client)]
+SystemPromptDep = Annotated[str, Depends(get_system_prompt)]
 CategoryFileServiceDep = Annotated[CategoryFileService, Depends(get_category_file_service)]

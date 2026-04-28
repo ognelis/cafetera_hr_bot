@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
@@ -15,8 +15,8 @@ if TYPE_CHECKING:
     from langchain_core.retrievers import BaseRetriever
     from langchain_core.runnables import Runnable
 
-    from cafetera_core.config import CoreSettings
-    from cafetera_core.rag.reranker import CrossEncoderReranker
+    from cafetera_rag_service.config import RagServiceSettings
+    from cafetera_rag_service.rag.reranker import CrossEncoderReranker
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,43 @@ def _format_docs_with_metadata(docs: list[Document]) -> str:
     return "\n\n---\n\n".join(formatted_chunks)
 
 
-def build_llm(settings: CoreSettings) -> BaseChatModel:
+def _openai_sampling_kwargs(settings: RagServiceSettings) -> dict[str, Any]:
+    """Collect optional OpenAI-compatible sampling kwargs.
+
+    ``top_p`` and ``presence_penalty`` are native Chat Completions parameters.
+    ``top_k`` is non-standard for OpenAI but accepted by vLLM and llama-server
+    via ``extra_body``; we forward it through ``model_kwargs``.
+    """
+    extra: dict[str, Any] = {}
+    if settings.llm_top_p is not None:
+        extra["top_p"] = settings.llm_top_p
+    if settings.llm_presence_penalty is not None:
+        extra["presence_penalty"] = settings.llm_presence_penalty
+    if settings.llm_top_k is not None:
+        extra["model_kwargs"] = {"extra_body": {"top_k": settings.llm_top_k}}
+    return extra
+
+
+def _ollama_sampling_kwargs(settings: RagServiceSettings) -> dict[str, Any]:
+    """Collect optional Ollama sampling kwargs.
+
+    Ollama natively supports ``top_p`` and ``top_k``. ``presence_penalty`` is
+    not an Ollama option (it uses ``repeat_penalty`` instead) and is skipped.
+    """
+    extra: dict[str, Any] = {}
+    if settings.llm_top_p is not None:
+        extra["top_p"] = settings.llm_top_p
+    if settings.llm_top_k is not None:
+        extra["top_k"] = settings.llm_top_k
+    if settings.llm_presence_penalty is not None:
+        logger.info(
+            "LLM_PRESENCE_PENALTY is ignored for the Ollama backend "
+            "(Ollama uses repeat_penalty instead)."
+        )
+    return extra
+
+
+def build_llm(settings: RagServiceSettings) -> BaseChatModel:
     """Create a chat LLM instance based on ``settings.llm_provider``."""
     if settings.llm_provider == "openai":
         try:
@@ -64,7 +100,8 @@ def build_llm(settings: CoreSettings) -> BaseChatModel:
             model=settings.llm_model,
             api_key=settings.llm_api_key,  # type: ignore[arg-type]
             base_url=settings.llm_base_url or None,
-            temperature=0.3,
+            temperature=settings.llm_temperature,
+            **_openai_sampling_kwargs(settings),
         )
 
     if settings.llm_provider == "llamacpp":
@@ -77,9 +114,10 @@ def build_llm(settings: CoreSettings) -> BaseChatModel:
             ) from exc
         return ChatOpenAI(
             model=settings.llm_model,
-            api_key=settings.llm_api_key or "no-key", # type: ignore[arg-type]
+            api_key=settings.llm_api_key or "no-key",  # type: ignore[arg-type]
             base_url=settings.llm_base_url or "http://localhost:8080/v1",
-            temperature=0.3,
+            temperature=settings.llm_temperature,
+            **_openai_sampling_kwargs(settings),
         )
 
     # Default: Ollama
@@ -92,7 +130,8 @@ def build_llm(settings: CoreSettings) -> BaseChatModel:
     return ChatOllama(
         model=settings.llm_model,
         base_url=settings.llm_base_url,
-        temperature=0.3,
+        temperature=settings.llm_temperature,
+        **_ollama_sampling_kwargs(settings),
     )
 
 
@@ -118,7 +157,7 @@ def build_rag_chain(
     ])
 
     if reranker is not None:
-        from cafetera_core.rag.reranker import RerankingRetriever
+        from cafetera_rag_service.rag.reranker import RerankingRetriever
 
         retriever = RerankingRetriever(
             base_retriever=retriever,

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cafetera_core.rag.prompts import CATEGORY_HINTS
+from cafetera_rag_service.rag.prompts import CATEGORY_HINTS
 from cafetera_vk_bot.domain.topic_hints import _SCENARIO_KEYWORDS
 
 
@@ -34,7 +34,7 @@ class TestBuildRagChainWithCategoryHint:
 
     def test_build_rag_chain_with_category_hint_includes_hint_text(self):
         """Chain built with category_hint should include 'Дополнительный контекст' and hint."""
-        from cafetera_core.rag.chain import build_rag_chain
+        from cafetera_rag_service.rag.chain import build_rag_chain
 
         mock_retriever = MagicMock()
         mock_llm = MagicMock()
@@ -63,7 +63,7 @@ class TestBuildRagChainWithCategoryHint:
 
     def test_build_rag_chain_with_actual_category_hint_from_dict(self):
         """Chain built with actual CATEGORY_HINTS value includes the hint."""
-        from cafetera_core.rag.chain import build_rag_chain
+        from cafetera_rag_service.rag.chain import build_rag_chain
 
         mock_retriever = MagicMock()
         mock_llm = MagicMock()
@@ -90,7 +90,7 @@ class TestBuildRagChainWithoutCategoryHint:
 
     def test_build_rag_chain_without_hint_excludes_context_marker(self):
         """Chain built without category_hint should not include 'Дополнительный контекст'."""
-        from cafetera_core.rag.chain import build_rag_chain
+        from cafetera_rag_service.rag.chain import build_rag_chain
 
         mock_retriever = MagicMock()
         mock_llm = MagicMock()
@@ -112,7 +112,7 @@ class TestBuildRagChainWithoutCategoryHint:
 
     def test_build_rag_chain_with_empty_string_hint(self):
         """Chain built with empty string hint should not add context section."""
-        from cafetera_core.rag.chain import build_rag_chain
+        from cafetera_rag_service.rag.chain import build_rag_chain
 
         mock_retriever = MagicMock()
         mock_llm = MagicMock()
@@ -147,7 +147,7 @@ class TestQAServiceAskPassesCategory:
     def qa_service_with_mocks(self, mock_settings):
         """Create a QAService with all required mocks."""
         service = MagicMock()
-        from cafetera_core.domain.qa_service import QAService
+        from cafetera_rag_service.qa_service import QAService
 
         service = QAService(
             qdrant_client=MagicMock(),
@@ -209,8 +209,10 @@ class TestQAServiceAskPassesCategory:
         """_build_global_chain should look up hint from CATEGORY_HINTS using category."""
         service = qa_service_with_mocks
 
-        with patch("cafetera_core.rag.chain.build_rag_chain") as mock_build_chain:
-            with patch("cafetera_core.rag.retriever.build_retriever") as mock_build_retriever:
+        with patch("cafetera_rag_service.rag.chain.build_rag_chain") as mock_build_chain:
+            with patch(
+                "cafetera_rag_service.rag.retriever.build_retriever",
+            ) as mock_build_retriever:
                 mock_retriever = MagicMock()
                 mock_build_retriever.return_value = mock_retriever
 
@@ -226,8 +228,10 @@ class TestQAServiceAskPassesCategory:
         """_build_global_chain should handle unknown category gracefully."""
         service = qa_service_with_mocks
 
-        with patch("cafetera_core.rag.chain.build_rag_chain") as mock_build_chain:
-            with patch("cafetera_core.rag.retriever.build_retriever") as mock_build_retriever:
+        with patch("cafetera_rag_service.rag.chain.build_rag_chain") as mock_build_chain:
+            with patch(
+                "cafetera_rag_service.rag.retriever.build_retriever",
+            ) as mock_build_retriever:
                 mock_retriever = MagicMock()
                 mock_build_retriever.return_value = mock_retriever
 

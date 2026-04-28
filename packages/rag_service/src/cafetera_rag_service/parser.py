@@ -11,7 +11,7 @@ from pathlib import Path
 
 from langchain_core.documents import Document
 
-from cafetera_core.config import CoreSettings
+from cafetera_rag_service.config import RagServiceSettings
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ def ensure_models_cached(model_name: str) -> None:
     logger.info("HuggingFace offline mode enabled")
 
 
-def load_document(path: str | Path, settings: CoreSettings) -> list[Document]:
+def load_document(path: str | Path, settings: RagServiceSettings) -> list[Document]:
     """Parse a document file into chunked LangChain Document objects.
 
     Dispatches to the appropriate loader based on file extension:
@@ -54,7 +54,7 @@ def load_document(path: str | Path, settings: CoreSettings) -> list[Document]:
 
     Args:
         path: Path to the document file.
-        settings: CoreSettings with chunk_size.
+        settings: RagServiceSettings with chunk_size and chunker_tokenizer_model.
 
     Returns:
         List of LangChain Document objects.
@@ -91,7 +91,7 @@ def _get_chunker(tokenizer_model: str, max_tokens: int):
     return HybridChunker(tokenizer=tokenizer, max_tokens=max_tokens)  # type: ignore[call-arg]
 
 
-def _load_with_docling(path: Path, settings: CoreSettings) -> list[Document]:
+def _load_with_docling(path: Path, settings: RagServiceSettings) -> list[Document]:
     """Parse PDF/DOCX/XLSX files using Docling with HybridChunker."""
     from docling_onnx_models.layoutmodel.layout_predictor import (
         LayoutPredictor,  # noqa: F401  — force ONNX backend

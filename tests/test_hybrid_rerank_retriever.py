@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from langchain_core.documents import Document
 
-from cafetera_core.config import CoreSettings
-from cafetera_core.rag.reranker import CrossEncoderReranker, RerankingRetriever
-from cafetera_core.rag.retriever import (
+from cafetera_rag_service.config import RagServiceSettings
+from cafetera_rag_service.rag.reranker import CrossEncoderReranker, RerankingRetriever
+from cafetera_rag_service.rag.retriever import (
     AsyncQdrantRetriever,
     build_retriever,
     build_retriever_for_document,
@@ -38,7 +38,7 @@ async def test_cross_encoder_reranker_arerank_returns_top_n():
     mock_model.rerank.return_value = [0.1, 0.95, 0.70]
 
     with patch(
-        "cafetera_core.rag.reranker.TextCrossEncoder",
+        "cafetera_rag_service.rag.reranker.TextCrossEncoder",
         return_value=mock_model,
     ):
         reranker = CrossEncoderReranker(model_name="test-model", top_n=2)
@@ -53,7 +53,7 @@ async def test_cross_encoder_reranker_arerank_returns_top_n():
 
 async def test_cross_encoder_reranker_arerank_empty_docs():
     """arerank() returns empty list for empty input."""
-    with patch("cafetera_core.rag.reranker.TextCrossEncoder"):
+    with patch("cafetera_rag_service.rag.reranker.TextCrossEncoder"):
         reranker = CrossEncoderReranker(
             model_name="test-model", top_n=5
         )
@@ -73,7 +73,7 @@ async def test_cross_encoder_reranker_rerank_sync():
     mock_model.rerank.return_value = [0.5, 0.9]
 
     with patch(
-        "cafetera_core.rag.reranker.TextCrossEncoder",
+        "cafetera_rag_service.rag.reranker.TextCrossEncoder",
         return_value=mock_model,
     ):
         reranker = CrossEncoderReranker(model_name="test-model", top_n=2)
@@ -132,7 +132,7 @@ def test_build_retriever_uses_prefetch_limit_when_reranking_enabled():
     """When reranking_enabled=True, build_retriever returns AsyncQdrantRetriever
     with k=reranker_prefetch_limit.
     """
-    settings = CoreSettings(
+    settings = RagServiceSettings(
         reranking_enabled=True,
         reranker_prefetch_limit=25,
         _env_file=None,
@@ -156,7 +156,7 @@ def test_build_retriever_uses_prefetch_limit_when_reranking_enabled():
 
 def test_build_retriever_uses_normal_k_when_reranking_disabled():
     """When reranking_enabled=False, returns AsyncQdrantRetriever with k."""
-    settings = CoreSettings(
+    settings = RagServiceSettings(
         reranking_enabled=False,
         _env_file=None,
     )
@@ -180,7 +180,7 @@ def test_build_retriever_for_document_uses_prefetch_limit_when_enabled():
     """When reranking_enabled=True, build_retriever_for_document returns
     AsyncQdrantRetriever with k=reranker_prefetch_limit and document filter.
     """
-    settings = CoreSettings(
+    settings = RagServiceSettings(
         reranking_enabled=True,
         reranker_prefetch_limit=30,
         _env_file=None,
@@ -208,7 +208,7 @@ def test_build_retriever_for_document_uses_prefetch_limit_when_enabled():
 
 def test_build_retriever_for_document_uses_normal_k_when_disabled():
     """When reranking_enabled=False, returns AsyncQdrantRetriever with k."""
-    settings = CoreSettings(
+    settings = RagServiceSettings(
         reranking_enabled=False,
         _env_file=None,
     )

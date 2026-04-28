@@ -11,7 +11,6 @@ from langchain_core.callbacks import (
 )
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
-from langchain_qdrant import QdrantVectorStore
 from pydantic import ConfigDict
 from qdrant_client import AsyncQdrantClient, models
 
@@ -104,7 +103,7 @@ def estimate_k(question: str) -> int:
     """Estimate the number of chunks to retrieve based on question complexity.
 
     Rules:
-    - Short questions (≤5 words): k=2
+    - Short questions (<=5 words): k=2
     - Medium questions (6-15 words): k=4 (default)
     - Long/complex questions (>15 words): k=6
     """
@@ -118,14 +117,14 @@ def estimate_k(question: str) -> int:
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
 
-    from cafetera_core.config import CoreSettings
+    from cafetera_rag_service.config import RagServiceSettings
 
 logger = logging.getLogger(__name__)
 
 COLLECTION_NAME = "hr_documents"
 
 
-def build_qdrant_client(settings: CoreSettings) -> AsyncQdrantClient:
+def build_qdrant_client(settings: RagServiceSettings) -> AsyncQdrantClient:
     """Create an async Qdrant client from settings.
 
     Configures explicit timeout to prevent httpx.ReadError during
@@ -134,11 +133,11 @@ def build_qdrant_client(settings: CoreSettings) -> AsyncQdrantClient:
     return AsyncQdrantClient(
         url=settings.qdrant_url,
         api_key=settings.qdrant_api_key,
-        timeout=settings.qdrant_timeout,  # type: ignore[arg-type]  # SDK accepts float at runtime
+        timeout=settings.qdrant_timeout,  # type: ignore[arg-type]
     )
 
 
-def build_embeddings(settings: CoreSettings) -> Embeddings:
+def build_embeddings(settings: RagServiceSettings) -> Embeddings:
     """Create an embedding model based on ``settings.embedding_provider``."""
     if settings.embedding_provider == "openai":
         try:
@@ -181,7 +180,7 @@ def build_embeddings(settings: CoreSettings) -> Embeddings:
     )
 
 
-def build_sparse_embeddings(settings: CoreSettings):
+def build_sparse_embeddings(settings: RagServiceSettings):
     """Build sparse embeddings for hybrid search."""
     try:
         from langchain_qdrant import FastEmbedSparse
@@ -197,45 +196,8 @@ def build_sparse_embeddings(settings: CoreSettings):
         ) from exc
 
 
-def build_vectorstore(
-    client: AsyncQdrantClient,
-    embeddings: Embeddings,
-    collection_name: str = COLLECTION_NAME,
-    sparse_embedding=None,
-) -> QdrantVectorStore:
-    """Wrap an existing Qdrant collection into a LangChain vectorstore.
-
-    Note: This function is primarily used for indexing/ingestion.
-    For retrieval, use AsyncQdrantRetriever instead.
-    """
-    from qdrant_client.http.exceptions import UnexpectedResponse
-
-    # Pre-check: does the collection exist?
-    # Note: client is expected to have get_collection method (sync or mock)
-    try:
-        client.get_collection(collection_name)  # type: ignore[unused-coroutine]
-    except (UnexpectedResponse, Exception) as exc:
-        raise CollectionNotFoundError(
-            f"Qdrant collection '{collection_name}' does not exist yet. "
-            f"Upload and index a document first."
-        ) from exc
-
-    if sparse_embedding is not None:
-        return QdrantVectorStore(
-            client=client,  # type: ignore[arg-type]
-            collection_name=collection_name,
-            embedding=embeddings,
-            sparse_embedding=sparse_embedding,
-        )
-    return QdrantVectorStore(
-        client=client,  # type: ignore[arg-type]
-        collection_name=collection_name,
-        embedding=embeddings,
-    )
-
-
 def build_retriever(
-    settings: CoreSettings,
+    settings: RagServiceSettings,
     *,
     qdrant_client: AsyncQdrantClient | None = None,
     embeddings: Embeddings | None = None,
@@ -251,8 +213,7 @@ def build_retriever(
     reranker receives enough candidates.
 
     Only chunks where ``is_search_enabled`` is not explicitly ``False``
-    are returned.  Chunks that predate the metadata enrichment (no field)
-    are still included for backward compatibility.
+    are returned.
     """
     if qdrant_client is None:
         qdrant_client = build_qdrant_client(settings)
@@ -285,7 +246,7 @@ def build_retriever(
 
 
 def build_retriever_for_document(
-    settings: CoreSettings,
+    settings: RagServiceSettings,
     document_id: str,
     *,
     qdrant_client: AsyncQdrantClient | None = None,
@@ -300,9 +261,6 @@ def build_retriever_for_document(
     When ``settings.reranking_enabled``, uses a larger ``k`` equal to
     ``reranker_prefetch_limit`` so the downstream cross-encoder
     reranker receives enough candidates.
-
-    Returns only chunks that belong to ``document_id``
-    (``metadata.document_id`` must match).
     """
     if qdrant_client is None:
         qdrant_client = build_qdrant_client(settings)

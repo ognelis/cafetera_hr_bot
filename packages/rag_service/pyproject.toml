@@ -1,0 +1,29 @@
+[project]
+name = "cafetera-rag-service"
+version = "0.1.0"
+description = "RAG pipeline HTTP microservice for Cafetera HR Bot"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "cafetera-core",
+    "langchain-qdrant>=1.1.0",
+    "langchain-ollama>=1.1.0",
+    "langchain-openai>=1.2.1",
+    "qdrant-client>=1.17.1",
+    "fastembed>=0.8.0",
+    "fastapi>=0.136.1",
+    "hypercorn>=0.18.0",
+    "httpx",
+    "langchain-docling",
+    "docling",
+    "docling-onnx-models",
+    "opencv-python-headless",
+    "torch",
+    "torchvision",
+]
+
+[tool.uv.sources]
+cafetera-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

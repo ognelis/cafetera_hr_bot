@@ -12,7 +12,7 @@ from cafetera_core.config import configure_logging
 from cafetera_core.resources import build_resources, close_resources
 from cafetera_vk_bot.bot import create_bot
 from cafetera_vk_bot.config import VKSettings
-from cafetera_vk_bot.handlers import set_category_file_service, set_qa_service
+from cafetera_vk_bot.handlers import set_category_file_service, set_rag_client, set_system_prompt
 from cafetera_vk_bot.prompts import SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -30,14 +30,11 @@ async def _setup(bot) -> None:
     # Store resources on bot for cleanup access
     bot._app_resources = res
 
-    if (
-        res.qdrant_client is not None
-        and res.embeddings is not None
-        and res.llm is not None
-    ):
-        set_qa_service(res.build_qa_service(SYSTEM_PROMPT, include_metadata=True))
+    if res.rag_client is not None:
+        set_rag_client(res.rag_client)
+        set_system_prompt(SYSTEM_PROMPT)
     else:
-        logger.warning("QA service not available — bot will not answer questions")
+        logger.warning("RAG client not available — bot will not answer questions")
 
     if res.category_file_service:
         set_category_file_service(res.category_file_service)

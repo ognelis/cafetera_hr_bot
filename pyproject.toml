@@ -11,6 +11,7 @@ dev = [
     "cafetera-core",
     "cafetera-admin",
     "cafetera-vk-bot",
+    "cafetera-rag-service",
     "ruff>=0.15.12",
     "mypy>=1.20.2",
     "types-openpyxl>=3.1.0",
@@ -27,7 +28,7 @@ explicit = true
 [tool.uv]
 override-dependencies = [
     # Force-exclude opencv-python (GUI) — Docker has no X11 libs.
-    # opencv-python-headless is added explicitly in packages/admin.
+    # opencv-python-headless is added explicitly in packages/rag_service.
     "opencv-python ; python_version < '0'",
 ]
 
@@ -38,6 +39,7 @@ members = ["packages/*"]
 cafetera-core = { workspace = true }
 cafetera-admin = { workspace = true }
 cafetera-vk-bot = { workspace = true }
+cafetera-rag-service = { workspace = true }
 torch = [
     { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
 ]
@@ -49,12 +51,12 @@ torchvision = [
 testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = ["requires_docker: tests that need Docker (Testcontainers)"]
-pythonpath = ["packages/core/src", "packages/admin/src", "packages/vk_bot/src"]
+pythonpath = ["packages/core/src", "packages/admin/src", "packages/vk_bot/src", "packages/rag_service/src"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-src = ["packages/core/src", "packages/admin/src", "packages/vk_bot/src"]
+src = ["packages/core/src", "packages/admin/src", "packages/vk_bot/src", "packages/rag_service/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

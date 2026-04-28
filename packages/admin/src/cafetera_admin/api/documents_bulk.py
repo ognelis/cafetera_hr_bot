@@ -15,14 +15,13 @@ from pydantic import BaseModel
 from cafetera_admin.api.deps import (
     AdminDep,
     IndexingSemaphoreDep,
-    QAServiceDep,
+    RAGClientDep,
     RepoDep,
     S3Dep,
     ServiceDep,
     TemplatesDep,
 )
 from cafetera_admin.api.documents_helpers import _document_table_context
-from cafetera_admin.config import AdminSettings
 from cafetera_core.storage.models import DocumentStatus
 
 logger = logging.getLogger(__name__)
@@ -51,7 +50,7 @@ async def bulk_delete_documents(
     service: ServiceDep,
     repo: RepoDep,
     templates: TemplatesDep,
-    qa: QAServiceDep,
+    qa: RAGClientDep,
     body: BulkIdsRequest,
 ):
     """Delete multiple documents by ID. Returns refreshed document table partial."""
@@ -81,8 +80,10 @@ async def bulk_delete_documents(
             if not deleted:
                 errors.append(f"Document {document_id}: delete failed")
             else:
-                if qa is not None:
-                    qa.invalidate_document_chain_cache(document_id)
+                try:
+                    await qa.invalidate_cache(document_id)
+                except Exception:
+                    pass
         except Exception as exc:
             logger.error("Bulk delete failed for %s", document_id, exc_info=True)
             errors.append(f"Document {document_id}: {exc}")
@@ -106,7 +107,7 @@ async def bulk_reindex_documents(
     templates: TemplatesDep,
     background_tasks: BackgroundTasks,
     semaphore: IndexingSemaphoreDep,
-    qa: QAServiceDep,
+    qa: RAGClientDep,
     body: BulkIdsRequest,
 ):
     """Reindex multiple documents by ID. Returns refreshed document table partial."""
@@ -116,7 +117,6 @@ async def bulk_reindex_documents(
     )
 
     errors = []
-    settings: AdminSettings = request.app.state.settings
 
     # Fetch all documents concurrently
     results = await asyncio.gather(
@@ -151,14 +151,12 @@ async def bulk_reindex_documents(
 
             background_tasks.add_task(
                 _bg_index,
-                service,
-                s3,
                 document_id,
+                record.filename,
                 record.s3_key,
-                semaphore,
-                settings,
-                is_reindex=True,
-                qa_service=qa,
+                service=service,
+                rag_client=qa,
+                semaphore=semaphore,
             )
         except Exception as exc:
             logger.error("Bulk reindex failed for %s", document_id, exc_info=True)
@@ -180,7 +178,7 @@ async def bulk_toggle_search(
     service: ServiceDep,
     repo: RepoDep,
     templates: TemplatesDep,
-    qa: QAServiceDep,
+    qa: RAGClientDep,
     body: BulkSearchToggleRequest,
 ):
     """Toggle search enabled for multiple documents. Returns refreshed document table partial."""
@@ -208,8 +206,10 @@ async def bulk_toggle_search(
             if updated is None:
                 errors.append(f"Document {document_id}: toggle failed")
             else:
-                if qa is not None:
-                    qa.invalidate_document_chain_cache(document_id)
+                try:
+                    await qa.invalidate_cache(document_id)
+                except Exception:
+                    pass
         except Exception as exc:
             logger.error("Bulk toggle search failed for %s", document_id, exc_info=True)
             errors.append(f"Document {document_id}: {exc}")

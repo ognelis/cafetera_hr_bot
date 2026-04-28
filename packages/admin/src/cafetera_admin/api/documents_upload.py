@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import (
@@ -17,7 +17,7 @@ from fastapi import (
 
 from cafetera_admin.api.deps import (
     AdminDep,
-    QAServiceDep,
+    RAGClientDep,
     S3Dep,
     ServiceDep,
 )
@@ -30,117 +30,61 @@ from cafetera_admin.api.documents_helpers import (
     _sanitize_filename,
     _validate_docx_bytes,
 )
-from cafetera_admin.config import AdminSettings
-from cafetera_admin.parser import load_document
-from cafetera_core.config import CoreSettings
-from cafetera_core.domain.qa_service import QAService
+from cafetera_admin.domain.document_service import DocumentService
+from cafetera_core.rag_client import RAGClient
 from cafetera_core.storage.models import DocumentStatus
-from cafetera_core.storage.s3 import S3Storage
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-async def _download_and_validate(
-    s3: S3Storage,
-    document_id: str,
-    s3_key: str,
-    service,
-) -> bytes | None:
-    """Download a file from S3 and validate DOCX integrity.
-
-    Returns raw bytes on success, or ``None`` if validation fails
-    (marking the document as *failed* in the repo).
-    """
-    data = await s3.download(s3_key)
-    ext = Path(s3_key).suffix.lower()
-
-    if ext == ".docx" and not _validate_docx_bytes(data):
-        logger.warning(
-            "Document %s failed validation: not a valid DOCX file (data size: %d bytes)",
-            document_id,
-            len(data),
-        )
-        await service._repo.update(
-            document_id,
-            status=DocumentStatus.failed,
-            error="Invalid or corrupted DOCX file",
-        )
-        return None
-    return data
-
-
-async def _parse_document_chunks(
-    data: bytes,
-    s3_key: str,
-    document_id: str,
-    *,
-    settings: CoreSettings,
-) -> list:
-    """Write *data* to a temp file, parse it into chunks, and clean up."""
-    ext = Path(s3_key).suffix.lower()
-    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
-        tmp.write(data)
-        tmp.flush()
-        tmp_path = Path(tmp.name)
-    try:
-        chunks = await asyncio.to_thread(
-            load_document,
-            tmp_path,
-            settings,
-        )
-    except ValueError as exc:
-        logger.error(
-            "Document %s failed to parse: %s (data size: %d bytes)",
-            document_id,
-            exc,
-            len(data),
-        )
-        raise
-    finally:
-        await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-    return chunks
-
-
 async def _index_document_from_s3(
-    service,
-    s3: S3Storage,
     document_id: str,
+    filename: str,
     s3_key: str,
+    *,
+    service: DocumentService,
+    rag_client: RAGClient,
     semaphore: asyncio.Semaphore,
-    settings: CoreSettings,
-    is_reindex: bool = False,
-    qa_service: QAService | None = None,
 ) -> None:
-    """Download from S3, parse, and index/reindex a document. Runs as a background task."""
+    """Background task: tell RAG service to ingest the document."""
     async with semaphore:
         try:
-            data = await _download_and_validate(s3, document_id, s3_key, service)
-            if data is None:
-                return
-
-            chunks = await _parse_document_chunks(
-                data,
-                s3_key,
-                document_id,
-                settings=settings,
+            count = await rag_client.ingest_document(
+                document_id=document_id,
+                filename=filename,
+                s3_key=s3_key,
+                is_search_enabled=True,
             )
-
-            if is_reindex:
-                await service.reindex_document(document_id, chunks)
-                logger.info("Background reindex completed for %s", document_id)
-            else:
-                await service.index_document(document_id, chunks)
-                logger.info("Background indexing completed for %s", document_id)
+            await service._repo.update(
+                document_id,
+                status=DocumentStatus.completed,
+                chunk_count=count,
+                indexed_at=datetime.now(UTC),
+                error=None,
+            )
+            logger.info(
+                "Background indexing completed for %s (%d chunks)",
+                document_id,
+                count,
+            )
         except Exception:
-            action = "reindexing" if is_reindex else "indexing"
             logger.error(
-                "Background %s failed for %s", action, document_id, exc_info=True
+                "Background indexing failed for %s", document_id, exc_info=True
+            )
+            await service._repo.update(
+                document_id,
+                status=DocumentStatus.failed,
+                error="Indexing failed",
             )
         finally:
-            if qa_service is not None:
-                qa_service.invalidate_document_chain_cache(document_id)
+            try:
+                await rag_client.invalidate_cache(document_id)
+            except Exception:
+                logger.warning(
+                    "Cache invalidation failed for %s", document_id, exc_info=True
+                )
 
 
 @router.post("/api/documents/upload")
@@ -150,7 +94,7 @@ async def upload_documents(
     s3: S3Dep,
     service: ServiceDep,
     background_tasks: BackgroundTasks,
-    qa: QAServiceDep,
+    rag_client: RAGClientDep,
     files: list[UploadFile],
 ):
     """Upload one or more documents (.docx, .pdf) to S3.
@@ -223,17 +167,14 @@ async def upload_documents(
         )
 
         # Schedule background indexing
-        settings: AdminSettings = request.app.state.settings
         background_tasks.add_task(
             _index_document_from_s3,
-            service,
-            s3,
             record.document_id,
+            record.filename,
             s3_key,
-            request.app.state.indexing_semaphore,
-            settings,
-            is_reindex=False,
-            qa_service=qa,
+            service=service,
+            rag_client=rag_client,
+            semaphore=request.app.state.indexing_semaphore,
         )
 
         results.append(_doc_to_dict(record))

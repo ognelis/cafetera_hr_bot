@@ -25,3 +25,19 @@ class TestSettingsFromEnv:
         monkeypatch.setenv("VK_ACCESS_TOKEN", "override")
         settings = VKSettings()
         assert settings.vk_access_token == "override"
+
+
+# ── Package import smoke test ─────────────────────────────────────
+
+
+def test_all_packages_importable():
+    """Verify all workspace packages can be imported without errors."""
+    import cafetera_admin
+    import cafetera_core
+    import cafetera_rag_service
+    import cafetera_vk_bot
+
+    assert cafetera_core is not None
+    assert cafetera_admin is not None
+    assert cafetera_vk_bot is not None
+    assert cafetera_rag_service is not None

@@ -11,18 +11,26 @@ import logging
 from collections import OrderedDict
 from typing import TYPE_CHECKING
 
-from cafetera_core.domain.errors import ERR_DOCUMENT_UNAVAILABLE, ERR_NO_ANSWER
-
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
     from langchain_core.language_models import BaseChatModel
     from langchain_core.runnables import Runnable
     from qdrant_client import AsyncQdrantClient
 
-    from cafetera_core.config import CoreSettings
-    from cafetera_core.rag.reranker import CrossEncoderReranker
+    from cafetera_rag_service.config import RagServiceSettings
+    from cafetera_rag_service.rag.reranker import CrossEncoderReranker
 
 logger = logging.getLogger(__name__)
+
+ERR_NO_ANSWER = (
+    "\U0001f50d К сожалению, точного ответа не найдено.\n\n"
+    "Рекомендуем обратиться в HR-отдел компании."
+)
+
+ERR_DOCUMENT_UNAVAILABLE = (
+    "\u26a0\ufe0f Не удалось получить ответ.\n\n"
+    "Пожалуйста, задайте вопрос позже."
+)
 
 VK_MSG_LIMIT = 4096
 _TRUNCATION_SUFFIX = "\n\n…Обратитесь в HR-отдел для полной информации."
@@ -55,7 +63,7 @@ class QAService:
         qdrant_client: AsyncQdrantClient | None = None,
         embeddings: Embeddings | None = None,
         llm: BaseChatModel | None = None,
-        settings: CoreSettings | None = None,
+        settings: RagServiceSettings | None = None,
         global_system_prompt: str | None = None,
         include_metadata: bool = False,
         sparse_embedding: object | None = None,
@@ -94,9 +102,9 @@ class QAService:
         ):
             return None
 
-        from cafetera_core.rag.chain import build_rag_chain
-        from cafetera_core.rag.prompts import DOCUMENT_EXPERTS_PROMPT
-        from cafetera_core.rag.retriever import build_retriever_for_document
+        from cafetera_rag_service.rag.chain import build_rag_chain
+        from cafetera_rag_service.rag.prompts import DOCUMENT_EXPERTS_PROMPT
+        from cafetera_rag_service.rag.retriever import build_retriever_for_document
 
         retriever = build_retriever_for_document(
             self._settings,
@@ -135,9 +143,9 @@ class QAService:
         ):
             return None
 
-        from cafetera_core.rag.chain import build_rag_chain
-        from cafetera_core.rag.prompts import CATEGORY_HINTS
-        from cafetera_core.rag.retriever import build_retriever
+        from cafetera_rag_service.rag.chain import build_rag_chain
+        from cafetera_rag_service.rag.prompts import CATEGORY_HINTS
+        from cafetera_rag_service.rag.retriever import build_retriever
 
         retriever = build_retriever(
             self._settings,
@@ -160,16 +168,13 @@ class QAService:
     async def ask(self, question: str, category: str | None = None) -> str:
         """Query the RAG chain and return a displayable answer string.
 
-        Uses adaptive k based on question complexity:
-        - Short questions (≤5 words): k=2
-        - Medium questions (6-15 words): k=4
-        - Long/complex questions (>15 words): k=6
+        Uses adaptive k based on question complexity.
 
-        * If the chain was not initialised → ``ERR_NO_ANSWER``.
-        * If the chain raises at runtime → ``ERR_DOCUMENT_UNAVAILABLE``.
+        * If the chain was not initialised -> ``ERR_NO_ANSWER``.
+        * If the chain raises at runtime -> ``ERR_DOCUMENT_UNAVAILABLE``.
         * Long answers are truncated to fit the VK message limit.
         """
-        from cafetera_core.rag.retriever import estimate_k
+        from cafetera_rag_service.rag.retriever import estimate_k
 
         k = estimate_k(question)
         chain = self._build_global_chain(k, category=category)
@@ -188,10 +193,10 @@ class QAService:
         return _truncate(answer.strip())
 
     async def ask_about_document(self, question: str, document_id: str) -> str:
-        """Query the RAG chain scoped to a specific document and return a displayable answer string.
+        """Query the RAG chain scoped to a specific document.
 
-        * If the QA service was not initialised → ``ERR_NO_ANSWER``.
-        * If the chain raises at runtime → ``ERR_DOCUMENT_UNAVAILABLE``.
+        * If the QA service was not initialised -> ``ERR_NO_ANSWER``.
+        * If the chain raises at runtime -> ``ERR_DOCUMENT_UNAVAILABLE``.
         * Long answers are truncated to fit the VK message limit.
         """
         chain = self._build_document_chain(document_id)
@@ -217,14 +222,10 @@ class QAService:
     async def stream_ask(self, question: str, category: str | None = None):
         """Stream tokens from the global RAG chain.
 
-        Uses adaptive k based on question complexity:
-        - Short questions (≤5 words): k=2
-        - Medium questions (6-15 words): k=4
-        - Long/complex questions (>15 words): k=6
-
+        Uses adaptive k based on question complexity.
         Yields each token string as it arrives from the LLM.
         """
-        from cafetera_core.rag.retriever import estimate_k
+        from cafetera_rag_service.rag.retriever import estimate_k
 
         k = estimate_k(question)
         chain = self._build_global_chain(k, category=category)
@@ -253,9 +254,6 @@ class QAService:
 
         Yields each token string as it arrives from the LLM.
         Handles errors gracefully by yielding an error message.
-
-        * If the QA service was not initialised → yields error message.
-        * If the chain raises at runtime → yields error message.
         """
         chain = self._build_document_chain(document_id)
         if chain is None:

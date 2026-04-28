@@ -11,12 +11,6 @@ ENV UV_PYTHON_DOWNLOADS=never \
 
 WORKDIR /app
 
-# Build-time argument for reranker model name (passed from docker-compose or --build-arg)
-ARG RERANKER_MODEL=jinaai/jina-reranker-v2-base-multilingual
-
-# Build-time argument for HybridChunker tokenizer model (passed from docker-compose or --build-arg)
-ARG CHUNKER_TOKENIZER_MODEL=Qwen/Qwen3-Embedding-0.6B
-
 # Copy root workspace files
 COPY pyproject.toml uv.lock ./
 
@@ -24,14 +18,17 @@ COPY pyproject.toml uv.lock ./
 COPY packages/core/pyproject.toml ./packages/core/pyproject.toml
 COPY packages/admin/pyproject.toml ./packages/admin/pyproject.toml
 COPY packages/vk_bot/pyproject.toml ./packages/vk_bot/pyproject.toml
+COPY packages/rag_service/pyproject.toml ./packages/rag_service/pyproject.toml
 
 # Create minimal stubs so uv can resolve workspace members
 RUN mkdir -p packages/core/src/cafetera_core \
              packages/admin/src/cafetera_admin \
-             packages/vk_bot/src/cafetera_vk_bot && \
+             packages/vk_bot/src/cafetera_vk_bot \
+             packages/rag_service/src/cafetera_rag_service && \
     touch packages/core/src/cafetera_core/__init__.py \
           packages/admin/src/cafetera_admin/__init__.py \
-          packages/vk_bot/src/cafetera_vk_bot/__init__.py
+          packages/vk_bot/src/cafetera_vk_bot/__init__.py \
+          packages/rag_service/src/cafetera_rag_service/__init__.py
 
 # Install dependencies
 RUN uv venv .venv && \
@@ -47,25 +44,8 @@ RUN uv pip install --no-deps ./packages/core ./packages/admin
 COPY templates/ ./templates/
 COPY static/ ./static/
 
-# Pre-download BM25 sparse embedding model during build
-ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
-
-# Pre-download Docling ML models during build (layout analysis, TableFormer)
-ENV HF_HOME=/app/.cache/huggingface
-
-# Pre-download HybridChunker tokenizer (must match EMBEDDING_MODEL) during build
-# Note: CHUNKER_TOKENIZER_MODEL is set via ARG above
-
-# Pre-download all ML models in a single layer
-RUN .venv/bin/python -c "from langchain_qdrant import FastEmbedSparse; FastEmbedSparse(model_name='Qdrant/bm25')" && \
-    .venv/bin/python -c "from fastembed.rerank.cross_encoder import TextCrossEncoder; TextCrossEncoder(model_name='${RERANKER_MODEL}')" && \
-    .venv/bin/python -c "from docling_onnx_models.layoutmodel.layout_predictor import LayoutPredictor; from docling.document_converter import DocumentConverter; DocumentConverter()" && \
-    .venv/bin/python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('${CHUNKER_TOKENIZER_MODEL}')"
-
 # Cleanup: remove test files, caches, and docs to reduce image size
 RUN find /app/.venv/lib/python3.13/site-packages \
-        -not -path '*/torch/*' \
-        -not -path '*/transformers/*' \
         \( -type d -name 'tests' -o -type d -name 'test' \
            -o -type d -name '*_tests' -o -name 'test_*.py' \) \
         -exec rm -rf {} + 2>/dev/null; \
@@ -93,17 +73,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # Bind to all interfaces inside container (local dev still defaults to 127.0.0.1)
 ENV BIND_HOST=0.0.0.0
-
-# Set model cache paths for runtime
-ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
-ENV HF_HOME=/app/.cache/huggingface
-
-# Copy pre-downloaded model caches
-COPY --from=builder /app/.cache/fastembed /app/.cache/fastembed
-COPY --from=builder /app/.cache/huggingface /app/.cache/huggingface
-
-# Ensure cache directories are accessible by appuser
-RUN chown -R appuser:appuser /app/.cache
 
 # Switch to non-root user
 USER appuser

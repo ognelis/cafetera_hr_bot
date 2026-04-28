@@ -33,10 +33,9 @@ def _make_minimal_docx_bytes() -> bytes:
 
 
 class TestUpload:
-    @patch("cafetera_admin.api.documents.load_document", return_value=[])
-    @patch("cafetera_admin.api.documents._index_document_from_s3", new_callable=AsyncMock)
+    @patch("cafetera_admin.api.documents_upload._index_document_from_s3", new_callable=AsyncMock)
     async def test_upload_valid_file(
-        self, mock_bg, mock_parse, auth_client, mock_s3
+        self, mock_bg, auth_client, mock_s3
     ):
         fake_docx = BytesIO(_make_minimal_docx_bytes())
         resp = auth_client.post(

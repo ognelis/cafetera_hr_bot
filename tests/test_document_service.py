@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 from databases import Database
-from langchain_core.documents import Document as LCDocument
 
 from cafetera_admin.domain.document_service import DocumentService
 from cafetera_core.storage.database import init_db
@@ -40,15 +39,6 @@ def _make_record(**overrides) -> DocumentRecord:
     return DocumentRecord(**defaults)
 
 
-def _make_chunks(n: int = 3) -> list[LCDocument]:
-    return [
-        LCDocument(
-            page_content=f"chunk {i}",
-            metadata={"source": "test.docx", "section": f"Heading {i}"},
-        )
-        for i in range(n)
-    ]
-
 
 @pytest.fixture()
 async def repo(pg_container):
@@ -68,26 +58,21 @@ async def repo(pg_container):
 
 
 @pytest.fixture()
-def mock_qdrant():
+def mock_rag_client():
     client = AsyncMock()
-    client.delete = AsyncMock()
-    client.set_payload = AsyncMock()
-    client.count = AsyncMock(return_value=AsyncMock(count=0))
+    client.ingest_document.return_value = 5
+    client.toggle_search.return_value = None
+    client.delete_document.return_value = None
+    client.invalidate_cache.return_value = None
+    client.aclose.return_value = None
     return client
 
 
 @pytest.fixture()
-def mock_embeddings():
-    return MagicMock()
-
-
-@pytest.fixture()
-def service(repo, mock_qdrant, mock_embeddings):
+def service(repo, mock_rag_client):
     return DocumentService(
         repo=repo,
-        qdrant_client=mock_qdrant,
-        embeddings=mock_embeddings,
-        collection_name="test_collection",
+        rag_client=mock_rag_client,
     )
 
 
@@ -135,78 +120,34 @@ class TestCreateDocument:
 
 
 class TestIndexDocument:
-    @patch(
-        "cafetera_admin.domain.document_service.optimize_collection",
-        new_callable=AsyncMock,
-    )
-    @patch(
-        "cafetera_admin.domain.document_service.index_chunks",
-        new_callable=AsyncMock,
-        return_value=3,
-    )
-    async def test_indexes_and_updates_metadata(
-        self, mock_index, mock_optimize, service, repo
-    ):
+    async def test_indexes_and_updates_metadata(self, service, repo, mock_rag_client):
+        mock_rag_client.ingest_document.return_value = 3
         rec = _make_record()
         await repo.create(rec)
 
-        result = await service.index_document(rec.document_id, _make_chunks(3))
+        result = await service.index_document(rec.document_id)
 
         assert result is not None
         assert result.status == DocumentStatus.completed
         assert result.chunk_count == 3
         assert result.indexed_at is not None
         assert result.error is None
-        mock_index.assert_called_once()
-        mock_optimize.assert_called_once()
+        mock_rag_client.ingest_document.assert_called_once()
 
-    @patch(
-        "cafetera_admin.domain.document_service.optimize_collection",
-        new_callable=AsyncMock,
-    )
-    @patch(
-        "cafetera_admin.domain.document_service.index_chunks",
-        new_callable=AsyncMock,
-        side_effect=RuntimeError("Qdrant down"),
-    )
-    async def test_marks_failed_on_error(
-        self, mock_index, mock_optimize, service, repo
-    ):
+    async def test_marks_failed_on_error(self, service, repo, mock_rag_client):
+        mock_rag_client.ingest_document.side_effect = RuntimeError("Qdrant down")
         rec = _make_record()
         await repo.create(rec)
 
-        result = await service.index_document(rec.document_id, _make_chunks())
+        result = await service.index_document(rec.document_id)
 
         assert result is not None
         assert result.status == DocumentStatus.failed
         assert "Qdrant down" in result.error
-        mock_optimize.assert_not_called()
 
     async def test_nonexistent_returns_none(self, service):
-        result = await service.index_document("nonexistent", _make_chunks())
+        result = await service.index_document("nonexistent")
         assert result is None
-
-    @patch(
-        "cafetera_admin.domain.document_service.optimize_collection",
-        new_callable=AsyncMock,
-    )
-    @patch(
-        "cafetera_admin.domain.document_service.index_chunks",
-        new_callable=AsyncMock,
-        return_value=2,
-    )
-    async def test_passes_is_search_enabled_to_chunks(
-        self, mock_index, mock_optimize, service, repo
-    ):
-        rec = _make_record(is_search_enabled=False)
-        await repo.create(rec)
-
-        await service.index_document(rec.document_id, _make_chunks(2))
-
-        call_args = mock_index.call_args
-        chunks = call_args[0][3]  # fourth positional arg
-        for chunk in chunks:
-            assert chunk.metadata["is_search_enabled"] is False
 
 
 # ── update_metadata ──────────────────────────────────────────────
@@ -231,7 +172,7 @@ class TestUpdateMetadata:
 
 
 class TestToggleSearch:
-    async def test_disables_search(self, service, repo, mock_qdrant):
+    async def test_disables_search(self, service, repo, mock_rag_client):
         rec = _make_record(is_search_enabled=True)
         await repo.create(rec)
 
@@ -239,9 +180,11 @@ class TestToggleSearch:
 
         assert result is not None
         assert result.is_search_enabled is False
-        mock_qdrant.set_payload.assert_called_once()
+        mock_rag_client.toggle_search.assert_called_once_with(
+            rec.document_id, is_search_enabled=False
+        )
 
-    async def test_enables_search(self, service, repo, mock_qdrant):
+    async def test_enables_search(self, service, repo, mock_rag_client):
         rec = _make_record(is_search_enabled=False)
         await repo.create(rec)
 
@@ -249,9 +192,11 @@ class TestToggleSearch:
 
         assert result is not None
         assert result.is_search_enabled is True
-        mock_qdrant.set_payload.assert_called_once()
+        mock_rag_client.toggle_search.assert_called_once_with(
+            rec.document_id, is_search_enabled=True
+        )
 
-    async def test_does_not_change_status(self, service, repo):
+    async def test_does_not_change_status(self, service, repo, mock_rag_client):
         rec = _make_record(status=DocumentStatus.completed)
         await repo.create(rec)
 
@@ -259,22 +204,6 @@ class TestToggleSearch:
 
         assert result is not None
         assert result.status == DocumentStatus.completed
-
-    async def test_qdrant_failure_preserves_sqlite_state(self, service, repo, mock_qdrant):
-        """When Qdrant fails, SQLite should not be updated to maintain consistency."""
-        mock_qdrant.set_payload.side_effect = RuntimeError("Qdrant unreachable")
-        rec = _make_record(is_search_enabled=True)
-        await repo.create(rec)
-
-        result = await service.toggle_search(rec.document_id, enabled=False)
-
-        # Returns original record unchanged when Qdrant fails
-        assert result is not None
-        assert result.is_search_enabled is True  # Unchanged
-
-        # Verify SQLite was not updated
-        updated = await repo.get(rec.document_id)
-        assert updated.is_search_enabled is True
 
     async def test_nonexistent_returns_none(self, service):
         result = await service.toggle_search("nonexistent", enabled=False)
@@ -285,22 +214,8 @@ class TestToggleSearch:
 
 
 class TestReindexDocument:
-    @patch(
-        "cafetera_admin.domain.document_service.optimize_collection",
-        new_callable=AsyncMock,
-    )
-    @patch(
-        "cafetera_admin.domain.document_service.index_chunks",
-        new_callable=AsyncMock,
-        return_value=5,
-    )
-    @patch(
-        "cafetera_admin.domain.document_service.delete_document_chunks",
-        new_callable=AsyncMock,
-    )
-    async def test_reindexes_successfully(
-        self, mock_delete, mock_index, mock_optimize, service, repo
-    ):
+    async def test_reindexes_successfully(self, service, repo, mock_rag_client):
+        mock_rag_client.ingest_document.return_value = 5
         rec = _make_record(
             status=DocumentStatus.completed,
             chunk_count=3,
@@ -308,41 +223,27 @@ class TestReindexDocument:
         )
         await repo.create(rec)
 
-        result = await service.reindex_document(rec.document_id, _make_chunks(5))
+        result = await service.reindex_document(rec.document_id)
 
         assert result is not None
         assert result.status == DocumentStatus.completed
         assert result.chunk_count == 5
         assert result.indexed_at is not None
-        mock_delete.assert_called_once()
-        mock_index.assert_called_once()
-        mock_optimize.assert_called_once()
+        mock_rag_client.ingest_document.assert_called_once()
 
-    @patch(
-        "cafetera_admin.domain.document_service.optimize_collection",
-        new_callable=AsyncMock,
-    )
-    @patch(
-        "cafetera_admin.domain.document_service.index_chunks",
-        new_callable=AsyncMock,
-        side_effect=RuntimeError("fail"),
-    )
-    @patch("cafetera_admin.domain.document_service.delete_document_chunks", new_callable=AsyncMock)
-    async def test_marks_failed_on_error(
-        self, mock_delete, mock_index, mock_optimize, service, repo
-    ):
+    async def test_marks_failed_on_error(self, service, repo, mock_rag_client):
+        mock_rag_client.ingest_document.side_effect = RuntimeError("fail")
         rec = _make_record(status=DocumentStatus.completed)
         await repo.create(rec)
 
-        result = await service.reindex_document(rec.document_id, _make_chunks())
+        result = await service.reindex_document(rec.document_id)
 
         assert result is not None
         assert result.status == DocumentStatus.failed
         assert result.error is not None
-        mock_optimize.assert_not_called()
 
     async def test_nonexistent_returns_none(self, service):
-        result = await service.reindex_document("nonexistent", _make_chunks())
+        result = await service.reindex_document("nonexistent")
         assert result is None
 
 
@@ -350,7 +251,7 @@ class TestReindexDocument:
 
 
 class TestDeleteDocument:
-    async def test_deletes_metadata_and_chunks(self, service, repo, mock_qdrant):
+    async def test_deletes_metadata_and_chunks(self, service, repo, mock_rag_client):
         rec = _make_record()
         await repo.create(rec)
 
@@ -358,7 +259,7 @@ class TestDeleteDocument:
 
         assert deleted is True
         assert await repo.get(rec.document_id) is None
-        mock_qdrant.delete.assert_called_once()
+        mock_rag_client.delete_document.assert_called_once()
 
     async def test_calls_file_deleter(self, service, repo):
         rec = _make_record(s3_key="documents/important.docx")
@@ -373,8 +274,8 @@ class TestDeleteDocument:
 
         assert deleted_keys == ["documents/important.docx"]
 
-    async def test_qdrant_failure_still_deletes_metadata(self, service, repo, mock_qdrant):
-        mock_qdrant.delete.side_effect = RuntimeError("Qdrant down")
+    async def test_rag_client_failure_still_deletes_metadata(self, service, repo, mock_rag_client):
+        mock_rag_client.delete_document.side_effect = RuntimeError("RAG service down")
         rec = _make_record()
         await repo.create(rec)
 

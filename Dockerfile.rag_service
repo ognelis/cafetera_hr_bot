@@ -11,6 +11,10 @@ ENV UV_PYTHON_DOWNLOADS=never \
 
 WORKDIR /app
 
+# Build-time arguments for model pre-caching (passed from docker-compose or --build-arg)
+ARG RERANKER_MODEL=jinaai/jina-reranker-v2-base-multilingual
+ARG CHUNKER_TOKENIZER_MODEL=Qwen/Qwen3-Embedding-0.6B
+
 # Copy root workspace files
 COPY pyproject.toml uv.lock ./
 
@@ -32,19 +36,35 @@ RUN mkdir -p packages/core/src/cafetera_core \
 
 # Create venv, generate requirements, and install dependencies
 RUN uv venv .venv && \
-    uv export --format=requirements-txt --package=cafetera-vk-bot --no-dev --locked > requirements.txt && \
+    uv export --format=requirements-txt --package=cafetera-rag-service --no-dev --locked > requirements.txt && \
     uv pip install -r requirements.txt
 
 # Now copy real source code and install workspace packages
 COPY packages/core/ ./packages/core/
-COPY packages/vk_bot/ ./packages/vk_bot/
-RUN uv pip install --no-deps ./packages/core ./packages/vk_bot
+COPY packages/rag_service/ ./packages/rag_service/
+RUN uv pip install --no-deps ./packages/core ./packages/rag_service
 
-# Cleanup: remove test files and caches to reduce image size
+# Pre-download BM25 sparse embedding model during build
+ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
+
+# Pre-download cross-encoder reranker model during build
+ENV HF_HOME=/app/.cache/huggingface
+
+# Pre-download all ML models in a single layer
+RUN .venv/bin/python -c "from langchain_qdrant import FastEmbedSparse; FastEmbedSparse(model_name='Qdrant/bm25')" && \
+    .venv/bin/python -c "from fastembed.rerank.cross_encoder import TextCrossEncoder; TextCrossEncoder(model_name='${RERANKER_MODEL}')" && \
+    .venv/bin/python -c "from docling_onnx_models.layoutmodel.layout_predictor import LayoutPredictor; from docling.document_converter import DocumentConverter; DocumentConverter()" && \
+    .venv/bin/python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('${CHUNKER_TOKENIZER_MODEL}')"
+
+# Cleanup: remove test files, caches, and docs to reduce image size
 RUN find /app/.venv/lib/python3.13/site-packages \
+        -not -path '*/torch/*' \
+        -not -path '*/transformers/*' \
         \( -type d -name 'tests' -o -type d -name 'test' \
            -o -type d -name '*_tests' -o -name 'test_*.py' \) \
         -exec rm -rf {} + 2>/dev/null; \
+    find /app/.venv/lib/python3.13/site-packages -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null; \
+    find /app/.venv/lib/python3.13/site-packages -type d \( -name 'docs' -o -name 'examples' \) -not -path '*/botocore/docs*' -exec rm -rf {} + 2>/dev/null; \
     rm -rf /root/.cache/pip /root/.cache/uv /tmp/* 2>/dev/null; \
     true
 
@@ -63,8 +83,22 @@ COPY --from=builder /app/packages ./packages
 # Set PATH to use virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
 
+# Set model cache paths for runtime
+ENV FASTEMBED_CACHE_PATH=/app/.cache/fastembed
+ENV HF_HOME=/app/.cache/huggingface
+
+# Copy pre-downloaded model caches
+COPY --from=builder /app/.cache/fastembed /app/.cache/fastembed
+COPY --from=builder /app/.cache/huggingface /app/.cache/huggingface
+
+# Ensure cache directory is accessible by appuser
+RUN chown -R appuser:appuser /app/.cache
+
 # Switch to non-root user
 USER appuser
 
-# Run VK polling bot
-CMD ["python", "-m", "cafetera_vk_bot.polling"]
+# Expose port
+EXPOSE 8001
+
+# Run RAG service
+CMD ["python", "-m", "cafetera_rag_service.server"]

@@ -17,6 +17,7 @@
 - [document_service.py](file://packages/admin/src/cafetera_admin/domain/document_service.py)
 - [qa_service.py](file://packages/core/src/cafetera_core/domain/qa_service.py)
 - [documents_qa.py](file://packages/admin/src/cafetera_admin/api/documents_qa.py)
+- [parser.py](file://packages/admin/src/cafetera_admin/parser.py)
 - [test_indexer.py](file://tests/test_indexer.py)
 - [run_all.sh](file://scripts/run_all.sh)
 - [run_admin_docker.sh](file://scripts/run_admin_docker.sh)
@@ -36,6 +37,8 @@
 - Added fixed header and footer layout patterns for modal dialogs with scrollable content areas
 - Improved user experience with automatic scrolling to latest content during streaming responses
 - Enhanced modal accessibility with proper backdrop handling and keyboard navigation support
+- **Updated** ONNX-based document processing pipeline with pre-downloaded Docling ML models (layout analysis, TableFormer) and ONNX runtime dependencies
+- **Updated** Enhanced Docker optimization with Torch package preservation and headless OpenCV support for improved performance
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -45,16 +48,17 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Modal Window System](#enhanced-modal-window-system)
 7. [Streaming Question Answering](#streaming-question-answering)
-8. [Docker Deployment Improvements](#docker-deployment-improvements)
-9. [Testing Coverage](#testing-coverage)
-10. [Performance Considerations](#performance-considerations)
-11. [Troubleshooting Guide](#troubleshooting-guide)
-12. [Conclusion](#conclusion)
+8. [ONNX-Based Document Processing Pipeline](#onnx-based-document-processing-pipeline)
+9. [Enhanced Docker Deployment](#enhanced-docker-deployment)
+10. [Testing Coverage](#testing-coverage)
+11. [Performance Considerations](#performance-considerations)
+12. [Troubleshooting Guide](#troubleshooting-guide)
+13. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the Document Management System built around a VKontakte (VK) bot integrated with a Retrieval-Augmented Generation (RAG) backend. The system manages HR-related documents and provides conversational access to policies, procedures, and templates through an intuitive chat interface. It leverages configurable settings for LLM providers, vector storage, and document chunking, while offering modular handlers for different HR workflows such as hiring, termination, vacation, payroll, and general questions.
 
-**Updated** The system now features an enhanced modal window system with improved layout, automatic scrolling functionality, and better user experience for document questions and global questions. The modal system now supports streaming responses with automatic content scrolling, providing a more responsive and engaging user experience.
+**Updated** The system now features an enhanced modal window system with improved layout, automatic scrolling functionality, and better user experience for document questions and global questions. The modal system now supports streaming responses with automatic content scrolling, providing a more responsive and engaging user experience. Additionally, the system implements an ONNX-based document processing pipeline with pre-downloaded ML models for improved performance and reliability.
 
 ## Project Structure
 The project follows a monorepo workspace managed by uv, with three main packages:
@@ -80,6 +84,7 @@ subgraph "Admin Package"
 INDEXER["indexer.py"]
 DOC_SERVICE["document_service.py"]
 QA_API["documents_qa.py"]
+PARSER["parser.py"]
 end
 CORE --> ADMIN
 CORE --> VKBOT
@@ -102,6 +107,7 @@ TESTS --> QA_API
 - [document_service.py:1-402](file://packages/admin/src/cafetera_admin/domain/document_service.py#L1-402)
 - [qa_service.py:1-303](file://packages/core/src/cafetera_core/domain/qa_service.py#L1-303)
 - [documents_qa.py:1-90](file://packages/admin/src/cafetera_admin/api/documents_qa.py#L1-90)
+- [parser.py:1-111](file://packages/admin/src/cafetera_admin/parser.py#L1-111)
 
 **Section sources**
 - [pyproject.toml:1-49](file://pyproject.toml#L1-L49)
@@ -114,6 +120,7 @@ TESTS --> QA_API
 - VK States: Multi-step dialog states, currently focused on free-text questions.
 - **Updated** Enhanced Modal System: Improved layout with fixed headers and footers, scrollable content areas, and automatic scrolling for streaming responses.
 - **Updated** Streaming QA Service: Real-time question answering with SSE streaming and automatic content updates.
+- **Updated** ONNX Document Parser: Advanced document processing pipeline using Docling with ONNX runtime for layout analysis and table extraction.
 
 **Section sources**
 - [config.py:15-93](file://packages/core/src/cafetera_core/config.py#L15-L93)
@@ -124,9 +131,10 @@ TESTS --> QA_API
 - [fallback.py:15-18](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py#L15-L18)
 - [sections.py:24-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L24-L39)
 - [indexer.py:29-54](file://packages/admin/src/cafetera_admin/indexer.py#L29-L54)
+- [parser.py:19-45](file://packages/admin/src/cafetera_admin/parser.py#L19-L45)
 
 ## Architecture Overview
-The system integrates VK bot routing with RAG-powered responses. Handlers trigger RAG queries and present templated answers with navigation back to relevant sections. Configuration is shared across packages to maintain consistent behavior for indexing and retrieval. **Updated** The enhanced modal system now supports streaming responses with automatic content scrolling, providing a more responsive user experience.
+The system integrates VK bot routing with RAG-powered responses. Handlers trigger RAG queries and present templated answers with navigation back to relevant sections. Configuration is shared across packages to maintain consistent behavior for indexing and retrieval. **Updated** The enhanced modal system now supports streaming responses with automatic content scrolling, providing a more responsive user experience. The ONNX-based document processing pipeline ensures reliable and efficient document parsing with pre-downloaded ML models.
 
 ```mermaid
 graph TB
@@ -140,9 +148,10 @@ ADMINCFG["Admin Settings<br/>config.py"]
 INDEXER["Enhanced Indexer<br/>indexer.py"]
 DOCSVC["Document Service<br/>document_service.py"]
 QA_SERVICE["QA Service<br/>qa_service.py"]
+PARSER["ONNX Parser<br/>parser.py"]
 MODAL_SYS["Enhanced Modal System<br/>documents.html + components.js"]
 TESTS["Comprehensive Tests<br/>test_indexer.py + qa tests"]
-DOCKER["Docker Deployment<br/>docker-compose.yml"]
+DOCKER["Enhanced Docker<br/>docker-compose.yml + Dockerfiles"]
 USER --> BOT
 BOT --> LABELERS
 LABELERS --> STATE
@@ -150,10 +159,12 @@ LABELERS --> KB
 BOT --> CORECFG
 ADMINCFG --> CORECFG
 INDEXER --> DOCSVC
-DOCSVC --> QA_SERVICE
+DOCSVC --> PARSER
+PARSER --> QA_SERVICE
 QA_SERVICE --> MODAL_SYS
 MODAL_SYS --> TESTS
 DOCKER --> INDEXER
+DOCKER --> PARSER
 ```
 
 **Diagram sources**
@@ -168,6 +179,7 @@ DOCKER --> INDEXER
 - [indexer.py:93-206](file://packages/admin/src/cafetera_admin/indexer.py#L93-L206)
 - [document_service.py:113-182](file://packages/admin/src/cafetera_admin/domain/document_service.py#L113-L182)
 - [qa_service.py:217-280](file://packages/core/src/cafetera_core/domain/qa_service.py#L217-L280)
+- [parser.py:19-110](file://packages/admin/src/cafetera_admin/parser.py#L19-L110)
 - [documents.html:270-371](file://templates/documents.html#L270-L371)
 - [components.js:417-558](file://static/js/components.js#L417-L558)
 - [test_indexer.py:1-618](file://tests/test_indexer.py#L1-618)
@@ -289,9 +301,9 @@ class CoreSettings {
 +chunker_tokenizer_model : string
 +sparse_embedding_model : string
 +reranking_enabled : bool
-+colbert_rerank_model : string
-+colbert_prefetch_limit : int
-+colbert_rerank_limit : int
++reranker_model : string
++reranker_prefetch_limit : int
++reranker_rerank_limit : int
 }
 class ConfigHelpers {
 +build_indexing_config(settings) dict
@@ -461,16 +473,105 @@ Continue --> Stream
 - [qa_service.py:217-280](file://packages/core/src/cafetera_core/domain/qa_service.py#L217-L280)
 - [components.js:436-558](file://static/js/components.js#L436-L558)
 
-## Docker Deployment Improvements
+## ONNX-Based Document Processing Pipeline
 
-### Optimized Image Building
-Docker images now pre-download ML models during build time to reduce runtime startup delays and improve reliability.
+### Advanced Document Parsing Architecture
+The system now implements an ONNX-based document processing pipeline using Docling for advanced PDF, DOCX, and XLSX parsing capabilities. This architecture ensures reliable document processing with pre-downloaded ML models for improved performance.
+
+```mermaid
+sequenceDiagram
+participant Parser as "Document Parser"
+participant Cache as "Model Cache"
+participant Docling as "Docling Engine"
+participant ONNX as "ONNX Runtime"
+participant Chunker as "HybridChunker"
+participant Loader as "DoclingLoader"
+Parser->>Cache : "ensure_models_cached()"
+Cache->>ONNX : "LayoutPredictor (Layout Analysis)"
+Cache->>ONNX : "DocumentConverter (TableFormer)"
+Cache->>Cache : "Enable Offline Mode"
+Parser->>Docling : "Create DocumentConverter()"
+Docling->>ONNX : "Load ONNX Models"
+Parser->>Chunker : "Create HybridChunker"
+Chunker->>ONNX : "Load Tokenizer"
+Parser->>Loader : "Load Documents"
+Loader->>Docling : "Parse with ONNX Backend"
+Docling->>ONNX : "Extract Layout & Tables"
+ONNX-->>Loader : "Structured Content"
+Loader-->>Parser : "Chunked Documents"
+```
+
+**Diagram sources**
+- [parser.py:19-45](file://packages/admin/src/cafetera_admin/parser.py#L19-L45)
+- [parser.py:77-91](file://packages/admin/src/cafetera_admin/parser.py#L77-L91)
+- [parser.py:94-110](file://packages/admin/src/cafetera_admin/parser.py#L94-L110)
+
+### Pre-Downloaded ML Models Architecture
+The ONNX pipeline includes comprehensive pre-download of all required ML models during Docker build time to ensure zero-latency document processing.
+
+```mermaid
+classDiagram
+class ModelPreDownloader {
++BM25_Sparse_Embedding : "Qdrant/bm25"
++Docling_ONNX_Models : "LayoutPredictor + DocumentConverter"
++TableFormer_Models : "ONNX Backend"
++HybridChunker_Tokenizer : "Qwen/Qwen3-Embedding-0.6B"
+}
+class OfflineMode {
++HF_HUB_OFFLINE : "1"
++TRANSFORMERS_OFFLINE : "1"
+}
+class DocumentConverter {
++LayoutAnalysis()
++TableExtraction()
++TextRecognition()
+}
+ModelPreDownloader --> DocumentConverter : "pre-downloads"
+ModelPreDownloader --> OfflineMode : "enables"
+```
+
+**Diagram sources**
+- [Dockerfile.admin:50-63](file://Dockerfile.admin#L50-L63)
+- [parser.py:19-45](file://packages/admin/src/cafetera_admin/parser.py#L19-L45)
+
+### Enhanced Document Processing Workflow
+The system processes documents through a sophisticated pipeline that leverages ONNX runtime for optimal performance and reliability.
+
+```mermaid
+flowchart TD
+FileInput["Document File Input"] --> TypeCheck{"File Type?"}
+TypeCheck --> |PDF/DOCX/XLSX| ONNXProcessing["ONNX Processing Pipeline"]
+TypeCheck --> |DOC| LegacyError["Legacy Format Error"]
+TypeCheck --> |Other| UnsupportedError["Unsupported Format"]
+ONNXProcessing --> LayoutAnalysis["Layout Analysis"]
+LayoutAnalysis --> TableExtraction["Table Extraction"]
+TableExtraction --> TextRecognition["Text Recognition"]
+TextRecognition --> HybridChunking["Hybrid Chunking"]
+HybridChunking --> StructuredOutput["Structured Document Chunks"]
+LegacyError --> ErrorHandler["Error Handler"]
+UnsupportedError --> ErrorHandler
+ErrorHandler --> ReturnEmpty["Return Empty List"]
+```
+
+**Diagram sources**
+- [parser.py:48-74](file://packages/admin/src/cafetera_admin/parser.py#L48-L74)
+- [parser.py:94-110](file://packages/admin/src/cafetera_admin/parser.py#L94-L110)
+
+**Section sources**
+- [parser.py:1-111](file://packages/admin/src/cafetera_admin/parser.py#L1-L111)
+- [Dockerfile.admin:50-63](file://Dockerfile.admin#L50-L63)
+
+## Enhanced Docker Deployment
+
+### Optimized Image Building with Pre-Downloaded Models
+Docker images now pre-download ML models during build time to reduce runtime startup delays and improve reliability. The system preserves essential packages like Torch while optimizing for headless environments.
 
 ```mermaid
 flowchart TD
 Builder["Builder Stage"] --> PreDownload["Pre-download ML Models"]
 PreDownload --> CacheModels["Cache Models in /app/.cache"]
-CacheModels --> Cleanup["Cleanup Test Files"]
+CacheModels --> PreservePackages["Preserve Torch Packages"]
+PreservePackages --> Cleanup["Cleanup Test Files & Docs"]
 Cleanup --> Runtime["Runtime Stage"]
 Runtime --> CopyCache["Copy Cached Models"]
 CopyCache --> RunApp["Run Application"]
@@ -479,9 +580,10 @@ CopyCache --> RunApp["Run Application"]
 **Diagram sources**
 - [Dockerfile.admin:50-75](file://Dockerfile.admin#L50-L75)
 - [Dockerfile.admin:101-107](file://Dockerfile.admin#L101-L107)
+- [Dockerfile.polling_vk:43-48](file://Dockerfile.polling_vk#L43-L48)
 
-### Enhanced Model Caching
-Both admin and VK bot Dockerfiles implement sophisticated model caching strategies for optimal performance.
+### Enhanced Model Caching Strategy
+Both admin and VK bot Dockerfiles implement sophisticated model caching strategies for optimal performance with headless OpenCV support.
 
 ```mermaid
 classDiagram
@@ -491,25 +593,53 @@ class AdminDockerfile {
 +Pre-download BM25 sparse embedding
 +Pre-download Docling models
 +Pre-download HybridChunker tokenizer
++Preserve Torch packages
++Headless OpenCV support
 }
 class VKBotDockerfile {
 +FASTEMBED_CACHE_PATH : /app/.cache/fastembed
 +Pre-download BM25 sparse embedding
 +Pre-download ColBERT rerank model
++Preserve Torch packages
++Headless OpenCV support
+}
+class TorchPreservation {
++Linux PyTorch CPU-only
++macOS MPS support
++CUDA acceleration (optional)
 }
 AdminDockerfile --> ModelCaching : "implements"
 VKBotDockerfile --> ModelCaching : "implements"
+AdminDockerfile --> TorchPreservation : "uses"
+VKBotDockerfile --> TorchPreservation : "uses"
 ```
 
 **Diagram sources**
 - [Dockerfile.admin:50-63](file://Dockerfile.admin#L50-L63)
 - [Dockerfile.polling_vk:43-48](file://Dockerfile.polling_vk#L43-L48)
+- [pyproject.toml:27-46](file://pyproject.toml#L27-L46)
+
+### Headless OpenCV Integration
+The system includes explicit headless OpenCV support to eliminate GUI dependencies in Docker environments while maintaining full functionality.
+
+```mermaid
+flowchart TD
+DependencyOverride["Dependency Override"] --> ExcludeGUI["Exclude opencv-python (GUI)"]
+ExcludeGUI --> IncludeHeadless["Include opencv-python-headless"]
+IncludeHeadless --> RuntimeUsage["Runtime Usage"]
+RuntimeUsage --> NoX11["No X11 Libraries Required"]
+NoX11 --> FullFunctionality["Full Computer Vision Functionality"]
+```
+
+**Diagram sources**
+- [pyproject.toml:28-32](file://pyproject.toml#L28-L32)
 
 **Section sources**
 - [docker-compose.yml:56-87](file://docker-compose.yml#L56-L87)
 - [docker-compose.yml:88-114](file://docker-compose.yml#L88-L114)
 - [Dockerfile.admin:50-75](file://Dockerfile.admin#L50-L75)
 - [Dockerfile.polling_vk:43-48](file://Dockerfile.polling_vk#L43-L48)
+- [pyproject.toml:27-46](file://pyproject.toml#L27-L46)
 
 ## Testing Coverage
 
@@ -525,12 +655,14 @@ RetryTests["Retry Mechanism Tests"]
 OptimizeTests["Collection Optimization Tests"]
 ModalTests["Modal System Tests"]
 StreamingTests["Streaming Response Tests"]
+ONNXTests["ONNX Pipeline Tests"]
 TestSuite --> ParallelTests
 TestSuite --> BatchTests
 TestSuite --> RetryTests
 TestSuite --> OptimizeTests
 TestSuite --> ModalTests
 TestSuite --> StreamingTests
+TestSuite --> ONNXTests
 ParallelTests --> DenseSparseColBERT["Dense + Sparse + ColBERT"]
 BatchTests --> BatchUpsert["Batched Upserts"]
 BatchTests --> DeferredIndexing["Deferred Indexing"]
@@ -541,6 +673,9 @@ ModalTests --> LayoutStructure["Layout Structure Tests"]
 ModalTests --> AutoScrolling["Auto-Scrolling Tests"]
 StreamingTests --> SSEIntegration["SSE Integration Tests"]
 StreamingTests --> ErrorHandling["Error Handling Tests"]
+ONNXTests --> ModelCaching["Model Caching Tests"]
+ONNXTests --> DocumentParsing["Document Parsing Tests"]
+ONNXTests --> OfflineMode["Offline Mode Tests"]
 ```
 
 **Diagram sources**
@@ -556,6 +691,7 @@ StreamingTests --> ErrorHandling["Error Handling Tests"]
 - **Collection Optimization**: Verifies threshold management and segment optimization
 - **Modal System**: Tests layout structure, auto-scrolling functionality, and user interaction patterns
 - **Streaming Responses**: Validates SSE integration, error handling, and real-time content updates
+- **ONNX Pipeline**: Tests model caching, document parsing, and offline mode functionality
 
 **Section sources**
 - [test_indexer.py:1-618](file://tests/test_indexer.py#L1-618)
@@ -574,6 +710,9 @@ StreamingTests --> ErrorHandling["Error Handling Tests"]
 - **Updated** Modal Layout Optimization: Fixed header/footer layout reduces layout shift and improves perceived performance.
 - **Updated** Auto-Scrolling Performance: Efficient DOM manipulation with Alpine.js reactive properties minimizes layout thrashing.
 - **Updated** Streaming Efficiency: SSE streaming with incremental content updates provides responsive user experience without full page reloads.
+- **Updated** ONNX Performance: Pre-downloaded Docling models with ONNX runtime provide zero-latency document processing with improved accuracy.
+- **Updated** Torch Preservation: Essential Torch packages are preserved during cleanup to maintain GPU acceleration capabilities.
+- **Updated** Headless Optimization: Headless OpenCV eliminates GUI dependencies while maintaining full computer vision functionality.
 
 ## Troubleshooting Guide
 - Logging: Configure global logging for consistent log formatting across the system.
@@ -590,6 +729,9 @@ StreamingTests --> ErrorHandling["Error Handling Tests"]
 - **Updated** Modal Layout Issues: Check CSS classes for proper modal layout and ensure Alpine.js reactive properties are properly initialized.
 - **Updated** Auto-Scrolling Problems: Verify that scroll container references are correctly set and DOM elements exist before attempting to scroll.
 - **Updated** Streaming Response Errors: Monitor SSE connection status and validate that server-side streaming endpoints are properly configured.
+- **Updated** ONNX Model Issues: Verify that Docling ONNX models are properly cached and offline mode is enabled in production environments.
+- **Updated** Torch Compatibility: Ensure Torch packages are preserved during Docker build process for GPU acceleration support.
+- **Updated** Headless OpenCV Problems: Verify that opencv-python-headless is properly installed and functioning in Docker containers.
 
 **Section sources**
 - [config.py:7-12](file://packages/core/src/cafetera_core/config.py#L7-L12)
@@ -600,6 +742,12 @@ StreamingTests --> ErrorHandling["Error Handling Tests"]
 - [docker-compose.yml:178-187](file://docker-compose.yml#L178-L187)
 - [documents.html:270-371](file://templates/documents.html#L270-L371)
 - [components.js:417-558](file://static/js/components.js#L417-L558)
+- [parser.py:19-45](file://packages/admin/src/cafetera_admin/parser.py#L19-L45)
+- [pyproject.toml:28-32](file://pyproject.toml#L28-L32)
 
 ## Conclusion
-The Document Management System provides a robust, extensible foundation for HR document access via a VK bot. Its modular design, centralized configuration, and structured handler routing enable efficient development and maintenance. **Updated** The system now features significant enhancements to the modal window system, including improved layout architecture, automatic scrolling functionality, and better user experience for document questions and global questions. The enhanced modal system with fixed headers, scrollable content areas, and automatic scrolling provides a more responsive and engaging user interface. Combined with real-time streaming responses and SSE integration, the system delivers a modern, efficient user experience for HR document management. The comprehensive testing coverage ensures these new features function correctly under various conditions, making the system more robust and maintainable.
+The Document Management System provides a robust, extensible foundation for HR document access via a VK bot. Its modular design, centralized configuration, and structured handler routing enable efficient development and maintenance. **Updated** The system now features significant enhancements to the modal window system, including improved layout architecture, automatic scrolling functionality, and better user experience for document questions and global questions. The enhanced modal system with fixed headers, scrollable content areas, and automatic scrolling provides a more responsive and engaging user interface. Combined with real-time streaming responses and SSE integration, the system delivers a modern, efficient user experience for HR document management.
+
+**Updated** The ONNX-based document processing pipeline represents a major advancement in document handling capabilities, providing reliable and efficient processing of PDF, DOCX, and XLSX files with pre-downloaded ML models for zero-latency performance. The enhanced Docker deployment strategy with Torch package preservation and headless OpenCV support ensures optimal performance across different environments while maintaining full functionality.
+
+The comprehensive testing coverage ensures these new features function correctly under various conditions, making the system more robust and maintainable. The system's architecture supports future enhancements while maintaining backward compatibility and operational reliability.

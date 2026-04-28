@@ -1,4 +1,4 @@
-"""Tests for cafetera_admin.parser — document parsing with Docling."""
+"""Tests for cafetera_rag_service.parser — document parsing with Docling."""
 
 from __future__ import annotations
 
@@ -8,13 +8,12 @@ from unittest.mock import patch
 import pytest
 from langchain_core.documents import Document as LCDocument
 
-from cafetera_admin.parser import load_document
-from cafetera_core.config import CoreSettings
+from cafetera_rag_service.config import RagServiceSettings
+from cafetera_rag_service.parser import load_document
 
 
-def _make_settings() -> CoreSettings:
-    return CoreSettings(
-        vk_access_token="t",
+def _make_settings() -> RagServiceSettings:
+    return RagServiceSettings(
         chunk_size=500,
         _env_file=None,
     )
@@ -29,7 +28,7 @@ class TestLoadDocument:
         settings = _make_settings()
 
         with patch(
-            "cafetera_admin.parser._load_with_docling", return_value=[mock_doc]
+            "cafetera_rag_service.parser._load_with_docling", return_value=[mock_doc]
         ) as mock_load:
             result = load_document(docx_path, settings)
 
@@ -45,7 +44,7 @@ class TestLoadDocument:
         settings = _make_settings()
 
         with patch(
-            "cafetera_admin.parser._load_with_docling", return_value=[mock_doc]
+            "cafetera_rag_service.parser._load_with_docling", return_value=[mock_doc]
         ) as mock_load:
             result = load_document(pdf_path, settings)
 
@@ -61,7 +60,7 @@ class TestLoadDocument:
         settings = _make_settings()
 
         with patch(
-            "cafetera_admin.parser._load_with_docling", return_value=[mock_doc]
+            "cafetera_rag_service.parser._load_with_docling", return_value=[mock_doc]
         ) as mock_load:
             result = load_document(xlsx_path, settings)
 

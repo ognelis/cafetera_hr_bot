@@ -12,14 +12,15 @@ from vkbottle import BuiltinStateDispenser
 from vkbottle.bot import Message
 
 from cafetera_core.domain.category_file_service import CategoryFileService
-from cafetera_core.domain.qa_service import QAService
+from cafetera_core.rag_client import RAGClient
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class Holder:
-    qa: QAService | None = None
+    rag_client: RAGClient | None = None
+    system_prompt: str = ""
     state_dispenser: BuiltinStateDispenser | None = None
     category_file_service: CategoryFileService | None = None
 
@@ -27,14 +28,22 @@ class Holder:
 holder = Holder()
 
 
-def set_qa_service(service: QAService) -> None:
-    holder.qa = service
+def set_rag_client(client: RAGClient) -> None:
+    holder.rag_client = client
 
 
-def get_qa_service() -> QAService:
-    if holder.qa is None:
-        raise RuntimeError("QA service not initialized")
-    return holder.qa
+def get_rag_client() -> RAGClient:
+    if holder.rag_client is None:
+        raise RuntimeError("RAG client not initialized")
+    return holder.rag_client
+
+
+def set_system_prompt(prompt: str) -> None:
+    holder.system_prompt = prompt
+
+
+def get_system_prompt() -> str:
+    return holder.system_prompt
 
 
 def set_category_file_service(service: CategoryFileService) -> None:
@@ -63,7 +72,14 @@ async def query_rag_with_wait(
     category: str | None = None,
 ) -> str:
     """Query RAG chain; send a 'please wait' message if it takes longer than *timeout* seconds."""
-    rag_task = asyncio.create_task(get_qa_service().ask(question, category=category))
+    rag_task = asyncio.create_task(
+        get_rag_client().ask(
+            question,
+            system_prompt=get_system_prompt(),
+            category=category,
+            include_metadata=True,
+        )
+    )
     delay_task = asyncio.create_task(asyncio.sleep(timeout))
 
     try:

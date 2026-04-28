@@ -39,7 +39,7 @@ from fastapi.responses import HTMLResponse, Response
 from cafetera_admin.api.deps import (
     AdminDep,
     IndexingSemaphoreDep,
-    QAServiceDep,
+    RAGClientDep,
     RepoDep,
     S3Dep,
     ServiceDep,
@@ -66,12 +66,8 @@ from cafetera_admin.api.documents_helpers import (  # noqa: F401
     _validate_docx_bytes,
 )
 from cafetera_admin.api.documents_qa import router as _qa_router
-from cafetera_admin.api.documents_upload import _index_document_from_s3  # noqa: F401
+from cafetera_admin.api.documents_upload import _index_document_from_s3
 from cafetera_admin.api.documents_upload import router as _upload_router
-from cafetera_admin.config import AdminSettings
-
-# Re-export for test-patch compatibility  (tests patch these names on this module)
-from cafetera_admin.parser import load_document  # noqa: F401
 from cafetera_core.storage.models import DocumentStatus
 
 logger = logging.getLogger(__name__)
@@ -367,15 +363,17 @@ async def toggle_search(
     service: ServiceDep,
     templates: TemplatesDep,
     repo: RepoDep,
-    qa: QAServiceDep,
+    rag_client: RAGClientDep,
     enabled: Annotated[bool, Form()],
 ):
     record = await service.toggle_search(document_id, enabled=enabled)
     if record is None:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if qa is not None:
-        qa.invalidate_document_chain_cache(document_id)
+    try:
+        await rag_client.invalidate_cache(document_id)
+    except Exception:
+        pass
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
@@ -398,7 +396,7 @@ async def reindex_document(
     repo: RepoDep,
     background_tasks: BackgroundTasks,
     semaphore: IndexingSemaphoreDep,
-    qa: QAServiceDep,
+    rag_client: RAGClientDep,
 ):
     record = await repo.get(document_id)
     if record is None:
@@ -413,17 +411,14 @@ async def reindex_document(
     # Mark as processing immediately
     await repo.update(document_id, status=DocumentStatus.processing, error=None)
 
-    settings: AdminSettings = request.app.state.settings
     background_tasks.add_task(
         _index_document_from_s3,
-        service,
-        s3,
         document_id,
+        record.filename,
         record.s3_key,
-        semaphore,
-        settings,
-        is_reindex=True,
-        qa_service=qa,
+        service=service,
+        rag_client=rag_client,
+        semaphore=semaphore,
     )
 
     is_htmx = request.headers.get("HX-Request") == "true"
@@ -475,7 +470,7 @@ async def delete_document(
     s3: S3Dep,
     service: ServiceDep,
     repo: RepoDep,
-    qa: QAServiceDep,
+    rag_client: RAGClientDep,
 ):
     record = await repo.get(document_id)
     if record is None:
@@ -487,8 +482,10 @@ async def delete_document(
     if not deleted:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if qa is not None:
-        qa.invalidate_document_chain_cache(document_id)
+    try:
+        await rag_client.invalidate_cache(document_id)
+    except Exception:
+        pass
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:

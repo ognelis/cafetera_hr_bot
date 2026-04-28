@@ -118,21 +118,17 @@ def settings(pg_container):
 
 
 @pytest.fixture()
-def mock_qdrant():
+def mock_rag_client():
+    """Mock RAGClient with async methods."""
     client = AsyncMock()
-    client.delete = AsyncMock()
-    client.set_payload = AsyncMock()
-    client.count = AsyncMock(return_value=AsyncMock(count=0))
-    client.close = AsyncMock()
-    client.upsert = AsyncMock()
-    client.collection_exists = AsyncMock(return_value=True)
-    client.create_collection = AsyncMock()
+    client.ask.return_value = "Test answer"
+    client.ingest_document.return_value = 5
+    client.index_chunks.return_value = 5
+    client.toggle_search.return_value = None
+    client.invalidate_cache.return_value = None
+    client.delete_document.return_value = None
+    client.aclose.return_value = None
     return client
-
-
-@pytest.fixture()
-def mock_embeddings():
-    return MagicMock()
 
 
 @pytest.fixture()
@@ -149,16 +145,8 @@ def mock_s3():
 
 
 @pytest.fixture()
-def mock_qa_service():
-    """Mock QAService with invalidate_document_chain_cache method."""
-    qa = MagicMock()
-    qa.invalidate_document_chain_cache = MagicMock()
-    return qa
-
-
-@pytest.fixture()
-def app(settings, mock_qdrant, mock_embeddings, mock_s3, mock_qa_service):
-    """Create a test app with mocked Qdrant, embeddings, S3, and QA service.
+def app(settings, mock_rag_client, mock_s3):
+    """Create a test app with mocked RAGClient, S3, and services.
 
     Uses a test lifespan that creates its own DB connection in the
     TestClient event loop to avoid cross-event-loop asyncpg issues.
@@ -187,18 +175,14 @@ def app(settings, mock_qdrant, mock_embeddings, mock_s3, mock_qa_service):
         repo = _DocRepo(db)
         service = DocumentService(
             repo=repo,
-            qdrant_client=mock_qdrant,
-            embeddings=mock_embeddings,
-            collection_name="test_collection",
+            rag_client=mock_rag_client,
         )
 
         _app.state.doc_repo = repo
         _app.state.doc_service = service
-        _app.state.qdrant_client = mock_qdrant
-        _app.state.embeddings = mock_embeddings
+        _app.state.rag_client = mock_rag_client
         _app.state.s3 = mock_s3
         _app.state.indexing_semaphore = asyncio.Semaphore(2)
-        _app.state.qa_service = mock_qa_service
 
         yield
 

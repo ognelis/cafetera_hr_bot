@@ -1,9 +1,9 @@
-"""Document lifecycle service — orchestrates metadata, vector chunks, and file storage.
+"""Document lifecycle service — orchestrates metadata, file storage, and RAG indexing.
 
 This is the central domain service for document management.  It coordinates
-between the SQLite metadata repository, the Qdrant vector store, and
-(optionally) file storage.  Route handlers and scripts delegate here instead
-of implementing business logic themselves.
+between the PostgreSQL metadata repository, the RAG service (via RAGClient),
+and (optionally) file storage.  Route handlers and scripts delegate here
+instead of implementing business logic themselves.
 """
 
 from __future__ import annotations
@@ -15,22 +15,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from cafetera_admin.indexer import (
-    delete_document_chunks,
-    index_chunks,
-    optimize_collection,
-    prepare_chunks,
-    set_search_enabled,
-)
-from cafetera_core.config import build_indexing_config
 from cafetera_core.storage.models import DocumentRecord, DocumentStatus
 
 if TYPE_CHECKING:
-    from langchain_core.documents import Document as LCDocument
-    from langchain_core.embeddings import Embeddings
-    from qdrant_client import AsyncQdrantClient
-
-    from cafetera_core.config import CoreSettings
+    from cafetera_core.rag_client import RAGClient
     from cafetera_core.storage.document_repo import DocumentRepository
     from cafetera_core.storage.s3 import S3Storage
 
@@ -47,18 +35,10 @@ class DocumentService:
     def __init__(
         self,
         repo: DocumentRepository,
-        qdrant_client: AsyncQdrantClient,
-        embeddings: Embeddings,
-        collection_name: str = "hr_documents",
-        sparse_embedding: object | None = None,
-        settings: CoreSettings | None = None,
+        rag_client: RAGClient,
     ) -> None:
         self._repo = repo
-        self._qdrant = qdrant_client
-        self._embeddings = embeddings
-        self._collection = collection_name
-        self._sparse_embedding = sparse_embedding
-        self._settings = settings
+        self._rag_client = rag_client
 
     # ── S3 key helpers ─────────────────────────────────────────────
 
@@ -111,9 +91,8 @@ class DocumentService:
     async def index_document(
         self,
         document_id: str,
-        chunks: list[LCDocument],
     ) -> DocumentRecord | None:
-        """Index parsed chunks for a document in Qdrant and update metadata.
+        """Index a document via the RAG service (full ingest) and update metadata.
 
         Transitions the document through ``processing`` → ``completed``
         (or ``failed`` on error).  Returns the updated record.
@@ -127,33 +106,12 @@ class DocumentService:
         )
 
         try:
-            enriched = prepare_chunks(
-                chunks,
+            count = await self._rag_client.ingest_document(
                 document_id=document_id,
                 filename=record.filename,
                 s3_key=record.s3_key,
                 is_search_enabled=record.is_search_enabled,
             )
-            count = await index_chunks(
-                self._qdrant,
-                self._embeddings,
-                self._collection,
-                enriched,
-                sparse_embedding=self._sparse_embedding,
-                batch_size=self._settings.qdrant_upsert_batch_size
-                if self._settings
-                else 64,
-            )
-
-            # Merge segments to reduce BM25 storage overhead
-            try:
-                await optimize_collection(self._qdrant, self._collection)
-            except Exception:
-                logger.warning(
-                    "Post-index optimization failed for '%s'",
-                    self._collection,
-                    exc_info=True,
-                )
 
             return await self._repo.update(
                 document_id,
@@ -161,11 +119,6 @@ class DocumentService:
                 chunk_count=count,
                 indexed_at=datetime.now(UTC),
                 error=None,
-                indexing_config=(
-                    build_indexing_config(self._settings)
-                    if self._settings
-                    else None
-                ),
             )
         except Exception as exc:
             logger.error(
@@ -199,31 +152,16 @@ class DocumentService:
     ) -> DocumentRecord | None:
         """Toggle document participation in RAG retrieval.
 
-        Updates both SQLite metadata (source of truth) and Qdrant chunk
-        payloads.  The file and metadata are preserved regardless.
+        Updates Qdrant chunk payloads via the RAG service, then updates
+        PostgreSQL metadata (source of truth).
         """
         record = await self._repo.get(document_id)
         if record is None:
             return None
 
-        # Update Qdrant chunks first to ensure consistency
-        try:
-            await set_search_enabled(
-                self._qdrant,
-                self._collection,
-                document_id,
-                enabled=enabled,
-            )
-        except Exception:
-            logger.warning(
-                "Failed to update Qdrant chunks for document %s",
-                document_id,
-                exc_info=True,
-            )
-            # Do not update SQLite if Qdrant failed — keep state consistent
-            return record
+        # Update Qdrant payload via RAG service
+        await self._rag_client.toggle_search(document_id, is_search_enabled=enabled)
 
-        # Update SQLite only if Qdrant succeeded
         return await self._repo.toggle_search(document_id, enabled)
 
     # ── reindex ───────────────────────────────────────────────────
@@ -231,16 +169,12 @@ class DocumentService:
     async def reindex_document(
         self,
         document_id: str,
-        chunks: list[LCDocument],
     ) -> DocumentRecord | None:
-        """Re-index a document: delete old chunks, then index fresh ones.
+        """Re-index a document via the RAG service (full ingest).
 
-        The caller is responsible for parsing the file into *chunks*
-        (e.g. by downloading from MinIO and running the docx splitter).
-
-        After successful reindexing the document is always restored to
-        ``completed`` with ``is_search_enabled=True`` (handles the
-        ``stale`` -> ``completed`` transition).
+        The RAG service handles: delete old chunks → download from S3 →
+        parse → chunk → embed → index.  After successful reindexing the
+        document is restored to ``completed`` with ``is_search_enabled=True``.
         """
         record = await self._repo.get(document_id)
         if record is None:
@@ -251,39 +185,13 @@ class DocumentService:
         )
 
         try:
-            await delete_document_chunks(self._qdrant, self._collection, document_id)
-
-            # Always index with is_search_enabled=True — fresh chunks are valid.
-            enriched = prepare_chunks(
-                chunks,
+            count = await self._rag_client.ingest_document(
                 document_id=document_id,
                 filename=record.filename,
                 s3_key=record.s3_key,
                 is_search_enabled=True,
             )
-            count = await index_chunks(
-                self._qdrant,
-                self._embeddings,
-                self._collection,
-                enriched,
-                sparse_embedding=self._sparse_embedding,
-                batch_size=self._settings.qdrant_upsert_batch_size
-                if self._settings
-                else 64,
-            )
 
-            # Merge segments to reduce BM25 storage overhead
-            try:
-                await optimize_collection(self._qdrant, self._collection)
-            except Exception:
-                logger.warning(
-                    "Post-reindex optimization failed for '%s'",
-                    self._collection,
-                    exc_info=True,
-                )
-
-            # Atomically set status + is_search_enabled so the UI never
-            # sees completed with is_search_enabled=False.
             return await self._repo.update(
                 document_id,
                 status=DocumentStatus.completed,
@@ -291,11 +199,6 @@ class DocumentService:
                 chunk_count=count,
                 indexed_at=datetime.now(UTC),
                 error=None,
-                indexing_config=(
-                    build_indexing_config(self._settings)
-                    if self._settings
-                    else None
-                ),
             )
         except Exception as exc:
             logger.error(
@@ -308,7 +211,7 @@ class DocumentService:
             )
             return await self._repo.get(document_id)
 
-    # ── delete ────────────────────────────────────────────────────
+    # ── status helpers ────────────────────────────────────────────
 
     async def get_active_and_recent_documents(
         self,
@@ -350,13 +253,15 @@ class DocumentService:
         )
         return len(processing) > 0
 
+    # ── delete ────────────────────────────────────────────────────
+
     async def delete_document(
         self,
         document_id: str,
         *,
         file_deleter: Callable[[str], Awaitable[None]] | None = None,
     ) -> bool:
-        """Fully delete a document: metadata, Qdrant chunks, and optionally the file.
+        """Fully delete a document: metadata, RAG chunks, and optionally the file.
 
         Args:
             document_id: The document to delete.
@@ -371,12 +276,12 @@ class DocumentService:
         if record is None:
             return False
 
-        # Delete Qdrant chunks
+        # Delete RAG chunks via RAG service
         try:
-            await delete_document_chunks(self._qdrant, self._collection, document_id)
+            await self._rag_client.delete_document(document_id)
         except Exception:
             logger.warning(
-                "Failed to delete Qdrant chunks for document %s",
+                "Failed to delete RAG chunks for document %s",
                 document_id,
                 exc_info=True,
             )
@@ -395,3 +300,4 @@ class DocumentService:
 
         # Delete metadata (last step — source of truth)
         return await self._repo.delete(document_id)
+

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from tests.conftest import _make_record
 
@@ -10,9 +10,9 @@ from tests.conftest import _make_record
 
 
 class TestReindex:
-    @patch("cafetera_admin.api.documents.load_document", return_value=[])
+    @patch("cafetera_admin.api.documents_upload._index_document_from_s3", new_callable=AsyncMock)
     async def test_reindex_starts(
-        self, mock_parse, auth_client, repo, mock_s3
+        self, mock_bg, auth_client, repo, mock_s3
     ):
         rec = _make_record()
         await repo.create(rec)

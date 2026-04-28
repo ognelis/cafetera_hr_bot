@@ -14,8 +14,9 @@ from starlette.responses import StreamingResponse
 
 from cafetera_admin.api.deps import (
     AdminDep,
-    QAServiceDep,
+    RAGClientDep,
     RepoDep,
+    SystemPromptDep,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,8 @@ router = APIRouter()
 @router.post("/api/qa/ask-global")
 async def ask_global_question(
     _: AdminDep,
-    qa: QAServiceDep,
+    rag_client: RAGClientDep,
+    system_prompt: SystemPromptDep,
     question: str = Form(...),
 ):
     """Ask a question across the entire knowledge base. Returns SSE stream."""
@@ -34,7 +36,9 @@ async def ask_global_question(
     async def event_generator():
         """Generate SSE events with tokens from the LLM."""
         try:
-            async for token in qa.stream_ask(question):
+            async for token in rag_client.stream_ask(
+                question, system_prompt=system_prompt, include_metadata=True
+            ):
                 escaped_token = token.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
                 yield f'data: {{"token": "{escaped_token}"}}\n\n'
             yield 'data: {"done": true}\n\n'
@@ -57,7 +61,7 @@ async def ask_about_document(
     document_id: str,
     _auth: AdminDep,
     repo: RepoDep,
-    qa: QAServiceDep,
+    rag_client: RAGClientDep,
     question: Annotated[str, Form()],
 ):
     """Ask a question about a specific document. Returns SSE stream."""
@@ -71,7 +75,7 @@ async def ask_about_document(
     async def event_generator():
         """Generate SSE events with tokens from the LLM."""
         try:
-            async for token in qa.stream_about_document(question, document_id):
+            async for token in rag_client.stream_about_document(question, document_id):
                 # Escape newlines and quotes for JSON serialization
                 escaped_token = token.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
                 yield f'data: {{"token": "{escaped_token}"}}\n\n'

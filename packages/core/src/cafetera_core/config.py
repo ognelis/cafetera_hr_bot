@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 from pydantic_settings import BaseSettings
 
@@ -15,30 +14,15 @@ def configure_logging() -> None:
 class CoreSettings(BaseSettings):
     """Shared settings for the Cafetera HR Bot core package.
 
-    Contains only settings shared across all packages (RAG, storage, etc.).
+    Contains only settings shared across all packages (storage, RAG service URL, etc.).
     App-specific settings (VK, admin) live in their respective packages.
     """
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
-    # RAG / Qdrant
-    qdrant_url: str = "http://localhost:6333"
-    qdrant_api_key: str | None = None
-    qdrant_collection: str = "hr_documents"
-    qdrant_timeout: float = 300.0  # seconds — increased for large batch upserts
-    qdrant_upsert_batch_size: int = 32
-
-    # LLM
-    llm_provider: str = "ollama"  # "ollama" | "openai" | "llamacpp"
-    llm_model: str = "qwen3.5:4b-q4_K_M"
-    llm_base_url: str = "http://localhost:11434"
-    llm_api_key: str = ""
-
-    # Embeddings
-    embedding_provider: str = "ollama"
-    embedding_model: str = "qwen3-embedding:4b-q4_K_M"
-    embedding_base_url: str = "http://localhost:11434"
-    embedding_api_key: str = ""
+    # RAG service
+    rag_service_url: str = "http://localhost:8001"
+    rag_service_api_key: str = ""
 
     # Storage
     database_url: str = "postgresql://cafetera:cafetera@localhost:5432/cafetera"
@@ -50,45 +34,6 @@ class CoreSettings(BaseSettings):
     # Indexing concurrency
     max_concurrent_indexing: int = 2
 
-    # Chunking (token counts — uses tiktoken for accurate token measurement)
-    chunk_size: int = 500
-
-    # Tokenizer model for HybridChunker (HuggingFace model name)
-    chunker_tokenizer_model: str = "Qwen/Qwen3-Embedding-0.6B"
-
-    # Hybrid search (sparse BM25 embeddings)
-    sparse_embedding_model: str = "Qdrant/bm25"
-
-    # Reranking
-    reranking_enabled: bool = False
-    reranker_model: str = "jinaai/jina-reranker-v2-base-multilingual"
-    reranker_top_n: int = 5
-    reranker_prefetch_limit: int = 20
-
 
 # Backward compatibility alias — will be removed after full migration
 Settings = CoreSettings
-
-
-def build_indexing_config(settings: CoreSettings) -> dict[str, Any]:
-    """Extract RAG-relevant config fields into a plain dict for per-document storage.
-
-    This snapshot is stored alongside each document so that staleness can be
-    detected when any of these parameters change.
-    """
-    return {
-        "embedding_provider": settings.embedding_provider,
-        "embedding_model": settings.embedding_model,
-        "chunk_size": settings.chunk_size,
-        "chunker_tokenizer_model": settings.chunker_tokenizer_model,
-        "sparse_embedding_model": settings.sparse_embedding_model,
-        "reranking_enabled": settings.reranking_enabled,
-        "reranker_model": settings.reranker_model,
-    }
-
-
-def is_config_stale(stored: dict[str, Any] | None, current: dict[str, Any]) -> bool:
-    """Return ``True`` if the stored indexing config differs from *current* or is missing."""
-    if stored is None:
-        return True
-    return stored != current

@@ -160,6 +160,12 @@ if ! grep -q 'VK_GROUP_ID=.' .env 2>/dev/null; then
   log "         The VK bot needs this to connect to your VK group."
 fi
 
+if ! grep -q 'RAG_SERVICE_API_KEY=.' .env 2>/dev/null; then
+  log "WARNING: RAG_SERVICE_API_KEY is not set in .env"
+  log "FIX:     Add RAG_SERVICE_API_KEY=<your-secret> to .env"
+  log "         The RAG service will run without authentication."
+fi
+
 log "Prerequisites OK"
 
 # Load configuration from .env (lower priority than environment variables)
@@ -186,6 +192,7 @@ load_env_var OLLAMA_URL
 load_env_var LLM_N_GPU_LAYERS
 load_env_var EMBED_N_GPU_LAYERS
 load_env_var OLLAMA_NUM_GPU
+load_env_var RAG_SERVICE_API_KEY
 # NOTE: Do NOT load DATABASE_URL, QDRANT_URL, S3_ENDPOINT_URL from .env
 # These will be overridden with Docker service names below
 
@@ -244,6 +251,7 @@ select_llm_provider() {
   esac
 
   export LLM_PROVIDER LLM_MODEL LLM_BASE_URL LLM_API_KEY
+  export DOCKER_LLM_BASE_URL="$LLM_BASE_URL"
   log "Selected LLM provider: $LLM_PROVIDER"
 }
 
@@ -285,6 +293,7 @@ select_embedding_provider() {
   esac
 
   export EMBEDDING_PROVIDER EMBEDDING_MODEL EMBEDDING_BASE_URL EMBEDDING_API_KEY
+  export DOCKER_EMBEDDING_BASE_URL="$EMBEDDING_BASE_URL"
   log "Selected Embedding provider: $EMBEDDING_PROVIDER"
 }
 
@@ -316,6 +325,13 @@ fi
 if ! wait_for_healthy "minio"; then
   log "ERROR: MinIO failed to become healthy"
   log "FIX:   Check docker logs: docker compose logs minio"
+  exit 1
+fi
+
+# Wait for RAG service (uses docker-compose healthcheck)
+if ! wait_for_healthy "rag-service" 60 3; then
+  log "ERROR: RAG service failed to become healthy"
+  log "FIX:   Check docker logs: docker compose logs rag-service"
   exit 1
 fi
 
@@ -407,6 +423,7 @@ log "=========================================="
 log "Admin UI:     http://${ADMIN_HOST}:${ADMIN_PORT}/documents"
 log "API docs:     http://${ADMIN_HOST}:${ADMIN_PORT}/docs"
 log "VK Bot:       Polling mode (no webhook needed)"
+log "RAG Service:  http://localhost:8001"
 log ""
 log "Infrastructure:"
 log "  Qdrant:      $(mask_credentials "$QDRANT_URL") (host) / $(mask_credentials "$QDRANT_CONTAINER_URL") (container)"
@@ -430,6 +447,7 @@ log "All services are running!"
 log "=========================================="
 log "Admin UI:  http://${ADMIN_HOST}:${ADMIN_PORT}/documents"
 log "VK Bot:    Running in polling mode"
+log "RAG Service: http://localhost:8001"
 log ""
 log "View logs:"
 log "  docker compose logs -f"

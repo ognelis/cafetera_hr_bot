@@ -11,7 +11,8 @@
 - [tests/test_content.py](file://tests/test_content.py)
 - [tests/test_entities.py](file://tests/test_entities.py)
 - [tests/test_parser.py](file://tests/test_parser.py)
-- [tests/test_indexer.py](file://tests/test_indexer.py)
+- [tests/test_hybrid_search.py](file://tests/test_hybrid_search.py)
+- [tests/test_hybrid_rerank_retriever.py](file://tests/test_hybrid_rerank_retriever.py)
 - [tests/test_qa_service.py](file://tests/test_qa_service.py)
 - [tests/test_rules.py](file://tests/test_rules.py)
 - [tests/test_states.py](file://tests/test_states.py)
@@ -25,11 +26,7 @@
 - [tests/test_api_documents_upload.py](file://tests/test_api_documents_upload.py)
 - [tests/test_api_documents_bulk.py](file://tests/test_api_documents_bulk.py)
 - [tests/test_document_service.py](file://tests/test_document_service.py)
-- [tests/test_hybrid_search.py](file://tests/test_hybrid_search.py)
-- [tests/test_hybrid_rerank_retriever.py](file://tests/test_hybrid_rerank_retriever.py)
 - [tests/test_rag_block6.py](file://tests/test_rag_block6.py)
-- [tests/test_rag_stub_block3.py](file://tests/test_rag_stub_block3.py)
-- [tests/test_colbert_embeddings.py](file://tests/test_colbert_embeddings.py)
 - [packages/core/src/cafetera_core/config.py](file://packages/core/src/cafetera_core/config.py)
 - [packages/core/src/cafetera_core/domain/content.py](file://packages/core/src/cafetera_core/domain/content.py)
 - [packages/core/src/cafetera_core/domain/entities.py](file://packages/core/src/cafetera_core/domain/entities.py)
@@ -76,12 +73,12 @@
 
 ## Update Summary
 **Changes Made**
-- **Added New Cross-Encoder Reranking Test Suite**: Introduced comprehensive test coverage for CrossEncoderReranker and RerankingRetriever classes in test_hybrid_rerank_retriever.py
-- **Replaced ColBERT-Specific Test Scenarios**: Removed test_colbert_embeddings.py and related ColBERT-specific test infrastructure
-- **Updated Reranking Configuration Testing**: Added tests for reranking_enabled, reranker_model, reranker_top_n, and reranker_prefetch_limit settings
-- **Enhanced Factory Dispatch Testing**: Added comprehensive tests for build_retriever and build_retriever_for_document factory functions with reranking integration
-- **Updated Hybrid Search Infrastructure**: Enhanced hybrid search testing to validate cross-encoder reranking integration with prefetch limit handling
-- **Modernized RAG Pipeline Testing**: Integrated cross-encoder reranking into the complete RAG pipeline testing infrastructure
+- **Removed References to Deprecated build_vectorstore Function**: Updated test files to reflect new architecture where tests focus on retriever functionality and chain building components rather than vectorstore integration.
+- **Updated Authentication Testing Approaches**: Modernized authentication testing to use cookie-based sessions and HTMX integration patterns.
+- **Enhanced Cross-Encoder Reranking Test Coverage**: Added comprehensive test suite for CrossEncoderReranker and RerankingRetriever classes.
+- **Updated Hybrid Search Infrastructure**: Enhanced hybrid search testing to validate cross-encoder reranking integration with prefetch limit handling.
+- **Modernized RAG Pipeline Testing**: Integrated cross-encoder reranking into the complete RAG pipeline testing infrastructure.
+- **Streamlined Test Organization**: Improved test organization to focus on retriever functionality and chain building components.
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -96,9 +93,9 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly enhanced with modern async testing patterns, comprehensive AsyncMock usage for Qdrant client mocking, expanded test coverage for the new async operations and combined vector embedding approach in hybrid search functionality, **complete migration from ColBERT to cross-encoder reranking system**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, and **modernized workspace configuration with uv workspace support**.
+This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly enhanced with modern async testing patterns, comprehensive AsyncMock usage for Qdrant client mocking, expanded test coverage for the new async operations and combined vector embedding approach in hybrid search functionality, **complete migration from deprecated build_vectorstore function to retriever-focused testing**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, and **comprehensive module structure alignment with updated import paths**.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, expanded test coverage for new async operations and combined vector embedding approach, **complete migration from ColBERT to cross-encoder reranking system**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, and **comprehensive module structure alignment with updated import paths**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, expanded test coverage for new async operations and combined vector embedding approach, **complete migration from deprecated build_vectorstore function to retriever-focused testing**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, and **comprehensive module structure alignment with updated import paths**.
 
 ## Project Structure
 The testing effort is organized under the tests/ directory with a modernized approach featuring comprehensive AsyncMock usage, PostgreSQL database testing, and Docker container integration within the new uv workspace structure:
@@ -142,7 +139,6 @@ T_KB2["test_keyboards_block2.py"]
 T_CONTENT["test_content.py"]
 T_ENTITIES["test_entities.py"]
 T_PARSER["test_parser.py"]
-T_INDEXER["test_indexer.py"]
 T_HYBRID["test_hybrid_search.py"]
 T_HYBRID_RERANK["test_hybrid_rerank_retriever.py"]
 T_QA["test_qa_service.py"]
@@ -158,6 +154,7 @@ T_DOCS_AUTH["test_api_documents_auth.py"]
 T_DOCS_UPLOAD["test_api_documents_upload.py"]
 T_DOCS_BULK["test_api_documents_bulk.py"]
 T_DOC_SERVICE["test_document_service.py"]
+T_RAG_BLOCK6["test_rag_block6.py"]
 T_CONFTEST["conftest.py"]
 CORE["cafetera_core/"]
 ADMIN["cafetera_admin/"]
@@ -214,7 +211,6 @@ T --> T_KB2
 T --> T_CONTENT
 T --> T_ENTITIES
 T --> T_PARSER
-T --> T_INDEXER
 T --> T_HYBRID
 T --> T_HYBRID_RERANK
 T --> T_QA
@@ -230,6 +226,7 @@ T --> T_DOCS_AUTH
 T --> T_DOCS_UPLOAD
 T --> T_DOCS_BULK
 T --> T_DOC_SERVICE
+T --> T_RAG_BLOCK6
 T --> T_CONFTEST
 CORE --> CORE_CONFIG
 CORE --> CORE_CONTENT
@@ -279,15 +276,14 @@ SCRIPTS --> RUN_ADMIN
 ```
 
 **Diagram sources**
-- [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
+- [tests/test_config.py:1-44](file://tests/test_config.py#L1-L44)
 - [tests/test_bot_factory.py:1-79](file://tests/test_bot_factory.py#L1-L79)
 - [tests/test_keyboards.py:1-222](file://tests/test_keyboards.py#L1-L222)
 - [tests/test_keyboards_block2.py:1-178](file://tests/test_keyboards_block2.py#L1-L178)
 - [tests/test_content.py:1-38](file://tests/test_content.py#L1-L38)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
 - [tests/test_parser.py:1-91](file://tests/test_parser.py#L1-L91)
-- [tests/test_indexer.py:1-353](file://tests/test_indexer.py#L1-L353)
-- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
+- [tests/test_hybrid_search.py:1-96](file://tests/test_hybrid_search.py#L1-L96)
 - [tests/test_hybrid_rerank_retriever.py:1-230](file://tests/test_hybrid_rerank_retriever.py#L1-L230)
 - [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
@@ -298,23 +294,23 @@ SCRIPTS --> RUN_ADMIN
 - [tests/test_category_files.py:1-553](file://tests/test_category_files.py#L1-L553)
 - [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
 - [tests/test_api_documents.py:1-479](file://tests/test_api_documents.py#L1-L479)
-- [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
+- [tests/test_api_documents_auth.py:1-66](file://tests/test_api_documents_auth.py#L1-L66)
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
+- [tests/test_rag_block6.py:1-200](file://tests/test_rag_block6.py#L1-L200)
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
 
 **Section sources**
 - [pyproject.toml:22-34](file://pyproject.toml#L22-L34)
-- [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
+- [tests/test_config.py:1-44](file://tests/test_config.py#L1-L44)
 - [tests/test_bot_factory.py:1-79](file://tests/test_bot_factory.py#L1-L79)
 - [tests/test_keyboards.py:1-222](file://tests/test_keyboards.py#L1-L222)
 - [tests/test_keyboards_block2.py:1-178](file://tests/test_keyboards_block2.py#L1-L178)
 - [tests/test_content.py:1-38](file://tests/test_content.py#L1-L38)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
 - [tests/test_parser.py:1-91](file://tests/test_parser.py#L1-L91)
-- [tests/test_indexer.py:1-353](file://tests/test_indexer.py#L1-L353)
-- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
+- [tests/test_hybrid_search.py:1-96](file://tests/test_hybrid_search.py#L1-L96)
 - [tests/test_hybrid_rerank_retriever.py:1-230](file://tests/test_hybrid_rerank_retriever.py#L1-L230)
 - [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
@@ -325,10 +321,11 @@ SCRIPTS --> RUN_ADMIN
 - [tests/test_category_files.py:1-553](file://tests/test_category_files.py#L1-L553)
 - [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
 - [tests/test_api_documents.py:1-479](file://tests/test_api_documents.py#L1-L479)
-- [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
+- [tests/test_api_documents_auth.py:1-66](file://tests/test_api_documents_auth.py#L1-L66)
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
+- [tests/test_rag_block6.py:1-200](file://tests/test_rag_block6.py#L1-L200)
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
 
 ## Core Components
@@ -364,7 +361,7 @@ SCRIPTS --> RUN_ADMIN
 - **New Cross-Encoder Reranking Testing** validates CrossEncoderReranker and RerankingRetriever functionality with comprehensive async and sync testing patterns using cafetera_core.rag.reranker.
 - **Enhanced Reranking Configuration Testing** validates reranking_enabled, reranker_model, reranker_top_n, and reranker_prefetch_limit settings with proper integration into factory dispatch functions using cafetera_core.config and cafetera_core.resources.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, **improved test isolation through table dropping and recreation**, **comprehensive category-aware functionality testing with CATEGORY_HINTS validation**, **enhanced indexer testing for is_search_enabled flag handling**, **expanded test coverage for all new category-aware features and functionality**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, **comprehensive module structure alignment with updated import paths**, **complete migration from ColBERT to cross-encoder reranking system**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, and **new hybrid reranking infrastructure testing**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, **improved test isolation through table dropping and recreation**, **comprehensive category-aware functionality testing with CATEGORY_HINTS validation**, **enhanced indexer testing for is_search_enabled flag handling**, **expanded test coverage for all new category-aware features and functionality**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, **comprehensive module structure alignment with updated import paths**, **complete migration from deprecated build_vectorstore function to retriever-focused testing**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, and **new hybrid reranking infrastructure testing**.
 
 Key testing characteristics:
 - Uses pytest with asyncio_mode set to auto for async-friendly tests.
@@ -409,15 +406,14 @@ Key testing characteristics:
 
 **Section sources**
 - [pyproject.toml:22-34](file://pyproject.toml#L22-L34)
-- [tests/test_config.py:1-28](file://tests/test_config.py#L1-L28)
+- [tests/test_config.py:1-44](file://tests/test_config.py#L1-L44)
 - [tests/test_bot_factory.py:1-79](file://tests/test_bot_factory.py#L1-L79)
 - [tests/test_keyboards.py:1-222](file://tests/test_keyboards.py#L1-L222)
 - [tests/test_keyboards_block2.py:1-178](file://tests/test_keyboards_block2.py#L1-L178)
 - [tests/test_content.py:1-38](file://tests/test_content.py#L1-L38)
 - [tests/test_entities.py:1-29](file://tests/test_entities.py#L1-L29)
 - [tests/test_parser.py:1-91](file://tests/test_parser.py#L1-L91)
-- [tests/test_indexer.py:1-353](file://tests/test_indexer.py#L1-L353)
-- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
+- [tests/test_hybrid_search.py:1-96](file://tests/test_hybrid_search.py#L1-L96)
 - [tests/test_hybrid_rerank_retriever.py:1-230](file://tests/test_hybrid_rerank_retriever.py#L1-L230)
 - [tests/test_qa_service.py:1-238](file://tests/test_qa_service.py#L1-L238)
 - [tests/test_rules.py:1-70](file://tests/test_rules.py#L1-L70)
@@ -428,10 +424,11 @@ Key testing characteristics:
 - [tests/test_category_files.py:1-553](file://tests/test_category_files.py#L1-L553)
 - [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
 - [tests/test_api_documents.py:1-479](file://tests/test_api_documents.py#L1-L479)
-- [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
+- [tests/test_api_documents_auth.py:1-66](file://tests/test_api_documents_auth.py#L1-L66)
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
+- [tests/test_rag_block6.py:1-200](file://tests/test_rag_block6.py#L1-L200)
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
 
 ## Architecture Overview
@@ -485,9 +482,9 @@ Best practices:
 **Updated** Enhanced with explicit `_env_file=None` parameter usage for improved test isolation and reliability. This prevents tests from accidentally loading environment files from the project directory, ensuring consistent and predictable test behavior. Extended configuration testing now validates new semantic chunking settings including chunk_strategy, semantic_breakpoint_threshold_type, semantic_breakpoint_threshold_amount, and hybrid search settings retrieval_mode and sparse_embedding_model, **including new reranking configuration settings reranking_enabled, reranker_model, reranker_top_n, and reranker_prefetch_limit**.
 
 **Section sources**
-- [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
+- [tests/test_config.py:6-44](file://tests/test_config.py#L6-L44)
 - [packages/core/src/cafetera_core/config.py:4-9](file://packages/core/src/cafetera_core/config.py#L4-L9)
-- [tests/test_hybrid_search.py:164-173](file://tests/test_hybrid_search.py#L164-L173)
+- [tests/test_hybrid_search.py:80-96](file://tests/test_hybrid_search.py#L80-L96)
 - [tests/test_hybrid_rerank_retriever.py:131-230](file://tests/test_hybrid_rerank_retriever.py#L131-L230)
 
 ### Bot Factory and Handler Registration Testing
@@ -769,7 +766,7 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_api_documents.py:1-479](file://tests/test_api_documents.py#L1-L479)
-- [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
+- [tests/test_api_documents_auth.py:1-66](file://tests/test_api_documents_auth.py#L1-L66)
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
@@ -1001,7 +998,7 @@ Methodology:
 - Test empty input validation and edge cases.
 - **Validate chunk preparation does not mutate original documents.**
 - **Test sparse embeddings parameter handling in chunk preparation.**
-- **Test cross-encoder reranking parameter handling in chunk preparation.**
+- **Test cross-encoder reranker parameter handling in chunk preparation.**
 - **Test comprehensive is_search_enabled flag handling with top-level field storage validation.**
 - **Test metadata preservation in nested metadata dict while storing is_search_enabled at top level.**
 - **Test Docling metadata extraction including page_numbers and headings.**
@@ -1060,10 +1057,10 @@ Testing patterns:
 - **Validate AsyncMock usage for sparse embedding operations with proper await semantics.**
 - **Validate cross-encoder reranking integration with hybrid search mode.**
 
-**Updated** Added comprehensive hybrid search testing infrastructure with 173 lines of new test coverage validating sparse embedding creation with FastEmbedSparse, vector store construction with sparse embeddings, index chunking functionality, QAService integration, configuration defaults, graceful degradation scenarios, import error handling for missing dependencies, **cross-encoder reranking integration with hybrid search**, and **AsyncMock usage for sparse embedding operations**.
+**Updated** Added comprehensive hybrid search testing infrastructure with 96 lines of new test coverage validating sparse embedding creation with FastEmbedSparse, vector store construction with sparse embeddings, index chunking functionality, QAService integration, configuration defaults, graceful degradation scenarios, import error handling for missing dependencies, **cross-encoder reranking integration with hybrid search**, and **AsyncMock usage for sparse embedding operations**.
 
 **Section sources**
-- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
+- [tests/test_hybrid_search.py:1-96](file://tests/test_hybrid_search.py#L1-L96)
 - [packages/core/src/cafetera_core/rag/retriever.py:88-120](file://packages/core/src/cafetera_core/rag/retriever.py#L88-L120)
 - [packages/core/src/cafetera_core/resources.py:120-131](file://packages/core/src/cafetera_core/resources.py#L120-L131)
 
@@ -1106,7 +1103,7 @@ Testing patterns:
 
 **Section sources**
 - [tests/test_hybrid_rerank_retriever.py:1-230](file://tests/test_hybrid_rerank_retriever.py#L1-L230)
-- [packages/core/src/cafetera_core/rag/reranker.py:1-73](file://packages/core/src/cafetera_core/rag/reranker.py#L1-L73)
+- [packages/core/src/cafetera_core/rag/reranker.py:1-75](file://packages/core/src/cafetera_core/rag/reranker.py#L1-L75)
 - [packages/core/src/cafetera_core/rag/retriever.py:299-334](file://packages/core/src/cafetera_core/rag/retriever.py#L299-L334)
 - [packages/core/src/cafetera_core/config.py:62-67](file://packages/core/src/cafetera_core/config.py#L62-L67)
 
@@ -1282,12 +1279,12 @@ Validation tips:
 - [tests/test_category_files.py:1-553](file://tests/test_category_files.py#L1-L553)
 - [tests/test_parser.py:1-91](file://tests/test_parser.py#L1-L91)
 - [tests/test_api_documents.py:1-479](file://tests/test_api_documents.py#L1-L479)
-- [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
+- [tests/test_api_documents_auth.py:1-66](file://tests/test_api_documents_auth.py#L1-L66)
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
 - [tests/test_indexer.py:1-353](file://tests/test_indexer.py#L1-L353)
-- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
+- [tests/test_hybrid_search.py:1-96](file://tests/test_hybrid_search.py#L1-L96)
 - [tests/test_hybrid_rerank_retriever.py:1-230](file://tests/test_hybrid_rerank_retriever.py#L1-L230)
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
 
@@ -1353,7 +1350,7 @@ Methodology:
 - **Test Settings chunker_tokenizer_model default value is 'Qwen/Qwen3-Embedding-0.6B'.**
 - **Test Settings chunk_size default value is 500.**
 - **Test Settings reranking_enabled default value is False.**
-- **Test Settings reranker_model default value is 'BAAI/bge-reranker-v2-m3'.**
+- **Test Settings reranker_model default value is 'jinaai/jina-reranker-v2-base-multilingual'.**
 - **Test Settings reranker_top_n default value is 5.**
 - **Test Settings reranker_prefetch_limit default value is 20.**
 
@@ -1373,7 +1370,7 @@ Testing patterns:
 - [tests/test_rag_block6.py:50-53](file://tests/test_rag_block6.py#L50-L53)
 - [packages/core/src/cafetera_core/config.py:22-25](file://packages/core/src/cafetera_core/config.py#L22-L25)
 - [packages/core/src/cafetera_core/rag/retriever.py:22-62](file://packages/core/src/cafetera_core/rag/retriever.py#L22-L62)
-- [tests/test_hybrid_search.py:164-173](file://tests/test_hybrid_search.py#L164-L173)
+- [tests/test_hybrid_search.py:80-96](file://tests/test_hybrid_search.py#L80-L96)
 - [tests/test_hybrid_rerank_retriever.py:131-230](file://tests/test_hybrid_rerank_retriever.py#L131-L230)
 - [packages/core/src/cafetera_core/config.py:54-57](file://packages/core/src/cafetera_core/config.py#L54-L57)
 - [packages/core/src/cafetera_core/config.py:62-67](file://packages/core/src/cafetera_core/config.py#L62-L67)
@@ -1799,7 +1796,7 @@ PY --> RERANK_CFG
 - **Enhanced Docling integration testing should validate comprehensive metadata extraction performance.**
 - **Hybrid search testing should validate sparse embedding creation performance.**
 - **Configuration testing should validate new settings efficiently without external dependencies.**
-- **Resource management testing should validate sparse embeddings and reranker initialization performance.**
+- **Resource management testing should validate sparse embeddings and rerankers initialization performance.**
 - **Enhanced admin document API testing should validate modular test organization performance.**
 - **Test fixtures infrastructure should provide efficient shared testing resources.**
 - **AsyncMock usage testing should validate comprehensive async operation performance.**
@@ -1901,6 +1898,7 @@ Common issues and resolutions:
 - **Enhanced Reranking Configuration Testing failures: Validate reranking_enabled, reranker_model, reranker_top_n, and reranker_prefetch_limit settings.**
 - **Cross-Encoder Reranking integration failures: Validate reranking integration with factory dispatch functions.**
 - **Reranking prefetch limit failures: Validate reranker_prefetch_limit parameter passing in factory functions.**
+- **Migration from build_vectorstore failures: Validate retriever-focused testing replacing deprecated vectorstore integration.**
 
 Debugging tips:
 - Print or log parsed keyboard JSON during development to validate structure.
@@ -1963,8 +1961,9 @@ Debugging tips:
 - **Enhanced Reranking Configuration Testing should validate comprehensive reranking settings integration.**
 - **Validate reranking prefetch limit integration with factory dispatch functions.**
 - **Validate cross-encoder reranking parameter passing throughout RAG pipeline.**
+- **Validate migration from build_vectorstore to retriever-focused testing.**
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, category file service testing with PostgreSQL integration, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **comprehensive Docling integration testing with HybridChunker validation**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings and rerankers**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with comprehensive async/await patterns**, **enhanced Reranking Configuration Testing with reranking settings validation**, **cross-encoder reranking integration validation**, and **reranking prefetch limit validation**.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, category file service testing with PostgreSQL integration, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **comprehensive Docling integration testing with HybridChunker validation**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings and rerankers**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with comprehensive async/await patterns**, **enhanced Reranking Configuration Testing with reranking settings validation**, **cross-encoder reranking integration validation**, **reranking prefetch limit validation**, and **migration from build_vectorstore to retriever-focused testing**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1981,13 +1980,13 @@ Debugging tips:
 - [tests/test_category_files.py:1-553](file://tests/test_category_files.py#L1-L553)
 - [tests/test_parser.py:1-91](file://tests/test_parser.py#L1-L91)
 - [tests/test_api_documents.py:1-479](file://tests/test_api_documents.py#L1-L479)
-- [tests/test_api_documents_auth.py:1-47](file://tests/test_api_documents_auth.py#L1-L47)
+- [tests/test_api_documents_auth.py:1-66](file://tests/test_api_documents_auth.py#L1-L66)
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
 - [tests/test_indexer.py:1-353](file://tests/test_indexer.py#L1-L353)
 - [tests/test_category_hints.py:1-248](file://tests/test_category_hints.py#L1-L248)
-- [tests/test_hybrid_search.py:1-173](file://tests/test_hybrid_search.py#L1-L173)
+- [tests/test_hybrid_search.py:1-96](file://tests/test_hybrid_search.py#L1-L96)
 - [tests/test_hybrid_rerank_retriever.py:1-230](file://tests/test_hybrid_rerank_retriever.py#L1-L230)
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
 
@@ -2006,7 +2005,7 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - Topic hints testing validates scenario detection and background-topic disclaimer handling using cafetera_core.domain.topic_hints.
 - Ask handler testing validates state management, QA service integration, and scenario navigation using the new query_rag_with_wait approach using cafetera_vk_bot.handlers.
 - **Document storage system testing validates comprehensive database operations including timestamp management, status transitions, search enablement functionality, and filtering/sorting capabilities with 278 lines of new test coverage.**
-- **Category file service testing validates PostgreSQL database integration, unique constraint enforcement, and S3 storage mocking with 422 lines of new test coverage.**
+- **Category file service testing validates PostgreSQL database integration, unique constraint enforcement, and S3 storage mocking with 422 lines of new coverage.**
 - **Enhanced admin document API testing validates authentication, authorization, Russian localization, and comprehensive filtering/sorting functionality across multiple specialized modules with modular approach.**
 - **Extensive RAG infrastructure testing validates llama.cpp provider functionality, configuration parameter handling, and error scenarios.**
 - **Enhanced parser testing validates Docling-based document ingestion pipeline with section extraction, chunking, and metadata handling, including comprehensive metadata extraction validation.**
@@ -2035,6 +2034,7 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - **Enhanced Reranking Configuration Testing validates reranking_enabled, reranker_model, reranker_top_n, and reranker_prefetch_limit settings with proper integration into factory dispatch functions.**
 - **Cross-Encoder Reranking integration testing validates reranking prefetch limit integration with hybrid search mode.**
 - **Reranking resource management testing validates reranker lifecycle management in AppResources.**
+- **Migration from build_vectorstore to retriever-focused testing validates comprehensive testing approach replacing deprecated vectorstore integration.**
 
 To evolve the test suite:
 - Introduce event-driven tests for handlers to validate async behavior.
@@ -2104,8 +2104,9 @@ To evolve the test suite:
 - **Add comprehensive Enhanced Reranking Configuration Testing for comprehensive reranking settings validation.**
 - **Validate reranking prefetch limit integration with factory dispatch functions.**
 - **Validate cross-encoder reranking parameter passing throughout RAG pipeline.**
+- **Validate migration from build_vectorstore to retriever-focused testing replacing deprecated vectorstore integration.**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, **category file service testing with 422 lines of new coverage**, **category files API testing with 553 lines of new coverage**, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive Docling integration testing with 91 lines of new coverage**, **comprehensive enhanced indexer testing with 353 lines of new coverage**, **comprehensive hybrid search testing with 173 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with enhanced indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 236 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing validating Qdrant client lifecycle ownership using AsyncMock**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **TEST_DATABASE_URL environment variable integration for database configuration**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with 230 lines of new coverage**, **enhanced Reranking Configuration Testing with comprehensive reranking settings validation**, **cross-encoder reranking integration testing**, and **reranking resource management testing**.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, **category file service testing with 422 lines of new coverage**, **category files API testing with 553 lines of new coverage**, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive Docling integration testing with 91 lines of new coverage**, **comprehensive enhanced indexer testing with 353 lines of new coverage**, **comprehensive hybrid search testing with 96 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with enhanced indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 236 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing validating Qdrant client lifecycle ownership using AsyncMock**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **TEST_DATABASE_URL environment variable integration for database configuration**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with 230 lines of new coverage**, **enhanced Reranking Configuration Testing with comprehensive reranking settings validation**, **cross-encoder reranking integration testing**, **reranking resource management testing**, and **migration from build_vectorstore to retriever-focused testing**.
 
 ## Appendices
 
@@ -2147,6 +2148,7 @@ To evolve the test suite:
 - **Run new Cross-Encoder Reranking tests for comprehensive reranking functionality validation (e.g., `pytest tests/test_hybrid_rerank_retriever.py::TestCrossEncoderReranker`).**
 - **Run enhanced Reranking Configuration tests for comprehensive reranking settings validation (e.g., `pytest tests/test_hybrid_rerank_retriever.py::TestRerankingSettings`).**
 - **Run cross-encoder reranking integration tests for reranking prefetch limit validation (e.g., `pytest tests/test_hybrid_rerank_retriever.py::TestFactoryDispatch`).**
+- **Run migration from build_vectorstore tests for retriever-focused testing validation (e.g., `pytest tests/test_hybrid_search.py::test_build_sparse_embeddings_returns_fastembed`, `pytest tests/test_hybrid_rerank_retriever.py::test_build_retriever_uses_prefetch_limit_when_reranking_enabled`).**
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -2224,5 +2226,6 @@ To evolve the test suite:
 - **Enhanced Reranking Configuration Testing should validate comprehensive reranking settings integration.**
 - **Validate reranking prefetch limit integration with factory dispatch functions.**
 - **Validate cross-encoder reranking parameter passing throughout RAG pipeline.**
+- **Validate migration from build_vectorstore to retriever-focused testing replacing deprecated vectorstore integration.**
 
-**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive Docling integration testing with HybridChunker validation**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings and rerankers**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with comprehensive async/await patterns**, **enhanced Reranking Configuration Testing with reranking settings validation**, **cross-encoder reranking integration validation**, and **reranking resource management validation**.
+**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive Docling integration testing with HybridChunker validation**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings and rerankers**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with comprehensive async/await patterns**, **enhanced Reranking Configuration Testing with reranking settings validation**, **cross-encoder reranking integration validation**, **reranking resource management validation**, and **migration from build_vectorstore to retriever-focused testing**.
