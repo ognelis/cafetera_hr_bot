@@ -26,7 +26,7 @@ def _make_qdrant_client_mock() -> MagicMock:
 
 
 async def test_cross_encoder_reranker_arerank_returns_top_n():
-    """arerank() calls CrossEncoder.predict and returns reranked docs."""
+    """arerank() calls TextCrossEncoder.rerank and returns reranked docs."""
     docs = [
         Document(page_content="low relevance"),
         Document(page_content="high relevance"),
@@ -34,11 +34,11 @@ async def test_cross_encoder_reranker_arerank_returns_top_n():
     ]
 
     mock_model = MagicMock()
-    # predict returns scores for each pair
-    mock_model.predict.return_value = [0.1, 0.95, 0.70]
+    # rerank returns scores in original document order
+    mock_model.rerank.return_value = [0.1, 0.95, 0.70]
 
     with patch(
-        "cafetera_core.rag.reranker.CrossEncoder",
+        "cafetera_core.rag.reranker.TextCrossEncoder",
         return_value=mock_model,
     ):
         reranker = CrossEncoderReranker(model_name="test-model", top_n=2)
@@ -48,12 +48,12 @@ async def test_cross_encoder_reranker_arerank_returns_top_n():
     assert len(result) == 2
     assert result[0].page_content == "high relevance"
     assert result[1].page_content == "medium relevance"
-    mock_model.predict.assert_called_once()
+    mock_model.rerank.assert_called_once()
 
 
 async def test_cross_encoder_reranker_arerank_empty_docs():
     """arerank() returns empty list for empty input."""
-    with patch("cafetera_core.rag.reranker.CrossEncoder"):
+    with patch("cafetera_core.rag.reranker.TextCrossEncoder"):
         reranker = CrossEncoderReranker(
             model_name="test-model", top_n=5
         )
@@ -70,10 +70,10 @@ async def test_cross_encoder_reranker_rerank_sync():
     ]
 
     mock_model = MagicMock()
-    mock_model.predict.return_value = [0.5, 0.9]
+    mock_model.rerank.return_value = [0.5, 0.9]
 
     with patch(
-        "cafetera_core.rag.reranker.CrossEncoder",
+        "cafetera_core.rag.reranker.TextCrossEncoder",
         return_value=mock_model,
     ):
         reranker = CrossEncoderReranker(model_name="test-model", top_n=2)

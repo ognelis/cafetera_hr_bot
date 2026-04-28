@@ -61,7 +61,7 @@ class CoreSettings(BaseSettings):
 
     # Reranking
     reranking_enabled: bool = False
-    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_model: str = "jinaai/jina-reranker-v2-base-multilingual"
     reranker_top_n: int = 5
     reranker_prefetch_limit: int = 20
 

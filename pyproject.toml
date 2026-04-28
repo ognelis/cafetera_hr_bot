@@ -19,23 +19,30 @@ dev = [
     "testcontainers[postgres]>=4.14.2"
 ]
 
-[tool.uv.workspace]
-members = ["packages/*"]
-
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
+
+[tool.uv]
+override-dependencies = [
+    # Force-exclude opencv-python (GUI) — Docker has no X11 libs.
+    # opencv-python-headless is added explicitly in packages/admin.
+    "opencv-python ; python_version < '0'",
+]
+
+[tool.uv.workspace]
+members = ["packages/*"]
 
 [tool.uv.sources]
 cafetera-core = { workspace = true }
 cafetera-admin = { workspace = true }
 cafetera-vk-bot = { workspace = true }
 torch = [
-  { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+    { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
 ]
 torchvision = [
-  { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+    { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
 ]
 
 [tool.pytest.ini_options]

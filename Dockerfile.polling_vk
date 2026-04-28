@@ -12,7 +12,7 @@ ENV UV_PYTHON_DOWNLOADS=never \
 WORKDIR /app
 
 # Build-time argument for reranker model name (passed from docker-compose or --build-arg)
-ARG RERANKER_MODEL=BAAI/bge-reranker-v2-m3
+ARG RERANKER_MODEL=jinaai/jina-reranker-v2-base-multilingual
 
 # Copy root workspace files
 COPY pyproject.toml uv.lock ./
@@ -46,7 +46,7 @@ RUN .venv/bin/python -c "from langchain_qdrant import FastEmbedSparse; FastEmbed
 
 # Pre-download cross-encoder reranker model during build
 ENV HF_HOME=/app/.cache/huggingface
-RUN .venv/bin/python -c "from sentence_transformers import CrossEncoder; CrossEncoder('${RERANKER_MODEL}', trust_remote_code=True)"
+RUN .venv/bin/python -c "from fastembed.rerank.cross_encoder import TextCrossEncoder; TextCrossEncoder(model_name='${RERANKER_MODEL}')"
 
 # Cleanup: remove test files and caches to reduce image size
 RUN find /app/.venv/lib/python3.13/site-packages \

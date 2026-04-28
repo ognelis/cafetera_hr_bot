@@ -58,7 +58,7 @@ services:
       context: .
       dockerfile: Dockerfile.admin
       args:
-        RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
+        RERANKER_MODEL: ${RERANKER_MODEL:-jinaai/jina-reranker-v2-base-multilingual}
         CHUNKER_TOKENIZER_MODEL: ${CHUNKER_TOKENIZER_MODEL:-Qwen/Qwen3-Embedding-0.6B}
     container_name: rag-bot-admin
     restart: unless-stopped
@@ -90,7 +90,7 @@ services:
       context: .
       dockerfile: Dockerfile.polling_vk
       args:
-        RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
+        RERANKER_MODEL: ${RERANKER_MODEL:-jinaai/jina-reranker-v2-base-multilingual}
     container_name: rag-bot-vk
     restart: unless-stopped
     env_file:

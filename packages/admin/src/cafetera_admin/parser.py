@@ -26,15 +26,18 @@ def ensure_models_cached(model_name: str) -> None:
         model_name: HuggingFace model identifier (e.g. "Qwen/Qwen3-Embedding-0.6B").
     """
     from docling.document_converter import DocumentConverter
+    from docling_onnx_models.layoutmodel.layout_predictor import (
+        LayoutPredictor,  # noqa: F401  — force ONNX backend
+    )
     from transformers import AutoTokenizer
 
     # 1. Cache tokenizer
     AutoTokenizer.from_pretrained(model_name)
     logger.info("Tokenizer '%s' cached", model_name)
 
-    # 2. Cache Docling layout/TableFormer models
+    # 2. Cache Docling layout/TableFormer models (ONNX backend via docling-onnx-models)
     DocumentConverter()
-    logger.info("Docling models cached")
+    logger.info("Docling ONNX models cached")
 
     # 3. Enable offline mode so no further network requests happen
     os.environ["HF_HUB_OFFLINE"] = "1"
@@ -90,6 +93,9 @@ def _get_chunker(tokenizer_model: str, max_tokens: int):
 
 def _load_with_docling(path: Path, settings: CoreSettings) -> list[Document]:
     """Parse PDF/DOCX/XLSX files using Docling with HybridChunker."""
+    from docling_onnx_models.layoutmodel.layout_predictor import (
+        LayoutPredictor,  # noqa: F401  — force ONNX backend
+    )
     from langchain_docling import DoclingLoader
     from langchain_docling.loader import ExportType
 

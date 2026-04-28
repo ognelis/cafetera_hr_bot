@@ -1,10 +1,11 @@
-"""Cross-encoder reranking module using sentence-transformers CrossEncoder."""
+"""Cross-encoder reranking module using FastEmbed TextCrossEncoder."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 
+from fastembed.rerank.cross_encoder import TextCrossEncoder
 from langchain_core.callbacks import (
     AsyncCallbackManagerForRetrieverRun,
     CallbackManagerForRetrieverRun,
@@ -12,16 +13,15 @@ from langchain_core.callbacks import (
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 from pydantic import ConfigDict
-from sentence_transformers import CrossEncoder
 
 logger = logging.getLogger(__name__)
 
 
 class CrossEncoderReranker:
-    """Wraps sentence-transformers CrossEncoder for document reranking."""
+    """Wraps FastEmbed TextCrossEncoder for document reranking."""
 
     def __init__(self, model_name: str, top_n: int) -> None:
-        self._model = CrossEncoder(model_name, trust_remote_code=True)
+        self._model = TextCrossEncoder(model_name=model_name)
         self._top_n = top_n
 
     def rerank(
@@ -30,8 +30,8 @@ class CrossEncoderReranker:
         """Rerank documents synchronously and return top_n results."""
         if not documents:
             return []
-        pairs = [(query, doc.page_content) for doc in documents]
-        scores = self._model.predict(pairs)
+        texts = [doc.page_content for doc in documents]
+        scores = list(self._model.rerank(query, texts))
         scored = sorted(
             enumerate(scores), key=lambda x: float(x[1]), reverse=True
         )
@@ -43,8 +43,10 @@ class CrossEncoderReranker:
         """Rerank documents asynchronously via thread pool."""
         if not documents:
             return []
-        pairs = [(query, doc.page_content) for doc in documents]
-        scores = await asyncio.to_thread(self._model.predict, pairs)
+        texts = [doc.page_content for doc in documents]
+        scores = await asyncio.to_thread(
+            lambda: list(self._model.rerank(query, texts))
+        )
         scored = sorted(
             enumerate(scores), key=lambda x: float(x[1]), reverse=True
         )
