@@ -137,14 +137,15 @@ class RAGClient:
         s3_key: str,
         *,
         is_search_enabled: bool = True,
-    ) -> int:
+    ) -> dict[str, Any]:
         """Send a document for full ingestion (parse + embed + index).
 
         The RAG service handles: S3 download -> Docling parse -> chunk ->
         embed -> index to Qdrant.  Old chunks for the same document_id
         are deleted automatically.
 
-        Returns the number of chunks indexed.
+        Returns a dict with keys: ``chunks_indexed``, ``page_count``,
+        ``binary_hash``, ``extracted_title``, ``status``.
         """
         resp = await self._client.post(
             "/api/index/ingest",
@@ -157,7 +158,14 @@ class RAGClient:
             timeout=httpx.Timeout(600.0),
         )
         resp.raise_for_status()
-        return resp.json()["chunks_indexed"]
+        data = resp.json()
+        return {
+            "chunks_indexed": data["chunks_indexed"],
+            "page_count": data.get("page_count"),
+            "binary_hash": data.get("binary_hash"),
+            "extracted_title": data.get("extracted_title"),
+            "status": data.get("status"),
+        }
 
     async def toggle_search(
         self,

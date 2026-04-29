@@ -51,7 +51,7 @@ async def _index_document_from_s3(
     """Background task: tell RAG service to ingest the document."""
     async with semaphore:
         try:
-            count = await rag_client.ingest_document(
+            result = await rag_client.ingest_document(
                 document_id=document_id,
                 filename=filename,
                 s3_key=s3_key,
@@ -60,14 +60,19 @@ async def _index_document_from_s3(
             await service._repo.update(
                 document_id,
                 status=DocumentStatus.completed,
-                chunk_count=count,
+                chunk_count=result["chunks_indexed"],
                 indexed_at=datetime.now(UTC),
                 error=None,
+                indexing_config={
+                    "page_count": result.get("page_count", 0),
+                    "binary_hash": result.get("binary_hash", ""),
+                    "extracted_title": result.get("extracted_title", ""),
+                },
             )
             logger.info(
                 "Background indexing completed for %s (%d chunks)",
                 document_id,
-                count,
+                result["chunks_indexed"],
             )
         except Exception:
             logger.error(

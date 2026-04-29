@@ -88,13 +88,19 @@ async def ingest_document(request: Request, body: IngestRequest) -> IngestRespon
             tmp.write(file_data)
             tmp_path = tmp.name
         try:
-            chunks = await asyncio.to_thread(load_document, tmp_path, settings)
+            parse_result = await asyncio.to_thread(load_document, tmp_path, settings)
+            chunks = parse_result.chunks
         finally:
             os.unlink(tmp_path)
 
         if not chunks:
             logger.warning("No chunks parsed for document %s", body.document_id)
-            return IngestResponse(chunks_indexed=0)
+            return IngestResponse(
+                chunks_indexed=0,
+                page_count=parse_result.page_count,
+                binary_hash=parse_result.binary_hash,
+                extracted_title=parse_result.extracted_title,
+            )
 
         # Step 5: Enrich chunk metadata
         texts, metadatas = _enrich_chunks(
@@ -174,4 +180,9 @@ async def ingest_document(request: Request, body: IngestRequest) -> IngestRespon
     )
 
     # Step 8: Return response
-    return IngestResponse(chunks_indexed=len(texts))
+    return IngestResponse(
+        chunks_indexed=len(texts),
+        page_count=parse_result.page_count,
+        binary_hash=parse_result.binary_hash,
+        extracted_title=parse_result.extracted_title,
+    )

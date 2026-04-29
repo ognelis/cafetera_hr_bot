@@ -11,6 +11,7 @@ from langchain_core.documents import Document as LCDocument
 
 from cafetera_rag_service.config import RagServiceSettings
 from cafetera_rag_service.main import create_app
+from cafetera_rag_service.parser import ParseResult
 from cafetera_rag_service.resources import RagResources
 
 TEST_API_KEY = "test-rag-key"
@@ -68,30 +69,35 @@ class TestIngestEndpoint:
     async def test_ingest_success(
         self, mock_load_doc, rag_client, mock_rag_resources
     ):
-        mock_load_doc.return_value = [
-            LCDocument(
-                page_content="chunk 1",
-                metadata={
-                    "source": "test.docx",
-                    "headings": ["Section 1"],
-                    "captions": [],
-                    "page_numbers": [1],
-                    "content_type": "text",
-                    "section_path": "#/body/sections/0",
-                },
-            ),
-            LCDocument(
-                page_content="chunk 2",
-                metadata={
-                    "source": "test.docx",
-                    "headings": ["Section 2"],
-                    "captions": [],
-                    "page_numbers": [2],
-                    "content_type": "text",
-                    "section_path": "#/body/sections/1",
-                },
-            ),
-        ]
+        mock_load_doc.return_value = ParseResult(
+            chunks=[
+                LCDocument(
+                    page_content="chunk 1",
+                    metadata={
+                        "source": "test.docx",
+                        "headings": ["Section 1"],
+                        "captions": [],
+                        "page_numbers": [1],
+                        "content_type": "text",
+                        "section_path": "#/body/sections/0",
+                    },
+                ),
+                LCDocument(
+                    page_content="chunk 2",
+                    metadata={
+                        "source": "test.docx",
+                        "headings": ["Section 2"],
+                        "captions": [],
+                        "page_numbers": [2],
+                        "content_type": "text",
+                        "section_path": "#/body/sections/1",
+                    },
+                ),
+            ],
+            page_count=10,
+            binary_hash="hash123",
+            extracted_title="Test Handbook",
+        )
         mock_rag_resources.embeddings.aembed_documents.return_value = [
             [0.1, 0.2, 0.3],
             [0.4, 0.5, 0.6],
@@ -111,6 +117,9 @@ class TestIngestEndpoint:
         assert resp.status_code == 200
         data = resp.json()
         assert data["chunks_indexed"] == 2
+        assert data["page_count"] == 10
+        assert data["binary_hash"] == "hash123"
+        assert data["extracted_title"] == "Test Handbook"
         assert data["status"] == "ok"
 
         # Verify S3 download was called
@@ -126,7 +135,12 @@ class TestIngestEndpoint:
     async def test_ingest_no_chunks(
         self, mock_load_doc, rag_client, mock_rag_resources
     ):
-        mock_load_doc.return_value = []
+        mock_load_doc.return_value = ParseResult(
+            chunks=[],
+            page_count=0,
+            binary_hash="emptyhash",
+            extracted_title="Empty Doc",
+        )
 
         resp = rag_client.post(
             "/api/index/ingest",
@@ -140,7 +154,11 @@ class TestIngestEndpoint:
         )
 
         assert resp.status_code == 200
-        assert resp.json()["chunks_indexed"] == 0
+        data = resp.json()
+        assert data["chunks_indexed"] == 0
+        assert data["page_count"] == 0
+        assert data["binary_hash"] == "emptyhash"
+        assert data["extracted_title"] == "Empty Doc"
 
     def test_ingest_requires_auth(self, rag_client):
         resp = rag_client.post(

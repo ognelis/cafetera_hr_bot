@@ -60,7 +60,13 @@ async def repo(pg_container):
 @pytest.fixture()
 def mock_rag_client():
     client = AsyncMock()
-    client.ingest_document.return_value = 5
+    client.ingest_document.return_value = {
+        "chunks_indexed": 5,
+        "page_count": 10,
+        "binary_hash": "abc123",
+        "extracted_title": "Test Document",
+        "status": "ok",
+    }
     client.toggle_search.return_value = None
     client.delete_document.return_value = None
     client.invalidate_cache.return_value = None
@@ -121,7 +127,13 @@ class TestCreateDocument:
 
 class TestIndexDocument:
     async def test_indexes_and_updates_metadata(self, service, repo, mock_rag_client):
-        mock_rag_client.ingest_document.return_value = 3
+        mock_rag_client.ingest_document.return_value = {
+            "chunks_indexed": 3,
+            "page_count": 7,
+            "binary_hash": "hash3",
+            "extracted_title": "Indexed Doc",
+            "status": "ok",
+        }
         rec = _make_record()
         await repo.create(rec)
 
@@ -215,7 +227,13 @@ class TestToggleSearch:
 
 class TestReindexDocument:
     async def test_reindexes_successfully(self, service, repo, mock_rag_client):
-        mock_rag_client.ingest_document.return_value = 5
+        mock_rag_client.ingest_document.return_value = {
+            "chunks_indexed": 5,
+            "page_count": 12,
+            "binary_hash": "rehash5",
+            "extracted_title": "Reindexed Doc",
+            "status": "ok",
+        }
         rec = _make_record(
             status=DocumentStatus.completed,
             chunk_count=3,

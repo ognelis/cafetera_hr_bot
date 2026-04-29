@@ -7,7 +7,6 @@
 - [config.py](file://packages/rag_service/src/cafetera_rag_service/config.py)
 - [chain.py](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py)
 - [ingest.py](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py)
-- [resources.py](file://packages/rag_service/src/cafetera_rag_service/resources.py)
 - [pyproject.toml](file://packages/rag_service/pyproject.toml)
 - [documents_upload.py](file://packages/admin/src/cafetera_admin/api/documents_upload.py)
 - [rag_client.py](file://packages/core/src/cafetera_core/rag_client.py)
@@ -17,11 +16,13 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced LLM configuration system with comprehensive sampling parameter handling
-- Added support for top_p, top_k, and presence_penalty sampling parameters
-- Implemented provider-specific sampling parameter routing for OpenAI, Ollama, and llama.cpp
-- Integrated sampling parameter validation and logging for optimal LLM performance
-- Updated RAG service architecture to support advanced LLM configuration capabilities
+- Enhanced document parsing pipeline with sophisticated metadata extraction capabilities
+- Added new page number extraction functions for precise document navigation
+- Implemented comprehensive caption handling for improved content understanding
+- Introduced content type detection for intelligent chunk categorization
+- Improved RAG chain formatting with richer metadata presentation
+- Enhanced document processing with advanced layout analysis and table extraction
+- Expanded metadata enrichment with headings, captions, page numbers, and content type information
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -37,7 +38,7 @@
 ## Introduction
 This document describes the RAG (Retrieval-Augmented Generation) Parser Enhancement for the Cafetera HR Bot. The enhancement represents a significant advancement in the RAG service's document processing capabilities, transforming it from a simple indexing service to a comprehensive document parsing and chunking engine. The system now includes sophisticated document parsing using Docling with HybridChunker, intelligent model caching with offline support, and comprehensive support for PDF, DOCX, and XLSX formats with native table extraction and layout analysis.
 
-**Updated** The RAG service now operates as a complete document processing pipeline that handles all aspects of document ingestion, parsing, chunking, and preparation for AI processing. The system maintains its distributed architecture while significantly enhancing the internal capabilities of the RAG microservice to provide robust document processing capabilities. The enhanced LLM configuration system now integrates with advanced sampling parameter handling for improved document processing capabilities.
+**Updated** The RAG service now operates as a complete document processing pipeline that handles all aspects of document ingestion, parsing, chunking, and preparation for AI processing. The system maintains its distributed architecture while significantly enhancing the internal capabilities of the RAG microservice to provide robust document processing capabilities. The enhanced metadata extraction system now provides rich contextual information including page numbers, captions, headings, and content type detection for improved AI understanding and retrieval performance.
 
 ## Project Structure
 The RAG system has evolved into a comprehensive microservice with integrated document processing capabilities:
@@ -51,8 +52,10 @@ graph TB
 subgraph "Enhanced RAG Microservice Architecture"
 RAG_PARSER["RAG Parser<br/>Docling Integration<br/>HybridChunker<br/>Model Caching"]
 DOC_PARSING["Document Parsing<br/>PDF/DOCX/XLSX<br/>Native Tables<br/>Layout Analysis"]
+METADATA_EXTRACTION["Enhanced Metadata Extraction<br/>Page Numbers<br/>Captions<br/>Content Types<br/>Headings"]
 CHUNKING["Intelligent Chunking<br/>HybridChunker<br/>ONNX Backend<br/>Offline Support"]
-PROCESSING["Processing Pipeline<br/>LangChain Documents<br/>Metadata Enrichment<br/>Vector Preparation"]
+PROCESSING["Processing Pipeline<br/>LangChain Documents<br/>Rich Metadata Enrichment<br/>Vector Preparation"]
+RAG_CHAIN["RAG Chain Formatting<br/>Enhanced Context Presentation<br/>Filename + Page Number Display"]
 LLM_CONFIG["LLM Configuration<br/>Sampling Parameters<br/>Provider Routing<br/>Parameter Validation"]
 end
 subgraph "External Systems"
@@ -60,9 +63,11 @@ QDRANT["Qdrant Vector Store<br/>External Service"]
 S3["S3 Storage<br/>External Service"]
 end
 RAG_PARSER --> DOC_PARSING
-DOC_PARSING --> CHUNKING
+DOC_PARSING --> METADATA_EXTRACTION
+METADATA_EXTRACTION --> CHUNKING
 CHUNKING --> PROCESSING
-PROCESSING --> LLM_CONFIG
+PROCESSING --> RAG_CHAIN
+RAG_CHAIN --> LLM_CONFIG
 LLM_CONFIG --> QDRANT
 PROCESSING --> S3
 ```
@@ -70,17 +75,19 @@ PROCESSING --> S3
 **Diagram sources**
 - [parser.py:19-45](file://packages/rag_service/src/cafetera_rag_service/parser.py#L19-L45)
 - [parser.py:94-110](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L110)
+- [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
 - [ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
-- [chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
+- [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
 
 **Section sources**
 - [parser.py:19-45](file://packages/rag_service/src/cafetera_rag_service/parser.py#L19-L45)
 - [parser.py:94-110](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L110)
+- [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
 - [ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
-- [chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
+- [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
 
 ## Core Components
-This section outlines the enhanced components of the RAG system with comprehensive document parsing capabilities and advanced LLM configuration.
+This section outlines the enhanced components of the RAG system with comprehensive document parsing capabilities and advanced metadata extraction.
 
 - **Enhanced Document Parser with Docling Integration**
   - **New Component**: Comprehensive document parsing using Docling with HybridChunker
@@ -92,6 +99,21 @@ This section outlines the enhanced components of the RAG system with comprehensi
   - **ONNX Backend**: Ensures consistent processing performance with offline model support
   - **LangChain Integration**: Returns standardized LangChain Document objects with metadata
   - **Error Handling**: Graceful handling of unsupported formats and processing failures
+
+- **Advanced Metadata Extraction System**
+  - **Page Number Extraction**: `_extract_page_numbers()` function extracts unique sorted page numbers from document provenance
+  - **Caption Handling**: `_extract_captions()` function extracts caption texts from document items with non-deprecated replacement for DocMeta.captions
+  - **Content Type Detection**: `_detect_content_type()` function identifies dominant content type (table, figure, or text) from document item labels
+  - **Rich Metadata Enrichment**: Comprehensive metadata including headings, captions, page numbers, content type, and section path
+  - **Section Path Preservation**: Maintains document structure hierarchy through section path information
+  - **Metadata Validation**: Robust error handling and fallback mechanisms for metadata extraction
+
+- **Enhanced RAG Chain Formatting**
+  - **Rich Context Presentation**: `_format_docs_with_metadata()` function provides enhanced context formatting with filename and page number display
+  - **Header Formatting**: Creates structured headers showing document name and page numbers for improved readability
+  - **Metadata Integration**: Seamlessly integrates extracted metadata into the RAG context presentation
+  - **Backward Compatibility**: Maintains plain text formatting when metadata is unavailable
+  - **Section Headings**: Omits section headings from headers since page_content already contains contextualized headings
 
 - **Advanced LLM Configuration System**
   - **Sampling Parameter Support**: Comprehensive support for top_p, top_k, and presence_penalty parameters
@@ -118,7 +140,7 @@ This section outlines the enhanced components of the RAG system with comprehensi
 
 - **Enhanced Document Processing Pipeline**
   - **Full Pipeline**: End-to-end document processing from ingestion to vector indexing
-  - **Metadata Enrichment**: Adds document-level metadata to chunk payloads
+  - **Rich Metadata Enrichment**: Adds comprehensive document-level metadata to chunk payloads
   - **Format Validation**: Validates supported file formats and rejects unsupported types
   - **Error Recovery**: Graceful error handling with detailed logging and exception propagation
   - **Batch Processing**: Optimized batch processing for multiple document types
@@ -133,15 +155,18 @@ This section outlines the enhanced components of the RAG system with comprehensi
 **Section sources**
 - [parser.py:19-45](file://packages/rag_service/src/cafetera_rag_service/parser.py#L19-L45)
 - [parser.py:48-110](file://packages/rag_service/src/cafetera_rag_service/parser.py#L48-L110)
+- [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
+- [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
+- [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
 - [config.py:50-53](file://packages/rag_service/src/cafetera_rag_service/config.py#L50-L53)
 - [main.py:26-29](file://packages/rag_service/src/cafetera_rag_service/main.py#L26-L29)
 - [chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
 - [config.py:35-44](file://packages/rag_service/src/cafetera_rag_service/config.py#L35-L44)
 
 ## Architecture Overview
-The RAG Parser Enhancement implements a comprehensive document processing pipeline within the RAG microservice, providing sophisticated document parsing capabilities while maintaining the distributed architecture. The system now handles the complete document ingestion pipeline internally, from parsing to vector indexing.
+The RAG Parser Enhancement implements a comprehensive document processing pipeline within the RAG microservice, providing sophisticated document parsing capabilities while maintaining the distributed architecture. The system now handles the complete document ingestion pipeline internally, from parsing to vector indexing with enhanced metadata extraction and presentation capabilities.
 
-**Updated** The RAG microservice now operates as a complete document processing pipeline that includes sophisticated parsing, chunking, and preparation for AI operations. The admin service continues to handle document ingestion and metadata management, while the RAG service manages all document processing operations with enhanced capabilities. The new LLM configuration system provides advanced sampling parameter control for optimal AI performance.
+**Updated** The RAG microservice now operates as a complete document processing pipeline that includes sophisticated parsing, chunking, metadata extraction, and preparation for AI operations. The admin service continues to handle document ingestion and metadata management, while the RAG service manages all document processing operations with enhanced capabilities. The new metadata extraction system provides rich contextual information for improved AI understanding and retrieval performance.
 
 ```mermaid
 sequenceDiagram
@@ -149,6 +174,8 @@ participant Admin as "Admin Service"
 participant Upload as "Upload Router"
 participant RAGService as "RAG Service<br/>Enhanced Parser"
 participant Parser as "Docling Parser<br/>Model Caching<br/>HybridChunker"
+participant Metadata as "Metadata Extraction<br/>Page Numbers<br/>Captions<br/>Content Types"
+participant RAGChain as "RAG Chain<br/>Enhanced Formatting"
 participant LLMConfig as "LLM Config<br/>Sampling Parameters<br/>Provider Routing"
 participant Qdrant as "Qdrant Vector Store"
 Admin->>Upload : Upload PDF/DOCX/XLSX
@@ -159,7 +186,12 @@ Parser-->>RAGService : Models cached (offline mode)
 RAGService->>Parser : load_document(path, settings)
 Parser->>Parser : _load_with_docling()
 Parser->>Parser : HybridChunker + ONNX backend
-Parser-->>RAGService : List of LangChain Documents
+Parser->>Metadata : Extract page numbers, captions, content types
+Metadata-->>Parser : Rich metadata extraction
+Parser-->>RAGService : List of LangChain Documents with metadata
+RAGService->>RAGChain : Format with enhanced metadata
+RAGChain->>RAGChain : Create headers with filename + page numbers
+RAGChain-->>RAGService : Enhanced context presentation
 RAGService->>LLMConfig : Configure sampling parameters
 LLMConfig->>LLMConfig : Route parameters by provider
 LLMConfig-->>RAGService : Provider-specific config
@@ -173,22 +205,26 @@ Upload-->>Admin : Show indexed document
 - [documents_upload.py:54-60](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L54-L60)
 - [parser.py:19-45](file://packages/rag_service/src/cafetera_rag_service/parser.py#L19-L45)
 - [parser.py:94-110](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L110)
+- [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
+- [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
 - [ingest.py:118-161](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L118-L161)
-- [chain.py:89-135](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L89-L135)
+- [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
 
 **Section sources**
 - [documents_upload.py:54-60](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L54-L60)
 - [parser.py:19-45](file://packages/rag_service/src/cafetera_rag_service/parser.py#L19-L45)
 - [parser.py:94-110](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L110)
+- [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
+- [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
 - [ingest.py:118-161](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L118-L161)
-- [chain.py:89-135](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L89-L135)
+- [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
 
 ## Detailed Component Analysis
 
 ### Enhanced Document Parsing with Docling Integration
 The RAG service now includes comprehensive document parsing capabilities using Docling with HybridChunker, providing sophisticated document processing with model caching and offline support.
 
-**Updated** The document parsing system has been completely redesigned to handle multiple document formats with advanced processing capabilities, including native table extraction and layout analysis.
+**Updated** The document parsing system has been completely redesigned to handle multiple document formats with advanced processing capabilities, including native table extraction, layout analysis, and comprehensive metadata extraction with page numbers, captions, and content type detection.
 
 ```mermaid
 flowchart TD
@@ -196,21 +232,78 @@ Start(["Document Upload"]) --> Validate["Validate File Extension<br/>.pdf, .docx
 Validate --> CacheModels["Cache Models<br/>ensure_models_cached()"]
 CacheModels --> LoadDocling["_load_with_docling()<br/>Docling Loader + HybridChunker"]
 LoadDocling --> HybridChunker["HybridChunker<br/>ONNX Backend<br/>Layout Analysis"]
-HybridChunker --> ProcessTables["Process Tables<br/>Native Extraction<br/>Markdown Format"]
+HybridChunker --> ExtractMetadata["Extract Rich Metadata<br/>- Page Numbers<br/>- Captions<br/>- Content Types<br/>- Headings<br/>- Section Paths"]
+ExtractMetadata --> ProcessTables["Process Tables<br/>Native Extraction<br/>Markdown Format"]
 ProcessTables --> EnrichMetadata["Enrich Metadata<br/>Page Numbers<br/>Headings<br/>Document Info"]
-EnrichMetadata --> ReturnDocs["Return LangChain Documents<br/>Ready for Embedding"]
+EnrichMetadata --> ReturnDocs["Return LangChain Documents<br/>With Rich Metadata<br/>Ready for Embedding"]
 ReturnDocs --> Complete["Processing Complete"]
 ```
 
 **Diagram sources**
 - [parser.py:19-45](file://packages/rag_service/src/cafetera_rag_service/parser.py#L19-L45)
 - [parser.py:94-110](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L110)
+- [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
+- [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
 - [ingest.py:109-116](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L109-L116)
 
 **Section sources**
 - [parser.py:19-45](file://packages/rag_service/src/cafetera_rag_service/parser.py#L19-L45)
 - [parser.py:94-110](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L110)
+- [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
+- [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
 - [ingest.py:109-116](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L109-L116)
+
+### Advanced Metadata Extraction System
+The RAG service now includes sophisticated metadata extraction capabilities that provide rich contextual information for improved AI understanding and retrieval performance.
+
+**Updated** The metadata extraction system provides comprehensive document analysis including page number extraction, caption handling, content type detection, and rich metadata enrichment for enhanced document understanding.
+
+```mermaid
+flowchart TD
+Start(["Document Chunk"]) --> ExtractPageNumbers["_extract_page_numbers()<br/>Unique Sorted Page Numbers<br/>From Doc Items Provenance"]
+ExtractPageNumbers --> ExtractCaptions["_extract_captions()<br/>Caption Text Extraction<br/>Non-deprecated Replacement<br/>for DocMeta.captions"]
+ExtractCaptions --> DetectContentType["_detect_content_type()<br/>Content Type Detection<br/>Table vs Figure vs Text"]
+DetectContentType --> EnrichMetadata["Enrich Chunk Metadata<br/>- Source Path<br/>- Headings<br/>- Captions<br/>- Page Numbers<br/>- Content Type<br/>- Section Path"]
+EnrichMetadata --> ReturnMetadata["Return Enhanced Metadata<br/>for RAG Chain Formatting"]
+ReturnMetadata --> Complete["Metadata Extraction Complete"]
+```
+
+**Diagram sources**
+- [parser.py:94-110](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L110)
+- [parser.py:103-115](file://packages/rag_service/src/cafetera_rag_service/parser.py#L103-L115)
+- [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
+- [parser.py:152-160](file://packages/rag_service/src/cafetera_rag_service/parser.py#L152-L160)
+
+**Section sources**
+- [parser.py:94-110](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L110)
+- [parser.py:103-115](file://packages/rag_service/src/cafetera_rag_service/parser.py#L103-L115)
+- [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
+- [parser.py:152-160](file://packages/rag_service/src/cafetera_rag_service/parser.py#L152-L160)
+
+### Enhanced RAG Chain Formatting with Rich Metadata Presentation
+The RAG service now includes sophisticated formatting capabilities that present retrieved documents with rich metadata including filename and page number information for improved user experience and document navigation.
+
+**Updated** The RAG chain formatting system provides enhanced context presentation with structured headers showing document names and page numbers, creating a more informative and navigable retrieval experience.
+
+```mermaid
+flowchart TD
+Start(["Retrieved Documents"]) --> CheckMetadata{"Include Metadata?"}
+CheckMetadata --> |Yes| FormatWithMetadata["_format_docs_with_metadata()<br/>Enhanced Formatting Function"]
+CheckMetadata --> |No| FormatPlain["_format_docs()<br/>Plain Text Formatting"]
+FormatWithMetadata --> CreateHeaders["Create Structured Headers<br/>- Document Name<br/>- Page Numbers<br/>- Filename Display"]
+CreateHeaders --> CombineChunks["Combine Formatted Chunks<br/>with Section Separators"]
+FormatPlain --> CombineChunks
+CombineChunks --> ReturnFormatted["Return Formatted Context<br/>for LLM Processing"]
+ReturnFormatted --> Complete["Enhanced RAG Chain Formatting Complete"]
+```
+
+**Diagram sources**
+- [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
+- [chain.py:148-192](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L148-L192)
+
+**Section sources**
+- [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
+- [chain.py:148-192](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L148-L192)
 
 ### Advanced LLM Configuration System with Sampling Parameters
 The RAG service now includes a comprehensive LLM configuration system with advanced sampling parameter handling for improved document processing capabilities.
@@ -313,22 +406,28 @@ DoclingLoader --> HybridChunker : creates
 - [parser.py:94-110](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L110)
 
 ### Enhanced Document Processing Pipeline
-The RAG service now handles the complete document processing pipeline from ingestion to vector indexing with comprehensive metadata enrichment.
+The RAG service now handles the complete document processing pipeline from ingestion to vector indexing with comprehensive metadata enrichment and rich contextual presentation.
 
 ```mermaid
 sequenceDiagram
 participant Service as "RAG Service"
 participant S3 as "S3 Storage"
 participant Parser as "Docling Parser"
+participant Metadata as "Metadata Extraction"
 participant Embeddings as "Embedding Models"
 participant LLMConfig as "LLM Configuration"
+participant RAGChain as "RAG Chain Formatting"
 participant Qdrant as "Qdrant Vector Store"
 Service->>S3 : Download document
 S3-->>Service : File data
 Service->>Parser : load_document()
 Parser->>Parser : Parse with HybridChunker
-Parser-->>Service : List of chunked documents
+Parser->>Metadata : Extract rich metadata
+Metadata-->>Parser : Page numbers, captions, content types
+Parser-->>Service : List of chunked documents with metadata
 Service->>Service : Enrich chunk metadata
+Service->>RAGChain : Format with enhanced metadata
+RAGChain-->>Service : Structured context presentation
 Service->>LLMConfig : Configure sampling parameters
 LLMConfig-->>Service : Provider-specific config
 Service->>Embeddings : Generate dense vectors
@@ -342,11 +441,13 @@ Service-->>Service : Invalidate QA cache
 - [ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
 - [ingest.py:118-161](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L118-L161)
 - [chain.py:89-135](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L89-L135)
+- [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
 
 **Section sources**
 - [ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
 - [ingest.py:118-161](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L118-L161)
 - [chain.py:89-135](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L89-L135)
+- [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
 
 ### Distributed Configuration Management
 The configuration system has been enhanced to support the comprehensive document processing capabilities of the RAG service and advanced LLM configuration.
@@ -395,7 +496,7 @@ RagServiceSettings <|-- AdminSettings : extends
 ## Dependency Analysis
 The RAG system now operates with enhanced dependencies that support comprehensive document processing capabilities while maintaining the distributed architecture.
 
-**Updated** The RAG service has gained sophisticated dependencies for document parsing and processing, while the admin service maintains its simplified role with external service integration. The new LLM configuration system adds dependencies for provider-specific parameter handling.
+**Updated** The RAG service has gained sophisticated dependencies for document parsing and processing, while the admin service maintains its simplified role with external service integration. The new metadata extraction system adds dependencies for advanced document analysis and the enhanced RAG chain formatting system provides improved context presentation capabilities.
 
 ```mermaid
 graph TB
@@ -432,11 +533,16 @@ ADMIN --> S3
   - **Offline Processing**: Offline mode ensures consistent performance without network dependencies
   - **ONNX Backend**: Optimized processing with consistent performance across different document types
   - **Intelligent Chunking**: HybridChunker provides optimal chunk sizes while preserving document structure
+  - **Metadata Extraction**: Rich metadata extraction adds minimal overhead while providing significant value
 - **Advanced LLM Configuration Benefits**
   - **Sampling Parameter Optimization**: Fine-tuned control over LLM behavior for improved document processing quality
   - **Provider-Specific Tuning**: Optimal parameter routing for different LLM providers (OpenAI, Ollama, llama.cpp)
   - **Backward Compatibility**: Temperature-only configuration preserved for existing deployments
   - **Performance Monitoring**: Logging and validation ensure optimal parameter application
+- **Enhanced Metadata Processing**
+  - **Efficient Extraction**: Metadata extraction functions are optimized for performance with minimal overhead
+  - **Structured Data**: Rich metadata enables better document understanding and retrieval performance
+  - **Contextual Presentation**: Enhanced RAG chain formatting provides improved user experience with minimal performance impact
 - **Resource Optimization**
   - **Memory Efficiency**: Model caching reduces memory overhead by avoiding repeated model loading
   - **Network Optimization**: Offline mode eliminates network latency during document processing
@@ -455,12 +561,13 @@ ADMIN --> S3
 - **Monitoring and Observability**
   - **Model Caching Metrics**: Track model caching performance and effectiveness
   - **Processing Performance**: Monitor document parsing and chunking performance
-  - **LLM Configuration Monitoring**: Track parameter application and provider-specific behavior
+  - **Metadata Extraction Metrics**: Monitor metadata extraction efficiency and accuracy
+  - **RAG Chain Formatting Metrics**: Track enhanced formatting performance and user experience improvements
   - **Resource Utilization**: Monitor both admin and RAG service resource consumption
   - **Error Rate Tracking**: Monitor document processing error rates and failure patterns
 
 ## Troubleshooting Guide
-Common issues and resolutions for the enhanced RAG system with comprehensive document processing capabilities and advanced LLM configuration:
+Common issues and resolutions for the enhanced RAG system with comprehensive document processing capabilities and advanced metadata extraction:
 
 - **Model Caching Issues**
   - **Symptom**: Model caching fails during startup
@@ -472,6 +579,16 @@ Common issues and resolutions for the enhanced RAG system with comprehensive doc
   - **Solution**: Verify file extensions are .pdf, .docx, or .xlsx
   - **Validation**: Check file integrity and format compatibility
   - **Logging**: Review parser logs for detailed error information
+- **Metadata Extraction Issues**
+  - **Symptom**: Missing page numbers, captions, or content types in processed documents
+  - **Solution**: Verify Docling version compatibility and ensure proper document structure
+  - **Debug**: Check metadata extraction functions and their error handling
+  - **Validation**: Review extracted metadata for completeness and accuracy
+- **RAG Chain Formatting Problems**
+  - **Symptom**: Enhanced formatting not displaying filename and page numbers correctly
+  - **Solution**: Verify metadata availability in chunk documents and proper formatting function usage
+  - **Debug**: Check _format_docs_with_metadata function and metadata field names
+  - **Validation**: Review formatted output for proper header creation and content presentation
 - **LLM Configuration Issues**
   - **Symptom**: Sampling parameters not taking effect or causing errors
   - **Solution**: Verify provider compatibility - presence_penalty ignored for Ollama, top_k via extra_body for OpenAI
@@ -516,6 +633,10 @@ Common issues and resolutions for the enhanced RAG system with comprehensive doc
 
 **Section sources**
 - [parser.py:19-45](file://packages/rag_service/src/cafetera_rag_service/parser.py#L19-L45)
+- [parser.py:94-110](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L110)
+- [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
+- [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
+- [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
 - [ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
 - [config.py:8-73](file://packages/rag_service/src/cafetera_rag_service/config.py#L8-L73)
 - [chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
@@ -523,12 +644,14 @@ Common issues and resolutions for the enhanced RAG system with comprehensive doc
 ## Conclusion
 The RAG Parser Enhancement successfully transforms the RAG service from a simple indexing microservice to a comprehensive document processing pipeline with sophisticated capabilities. By integrating Docling with HybridChunker, implementing model caching with offline support, and adding support for PDF, DOCX, and XLSX formats with native table extraction and layout analysis, the system now provides enterprise-grade document processing capabilities.
 
-**Updated** The enhanced RAG service maintains its distributed architecture while significantly expanding its internal capabilities to handle the complete document processing pipeline. The system now provides robust document parsing, intelligent chunking, and comprehensive metadata enrichment while maintaining the benefits of distributed processing and service isolation. The new LLM configuration system with advanced sampling parameter handling provides fine-grained control over AI model behavior, enabling optimal document processing performance across different providers.
+**Updated** The enhanced RAG service maintains its distributed architecture while significantly expanding its internal capabilities to handle the complete document processing pipeline. The system now provides robust document parsing, intelligent chunking, comprehensive metadata extraction, and enhanced RAG chain formatting with rich contextual presentation while maintaining the benefits of distributed processing and service isolation. The new metadata extraction system with page number extraction, caption handling, and content type detection provides significant improvements in document understanding and retrieval performance.
 
 The model caching system ensures reliable performance without network dependencies, while the HybridChunker provides optimal document segmentation with layout preservation. The integration with langchain-docling enables seamless processing of multiple document formats with native table extraction and advanced layout analysis. The enhanced LLM configuration system provides sophisticated parameter routing and validation, supporting OpenAI, Ollama, and llama.cpp providers with provider-specific optimizations.
 
+The enhanced metadata extraction system provides rich contextual information including page numbers, captions, headings, and content type detection, significantly improving AI understanding and retrieval performance. The enhanced RAG chain formatting system presents retrieved documents with structured headers showing document names and page numbers, creating a more informative and navigable retrieval experience.
+
 The distributed architecture continues to provide scalability, fault tolerance, and deployment flexibility, while the enhanced RAG service offers superior document processing capabilities that position the system for enterprise-scale document processing with comprehensive semantic understanding and retrieval capabilities. The system maintains backward compatibility through unified configuration management and graceful fallback mechanisms, ensuring smooth operation alongside the admin service that continues to handle document ingestion and metadata management.
 
-The elimination of external dependencies for document processing reduces operational complexity while enabling the RAG service to leverage specialized hardware and optimized infrastructure for AI operations. The enhanced architecture also provides better monitoring, logging, and observability across service boundaries, offering comprehensive insights into document processing performance and health. The advanced LLM configuration system ensures optimal AI performance through intelligent parameter handling and provider-specific optimizations.
+The elimination of external dependencies for document processing reduces operational complexity while enabling the RAG service to leverage specialized hardware and optimized infrastructure for AI operations. The enhanced architecture also provides better monitoring, logging, and observability across service boundaries, offering comprehensive insights into document processing performance and health. The advanced metadata extraction system ensures optimal AI performance through rich contextual information and provider-specific optimizations.
 
-The system maintains backward compatibility through default parameter values and None-based optional parameters, ensuring smooth operation alongside existing deployments while providing enhanced capabilities for improved document processing performance.
+The system maintains backward compatibility through default parameter values and None-based optional parameters, ensuring smooth operation alongside existing deployments while providing enhanced capabilities for improved document processing performance. The comprehensive metadata extraction and enhanced RAG chain formatting represent significant improvements in document understanding and user experience, positioning the system for enterprise-scale document processing with superior retrieval and understanding capabilities.

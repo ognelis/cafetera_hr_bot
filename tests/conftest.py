@@ -122,7 +122,13 @@ def mock_rag_client():
     """Mock RAGClient with async methods."""
     client = AsyncMock()
     client.ask.return_value = "Test answer"
-    client.ingest_document.return_value = 5
+    client.ingest_document.return_value = {
+        "chunks_indexed": 5,
+        "page_count": 10,
+        "binary_hash": "abc123",
+        "extracted_title": "Test Document",
+        "status": "ok",
+    }
     client.index_chunks.return_value = 5
     client.toggle_search.return_value = None
     client.invalidate_cache.return_value = None

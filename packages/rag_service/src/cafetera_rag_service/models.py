@@ -62,6 +62,9 @@ class IngestRequest(BaseModel):
 class IngestResponse(BaseModel):
     status: str = "ok"
     chunks_indexed: int
+    page_count: int | None = None
+    binary_hash: str | None = None
+    extracted_title: str | None = None
 
 
 class HealthResponse(BaseModel):

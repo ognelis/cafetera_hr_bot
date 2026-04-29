@@ -28,6 +28,11 @@
 - [components.js](file://static/js/components.js)
 - [upload.js](file://static/js/upload.js)
 - [style.css](file://static/css/style.css)
+- [parser.py](file://packages/rag_service/src/cafetera_rag_service/parser.py)
+- [resources.py](file://packages/rag_service/src/cafetera_rag_service/resources.py)
+- [chain.py](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py)
+- [indexing.py](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py)
+- [test_parser.py](file://tests/test_parser.py)
 </cite>
 
 ## Update Summary
@@ -37,6 +42,8 @@
 - Added fixed header and footer layout patterns for modal dialogs with scrollable content areas
 - Improved user experience with automatic scrolling to latest content during streaming responses
 - Enhanced modal accessibility with proper backdrop handling and keyboard navigation support
+- **Updated** Enhanced Docling integration with comprehensive metadata extraction including page numbers, headings, and document structure preservation
+- **Updated** New payload index for metadata.headings field in Qdrant collection for improved document filtering and search capabilities
 - **Updated** ONNX-based document processing pipeline with pre-downloaded Docling ML models (layout analysis, TableFormer) and ONNX runtime dependencies
 - **Updated** Enhanced Docker optimization with Torch package preservation and headless OpenCV support for improved performance
 
@@ -48,23 +55,25 @@
 5. [Detailed Component Analysis](#detailed-component-analysis)
 6. [Enhanced Modal Window System](#enhanced-modal-window-system)
 7. [Streaming Question Answering](#streaming-question-answering)
-8. [ONNX-Based Document Processing Pipeline](#onnx-based-document-processing-pipeline)
-9. [Enhanced Docker Deployment](#enhanced-docker-deployment)
-10. [Testing Coverage](#testing-coverage)
-11. [Performance Considerations](#performance-considerations)
-12. [Troubleshooting Guide](#troubleshooting-guide)
-13. [Conclusion](#conclusion)
+8. [Enhanced Docling Integration](#enhanced-docling-integration)
+9. [ONNX-Based Document Processing Pipeline](#onnx-based-document-processing-pipeline)
+10. [Enhanced Docker Deployment](#enhanced-docker-deployment)
+11. [Testing Coverage](#testing-coverage)
+12. [Performance Considerations](#performance-considerations)
+13. [Troubleshooting Guide](#troubleshooting-guide)
+14. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the Document Management System built around a VKontakte (VK) bot integrated with a Retrieval-Augmented Generation (RAG) backend. The system manages HR-related documents and provides conversational access to policies, procedures, and templates through an intuitive chat interface. It leverages configurable settings for LLM providers, vector storage, and document chunking, while offering modular handlers for different HR workflows such as hiring, termination, vacation, payroll, and general questions.
 
-**Updated** The system now features an enhanced modal window system with improved layout, automatic scrolling functionality, and better user experience for document questions and global questions. The modal system now supports streaming responses with automatic content scrolling, providing a more responsive and engaging user experience. Additionally, the system implements an ONNX-based document processing pipeline with pre-downloaded ML models for improved performance and reliability.
+**Updated** The system now features an enhanced modal window system with improved layout, automatic scrolling functionality, and better user experience for document questions and global questions. The modal system now supports streaming responses with automatic content scrolling, providing a more responsive and engaging user experience. Additionally, the system implements an ONNX-based document processing pipeline with pre-downloaded ML models for improved performance and reliability, along with comprehensive metadata extraction capabilities including page numbers, headings, and document structure preservation.
 
 ## Project Structure
 The project follows a monorepo workspace managed by uv, with three main packages:
 - core: Shared RAG and infrastructure settings
 - vk_bot: VK bot implementation with handlers and UI keyboards
 - admin: Admin web UI settings extending core configuration
+- rag_service: Enhanced RAG service with comprehensive Docling integration
 
 ```mermaid
 graph TB
@@ -73,6 +82,7 @@ CORE["packages/core/src/cafetera_core/config.py"]
 ADMIN["packages/admin/src/cafetera_admin/config.py"]
 VKBOT["packages/vk_bot/src/cafetera_vk_bot/"]
 TESTS["tests/"]
+RAGSERVICE["packages/rag_service/src/cafetera_rag_service/"]
 end
 subgraph "VK Bot Package"
 BOT["bot.py"]
@@ -86,9 +96,16 @@ DOC_SERVICE["document_service.py"]
 QA_API["documents_qa.py"]
 PARSER["parser.py"]
 end
+subgraph "RAG Service Package"
+PARSER["parser.py"]
+RESOURCES["resources.py"]
+CHAIN["rag/chain.py"]
+INDEXING["api/indexing.py"]
+end
 CORE --> ADMIN
 CORE --> VKBOT
 CORE --> INDEXER
+CORE --> RAGSERVICE
 VKBOT --> BOT
 VKBOT --> STATES
 VKBOT --> KEYBOARDS
@@ -96,6 +113,7 @@ VKBOT --> HANDLERS
 TESTS --> VKBOT
 TESTS --> INDEXER
 TESTS --> QA_API
+TESTS --> RAGSERVICE
 ```
 
 **Diagram sources**
@@ -108,6 +126,10 @@ TESTS --> QA_API
 - [qa_service.py:1-303](file://packages/core/src/cafetera_core/domain/qa_service.py#L1-303)
 - [documents_qa.py:1-90](file://packages/admin/src/cafetera_admin/api/documents_qa.py#L1-90)
 - [parser.py:1-111](file://packages/admin/src/cafetera_admin/parser.py#L1-111)
+- [parser.py:1-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L1-164)
+- [resources.py:1-345](file://packages/rag_service/src/cafetera_rag_service/resources.py#L1-345)
+- [chain.py:1-192](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L1-192)
+- [indexing.py:1-222](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L1-222)
 
 **Section sources**
 - [pyproject.toml:1-49](file://pyproject.toml#L1-L49)
@@ -120,6 +142,7 @@ TESTS --> QA_API
 - VK States: Multi-step dialog states, currently focused on free-text questions.
 - **Updated** Enhanced Modal System: Improved layout with fixed headers and footers, scrollable content areas, and automatic scrolling for streaming responses.
 - **Updated** Streaming QA Service: Real-time question answering with SSE streaming and automatic content updates.
+- **Updated** Enhanced Docling Integration: Advanced document processing with comprehensive metadata extraction including page numbers, headings, captions, content types, and structural paths.
 - **Updated** ONNX Document Parser: Advanced document processing pipeline using Docling with ONNX runtime for layout analysis and table extraction.
 
 **Section sources**
@@ -132,9 +155,10 @@ TESTS --> QA_API
 - [sections.py:24-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L24-L39)
 - [indexer.py:29-54](file://packages/admin/src/cafetera_admin/indexer.py#L29-L54)
 - [parser.py:19-45](file://packages/admin/src/cafetera_admin/parser.py#L19-L45)
+- [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
 
 ## Architecture Overview
-The system integrates VK bot routing with RAG-powered responses. Handlers trigger RAG queries and present templated answers with navigation back to relevant sections. Configuration is shared across packages to maintain consistent behavior for indexing and retrieval. **Updated** The enhanced modal system now supports streaming responses with automatic content scrolling, providing a more responsive user experience. The ONNX-based document processing pipeline ensures reliable and efficient document parsing with pre-downloaded ML models.
+The system integrates VK bot routing with RAG-powered responses. Handlers trigger RAG queries and present templated answers with navigation back to relevant sections. Configuration is shared across packages to maintain consistent behavior for indexing and retrieval. **Updated** The enhanced modal system now supports streaming responses with automatic content scrolling, providing a more responsive user experience. The ONNX-based document processing pipeline ensures reliable and efficient document parsing with pre-downloaded ML models. The enhanced Docling integration provides comprehensive metadata extraction including page numbers, headings, captions, content types, and structural paths for improved document understanding and filtering.
 
 ```mermaid
 graph TB
@@ -149,8 +173,11 @@ INDEXER["Enhanced Indexer<br/>indexer.py"]
 DOCSVC["Document Service<br/>document_service.py"]
 QA_SERVICE["QA Service<br/>qa_service.py"]
 PARSER["ONNX Parser<br/>parser.py"]
+DOCLET_PARSER["Enhanced Docling Parser<br/>parser.py"]
+METADATA_EXTRACTOR["Metadata Extraction<br/>page_numbers, headings, captions"]
+PAYLOAD_INDEX["Payload Index<br/>metadata.headings"]
 MODAL_SYS["Enhanced Modal System<br/>documents.html + components.js"]
-TESTS["Comprehensive Tests<br/>test_indexer.py + qa tests"]
+TESTS["Comprehensive Tests<br/>test_indexer.py + qa tests + test_parser.py"]
 DOCKER["Enhanced Docker<br/>docker-compose.yml + Dockerfiles"]
 USER --> BOT
 BOT --> LABELERS
@@ -160,11 +187,15 @@ BOT --> CORECFG
 ADMINCFG --> CORECFG
 INDEXER --> DOCSVC
 DOCSVC --> PARSER
-PARSER --> QA_SERVICE
+PARSER --> DOCLET_PARSER
+DOCLET_PARSER --> METADATA_EXTRACTOR
+METADATA_EXTRACTOR --> PAYLOAD_INDEX
+PAYLOAD_INDEX --> QA_SERVICE
 QA_SERVICE --> MODAL_SYS
 MODAL_SYS --> TESTS
 DOCKER --> INDEXER
 DOCKER --> PARSER
+DOCKER --> DOCLET_PARSER
 ```
 
 **Diagram sources**
@@ -180,6 +211,8 @@ DOCKER --> PARSER
 - [document_service.py:113-182](file://packages/admin/src/cafetera_admin/domain/document_service.py#L113-L182)
 - [qa_service.py:217-280](file://packages/core/src/cafetera_core/domain/qa_service.py#L217-L280)
 - [parser.py:19-110](file://packages/admin/src/cafetera_admin/parser.py#L19-L110)
+- [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
+- [resources.py:137-148](file://packages/rag_service/src/cafetera_rag_service/resources.py#L137-148)
 - [documents.html:270-371](file://templates/documents.html#L270-L371)
 - [components.js:417-558](file://static/js/components.js#L417-L558)
 - [test_indexer.py:1-618](file://tests/test_indexer.py#L1-618)
@@ -473,6 +506,113 @@ Continue --> Stream
 - [qa_service.py:217-280](file://packages/core/src/cafetera_core/domain/qa_service.py#L217-L280)
 - [components.js:436-558](file://static/js/components.js#L436-L558)
 
+## Enhanced Docling Integration
+
+### Comprehensive Metadata Extraction
+The enhanced Docling integration provides comprehensive metadata extraction capabilities including page numbers, headings, captions, content types, and structural paths for improved document understanding and filtering.
+
+```mermaid
+sequenceDiagram
+participant Docling as "Docling Engine"
+participant HybridChunker as "HybridChunker"
+participant MetadataExtractor as "Metadata Extractors"
+participant Qdrant as "Qdrant Collection"
+Docling->>HybridChunker : "Parse Document"
+HybridChunker->>MetadataExtractor : "Extract Metadata"
+MetadataExtractor->>MetadataExtractor : "_extract_page_numbers()"
+MetadataExtractor->>MetadataExtractor : "_extract_captions()"
+MetadataExtractor->>MetadataExtractor : "_detect_content_type()"
+MetadataExtractor->>Qdrant : "Store with metadata.headings index"
+```
+
+**Diagram sources**
+- [parser.py:94-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L164)
+- [resources.py:137-148](file://packages/rag_service/src/cafetera_rag_service/resources.py#L137-L148)
+
+### Advanced Document Parsing Architecture
+The system now implements an ONNX-based document processing pipeline using Docling for advanced PDF, DOCX, and XLSX parsing capabilities with comprehensive metadata extraction.
+
+```mermaid
+sequenceDiagram
+participant Parser as "Document Parser"
+participant Cache as "Model Cache"
+participant Docling as "Docling Engine"
+participant ONNX as "ONNX Runtime"
+participant Chunker as "HybridChunker"
+participant MetadataExtractor as "Metadata Extractors"
+Parser->>Cache : "ensure_models_cached()"
+Cache->>ONNX : "LayoutPredictor (Layout Analysis)"
+Cache->>ONNX : "DocumentConverter (TableFormer)"
+Cache->>Cache : "Enable Offline Mode"
+Parser->>Docling : "Create DocumentConverter()"
+Docling->>ONNX : "Load ONNX Models"
+Parser->>Chunker : "Create HybridChunker"
+Chunker->>ONNX : "Load Tokenizer"
+Parser->>Docling : "Parse Document"
+Docling->>ONNX : "Extract Layout & Tables"
+ONNX-->>Docling : "Structured Content"
+Docling-->>MetadataExtractor : "Chunk with Metadata"
+MetadataExtractor-->>Parser : "Extracted Metadata"
+Parser-->>Parser : "Store with metadata.headings index"
+```
+
+**Diagram sources**
+- [parser.py:19-45](file://packages/admin/src/cafetera_admin/parser.py#L19-L45)
+- [parser.py:77-91](file://packages/admin/src/cafetera_admin/parser.py#L77-L91)
+- [parser.py:94-110](file://packages/admin/src/cafetera_admin/parser.py#L94-L110)
+- [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
+
+### Enhanced Metadata Extraction Functions
+The system implements specialized functions for extracting comprehensive document metadata:
+
+```mermaid
+classDiagram
+class MetadataExtractors {
++_extract_page_numbers(chunk) list[int]
++_extract_captions(chunk) list[str]
++_detect_content_type(chunk) str
+}
+class DocumentMetadata {
++source : str
++headings : list[str]
++captions : list[str]
++page_numbers : list[int]
++content_type : str
++section_path : str
+}
+MetadataExtractors --> DocumentMetadata : "creates"
+```
+
+**Diagram sources**
+- [parser.py:94-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L127)
+
+### New Payload Index for Headings
+The system now includes a dedicated payload index for metadata.headings field in Qdrant collection to enable efficient filtering and searching of documents by their headings.
+
+```mermaid
+classDiagram
+class QdrantCollection {
++metadata.document_id : KEYWORD
++metadata.filename : KEYWORD
++metadata.headings : KEYWORD
++is_search_enabled : BOOL
+}
+class PayloadIndex {
++field_name : "metadata.headings"
++field_schema : KEYWORD
++logging : "Created KEYWORD payload indexes"
+}
+QdrantCollection --> PayloadIndex : "indexes"
+```
+
+**Diagram sources**
+- [resources.py:137-148](file://packages/rag_service/src/cafetera_rag_service/resources.py#L137-L148)
+
+**Section sources**
+- [parser.py:94-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L94-L164)
+- [resources.py:137-148](file://packages/rag_service/src/cafetera_rag_service/resources.py#L137-L148)
+- [test_parser.py:27-89](file://tests/test_parser.py#L27-L89)
+
 ## ONNX-Based Document Processing Pipeline
 
 ### Advanced Document Parsing Architecture
@@ -547,7 +687,8 @@ ONNXProcessing --> LayoutAnalysis["Layout Analysis"]
 LayoutAnalysis --> TableExtraction["Table Extraction"]
 TableExtraction --> TextRecognition["Text Recognition"]
 TextRecognition --> HybridChunking["Hybrid Chunking"]
-HybridChunking --> StructuredOutput["Structured Document Chunks"]
+HybridChunking --> MetadataExtraction["Metadata Extraction"]
+MetadataExtraction --> StructuredOutput["Structured Document Chunks"]
 LegacyError --> ErrorHandler["Error Handler"]
 UnsupportedError --> ErrorHandler
 ErrorHandler --> ReturnEmpty["Return Empty List"]
@@ -656,6 +797,7 @@ OptimizeTests["Collection Optimization Tests"]
 ModalTests["Modal System Tests"]
 StreamingTests["Streaming Response Tests"]
 ONNXTests["ONNX Pipeline Tests"]
+DoclingTests["Enhanced Docling Tests"]
 TestSuite --> ParallelTests
 TestSuite --> BatchTests
 TestSuite --> RetryTests
@@ -663,6 +805,7 @@ TestSuite --> OptimizeTests
 TestSuite --> ModalTests
 TestSuite --> StreamingTests
 TestSuite --> ONNXTests
+TestSuite --> DoclingTests
 ParallelTests --> DenseSparseColBERT["Dense + Sparse + ColBERT"]
 BatchTests --> BatchUpsert["Batched Upserts"]
 BatchTests --> DeferredIndexing["Deferred Indexing"]
@@ -676,6 +819,9 @@ StreamingTests --> ErrorHandling["Error Handling Tests"]
 ONNXTests --> ModelCaching["Model Caching Tests"]
 ONNXTests --> DocumentParsing["Document Parsing Tests"]
 ONNXTests --> OfflineMode["Offline Mode Tests"]
+DoclingTests --> MetadataExtraction["Metadata Extraction Tests"]
+DoclingTests --> HeadingIndexing["Heading Indexing Tests"]
+DoclingTests --> PageNumberExtraction["Page Number Extraction Tests"]
 ```
 
 **Diagram sources**
@@ -683,6 +829,7 @@ ONNXTests --> OfflineMode["Offline Mode Tests"]
 - [test_indexer.py:400-456](file://tests/test_indexer.py#L400-L456)
 - [test_indexer.py:518-595](file://tests/test_indexer.py#L518-L595)
 - [test_indexer.py:304-368](file://tests/test_indexer.py#L304-L368)
+- [test_parser.py:22-120](file://tests/test_parser.py#L22-L120)
 
 ### Test Categories
 - **Parallel Embeddings**: Validates concurrent execution of dense, sparse, and ColBERT embeddings
@@ -692,9 +839,11 @@ ONNXTests --> OfflineMode["Offline Mode Tests"]
 - **Modal System**: Tests layout structure, auto-scrolling functionality, and user interaction patterns
 - **Streaming Responses**: Validates SSE integration, error handling, and real-time content updates
 - **ONNX Pipeline**: Tests model caching, document parsing, and offline mode functionality
+- **Enhanced Docling Integration**: Tests comprehensive metadata extraction including page numbers, headings, captions, and content types
 
 **Section sources**
 - [test_indexer.py:1-618](file://tests/test_indexer.py#L1-618)
+- [test_parser.py:1-120](file://tests/test_parser.py#L1-120)
 
 ## Performance Considerations
 - Concurrency: The maximum concurrent indexing is configurable to balance throughput and resource usage.
@@ -713,6 +862,8 @@ ONNXTests --> OfflineMode["Offline Mode Tests"]
 - **Updated** ONNX Performance: Pre-downloaded Docling models with ONNX runtime provide zero-latency document processing with improved accuracy.
 - **Updated** Torch Preservation: Essential Torch packages are preserved during cleanup to maintain GPU acceleration capabilities.
 - **Updated** Headless Optimization: Headless OpenCV eliminates GUI dependencies while maintaining full computer vision functionality.
+- **Updated** Enhanced Metadata Extraction: Comprehensive metadata extraction including page numbers, headings, captions, and content types improves document understanding and filtering performance.
+- **Updated** Payload Indexing: Dedicated metadata.headings payload index enables efficient filtering and searching of documents by their headings.
 
 ## Troubleshooting Guide
 - Logging: Configure global logging for consistent log formatting across the system.
@@ -732,6 +883,8 @@ ONNXTests --> OfflineMode["Offline Mode Tests"]
 - **Updated** ONNX Model Issues: Verify that Docling ONNX models are properly cached and offline mode is enabled in production environments.
 - **Updated** Torch Compatibility: Ensure Torch packages are preserved during Docker build process for GPU acceleration support.
 - **Updated** Headless OpenCV Problems: Verify that opencv-python-headless is properly installed and functioning in Docker containers.
+- **Updated** Enhanced Docling Integration: Verify that metadata extraction functions are properly extracting page numbers, headings, captions, and content types from parsed documents.
+- **Updated** Payload Index Issues: Check that metadata.headings payload index is properly created and accessible in Qdrant collection for efficient document filtering.
 
 **Section sources**
 - [config.py:7-12](file://packages/core/src/cafetera_core/config.py#L7-L12)
@@ -743,11 +896,15 @@ ONNXTests --> OfflineMode["Offline Mode Tests"]
 - [documents.html:270-371](file://templates/documents.html#L270-L371)
 - [components.js:417-558](file://static/js/components.js#L417-L558)
 - [parser.py:19-45](file://packages/admin/src/cafetera_admin/parser.py#L19-L45)
+- [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
+- [resources.py:137-148](file://packages/rag_service/src/cafetera_rag_service/resources.py#L137-L148)
 - [pyproject.toml:28-32](file://pyproject.toml#L28-L32)
 
 ## Conclusion
 The Document Management System provides a robust, extensible foundation for HR document access via a VK bot. Its modular design, centralized configuration, and structured handler routing enable efficient development and maintenance. **Updated** The system now features significant enhancements to the modal window system, including improved layout architecture, automatic scrolling functionality, and better user experience for document questions and global questions. The enhanced modal system with fixed headers, scrollable content areas, and automatic scrolling provides a more responsive and engaging user interface. Combined with real-time streaming responses and SSE integration, the system delivers a modern, efficient user experience for HR document management.
 
 **Updated** The ONNX-based document processing pipeline represents a major advancement in document handling capabilities, providing reliable and efficient processing of PDF, DOCX, and XLSX files with pre-downloaded ML models for zero-latency performance. The enhanced Docker deployment strategy with Torch package preservation and headless OpenCV support ensures optimal performance across different environments while maintaining full functionality.
+
+**Updated** The enhanced Docling integration provides comprehensive metadata extraction capabilities including page numbers, headings, captions, content types, and structural paths, significantly improving document understanding and filtering. The new payload index for metadata.headings field in Qdrant collection enables efficient filtering and searching of documents by their headings, making the system more powerful and user-friendly.
 
 The comprehensive testing coverage ensures these new features function correctly under various conditions, making the system more robust and maintainable. The system's architecture supports future enhancements while maintaining backward compatibility and operational reliability.

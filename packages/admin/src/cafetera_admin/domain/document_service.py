@@ -106,19 +106,26 @@ class DocumentService:
         )
 
         try:
-            count = await self._rag_client.ingest_document(
+            result = await self._rag_client.ingest_document(
                 document_id=document_id,
                 filename=record.filename,
                 s3_key=record.s3_key,
                 is_search_enabled=record.is_search_enabled,
             )
 
+            indexing_config = {
+                "page_count": result["page_count"],
+                "binary_hash": result["binary_hash"],
+                "extracted_title": result["extracted_title"],
+            }
+
             return await self._repo.update(
                 document_id,
                 status=DocumentStatus.completed,
-                chunk_count=count,
+                chunk_count=result["chunks_indexed"],
                 indexed_at=datetime.now(UTC),
                 error=None,
+                indexing_config=indexing_config,
             )
         except Exception as exc:
             logger.error(
@@ -185,20 +192,27 @@ class DocumentService:
         )
 
         try:
-            count = await self._rag_client.ingest_document(
+            result = await self._rag_client.ingest_document(
                 document_id=document_id,
                 filename=record.filename,
                 s3_key=record.s3_key,
                 is_search_enabled=True,
             )
 
+            indexing_config = {
+                "page_count": result["page_count"],
+                "binary_hash": result["binary_hash"],
+                "extracted_title": result["extracted_title"],
+            }
+
             return await self._repo.update(
                 document_id,
                 status=DocumentStatus.completed,
                 is_search_enabled=True,
-                chunk_count=count,
+                chunk_count=result["chunks_indexed"],
                 indexed_at=datetime.now(UTC),
                 error=None,
+                indexing_config=indexing_config,
             )
         except Exception as exc:
             logger.error(

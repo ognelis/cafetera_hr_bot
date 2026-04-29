@@ -9,7 +9,7 @@ import pytest
 from langchain_core.documents import Document as LCDocument
 
 from cafetera_rag_service.config import RagServiceSettings
-from cafetera_rag_service.parser import load_document
+from cafetera_rag_service.parser import ParseResult, load_document
 
 
 def _make_settings() -> RagServiceSettings:
@@ -37,13 +37,23 @@ class TestLoadDocument:
         )
         settings = _make_settings()
 
+        mock_result = ParseResult(
+            chunks=[mock_doc],
+            page_count=5,
+            binary_hash="abc123",
+            extracted_title="Test Document",
+        )
+
         with patch(
-            "cafetera_rag_service.parser._load_with_docling", return_value=[mock_doc]
+            "cafetera_rag_service.parser._load_with_docling", return_value=mock_result
         ) as mock_load:
             result = load_document(docx_path, settings)
 
-        assert len(result) == 1
-        assert result[0].page_content == "chunk"
+        assert len(result.chunks) == 1
+        assert result.chunks[0].page_content == "chunk"
+        assert result.page_count == 5
+        assert result.binary_hash == "abc123"
+        assert result.extracted_title == "Test Document"
         mock_load.assert_called_once_with(docx_path, settings)
 
     def test_load_document_pdf(self, tmp_path: Path):
@@ -63,13 +73,23 @@ class TestLoadDocument:
         )
         settings = _make_settings()
 
+        mock_result = ParseResult(
+            chunks=[mock_doc],
+            page_count=3,
+            binary_hash="pdf456",
+            extracted_title="PDF Document",
+        )
+
         with patch(
-            "cafetera_rag_service.parser._load_with_docling", return_value=[mock_doc]
+            "cafetera_rag_service.parser._load_with_docling", return_value=mock_result
         ) as mock_load:
             result = load_document(pdf_path, settings)
 
-        assert len(result) == 1
-        assert result[0].page_content == "pdf chunk"
+        assert len(result.chunks) == 1
+        assert result.chunks[0].page_content == "pdf chunk"
+        assert result.page_count == 3
+        assert result.binary_hash == "pdf456"
+        assert result.extracted_title == "PDF Document"
         mock_load.assert_called_once_with(pdf_path, settings)
 
     def test_load_document_xlsx(self, tmp_path: Path):
@@ -89,13 +109,23 @@ class TestLoadDocument:
         )
         settings = _make_settings()
 
+        mock_result = ParseResult(
+            chunks=[mock_doc],
+            page_count=1,
+            binary_hash="xlsx789",
+            extracted_title="XLSX Document",
+        )
+
         with patch(
-            "cafetera_rag_service.parser._load_with_docling", return_value=[mock_doc]
+            "cafetera_rag_service.parser._load_with_docling", return_value=mock_result
         ) as mock_load:
             result = load_document(xlsx_path, settings)
 
-        assert len(result) == 1
-        assert result[0].page_content == "xlsx chunk"
+        assert len(result.chunks) == 1
+        assert result.chunks[0].page_content == "xlsx chunk"
+        assert result.page_count == 1
+        assert result.binary_hash == "xlsx789"
+        assert result.extracted_title == "XLSX Document"
         mock_load.assert_called_once_with(xlsx_path, settings)
 
     def test_load_document_doc_raises_valueerror(self, tmp_path: Path):

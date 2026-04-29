@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from langchain_core.documents import Document
@@ -14,6 +15,16 @@ from langchain_core.documents import Document
 from cafetera_rag_service.config import RagServiceSettings
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ParseResult:
+    """Document parsing result with chunks and document-level metadata."""
+
+    chunks: list[Document]
+    page_count: int | None = None
+    binary_hash: str | None = None
+    extracted_title: str | None = None
 
 
 def ensure_models_cached(model_name: str) -> None:
@@ -45,7 +56,7 @@ def ensure_models_cached(model_name: str) -> None:
     logger.info("HuggingFace offline mode enabled")
 
 
-def load_document(path: str | Path, settings: RagServiceSettings) -> list[Document]:
+def load_document(path: str | Path, settings: RagServiceSettings) -> ParseResult:
     """Parse a document file into chunked LangChain Document objects.
 
     Dispatches to the appropriate loader based on file extension:
@@ -57,7 +68,7 @@ def load_document(path: str | Path, settings: RagServiceSettings) -> list[Docume
         settings: RagServiceSettings with chunk_size and chunker_tokenizer_model.
 
     Returns:
-        List of LangChain Document objects.
+        ParseResult with chunks and document-level metadata.
 
     Raises:
         ValueError: If the file extension is not supported.
@@ -126,7 +137,7 @@ def _detect_content_type(chunk) -> str:
     return "text"
 
 
-def _load_with_docling(path: Path, settings: RagServiceSettings) -> list[Document]:
+def _load_with_docling(path: Path, settings: RagServiceSettings) -> ParseResult:
     """Parse PDF/DOCX/XLSX files using Docling with HybridChunker.
 
     Uses DocumentConverter + HybridChunker directly (instead of langchain-docling
@@ -141,6 +152,10 @@ def _load_with_docling(path: Path, settings: RagServiceSettings) -> list[Documen
     converter = DocumentConverter()
     result = converter.convert(str(path))
     dl_doc = result.document
+
+    page_count = len(result.pages) if result.pages else None
+    binary_hash = str(dl_doc.origin.binary_hash) if dl_doc.origin else None
+    extracted_title = dl_doc.name or None
 
     chunker = _get_chunker(settings.chunker_tokenizer_model, settings.chunk_size)
     docs: list[Document] = []
@@ -160,4 +175,9 @@ def _load_with_docling(path: Path, settings: RagServiceSettings) -> list[Documen
         docs.append(Document(page_content=contextualized, metadata=metadata))
 
     logger.info("Docling loaded %d chunks from %s", len(docs), path.name)
-    return docs
+    return ParseResult(
+        chunks=docs,
+        page_count=page_count,
+        binary_hash=binary_hash,
+        extracted_title=extracted_title,
+    )

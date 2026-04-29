@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS documents (
     updated_at      TIMESTAMPTZ    NOT NULL,
     indexed_at      TIMESTAMPTZ,
     chunk_count     INTEGER NOT NULL DEFAULT 0,
-    indexing_config TEXT
+    indexing_config JSONB
 );
 """
 
@@ -51,7 +51,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_cat_sub_entity
 
 
 _ADD_INDEXING_CONFIG_COLUMN = """\
-ALTER TABLE documents ADD COLUMN IF NOT EXISTS indexing_config TEXT;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS indexing_config JSONB;
 """
 
 
