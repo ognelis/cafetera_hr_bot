@@ -15,15 +15,17 @@
 - [packages/rag_service/src/cafetera_rag_service/api/ingest.py](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py)
 - [packages/rag_service/src/cafetera_rag_service/config.py](file://packages/rag_service/src/cafetera_rag_service/config.py)
 - [packages/rag_service/src/cafetera_rag_service/models.py](file://packages/rag_service/src/cafetera_rag_service/models.py)
+- [.env.example](file://.env.example)
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added documentation for new `ingest_document()` method providing unified ingestion pipeline
-- Added documentation for new `toggle_search()` method enabling dynamic document visibility control
-- Updated API endpoint documentation to include new ingestion and search toggle endpoints
-- Enhanced document management workflow documentation with complete ingestion pipeline
-- Updated data flow analysis to reflect new unified ingestion capabilities
+- Enhanced LLM configuration system with new sampling parameters (temperature, top_p, top_k, presence_penalty)
+- Added provider-specific handling for improved client integration across Ollama, OpenAI, and llama.cpp
+- Updated configuration management to support advanced LLM parameter tuning
+- Enhanced streaming response handling with improved error recovery
+- Added comprehensive documentation for new sampling parameter configuration
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -33,16 +35,19 @@
 5. [Integration Points](#integration-points)
 6. [API Endpoints](#api-endpoints)
 7. [Configuration Management](#configuration-management)
-8. [Data Flow Analysis](#data-flow-analysis)
-9. [Performance Considerations](#performance-considerations)
-10. [Troubleshooting Guide](#troubleshooting-guide)
-11. [Conclusion](#conclusion)
+8. [LLM Sampling Parameters](#llm-sampling-parameters)
+9. [Data Flow Analysis](#data-flow-analysis)
+10. [Performance Considerations](#performance-considerations)
+11. [Troubleshooting Guide](#troubleshooting-guide)
+12. [Conclusion](#conclusion)
 
 ## Introduction
 
 The RAG (Retrieval-Augmented Generation) Client Integration is a critical component of the Cafetera HR Bot ecosystem, serving as the primary interface between the application's frontend services (Admin Panel and VK Bot) and the RAG microservice. This integration enables intelligent document-based question answering capabilities, allowing employees to query HR policies, procedures, and company guidelines through natural language interfaces.
 
 The system operates on a microservices architecture where the RAG Client acts as a thin HTTP client that communicates with a dedicated RAG service running on port 8001. The integration supports both synchronous and streaming responses, enabling real-time conversational experiences while maintaining efficient resource utilization. Recent enhancements include improved error handling for batch operations, new cache invalidation functionality, enhanced streaming response handling, and the addition of unified document ingestion and dynamic search visibility control capabilities.
+
+**Updated** Enhanced LLM configuration system with new sampling parameters and provider-specific handling for improved client integration.
 
 ## System Architecture
 
@@ -60,6 +65,7 @@ RAGClient[RAG Client]
 Config[Configuration Manager]
 Storage[Storage Layer]
 CacheManager[Cache Manager]
+LLMChain[LLM Chain Builder]
 end
 subgraph "RAG Microservice"
 FastAPI[FastAPI Server]
@@ -68,6 +74,8 @@ Indexing[Indexing Endpoints]
 Ingest[Ingestion Endpoint]
 CacheInvalidation[Cache Invalidation]
 Health[Health Check]
+LLMBuilder[LLM Provider Builder]
+SamplingParams[Sampling Parameters]
 end
 subgraph "External Services"
 Qdrant[Qdrant Vector DB]
@@ -85,8 +93,10 @@ FastAPI --> Indexing
 FastAPI --> Ingest
 FastAPI --> CacheInvalidation
 FastAPI --> Health
+QAEndpoints --> LLMBuilder
+LLMBuilder --> LLMProvider
+LLMBuilder --> SamplingParams
 QAEndpoints --> Qdrant
-QAEndpoints --> LLMProvider
 QAEndpoints --> EmbeddingProvider
 Ingest --> S3Storage
 Ingest --> DoclingParser
@@ -103,8 +113,11 @@ Storage --> RAGClient
 - [packages/rag_service/src/cafetera_rag_service/api/qa.py:22-121](file://packages/rag_service/src/cafetera_rag_service/api/qa.py#L22-L121)
 - [packages/rag_service/src/cafetera_rag_service/api/indexing.py:23-222](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L23-222)
 - [packages/rag_service/src/cafetera_rag_service/api/ingest.py:21-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L21-188)
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:89-135](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L89-L135)
 
 The architecture supports three primary LLM providers (Ollama, OpenAI, and llama.cpp) with automatic model downloading capabilities, ensuring flexibility in deployment environments while maintaining consistent API interfaces. The new ingestion pipeline adds S3 storage and Docling parsing capabilities for comprehensive document processing.
+
+**Updated** Enhanced with LLM Chain Builder and Sampling Parameters components for improved provider-specific handling.
 
 ## Core Components
 
@@ -143,6 +156,10 @@ class RagServiceSettings {
 +str embedding_provider
 +bool reranking_enabled
 +str rag_service_api_key
++float llm_temperature
++float | None llm_top_p
++int | None llm_top_k
++float | None llm_presence_penalty
 }
 RAGClient --> CoreSettings : "uses"
 CoreSettings --> RagServiceSettings : "compatible with"
@@ -151,7 +168,7 @@ CoreSettings --> RagServiceSettings : "compatible with"
 **Diagram sources**
 - [packages/core/src/cafetera_core/rag_client.py:15-193](file://packages/core/src/cafetera_core/rag_client.py#L15-L193)
 - [packages/core/src/cafetera_core/config.py:14-40](file://packages/core/src/cafetera_core/config.py#L14-L40)
-- [packages/rag_service/src/cafetera_rag_service/config.py:8-55](file://packages/rag_service/src/cafetera_rag_service/config.py#L8-L55)
+- [packages/rag_service/src/cafetera_rag_service/config.py:8-73](file://packages/rag_service/src/cafetera_rag_service/config.py#L8-L73)
 
 ### Configuration Management
 
@@ -161,11 +178,14 @@ The system employs a dual-configuration approach supporting both shared core set
 |-------------------|---------|----------------------|----------------|
 | Core Settings | Shared across all packages | `RAG_SERVICE_URL`, `RAG_SERVICE_API_KEY` | Localhost:8001, empty |
 | RAG Service Settings | Service-specific | `QDRANT_URL`, `LLM_PROVIDER` | Localhost:6333, Ollama |
-| Authentication | API security | `RAG_SERVICE_API_KEY` | Empty (unauthenticated) |
+| LLM Sampling Parameters | Advanced generation control | `LLM_TEMPERATURE`, `LLM_TOP_P`, `LLM_TOP_K`, `LLM_PRESENCE_PENALTY` | Temperature: 0.3, others: None |
+
+**Updated** Added LLM Sampling Parameters configuration table with new advanced generation controls.
 
 **Section sources**
 - [packages/core/src/cafetera_core/config.py:23-36](file://packages/core/src/cafetera_core/config.py#L23-L36)
-- [packages/rag_service/src/cafetera_rag_service/config.py:22-55](file://packages/rag_service/src/cafetera_rag_service/config.py#L22-L55)
+- [packages/rag_service/src/cafetera_rag_service/config.py:22-73](file://packages/rag_service/src/cafetera_rag_service/config.py#L22-L73)
+- [.env.example:26-41](file://.env.example#L26-L41)
 
 ## RAG Client Implementation
 
@@ -185,7 +205,7 @@ RAGClient->>HTTPX : POST /api/qa/ask
 HTTPX->>RAGService : HTTP Request
 RAGService->>Qdrant : Vector Search
 Qdrant-->>RAGService : Retrieved Documents
-RAGService->>RAGService : LLM Processing
+RAGService->>RAGService : LLM Processing with Sampling Params
 RAGService-->>HTTPX : JSON Response
 HTTPX-->>RAGClient : Response
 RAGClient-->>Client : Answer String
@@ -246,7 +266,7 @@ RAGClient-->>Admin : Ingestion complete
 
 **Diagram sources**
 - [packages/core/src/cafetera_core/rag_client.py:133-160](file://packages/core/src/cafetera_core/rag_client.py#L133-L160)
-- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-188)
+- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
 
 ### Dynamic Search Visibility Control
 
@@ -269,7 +289,7 @@ RAGClient-->>Admin : Search visibility toggled
 
 **Diagram sources**
 - [packages/core/src/cafetera_core/rag_client.py:162-173](file://packages/core/src/cafetera_core/rag_client.py#L162-L173)
-- [packages/rag_service/src/cafetera_rag_service/api/indexing.py:150-199](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L150-199)
+- [packages/rag_service/src/cafetera_rag_service/api/indexing.py:150-199](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L150-L199)
 
 **Section sources**
 - [packages/core/src/cafetera_core/rag_client.py:15-193](file://packages/core/src/cafetera_core/rag_client.py#L15-L193)
@@ -388,7 +408,8 @@ ValidateEnv --> |No| UseDefaults["Use Default Values"]
 UseEnv --> ApplySettings["Apply to CoreSettings"]
 UseDefaults --> ApplySettings
 ApplySettings --> ServiceConfig["Initialize RAG Service Settings"]
-ServiceConfig --> Ready["Configuration Ready"]
+ServiceConfig --> SamplingParams["Configure LLM Sampling Parameters"]
+SamplingParams --> Ready["Configuration Ready"]
 ```
 
 **Diagram sources**
@@ -403,8 +424,73 @@ ServiceConfig --> Ready["Configuration Ready"]
 | OpenAI | gpt-4o-mini | text-embedding-3-small | api.openai.com | Cloud-based |
 | llama.cpp | Custom GGUF | Custom GGUF | localhost:8080/8090 | Manual configuration |
 
+**Updated** Enhanced provider matrix with improved model specifications and GPU acceleration support.
+
 **Section sources**
 - [packages/rag_service/src/cafetera_rag_service/config.py:30-48](file://packages/rag_service/src/cafetera_rag_service/config.py#L30-L48)
+
+## LLM Sampling Parameters
+
+### Advanced Generation Controls
+
+The enhanced LLM configuration system now supports comprehensive sampling parameter control for fine-tuned generation quality and behavior:
+
+| Parameter | Type | Default | Provider Support | Description |
+|-----------|------|---------|------------------|-------------|
+| `llm_temperature` | float | 0.3 | All Providers | Controls randomness (0.0-1.0) |
+| `llm_top_p` | float | None | OpenAI, llama.cpp | Nucleus sampling threshold |
+| `llm_top_k` | int | None | OpenAI, llama.cpp, Ollama | Top-k sampling limit |
+| `llm_presence_penalty` | float | None | OpenAI, llama.cpp | Penalizes repetition |
+
+### Provider-Specific Parameter Handling
+
+Different LLM providers handle sampling parameters differently:
+
+```mermaid
+flowchart TD
+SamplingParams["Sampling Parameters"] --> ProviderCheck{"LLM Provider"}
+ProviderCheck --> |OpenAI| OpenAIParams["OpenAI-compatible params:<br/>- top_p<br/>- presence_penalty<br/>- top_k via extra_body"]
+ProviderCheck --> |llama.cpp| LlamaCPPParams["OpenAI-compatible params:<br/>- top_p<br/>- presence_penalty<br/>- top_k via extra_body"]
+ProviderCheck --> |Ollama| OllamaParams["Ollama-native params:<br/>- top_p<br/>- top_k<br/>- presence_penalty ignored (uses repeat_penalty)"]
+OpenAIParams --> ForwardParams["Forward to LLM Backend"]
+LlamaCPPParams --> ForwardParams
+OllamaParams --> ForwardParams
+ForwardParams --> BuildLLM["Build LLM Instance"]
+```
+
+**Diagram sources**
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:89-135](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L89-L135)
+
+### Configuration Examples
+
+Example `.env` configurations for different models:
+
+**For T-lite-it-2.1 model:**
+```
+LLM_TEMPERATURE=0.7
+LLM_TOP_P=0.8
+LLM_TOP_K=20
+LLM_PRESENCE_PENALTY=1.0
+```
+
+**For creative content generation:**
+```
+LLM_TEMPERATURE=0.9
+LLM_TOP_P=0.9
+LLM_TOP_K=50
+```
+
+**For factual responses:**
+```
+LLM_TEMPERATURE=0.2
+LLM_TOP_P=0.7
+LLM_PRESENCE_PENALTY=1.5
+```
+
+**Section sources**
+- [.env.example:26-41](file://.env.example#L26-L41)
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
 
 ## Data Flow Analysis
 
@@ -423,7 +509,7 @@ CacheLookup --> |Yes| UseCached["Use Cached QA Service"]
 CacheLookup --> |No| BuildService["Build New QA Service"]
 UseCached --> VectorSearch["Vector Similarity Search"]
 BuildService --> VectorSearch
-VectorSearch --> LLMProcessing["LLM Processing"]
+VectorSearch --> LLMProcessing["LLM Processing with Sampling Params"]
 LLMProcessing --> ResponseFormat["Format Response"]
 ResponseFormat --> HTTPResponse["HTTP Response"]
 HTTPResponse --> ClientReturn["Return Answer"]
@@ -466,7 +552,7 @@ RAGClient-->>Admin : Ingestion complete
 
 **Diagram sources**
 - [packages/core/src/cafetera_core/rag_client.py:133-160](file://packages/core/src/cafetera_core/rag_client.py#L133-L160)
-- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-188)
+- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
 
 ### Dynamic Search Visibility Workflow
 
@@ -489,7 +575,7 @@ RAGClient-->>Admin : Search visibility toggled
 
 **Diagram sources**
 - [packages/core/src/cafetera_core/rag_client.py:162-173](file://packages/core/src/cafetera_core/rag_client.py#L162-L173)
-- [packages/rag_service/src/cafetera_rag_service/api/indexing.py:150-199](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L150-199)
+- [packages/rag_service/src/cafetera_rag_service/api/indexing.py:150-199](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L150-L199)
 
 **Section sources**
 - [packages/core/src/cafetera_core/rag_client.py:112-173](file://packages/core/src/cafetera_core/rag_client.py#L112-L173)
@@ -551,6 +637,9 @@ The RAG service implements intelligent caching for QA services with improved cac
 | Cache Invalidation Issues | Stale responses after document updates | Use invalidate_cache endpoint to refresh QA services |
 | Ingestion Failures | Document processing errors | Verify S3 credentials and document format compatibility |
 | Search Visibility Issues | Documents not appearing in search | Use toggle_search endpoint to enable/disable visibility |
+| Sampling Parameter Issues | Unexpected generation behavior | Check provider-specific parameter support and configuration |
+
+**Updated** Added sampling parameter troubleshooting guidance.
 
 ### Debugging Steps
 
@@ -561,6 +650,7 @@ The RAG service implements intelligent caching for QA services with improved cac
 5. **Test Cache Invalidation**: Use invalidate_cache endpoint to verify cache clearing functionality
 6. **Validate Ingestion Pipeline**: Test unified ingestion with small documents first
 7. **Check Search Toggles**: Verify search visibility changes propagate correctly
+8. **Debug Sampling Parameters**: Verify provider-specific parameter support and configuration
 
 ### Performance Monitoring
 
@@ -572,6 +662,7 @@ Key metrics to monitor:
 - **Memory Usage**: Monitor client and service memory consumption during peak loads
 - **Cache Hit Rate**: Monitor effectiveness of QA service caching strategy
 - **Ingestion Pipeline Metrics**: Track S3 download times, parsing performance, and indexing throughput
+- **LLM Generation Quality**: Monitor response consistency with different sampling parameter combinations
 
 **Section sources**
 - [packages/core/src/cafetera_core/rag_client.py:26-32](file://packages/core/src/cafetera_core/rag_client.py#L26-L32)
@@ -591,6 +682,10 @@ The RAG Client Integration represents a sophisticated solution for enterprise-gr
 
 **Dynamic Search Control**: New `toggle_search()` method enables real-time control over document visibility in search results, allowing administrators to quickly adjust document discoverability.
 
+**Enhanced LLM Configuration**: New sampling parameters (temperature, top_p, top_k, presence_penalty) provide fine-grained control over generation behavior across different LLM providers.
+
+**Provider-Specific Optimization**: Improved client integration with provider-specific parameter handling ensures optimal performance and behavior across Ollama, OpenAI, and llama.cpp deployments.
+
 **Scalability**: The microservices architecture allows independent scaling of components based on demand, with the RAG service capable of handling multiple concurrent QA sessions and document processing operations.
 
 **Flexibility**: Support for multiple LLM providers (Ollama, OpenAI, llama.cpp) ensures deployment flexibility across different infrastructure requirements and cost models.
@@ -599,4 +694,6 @@ The RAG Client Integration represents a sophisticated solution for enterprise-gr
 
 The integration successfully bridges the gap between human-readable HR documentation and intelligent AI-powered search, enabling organizations to leverage their knowledge assets more effectively while maintaining security and performance standards.
 
-Future enhancements could include advanced caching strategies, distributed indexing capabilities, enhanced monitoring and alerting systems, expanded cache invalidation options for more granular control over the QA service lifecycle, and additional document format support for the unified ingestion pipeline.
+**Updated** Enhanced conclusion to highlight the new LLM sampling parameters and provider-specific handling capabilities.
+
+Future enhancements could include advanced caching strategies, distributed indexing capabilities, enhanced monitoring and alerting systems, expanded cache invalidation options for more granular control over the QA service lifecycle, additional document format support for the unified ingestion pipeline, and expanded provider-specific optimization for emerging LLM platforms.

@@ -91,20 +91,73 @@ def _get_chunker(tokenizer_model: str, max_tokens: int):
     return HybridChunker(tokenizer=tokenizer, max_tokens=max_tokens)  # type: ignore[call-arg]
 
 
+def _extract_page_numbers(chunk) -> list[int]:
+    """Extract unique sorted page numbers from chunk's doc_items provenance."""
+    pages: set[int] = set()
+    for item in chunk.meta.doc_items:
+        for prov in item.prov:
+            pages.add(prov.page_no)
+    return sorted(pages)
+
+
+def _extract_captions(chunk) -> list[str]:
+    """Extract caption texts from chunk doc_items.
+
+    Non-deprecated replacement for DocMeta.captions.
+    """
+    from docling_core.types.doc.document import DocItemLabel, TextItem
+
+    return [
+        item.text
+        for item in chunk.meta.doc_items
+        if item.label == DocItemLabel.CAPTION and isinstance(item, TextItem)
+    ]
+
+
+def _detect_content_type(chunk) -> str:
+    """Detect the dominant content type of a chunk from its doc_items labels."""
+    from docling_core.types.doc.document import DocItemLabel
+
+    for item in chunk.meta.doc_items:
+        if item.label == DocItemLabel.TABLE:
+            return "table"
+        if item.label in (DocItemLabel.PICTURE, DocItemLabel.CHART):
+            return "figure"
+    return "text"
+
+
 def _load_with_docling(path: Path, settings: RagServiceSettings) -> list[Document]:
-    """Parse PDF/DOCX/XLSX files using Docling with HybridChunker."""
+    """Parse PDF/DOCX/XLSX files using Docling with HybridChunker.
+
+    Uses DocumentConverter + HybridChunker directly (instead of langchain-docling
+    DoclingLoader) for full access to chunk metadata: headings, captions,
+    page numbers, content type, and structural path.
+    """
+    from docling.document_converter import DocumentConverter
     from docling_onnx_models.layoutmodel.layout_predictor import (
         LayoutPredictor,  # noqa: F401  — force ONNX backend
     )
-    from langchain_docling import DoclingLoader
-    from langchain_docling.loader import ExportType
+
+    converter = DocumentConverter()
+    result = converter.convert(str(path))
+    dl_doc = result.document
 
     chunker = _get_chunker(settings.chunker_tokenizer_model, settings.chunk_size)
-    loader = DoclingLoader(
-        file_path=str(path),
-        export_type=ExportType.DOC_CHUNKS,
-        chunker=chunker,
-    )
-    docs = loader.load()
+    docs: list[Document] = []
+    for chunk in chunker.chunk(dl_doc=dl_doc):
+        contextualized = chunker.contextualize(chunk)
+        page_numbers = _extract_page_numbers(chunk)
+        content_type = _detect_content_type(chunk)
+
+        metadata = {
+            "source": str(path),
+            "headings": list(chunk.meta.headings) if chunk.meta.headings else [],
+            "captions": _extract_captions(chunk),
+            "page_numbers": page_numbers,
+            "content_type": content_type,
+            "section_path": chunk.meta.doc_items[0].self_ref if chunk.meta.doc_items else "",
+        }
+        docs.append(Document(page_content=contextualized, metadata=metadata))
+
     logger.info("Docling loaded %d chunks from %s", len(docs), path.name)
     return docs

@@ -39,13 +39,11 @@
 
 ## Update Summary
 **Changes Made**
-- Added complete document ingestion pipeline with S3 integration and full processing workflow
-- Enhanced indexing capabilities with batch processing, UUID generation, and hybrid vector support
-- Implemented comprehensive search toggling functionality for document-level control
-- Added robust error handling and comprehensive logging throughout the service
-- Integrated Qdrant vector database with hybrid search (dense + sparse BM25) capabilities
-- Enhanced security with API key authentication and constant-time comparison
-- Added comprehensive caching and resource management for optimal performance
+- Enhanced LLM configuration system with dynamic sampling parameter management
+- Implemented provider-aware parameter handling for OpenAI, Ollama, and llama.cpp
+- Added comprehensive sampling parameter support including temperature, top_p, top_k, and presence_penalty
+- Improved LLM initialization with conditional parameter forwarding based on provider capabilities
+- Added graceful degradation for unsupported parameters across different providers
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -141,6 +139,9 @@ RESOURCES["Resource Manager"]
 PARSER["Document Parser"]
 INGEST["Ingestion Pipeline"]
 INDEX["Indexing Engine"]
+LLM_CONFIG["LLM Configuration System"]
+SAMPLING_PARAMS["Dynamic Sampling Parameters"]
+PROVIDER_AWARE["Provider-Aware Parameter Handling"]
 end
 subgraph "Infrastructure"
 QDRANT["Qdrant<br/>Vector DB"]
@@ -158,6 +159,10 @@ QA --> DB
 RESOURCES --> PARSER
 RESOURCES --> INGEST
 RESOURCES --> INDEX
+RESOURCES --> LLM_CONFIG
+LLM_CONFIG --> SAMPLING_PARAMS
+SAMPLING_PARAMS --> PROVIDER_AWARE
+RESOURCES --> LLM_CONFIG
 INGEST --> PARSER
 INGEST --> INDEX
 INDEX --> QDRANT
@@ -173,6 +178,130 @@ INDEX --> QDRANT
 - [packages/rag_service/src/cafetera_rag_service/parser.py](file://packages/rag_service/src/cafetera_rag_service/parser.py)
 
 ## Detailed Component Analysis
+
+### Enhanced LLM Configuration System
+The RAG Service now features a sophisticated LLM configuration system with dynamic sampling parameter management and provider-aware parameter handling:
+
+```mermaid
+flowchart TD
+Start(["LLM Configuration Request"]) --> LoadSettings["Load RagServiceSettings"]
+LoadSettings --> CheckProvider{"Check LLM Provider"}
+CheckProvider --> |OpenAI| OpenAIParams["Apply OpenAI-Compatible Parameters"]
+CheckProvider --> |Ollama| OllamaParams["Apply Ollama Parameters"]
+CheckProvider --> |Llama.cpp| LlamaParams["Apply Llama.cpp Parameters"]
+OpenAIParams --> OpenAIValidation["Validate OpenAI Parameters"]
+OllamaParams --> OllamaValidation["Validate Ollama Parameters"]
+LlamaParams --> LlamaValidation["Validate Llama.cpp Parameters"]
+OpenAIValidation --> ForwardParams["Forward Parameters to LLM"]
+OllamaValidation --> ForwardParams
+LlamaValidation --> ForwardParams
+ForwardParams --> BuildLLM["Build LLM Instance"]
+BuildLLM --> End(["LLM Ready for Use"])
+```
+
+**Diagram sources**
+- [packages/rag_service/src/cafetera_rag_service/config.py:34-44](file://packages/rag_service/src/cafetera_rag_service/config.py#L34-L44)
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
+
+**Updated** Enhanced with comprehensive sampling parameter support and provider-aware handling
+
+Key configuration parameters:
+- **Temperature Control**: Primary randomness control with default 0.3 for balanced responses
+- **Top-p Sampling**: Nucleus sampling for diverse yet coherent responses
+- **Top-k Sampling**: Limited vocabulary sampling for focused responses
+- **Presence Penalty**: OpenAI-specific parameter for controlling repetition
+- **Provider-Specific Handling**: Graceful parameter forwarding based on provider capabilities
+
+**Section sources**
+- [packages/rag_service/src/cafetera_rag_service/config.py:34-44](file://packages/rag_service/src/cafetera_rag_service/config.py#L34-L44)
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
+
+### Provider-Aware Parameter Handling
+The system implements intelligent parameter forwarding based on the selected LLM provider:
+
+```mermaid
+sequenceDiagram
+participant Client as "Client Code"
+participant Settings as "RagServiceSettings"
+participant OpenAIHandler as "_openai_sampling_kwargs"
+participant OllamaHandler as "_ollama_sampling_kwargs"
+participant LLM as "LLM Instance"
+Client->>Settings : Access sampling parameters
+alt OpenAI Provider
+Client->>OpenAIHandler : Call with settings
+OpenAIHandler->>OpenAIHandler : Check llm_top_p, llm_presence_penalty, llm_top_k
+OpenAIHandler->>LLM : Forward compatible parameters
+else Ollama Provider
+Client->>OllamaHandler : Call with settings
+OllamaHandler->>OllamaHandler : Check llm_top_p, llm_top_k
+OllamaHandler->>OllamaHandler : Skip unsupported presence_penalty
+OllamaHandler->>LLM : Forward supported parameters
+else Llama.cpp Provider
+Client->>OpenAIHandler : Call with settings
+OpenAIHandler->>OpenAIHandler : Check llm_top_p, llm_presence_penalty, llm_top_k
+OpenAIHandler->>LLM : Forward compatible parameters
+end
+```
+
+**Diagram sources**
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:89-135](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L89-L135)
+
+**Updated** Enhanced with provider-specific parameter validation and forwarding logic
+
+Provider-specific behaviors:
+- **OpenAI Compatibility**: Supports all sampling parameters including presence_penalty
+- **Ollama Native**: Supports top_p and top_k, ignores presence_penalty (uses repeat_penalty)
+- **Llama.cpp Compatibility**: Treats as OpenAI-compatible for parameter forwarding
+
+**Section sources**
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:89-135](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L89-L135)
+
+### Dynamic Sampling Parameter Management
+The system provides dynamic sampling parameter management with conditional forwarding:
+
+```mermaid
+flowchart TD
+Config["Sampling Parameters in .env"] --> Temperature["llm_temperature"]
+Config --> TopP["llm_top_p"]
+Config --> TopK["llm_top_k"]
+Config --> Presence["llm_presence_penalty"]
+Temperature --> CheckTemp{"Is None?"}
+TopP --> CheckTopP{"Is None?"}
+TopK --> CheckTopK{"Is None?"}
+Presence --> CheckPresence{"Is None?"}
+CheckTemp --> |No| ForwardTemp["Forward to LLM"]
+CheckTemp --> |Yes| SkipTemp["Skip Parameter"]
+CheckTopP --> |No| ForwardTopP["Forward to LLM"]
+CheckTopP --> |Yes| SkipTopP["Skip Parameter"]
+CheckTopK --> |No| ForwardTopK["Forward to LLM"]
+CheckTopK --> |Yes| SkipTopK["Skip Parameter"]
+CheckPresence --> |No| ForwardPresence["Forward to LLM"]
+CheckPresence --> |Yes| SkipPresence["Skip Parameter"]
+ForwardTemp --> BuildLLM["Build LLM with Parameters"]
+ForwardTopP --> BuildLLM
+ForwardTopK --> BuildLLM
+ForwardPresence --> BuildLLM
+SkipTemp --> BuildLLM
+SkipTopP --> BuildLLM
+SkipTopK --> BuildLLM
+SkipPresence --> BuildLLM
+```
+
+**Diagram sources**
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
+
+**Updated** Enhanced with comprehensive parameter validation and conditional forwarding logic
+
+Parameter forwarding strategy:
+- **Conditional Forwarding**: Only parameters with non-None values are forwarded
+- **Provider Compatibility**: Unsupported parameters are automatically filtered out
+- **Default Preservation**: Unset parameters preserve provider defaults
+- **Model Recommendations**: Environment variables allow model-specific parameter tuning
+
+**Section sources**
+- [packages/rag_service/src/cafetera_rag_service/rag/chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
 
 ### RAG Microservice API Endpoints
 The RAG Service exposes several HTTP endpoints for health checks, document indexing, ingestion, and question answering:
@@ -601,6 +730,7 @@ Performance characteristics and optimization opportunities:
 - **Timeout Management**: Separate timeouts for regular operations vs. indexing accommodate different performance profiles
 - **Resource Pooling**: Shared embeddings and LLM instances reduce memory footprint
 - **Collection Optimization**: INT8 scalar quantization and payload indexing improve query performance
+- **Sampling Parameter Optimization**: Dynamic parameter forwarding reduces unnecessary parameter overhead
 
 Best practices:
 - Monitor Qdrant performance metrics and adjust collection configuration
@@ -608,7 +738,8 @@ Best practices:
 - Implement connection pooling for high-concurrency scenarios
 - Use appropriate embedding models for target language and domain
 - Configure batch sizes based on available memory and network bandwidth
-- Enable sparse embeddings for improved recall on keyword-heavy queries
+- Enable sparse embeddings for better keyword matching
+- Leverage provider-specific parameter tuning for optimal model performance
 
 ## Security Enhancements
 The RAG Service now includes enhanced security measures:
@@ -660,6 +791,12 @@ Common issues and resolution strategies:
 - Monitor hybrid search performance compared to dense-only mode
 - Validate vector dimension compatibility between dense and sparse embeddings
 
+**LLM Configuration Issues**
+- **Sampling Parameter Errors**: Verify environment variables are properly set (LLM_TEMPERATURE, LLM_TOP_P, LLM_TOP_K, LLM_PRESENCE_PENALTY)
+- **Provider Mismatch**: Ensure selected provider supports desired parameters (presence_penalty only supported by OpenAI)
+- **Parameter Validation**: Check that parameter values are within acceptable ranges for the selected model
+- **Fallback Behavior**: Verify graceful degradation when parameters are unsupported by the provider
+
 **Authentication Problems**
 - Ensure API key is properly configured in .env file
 - Verify X-API-Key header is included in all requests
@@ -695,5 +832,8 @@ The RAG Microservice Architecture provides a scalable, modular foundation for AI
 - **Containerized Deployment**: Dedicated RAG service container with optimized build process
 - **Flexible AI Integration**: Support for multiple AI providers with graceful fallback mechanisms
 - **Production-Ready Features**: S3 integration, comprehensive caching, and resource management
+- **Enhanced LLM Configuration**: Dynamic sampling parameter management with provider-aware parameter handling
 
-The architecture supports both development and production deployments while maintaining extensibility for future enhancements such as additional AI providers, custom retrieval strategies, or expanded document formats. The enhanced indexing pipeline, hybrid search capabilities, and complete ingestion workflow provide superior performance and accuracy for enterprise document retrieval systems.
+The architecture supports both development and production deployments while maintaining extensibility for future enhancements such as additional AI providers, custom retrieval strategies, or expanded document formats. The enhanced indexing pipeline, hybrid search capabilities, complete ingestion workflow, and sophisticated LLM configuration system provide superior performance and accuracy for enterprise document retrieval systems.
+
+**Updated** Enhanced with comprehensive LLM configuration system featuring dynamic sampling parameter management and provider-aware parameter handling, enabling fine-grained control over AI model behavior across different providers while maintaining backward compatibility and graceful degradation.

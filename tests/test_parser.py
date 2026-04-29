@@ -24,7 +24,17 @@ class TestLoadDocument:
         docx_path = tmp_path / "test.docx"
         docx_path.write_text("dummy")
 
-        mock_doc = LCDocument(page_content="chunk", metadata={"source": "test.docx"})
+        mock_doc = LCDocument(
+            page_content="chunk",
+            metadata={
+                "source": "test.docx",
+                "headings": [],
+                "captions": [],
+                "page_numbers": [],
+                "content_type": "text",
+                "section_path": "",
+            },
+        )
         settings = _make_settings()
 
         with patch(
@@ -40,7 +50,17 @@ class TestLoadDocument:
         pdf_path = tmp_path / "test.pdf"
         pdf_path.write_text("dummy")
 
-        mock_doc = LCDocument(page_content="pdf chunk", metadata={})
+        mock_doc = LCDocument(
+            page_content="pdf chunk",
+            metadata={
+                "source": "test.pdf",
+                "headings": [],
+                "captions": [],
+                "page_numbers": [],
+                "content_type": "text",
+                "section_path": "",
+            },
+        )
         settings = _make_settings()
 
         with patch(
@@ -56,7 +76,17 @@ class TestLoadDocument:
         xlsx_path = tmp_path / "test.xlsx"
         xlsx_path.write_text("dummy")
 
-        mock_doc = LCDocument(page_content="xlsx chunk", metadata={})
+        mock_doc = LCDocument(
+            page_content="xlsx chunk",
+            metadata={
+                "source": "test.xlsx",
+                "headings": [],
+                "captions": [],
+                "page_numbers": [],
+                "content_type": "text",
+                "section_path": "",
+            },
+        )
         settings = _make_settings()
 
         with patch(

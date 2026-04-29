@@ -31,8 +31,9 @@ def _enrich_chunks(
 ) -> tuple[list[str], list[dict]]:
     """Enrich parsed chunks with document-level metadata.
 
-    Ports the ``_chunks_to_dicts`` logic from the admin document service,
-    returning parallel lists of texts and metadata dicts ready for embedding.
+    The parser already provides clean metadata (headings, captions,
+    page_numbers, content_type, section_path). This function adds
+    document-level identifiers for indexing and retrieval.
     """
     texts: list[str] = []
     metadatas: list[dict] = []
@@ -45,17 +46,6 @@ def _enrich_chunks(
             "s3_key": s3_key,
             "is_search_enabled": is_search_enabled,
         }
-        # Extract Docling metadata into top-level fields when available
-        dl_meta = chunk.metadata.get("dl_meta")
-        if isinstance(dl_meta, dict):
-            if "page_numbers" in dl_meta:
-                meta["page_numbers"] = dl_meta["page_numbers"]
-            elif "page_number" in dl_meta:
-                meta["page_number"] = dl_meta["page_number"]
-            if "headings" in dl_meta:
-                meta["headings"] = dl_meta["headings"]
-            elif "heading" in dl_meta:
-                meta["heading"] = dl_meta["heading"]
         texts.append(chunk.page_content)
         metadatas.append(meta)
     return texts, metadatas

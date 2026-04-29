@@ -134,9 +134,15 @@ async def _ensure_collection(
         field_name="metadata.filename",
         field_schema=models.PayloadSchemaType.KEYWORD,
     )
+    await client.create_payload_index(
+        collection_name=collection_name,
+        field_name="metadata.headings",
+        field_schema=models.PayloadSchemaType.KEYWORD,
+    )
     logger.info(
-        "Created KEYWORD payload indexes on '%s.metadata.document_id' "
-        "and '%s.metadata.filename'",
+        "Created KEYWORD payload indexes on '%s.metadata.document_id', "
+        "'%s.metadata.filename', and '%s.metadata.headings'",
+        collection_name,
         collection_name,
         collection_name,
     )

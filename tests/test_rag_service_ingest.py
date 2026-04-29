@@ -69,8 +69,28 @@ class TestIngestEndpoint:
         self, mock_load_doc, rag_client, mock_rag_resources
     ):
         mock_load_doc.return_value = [
-            LCDocument(page_content="chunk 1", metadata={"source": "test.docx"}),
-            LCDocument(page_content="chunk 2", metadata={"source": "test.docx"}),
+            LCDocument(
+                page_content="chunk 1",
+                metadata={
+                    "source": "test.docx",
+                    "headings": ["Section 1"],
+                    "captions": [],
+                    "page_numbers": [1],
+                    "content_type": "text",
+                    "section_path": "#/body/sections/0",
+                },
+            ),
+            LCDocument(
+                page_content="chunk 2",
+                metadata={
+                    "source": "test.docx",
+                    "headings": ["Section 2"],
+                    "captions": [],
+                    "page_numbers": [2],
+                    "content_type": "text",
+                    "section_path": "#/body/sections/1",
+                },
+            ),
         ]
         mock_rag_resources.embeddings.aembed_documents.return_value = [
             [0.1, 0.2, 0.3],
@@ -132,6 +152,52 @@ class TestIngestEndpoint:
             },
         )
         assert resp.status_code in (401, 403)
+
+
+# ── _enrich_chunks unit tests ────────────────────────────────────────
+
+
+class TestEnrichChunks:
+    def test_enrich_chunks_preserves_metadata(self):
+        """Verify _enrich_chunks merges parser metadata with document-level fields."""
+        from cafetera_rag_service.api.ingest import _enrich_chunks
+
+        chunks = [
+            LCDocument(
+                page_content="test chunk",
+                metadata={
+                    "source": "test.pdf",
+                    "headings": ["Introduction"],
+                    "captions": ["Table 1"],
+                    "page_numbers": [1, 2],
+                    "content_type": "table",
+                    "section_path": "#/body/sections/0",
+                },
+            ),
+        ]
+        texts, metadatas = _enrich_chunks(
+            chunks,
+            document_id="doc-1",
+            filename="test.pdf",
+            s3_key="docs/test.pdf",
+            is_search_enabled=True,
+        )
+
+        assert texts == ["test chunk"]
+        assert len(metadatas) == 1
+        meta = metadatas[0]
+        # Document-level fields
+        assert meta["document_id"] == "doc-1"
+        assert meta["filename"] == "test.pdf"
+        assert meta["s3_key"] == "docs/test.pdf"
+        assert meta["is_search_enabled"] is True
+        assert "chunk_id" in meta
+        # Parser metadata preserved
+        assert meta["headings"] == ["Introduction"]
+        assert meta["captions"] == ["Table 1"]
+        assert meta["page_numbers"] == [1, 2]
+        assert meta["content_type"] == "table"
+        assert meta["section_path"] == "#/body/sections/0"
 
 
 # ── PATCH /api/index/documents/{document_id}/search ────────────────
