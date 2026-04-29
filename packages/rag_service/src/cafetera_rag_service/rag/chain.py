@@ -106,6 +106,11 @@ def build_llm(settings: RagServiceSettings) -> BaseChatModel:
                 "Install the 'openai_compatible' extra: "
                 "uv sync --extra openai_compatible"
             ) from exc
+        logger.info(
+            "LLM_NUM_CTX=%d (informational for openai provider "
+            "— context window is model-defined)",
+            settings.llm_num_ctx,
+        )
         return ChatOpenAI(
             model=settings.llm_model,
             api_key=settings.llm_api_key,  # type: ignore[arg-type]
@@ -122,12 +127,16 @@ def build_llm(settings: RagServiceSettings) -> BaseChatModel:
                 "Install the 'openai_compatible' extra: "
                 "uv sync --extra openai_compatible"
             ) from exc
+        kwargs = _openai_sampling_kwargs(settings)
+        model_kw = kwargs.setdefault("model_kwargs", {})
+        extra_body = model_kw.setdefault("extra_body", {})
+        extra_body["n_ctx"] = settings.llm_num_ctx
         return ChatOpenAI(
             model=settings.llm_model,
             api_key=settings.llm_api_key or "no-key",  # type: ignore[arg-type]
             base_url=settings.llm_base_url or "http://localhost:8080/v1",
             temperature=settings.llm_temperature,
-            **_openai_sampling_kwargs(settings),
+            **kwargs,
         )
 
     # Default: Ollama
@@ -141,6 +150,7 @@ def build_llm(settings: RagServiceSettings) -> BaseChatModel:
         model=settings.llm_model,
         base_url=settings.llm_base_url,
         temperature=settings.llm_temperature,
+        num_ctx=settings.llm_num_ctx,
         **_ollama_sampling_kwargs(settings),
     )
 

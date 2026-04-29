@@ -15,6 +15,10 @@
 - [core_config.py](file://packages/core/src/cafetera_core/config.py)
 - [test_parser.py](file://tests/test_parser.py)
 - [test_rag_service_ingest.py](file://tests/test_rag_service_ingest.py)
+- [document_table.html](file://templates/partials/document_table.html)
+- [document_row.html](file://templates/partials/document_row.html)
+- [documents.html](file://templates/documents.html)
+- [document_service.py](file://packages/admin/src/cafetera_admin/domain/document_service.py)
 </cite>
 
 ## Update Summary
@@ -22,8 +26,9 @@
 - Enhanced ParseResult dataclass with new document-level metadata fields: page_count, binary_hash, and extracted_title
 - Updated document parsing pipeline to populate rich metadata including page counts, binary hashes, and extracted titles
 - Modified ingest endpoint to return enhanced metadata in IngestResponse
+- Enhanced admin interface to display original filename preservation, extracted title display, and page count column in document tables
 - Updated test suites to validate new ParseResult fields and their usage
-- Enhanced document processing with comprehensive metadata enrichment for improved AI understanding
+- Enhanced document processing with comprehensive metadata enrichment for improved AI understanding and user experience
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -41,10 +46,12 @@ This document describes the RAG (Retrieval-Augmented Generation) Parser Enhancem
 
 **Updated** The RAG service now operates as a complete document processing pipeline that handles all aspects of document ingestion, parsing, chunking, and preparation for AI processing. The system maintains its distributed architecture while significantly enhancing the internal capabilities of the RAG microservice to provide robust document processing capabilities. The enhanced metadata extraction system now provides rich contextual information including page numbers, captions, headings, content type detection, page counts, binary hashes, and extracted titles for improved AI understanding and retrieval performance.
 
+**Enhanced User Experience** The admin interface now displays comprehensive document metadata in the document table, including original filename preservation, extracted titles, and page counts, providing users with immediate visibility into document characteristics and processing status.
+
 ## Project Structure
 The RAG system has evolved into a comprehensive microservice with integrated document processing capabilities:
 - packages/rag_service/src/cafetera_rag_service: Complete RAG microservice with document parsing and processing
-- packages/admin/src/cafetera_admin: Admin interface that delegates processing to external RAG service
+- packages/admin/src/cafetera_admin: Admin interface that delegates processing to external RAG service with enhanced metadata display
 - packages/core/src/cafetera_core: Shared resources and RAG client for external service communication
 - packages/vk_bot: VK bot interface (unchanged)
 
@@ -60,6 +67,11 @@ PROCESSING["Processing Pipeline<br/>LangChain Documents<br/>Rich Metadata Enrich
 RAG_CHAIN["RAG Chain Formatting<br/>Enhanced Context Presentation<br/>Filename + Page Number Display"]
 LLM_CONFIG["LLM Configuration<br/>Sampling Parameters<br/>Provider Routing<br/>Parameter Validation"]
 end
+subgraph "Enhanced Admin Interface"
+DOCUMENT_TABLE["Document Table<br/>Enhanced Metadata Display<br/>Original Filename<br/>Extracted Title<br/>Page Count Column"]
+STATUS_POLLER["Status Poller<br/>Real-time Processing Updates"]
+ACTION_CONTROLS["Action Controls<br/>Bulk Operations<br/>Search Toggle<br/>Document Management"]
+end
 subgraph "External Systems"
 QDRANT["Qdrant Vector Store<br/>External Service"]
 S3["S3 Storage<br/>External Service"]
@@ -73,6 +85,8 @@ PROCESSING --> RAG_CHAIN
 RAG_CHAIN --> LLM_CONFIG
 LLM_CONFIG --> QDRANT
 PROCESSING --> S3
+DOCUMENT_TABLE --> ACTION_CONTROLS
+ACTION_CONTROLS --> STATUS_POLLER
 ```
 
 **Diagram sources**
@@ -82,6 +96,8 @@ PROCESSING --> S3
 - [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
 - [ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
 - [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
+- [document_table.html:24](file://templates/partials/document_table.html#L24)
+- [document_row.html:110-117](file://templates/partials/document_row.html#L110-L117)
 
 **Section sources**
 - [parser.py:20-28](file://packages/rag_service/src/cafetera_rag_service/parser.py#L20-L28)
@@ -90,6 +106,8 @@ PROCESSING --> S3
 - [parser.py:117-127](file://packages/rag_service/src/cafetera_rag_service/parser.py#L117-L127)
 - [ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
 - [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
+- [document_table.html:24](file://templates/partials/document_table.html#L24)
+- [document_row.html:110-117](file://templates/partials/document_row.html#L110-L117)
 
 ## Core Components
 This section outlines the enhanced components of the RAG system with comprehensive document parsing capabilities and advanced metadata extraction.
@@ -97,6 +115,7 @@ This section outlines the enhanced components of the RAG system with comprehensi
 - **Enhanced ParseResult Dataclass**
   - **New Component**: Comprehensive document-level metadata container with four fields: chunks, page_count, binary_hash, and extracted_title
   - **Rich Metadata Support**: Provides document-level information including total page count, binary hash for content identification, and extracted title for document naming
+  - **Original Filename Preservation**: The `extracted_title` field now preserves the original filename stem when provided through the `original_filename` parameter, ensuring meaningful document titles even when temporary filenames are used
   - **Optional Fields**: All new metadata fields are optional (None by default) for backward compatibility
   - **Structured Output**: Returns standardized ParseResult objects containing both chunked documents and document-level metadata
   - **Type Safety**: Strongly typed dataclass with proper type annotations for all fields
@@ -163,6 +182,13 @@ This section outlines the enhanced components of the RAG system with comprehensi
   - **Consistent Interface**: Maintains backward compatibility while adding new capabilities
   - **Type Safety**: Proper typing for all response fields including optional metadata
 
+- **Enhanced Admin Interface with Metadata Display**
+  - **Document Table Enhancement**: The document table now includes a dedicated page count column (hidden on mobile) showing the total number of pages for each document
+  - **Original Filename Preservation**: The admin interface displays both the stored filename and the extracted title, with the extracted title shown as a secondary line when it differs from the stored title
+  - **Real-time Status Updates**: Enhanced status polling provides immediate feedback on document processing status
+  - **Action Controls**: Improved bulk operations and document management capabilities with enhanced metadata awareness
+  - **Responsive Design**: Mobile-optimized display of document metadata with appropriate column hiding on smaller screens
+
 - **RAG Service Configuration Enhancements**
   - **Chunking Settings**: Dedicated chunk_size and chunker_tokenizer_model configuration
   - **Model Management**: Separate configuration for tokenizer and Docling model settings
@@ -182,11 +208,16 @@ This section outlines the enhanced components of the RAG system with comprehensi
 - [chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
 - [config.py:35-44](file://packages/rag_service/src/cafetera_rag_service/config.py#L35-L44)
 - [models.py:62-67](file://packages/rag_service/src/cafetera_rag_service/models.py#L62-L67)
+- [document_table.html:24](file://templates/partials/document_table.html#L24)
+- [document_row.html:110-117](file://templates/partials/document_row.html#L110-L117)
+- [document_row.html:73-75](file://templates/partials/document_row.html#L73-L75)
 
 ## Architecture Overview
 The RAG Parser Enhancement implements a comprehensive document processing pipeline within the RAG microservice, providing sophisticated document parsing capabilities while maintaining the distributed architecture. The system now handles the complete document ingestion pipeline internally, from parsing to vector indexing with enhanced metadata extraction and presentation capabilities.
 
 **Updated** The RAG microservice now operates as a complete document processing pipeline that includes sophisticated parsing, chunking, metadata extraction, and preparation for AI operations. The admin service continues to handle document ingestion and metadata management, while the RAG service manages all document processing operations with enhanced capabilities. The new ParseResult dataclass provides rich contextual information including page counts, binary hashes, and extracted titles for improved AI understanding and retrieval performance.
+
+**Enhanced User Interface Integration** The admin interface has been enhanced to display the newly extracted metadata, providing users with immediate visibility into document characteristics including page counts, original filenames, and extracted titles. This enhancement improves the overall user experience by providing more meaningful information about processed documents.
 
 ```mermaid
 sequenceDiagram
@@ -204,7 +235,7 @@ Upload->>RAGService : ingest_document()
 RAGService->>Parser : ensure_models_cached()
 Parser->>Parser : Cache tokenizer & Docling models
 Parser-->>RAGService : Models cached (offline mode)
-RAGService->>Parser : load_document(path, settings)
+RAGService->>Parser : load_document(path, settings, original_filename)
 Parser->>Parser : _load_with_docling()
 Parser->>Parser : HybridChunker + ONNX backend
 Parser->>Metadata : Extract page numbers, captions, content types
@@ -221,6 +252,8 @@ RAGService->>Qdrant : Embed + Index Chunks
 Qdrant-->>RAGService : Indexing Complete
 RAGService-->>Upload : Return enhanced IngestResponse
 Upload-->>Admin : Show indexed document with metadata
+Admin->>Admin : Update document metadata with page_count, binary_hash, extracted_title
+Admin-->>Admin : Display enhanced document table with metadata columns
 ```
 
 **Diagram sources**
@@ -232,6 +265,8 @@ Upload-->>Admin : Show indexed document with metadata
 - [parser.py:140-183](file://packages/rag_service/src/cafetera_rag_service/parser.py#L140-L183)
 - [ingest.py:118-161](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L118-L161)
 - [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
+- [document_row.html:110-117](file://templates/partials/document_row.html#L110-L117)
+- [document_row.html:73-75](file://templates/partials/document_row.html#L73-L75)
 
 **Section sources**
 - [documents_upload.py:54-60](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L54-L60)
@@ -242,6 +277,8 @@ Upload-->>Admin : Show indexed document with metadata
 - [parser.py:140-183](file://packages/rag_service/src/cafetera_rag_service/parser.py#L140-L183)
 - [ingest.py:118-161](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L118-L161)
 - [chain.py:29-61](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L29-L61)
+- [document_row.html:110-117](file://templates/partials/document_row.html#L110-L117)
+- [document_row.html:73-75](file://templates/partials/document_row.html#L73-L75)
 
 ## Detailed Component Analysis
 
@@ -294,7 +331,7 @@ Validate --> CacheModels["Cache Models<br/>ensure_models_cached()"]
 CacheModels --> LoadDocling["_load_with_docling()<br/>Docling Loader + HybridChunker"]
 LoadDocling --> HybridChunker["HybridChunker<br/>ONNX Backend<br/>Layout Analysis"]
 HybridChunker --> ExtractMetadata["Extract Rich Metadata<br/>- Page Numbers<br/>- Captions<br/>- Content Types<br/>- Headings<br/>- Section Paths"]
-ExtractMetadata --> ExtractDocumentInfo["Extract Document Info<br/>- Page Count<br/>- Binary Hash<br/>- Extracted Title"]
+ExtractMetadata --> ExtractDocumentInfo["Extract Document Info<br/>- Page Count<br/>- Binary Hash<br/>- Extracted Title<br/>- Original Filename Preservation"]
 ExtractDocumentInfo --> ProcessTables["Process Tables<br/>Native Extraction<br/>Markdown Format"]
 ProcessTables --> EnrichMetadata["Enrich Metadata<br/>Page Numbers<br/>Headings<br/>Document Info"]
 EnrichMetadata --> CreateParseResult["Create ParseResult<br/>- Chunks<br/>- Page Count<br/>- Binary Hash<br/>- Extracted Title"]
@@ -328,7 +365,7 @@ flowchart TD
 Start(["Document Chunk"]) --> ExtractPageNumbers["_extract_page_numbers()<br/>Unique Sorted Page Numbers<br/>From Doc Items Provenance"]
 ExtractPageNumbers --> ExtractCaptions["_extract_captions()<br/>Caption Text Extraction<br/>Non-deprecated Replacement<br/>for DocMeta.captions"]
 ExtractCaptions --> DetectContentType["_detect_content_type()<br/>Content Type Detection<br/>Table vs Figure vs Text"]
-DetectContentType --> ExtractDocumentInfo["Extract Document Info<br/>- Page Count<br/>- Binary Hash<br/>- Extracted Title"]
+DetectContentType --> ExtractDocumentInfo["Extract Document Info<br/>- Page Count<br/>- Binary Hash<br/>- Extracted Title<br/>- Original Filename Preservation"]
 ExtractDocumentInfo --> EnrichMetadata["Enrich Chunk Metadata<br/>- Source Path<br/>- Headings<br/>- Captions<br/>- Page Numbers<br/>- Content Type<br/>- Section Path"]
 EnrichMetadata --> CreateParseResult["Create ParseResult<br/>- Chunks<br/>- Page Count<br/>- Binary Hash<br/>- Extracted Title"]
 CreateParseResult --> ReturnParseResult["Return Enhanced ParseResult<br/>for RAG Chain Formatting"]
@@ -552,6 +589,33 @@ IngestResponse --> ParseResult : uses
 - [parser.py:178-183](file://packages/rag_service/src/cafetera_rag_service/parser.py#L178-L183)
 - [ingest.py:183-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L183-L188)
 
+### Enhanced Admin Interface with Metadata Display
+The admin interface has been significantly enhanced to display comprehensive document metadata extracted by the RAG service, providing users with immediate visibility into document characteristics.
+
+**Updated** The admin interface now includes enhanced metadata display capabilities in the document table, showing original filenames, extracted titles, and page counts for improved document management and user experience.
+
+```mermaid
+flowchart TD
+Start(["Document Processing Complete"]) --> UpdateMetadata["Update Document Metadata<br/>- page_count<br/>- binary_hash<br/>- extracted_title"]
+UpdateMetadata --> DisplayTable["Display Enhanced Document Table<br/>- Original Filename Column<br/>- Extracted Title Column<br/>- Page Count Column"]
+DisplayTable --> UserInteraction["User Interaction<br/>- View Document Details<br/>- Search by Metadata<br/>- Filter by Page Count<br/>- Action on Documents"]
+UserInteraction --> RealTimeUpdates["Real-time Status Updates<br/>- Processing Status<br/>- Completion Feedback<br/>- Error Handling"]
+RealTimeUpdates --> EnhancedUX["Enhanced User Experience<br/>- Better Document Visibility<br/>- Improved Search Capabilities<br/>- Streamlined Management"]
+EnhancedUX --> Complete["Complete Document Management Workflow"]
+```
+
+**Diagram sources**
+- [documents_upload.py:67-70](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L67-L70)
+- [document_table.html:24](file://templates/partials/document_table.html#L24)
+- [document_row.html:110-117](file://templates/partials/document_row.html#L110-L117)
+- [document_row.html:73-75](file://templates/partials/document_row.html#L73-L75)
+
+**Section sources**
+- [documents_upload.py:67-70](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L67-L70)
+- [document_table.html:24](file://templates/partials/document_table.html#L24)
+- [document_row.html:110-117](file://templates/partials/document_row.html#L110-L117)
+- [document_row.html:73-75](file://templates/partials/document_row.html#L73-L75)
+
 ### Distributed Configuration Management
 The configuration system has been enhanced to support the comprehensive document processing capabilities of the RAG service and advanced LLM configuration.
 
@@ -618,6 +682,8 @@ ADMIN --> DB["PostgreSQL Database<br/>Local Storage"]
 ADMIN --> S3
 PARSE_RESULT["ParseResult Dataclass<br/>Enhanced Metadata"] --> RAG_SERVICE
 INGEST_RESPONSE["Enhanced IngestResponse<br/>Rich Metadata Fields"] --> RAG_SERVICE
+ADMIN_INTERFACE["Enhanced Admin Interface<br/>Metadata Display"] --> ADMIN
+ADMIN_INTERFACE --> DOCUMENT_TABLE["Document Table<br/>Page Count Column<br/>Extracted Title Display"]
 ```
 
 **Diagram sources**
@@ -627,6 +693,8 @@ INGEST_RESPONSE["Enhanced IngestResponse<br/>Rich Metadata Fields"] --> RAG_SERV
 - [chain.py:89-135](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L89-L135)
 - [parser.py:20-28](file://packages/rag_service/src/cafetera_rag_service/parser.py#L20-L28)
 - [models.py:62-67](file://packages/rag_service/src/cafetera_rag_service/models.py#L62-L67)
+- [document_table.html:24](file://templates/partials/document_table.html#L24)
+- [document_row.html:110-117](file://templates/partials/document_row.html#L110-L117)
 
 **Section sources**
 - [pyproject.toml:6-22](file://packages/rag_service/pyproject.toml#L6-L22)
@@ -635,6 +703,8 @@ INGEST_RESPONSE["Enhanced IngestResponse<br/>Rich Metadata Fields"] --> RAG_SERV
 - [chain.py:89-135](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L89-L135)
 - [parser.py:20-28](file://packages/rag_service/src/cafetera_rag_service/parser.py#L20-L28)
 - [models.py:62-67](file://packages/rag_service/src/cafetera_rag_service/models.py#L62-L67)
+- [document_table.html:24](file://templates/partials/document_table.html#L24)
+- [document_row.html:110-117](file://templates/partials/document_row.html#L110-L117)
 
 ## Performance Considerations
 - **Enhanced Processing Capabilities**
@@ -654,6 +724,11 @@ INGEST_RESPONSE["Enhanced IngestResponse<br/>Rich Metadata Fields"] --> RAG_SERV
   - **Structured Data**: Rich metadata enables better document understanding and retrieval performance
   - **Contextual Presentation**: Enhanced RAG chain formatting provides improved user experience with minimal performance impact
   - **ParseResult Access**: Efficient access to enhanced metadata fields for improved performance
+- **Enhanced Admin Interface Performance**
+  - **Responsive Design**: Mobile-optimized display reduces bandwidth usage and improves loading times
+  - **Column Hiding**: Appropriate column hiding on smaller screens optimizes table rendering performance
+  - **Real-time Updates**: Efficient status polling minimizes server load while providing timely feedback
+  - **Metadata Caching**: Document metadata is cached and reused across table operations
 - **Resource Optimization**
   - **Memory Efficiency**: Model caching reduces memory overhead by avoiding repeated model loading
   - **Network Optimization**: Offline mode eliminates network latency during document processing
@@ -677,6 +752,7 @@ INGEST_RESPONSE["Enhanced IngestResponse<br/>Rich Metadata Fields"] --> RAG_SERV
   - **Metadata Extraction Metrics**: Monitor metadata extraction efficiency and accuracy
   - **RAG Chain Formatting Metrics**: Track enhanced formatting performance and user experience improvements
   - **ParseResult Usage Metrics**: Monitor enhanced metadata usage and performance impact
+  - **Admin Interface Metrics**: Track document table rendering performance and user interaction metrics
   - **Resource Utilization**: Monitor both admin and RAG service resource consumption
   - **Error Rate Tracking**: Monitor document processing error rates and failure patterns
 
@@ -764,6 +840,16 @@ Common issues and resolutions for the enhanced RAG system with comprehensive doc
   - **Solution**: Verify metadata extraction functions and ParseResult population
   - **Debug**: Check metadata extraction logic and ParseResult creation
   - **Validation**: Review enhanced metadata processing in document parsing pipeline
+- **Admin Interface Metadata Display Issues**
+  - **Symptom**: Page count, extracted title, or original filename not displaying correctly
+  - **Solution**: Verify metadata availability in document records and proper template rendering
+  - **Debug**: Check document metadata updates and template variable binding
+  - **Validation**: Review admin interface rendering and metadata display logic
+- **Document Table Performance Issues**
+  - **Symptom**: Slow document table loading or rendering problems
+  - **Solution**: Optimize database queries and implement proper pagination
+  - **Monitoring**: Track table rendering performance and user interaction metrics
+  - **Optimization**: Implement column hiding and responsive design improvements
 
 **Section sources**
 - [parser.py:19-45](file://packages/rag_service/src/cafetera_rag_service/parser.py#L19-L45)
@@ -777,11 +863,15 @@ Common issues and resolutions for the enhanced RAG system with comprehensive doc
 - [config.py:8-73](file://packages/rag_service/src/cafetera_rag_service/config.py#L8-L73)
 - [chain.py:53-86](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L53-L86)
 - [models.py:62-67](file://packages/rag_service/src/cafetera_rag_service/models.py#L62-L67)
+- [document_row.html:110-117](file://templates/partials/document_row.html#L110-L117)
+- [document_row.html:73-75](file://templates/partials/document_row.html#L73-L75)
 
 ## Conclusion
 The RAG Parser Enhancement successfully transforms the RAG service from a simple indexing microservice to a comprehensive document processing pipeline with sophisticated capabilities. By integrating Docling with HybridChunker, implementing model caching with offline support, and adding support for PDF, DOCX, and XLSX formats with native table extraction and layout analysis, the system now provides enterprise-grade document processing capabilities.
 
 **Updated** The enhanced RAG service maintains its distributed architecture while significantly expanding its internal capabilities to handle the complete document processing pipeline. The system now provides robust document parsing, intelligent chunking, comprehensive metadata extraction, and enhanced RAG chain formatting with rich contextual presentation while maintaining the benefits of distributed processing and service isolation. The new ParseResult dataclass with enhanced metadata fields including page_count, binary_hash, and extracted_title provides significant improvements in document understanding and retrieval performance.
+
+**Enhanced User Experience** The admin interface enhancement provides users with immediate visibility into document characteristics through comprehensive metadata display, including page counts, original filenames, and extracted titles. This enhancement significantly improves document management capabilities and user satisfaction.
 
 The ParseResult dataclass enhancement represents a major architectural improvement, providing a centralized container for document-level metadata that enhances the entire document processing pipeline. The addition of page_count enables better document navigation and user experience, binary_hash provides content identification and deduplication capabilities, and extracted_title improves document naming and organization. These enhancements maintain backward compatibility while providing substantial improvements in document processing capabilities.
 
@@ -791,8 +881,14 @@ The enhanced metadata extraction system provides rich contextual information inc
 
 The distributed architecture continues to provide scalability, fault tolerance, and deployment flexibility, while the enhanced RAG service offers superior document processing capabilities that position the system for enterprise-scale document processing with comprehensive semantic understanding and retrieval capabilities. The system maintains backward compatibility through unified configuration management and graceful fallback mechanisms, ensuring smooth operation alongside the admin service that continues to handle document ingestion and metadata management.
 
+**Enhanced Admin Interface Integration** The admin interface enhancement represents a significant improvement in user experience, providing immediate visibility into document characteristics and processing status. The document table now displays page counts, original filenames, and extracted titles, enabling users to quickly identify and manage documents based on meaningful metadata rather than just basic file information.
+
 The elimination of external dependencies for document processing reduces operational complexity while enabling the RAG service to leverage specialized hardware and optimized infrastructure for AI operations. The enhanced architecture also provides better monitoring, logging, and observability across service boundaries, offering comprehensive insights into document processing performance and health. The advanced metadata extraction system ensures optimal AI performance through rich contextual information and provider-specific optimizations.
 
 The system maintains backward compatibility through default parameter values and None-based optional parameters, ensuring smooth operation alongside existing deployments while providing enhanced capabilities for improved document processing performance. The comprehensive metadata extraction and enhanced RAG chain formatting represent significant improvements in document understanding and user experience, positioning the system for enterprise-scale document processing with superior retrieval and understanding capabilities.
 
 The ParseResult dataclass enhancement represents a foundational improvement that enables future enhancements to the document processing pipeline while maintaining the system's distributed architecture and service isolation. This enhancement provides the groundwork for advanced document analytics, content identification, and improved user experience features that will further enhance the RAG service's capabilities in enterprise environments.
+
+**Enhanced Testing Coverage** The comprehensive test suite validates all new functionality, including ParseResult metadata extraction, enhanced ingest response handling, and admin interface metadata display. The tests ensure backward compatibility while verifying the correctness of new features, providing confidence in the reliability and stability of the enhanced system.
+
+The system's enhanced capabilities position it for enterprise-scale document processing with superior retrieval and understanding capabilities, while the improved user interface ensures that document management becomes more intuitive and efficient for end users. The combination of technical excellence and user experience improvements makes this enhancement a significant step forward in the evolution of the Cafetera HR Bot's document processing capabilities.

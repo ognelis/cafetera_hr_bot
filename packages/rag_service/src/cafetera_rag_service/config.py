@@ -39,6 +39,7 @@ class RagServiceSettings(BaseSettings):
     # for T-lite-it-2.1: LLM_TEMPERATURE=0.7 LLM_TOP_P=0.8 LLM_TOP_K=20
     # LLM_PRESENCE_PENALTY=1.0
     llm_temperature: float = 0.3
+    llm_num_ctx: int = 8192
     llm_top_p: float | None = None
     llm_top_k: int | None = None
     llm_presence_penalty: float | None = None
@@ -51,6 +52,10 @@ class RagServiceSettings(BaseSettings):
 
     # Hybrid search (sparse BM25 embeddings)
     sparse_embedding_model: str = "Qdrant/bm25"
+
+    # Retrieval k defaults
+    doc_query_k: int = 15
+    global_max_k: int = 10
 
     # Reranking
     reranking_enabled: bool = False

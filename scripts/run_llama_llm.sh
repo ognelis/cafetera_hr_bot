@@ -28,7 +28,7 @@ LLM_MODEL_PATH="${LLM_MODEL_PATH:-./models/Qwen3.5-4B-Q4_K_M.gguf}"
 LLM_MODEL_URL="${LLM_MODEL_URL:-https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf}"
 LLM_HOST="${LLM_HOST:-127.0.0.1}"
 LLM_PORT="${LLM_PORT:-8080}"
-LLM_CTX_SIZE="${LLM_CTX_SIZE:-4096}"
+LLM_CTX_SIZE="${LLM_CTX_SIZE:-8192}"
 LLM_N_GPU_LAYERS="${LLM_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
 
 detect_cpu_count() {

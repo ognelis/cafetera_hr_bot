@@ -29,6 +29,12 @@ class TestRagSettings:
         assert s.llm_model == "qwen3.5:4b-q4_K_M"
         assert s.llm_base_url == "http://localhost:11434"
         assert s.llm_api_key == ""
+        assert s.llm_num_ctx == 8192
+
+    def test_defaults_for_retrieval_k(self):
+        s = RagServiceSettings(_env_file=None)
+        assert s.doc_query_k == 15
+        assert s.global_max_k == 10
 
     def test_defaults_for_embeddings(self):
         s = RagServiceSettings(_env_file=None)
@@ -155,30 +161,30 @@ class TestFormatDocsWithMetadata:
 class TestEstimateK:
     """Tests for adaptive k-tuning based on question complexity."""
 
-    def test_short_questions_return_k2(self):
-        """Questions with ≤5 words should return k=2."""
-        assert estimate_k("Привет") == 2
-        assert estimate_k("Как дела") == 2
-        assert estimate_k("Что такое отпуск") == 2
-        assert estimate_k("Как получить зарплату") == 2
-        assert estimate_k("Сколько дней отпуска") == 2
+    def test_short_questions_return_k4(self):
+        """Questions with ≤5 words should return k=4."""
+        assert estimate_k("Привет") == 4
+        assert estimate_k("Как дела") == 4
+        assert estimate_k("Что такое отпуск") == 4
+        assert estimate_k("Как получить зарплату") == 4
+        assert estimate_k("Сколько дней отпуска") == 4
 
-    def test_medium_questions_return_k4(self):
-        """Questions with 6-15 words should return k=4."""
-        assert estimate_k("Как оформить отпуск в этой компании") == 4
-        assert estimate_k("Что делать если я заболел и не могу работать") == 4
-        assert estimate_k("Какие документы нужны для приема на работу сегодня") == 4
-        assert estimate_k("Расскажи про политику компании по удаленной работе") == 4
+    def test_medium_questions_return_k6(self):
+        """Questions with 6-15 words should return k=6."""
+        assert estimate_k("Как оформить отпуск в этой компании") == 6
+        assert estimate_k("Что делать если я заболел и не могу работать") == 6
+        assert estimate_k("Какие документы нужны для приема на работу сегодня") == 6
+        assert estimate_k("Расскажи про политику компании по удаленной работе") == 6
 
-    def test_long_questions_return_k6(self):
-        """Questions with >15 words should return k=6."""
+    def test_long_questions_return_max_k(self):
+        """Questions with >15 words should return max_k (default 10)."""
         # 16 words
         assert (
             estimate_k(
                 "one two three four five six seven eight nine ten "
                 "eleven twelve thirteen fourteen fifteen sixteen"
             )
-            == 6
+            == 10
         )
         # 17 words
         assert (
@@ -186,17 +192,26 @@ class TestEstimateK:
                 "Что мне делать если я хочу оформить отпуск "
                 "но у меня уже есть планированный отпуск на следующий месяц"
             )
-            == 6
+            == 10
         )
 
-    def test_empty_string_returns_k2(self):
-        """Empty string has 0 words, should return k=2."""
-        assert estimate_k("") == 2
+    def test_custom_max_k(self):
+        """max_k parameter overrides the default for long questions."""
+        long_q = "word " * 20  # >15 words
+        assert estimate_k(long_q, max_k=20) == 20
+        assert estimate_k(long_q, max_k=5) == 5
+        # Short/medium questions are not affected by max_k
+        assert estimate_k("short", max_k=20) == 4
+        assert estimate_k("six seven eight nine ten eleven", max_k=20) == 6
 
-    def test_whitespace_only_returns_k2(self):
-        """String with only whitespace has 0 words, should return k=2."""
-        assert estimate_k("   ") == 2
-        assert estimate_k("\t\n") == 2
+    def test_empty_string_returns_k4(self):
+        """Empty string has 0 words, should return k=4."""
+        assert estimate_k("") == 4
+
+    def test_whitespace_only_returns_k4(self):
+        """String with only whitespace has 0 words, should return k=4."""
+        assert estimate_k("   ") == 4
+        assert estimate_k("\t\n") == 4
 
 
 class TestCollectionName:
@@ -254,6 +269,7 @@ class TestBuildLlmLlamaCpp:
                 api_key="no-key",
                 base_url="http://localhost:8080/v1",
                 temperature=0.3,
+                model_kwargs={"extra_body": {"n_ctx": 8192}},
             )
 
     def test_passes_real_api_key_when_set(self):
@@ -268,6 +284,7 @@ class TestBuildLlmLlamaCpp:
                 api_key="real-key",
                 base_url="http://localhost:8080/v1",
                 temperature=0.3,
+                model_kwargs={"extra_body": {"n_ctx": 8192}},
             )
 
     def test_passes_custom_base_url(self):
@@ -282,6 +299,7 @@ class TestBuildLlmLlamaCpp:
                 api_key="no-key",
                 base_url="http://gpu-box:9090/v1",
                 temperature=0.3,
+                model_kwargs={"extra_body": {"n_ctx": 8192}},
             )
 
     def test_import_error_message(self):
@@ -303,6 +321,50 @@ class TestBuildLlmLlamaCpp:
                 raise AssertionError("Expected ImportError")  # noqa: TRY301
             except ImportError as exc:
                 assert "openai_compatible" in str(exc)
+
+
+class TestBuildLlmOllama:
+    """Tests for build_llm with ollama provider."""
+
+    def _settings(self, **overrides):
+        defaults = dict(
+            llm_provider="ollama",
+            llm_model="test-model",
+            llm_base_url="http://localhost:11434",
+            llm_api_key="",
+            _env_file=None,
+        )
+        defaults.update(overrides)
+        return RagServiceSettings(**defaults)
+
+    def _fake_langchain_ollama(self):
+        mod = types.ModuleType("langchain_ollama")
+        mod.ChatOllama = MagicMock()
+        return mod
+
+    def test_passes_num_ctx_to_chat_ollama(self):
+        from cafetera_rag_service.rag.chain import build_llm
+
+        fake = self._fake_langchain_ollama()
+        s = self._settings(llm_num_ctx=16384)
+        with patch.dict(sys.modules, {"langchain_ollama": fake}):
+            build_llm(s)
+            fake.ChatOllama.assert_called_once_with(
+                model="test-model",
+                base_url="http://localhost:11434",
+                temperature=0.3,
+                num_ctx=16384,
+            )
+
+    def test_default_num_ctx_is_8192(self):
+        from cafetera_rag_service.rag.chain import build_llm
+
+        fake = self._fake_langchain_ollama()
+        s = self._settings()
+        with patch.dict(sys.modules, {"langchain_ollama": fake}):
+            build_llm(s)
+            call_kwargs = fake.ChatOllama.call_args[1]
+            assert call_kwargs["num_ctx"] == 8192
 
 
 class TestBuildEmbeddingsLlamaCpp:

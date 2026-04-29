@@ -112,6 +112,7 @@ class QAService:
             qdrant_client=self._qdrant_client,
             embeddings=self._embeddings,
             collection_name=self._settings.qdrant_collection,
+            k=self._settings.doc_query_k,
             sparse_embedding=self._sparse_embedding,
         )
         chain = build_rag_chain(
@@ -176,7 +177,10 @@ class QAService:
         """
         from cafetera_rag_service.rag.retriever import estimate_k
 
-        k = estimate_k(question)
+        k = estimate_k(
+            question,
+            max_k=self._settings.global_max_k if self._settings else 10,
+        )
         chain = self._build_global_chain(k, category=category)
         if chain is None:
             return ERR_NO_ANSWER
@@ -227,7 +231,10 @@ class QAService:
         """
         from cafetera_rag_service.rag.retriever import estimate_k
 
-        k = estimate_k(question)
+        k = estimate_k(
+            question,
+            max_k=self._settings.global_max_k if self._settings else 10,
+        )
         chain = self._build_global_chain(k, category=category)
         if chain is None:
             yield ERR_NO_ANSWER

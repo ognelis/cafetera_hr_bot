@@ -99,20 +99,20 @@ class AsyncQdrantRetriever(BaseRetriever):
         raise NotImplementedError("Use async API only")
 
 
-def estimate_k(question: str) -> int:
+def estimate_k(question: str, *, max_k: int = 10) -> int:
     """Estimate the number of chunks to retrieve based on question complexity.
 
     Rules:
-    - Short questions (<=5 words): k=2
-    - Medium questions (6-15 words): k=4 (default)
-    - Long/complex questions (>15 words): k=6
+    - Short questions (<=5 words): k=4
+    - Medium questions (6-15 words): k=6
+    - Long/complex questions (>15 words): k=max_k
     """
     word_count = len(question.split())
     if word_count <= 5:
-        return 2
-    elif word_count <= 15:
         return 4
-    return 6
+    elif word_count <= 15:
+        return 6
+    return max_k
 
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
