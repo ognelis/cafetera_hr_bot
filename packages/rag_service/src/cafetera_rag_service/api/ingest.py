@@ -88,7 +88,9 @@ async def ingest_document(request: Request, body: IngestRequest) -> IngestRespon
             tmp.write(file_data)
             tmp_path = tmp.name
         try:
-            parse_result = await asyncio.to_thread(load_document, tmp_path, settings)
+            parse_result = await asyncio.to_thread(
+                load_document, tmp_path, settings, original_filename=body.filename
+            )
             chunks = parse_result.chunks
         finally:
             os.unlink(tmp_path)

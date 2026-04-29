@@ -70,6 +70,9 @@
       class="text-sm font-medium text-base-content hover:text-primary transition-colors"
       title="Скачать файл"
     >{{ doc.title }}</a>
+    {% if doc.indexing_config and doc.indexing_config.extracted_title and doc.indexing_config.extracted_title != doc.title %}
+      <div class="text-xs text-base-content/50 truncate" title="{{ doc.indexing_config.extracted_title }}">{{ doc.indexing_config.extracted_title }}</div>
+    {% endif %}
   </td>
 
   {# Added date #}
@@ -102,6 +105,15 @@
         <span>Файл {{ doc.filename.split('.')[-1] | upper if '.' in doc.filename else '' }}</span>
       {% endif %}
     </div>
+  </td>
+
+  {# Page count #}
+  <td class="hidden lg:table-cell px-2 py-3 text-center">
+    {% if doc.indexing_config and doc.indexing_config.page_count is not none %}
+      {{ doc.indexing_config.page_count }}
+    {% else %}
+      <span class="text-base-content/30">—</span>
+    {% endif %}
   </td>
 
   {# Actions dropdown #}

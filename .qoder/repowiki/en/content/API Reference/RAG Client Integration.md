@@ -15,17 +15,19 @@
 - [packages/rag_service/src/cafetera_rag_service/api/ingest.py](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py)
 - [packages/rag_service/src/cafetera_rag_service/config.py](file://packages/rag_service/src/cafetera_rag_service/config.py)
 - [packages/rag_service/src/cafetera_rag_service/models.py](file://packages/rag_service/src/cafetera_rag_service/models.py)
+- [packages/rag_service/src/cafetera_rag_service/parser.py](file://packages/rag_service/src/cafetera_rag_service/parser.py)
 - [.env.example](file://.env.example)
 - [packages/rag_service/src/cafetera_rag_service/rag/chain.py](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py)
+- [packages/admin/src/cafetera_admin/domain/document_service.py](file://packages/admin/src/cafetera_admin/domain/document_service.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced LLM configuration system with new sampling parameters (temperature, top_p, top_k, presence_penalty)
-- Added provider-specific handling for improved client integration across Ollama, OpenAI, and llama.cpp
-- Updated configuration management to support advanced LLM parameter tuning
-- Enhanced streaming response handling with improved error recovery
-- Added comprehensive documentation for new sampling parameter configuration
+- Enhanced RAG client ingest_document method now returns comprehensive metadata including page_count, binary_hash, extracted_title, and status information
+- Updated unified document ingestion pipeline documentation to reflect new metadata fields
+- Added comprehensive metadata extraction capabilities from document parsing
+- Enhanced document indexing configuration with new metadata fields
+- Updated API response models to include new metadata fields
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -47,7 +49,7 @@ The RAG (Retrieval-Augmented Generation) Client Integration is a critical compon
 
 The system operates on a microservices architecture where the RAG Client acts as a thin HTTP client that communicates with a dedicated RAG service running on port 8001. The integration supports both synchronous and streaming responses, enabling real-time conversational experiences while maintaining efficient resource utilization. Recent enhancements include improved error handling for batch operations, new cache invalidation functionality, enhanced streaming response handling, and the addition of unified document ingestion and dynamic search visibility control capabilities.
 
-**Updated** Enhanced LLM configuration system with new sampling parameters and provider-specific handling for improved client integration.
+**Updated** Enhanced RAG client ingest_document method now returns comprehensive metadata including page_count, binary_hash, extracted_title, and status information for improved document tracking and management.
 
 ## System Architecture
 
@@ -66,6 +68,9 @@ Config[Configuration Manager]
 Storage[Storage Layer]
 CacheManager[Cache Manager]
 LLMChain[LLM Chain Builder]
+EndIngester[Enhanced Ingestion Pipeline]
+EndMetadata[Comprehensive Metadata Extraction]
+EndConfig[Enhanced Indexing Config]
 end
 subgraph "RAG Microservice"
 FastAPI[FastAPI Server]
@@ -76,6 +81,8 @@ CacheInvalidation[Cache Invalidation]
 Health[Health Check]
 LLMBuilder[LLM Provider Builder]
 SamplingParams[Sampling Parameters]
+Parser[Document Parser]
+ParseResult[Parse Result with Metadata]
 end
 subgraph "External Services"
 Qdrant[Qdrant Vector DB]
@@ -101,23 +108,26 @@ QAEndpoints --> EmbeddingProvider
 Ingest --> S3Storage
 Ingest --> DoclingParser
 Ingest --> Qdrant
-Indexing --> Qdrant
-CacheManager --> CacheInvalidation
-Config --> RAGClient
-Storage --> RAGClient
+Ingest --> Parser
+Parser --> ParseResult
+ParseResult --> EndMetadata
+EndIngester --> EndConfig
+EndIngester --> EndMetadata
+EndIngester --> EndConfig
 ```
 
 **Diagram sources**
-- [packages/core/src/cafetera_core/rag_client.py:15-193](file://packages/core/src/cafetera_core/rag_client.py#L15-L193)
+- [packages/core/src/cafetera_core/rag_client.py:15-201](file://packages/core/src/cafetera_core/rag_client.py#L15-L201)
 - [packages/rag_service/src/cafetera_rag_service/main.py:39-54](file://packages/rag_service/src/cafetera_rag_service/main.py#L39-L54)
 - [packages/rag_service/src/cafetera_rag_service/api/qa.py:22-121](file://packages/rag_service/src/cafetera_rag_service/api/qa.py#L22-L121)
-- [packages/rag_service/src/cafetera_rag_service/api/indexing.py:23-222](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L23-222)
-- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:21-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L21-188)
+- [packages/rag_service/src/cafetera_rag_service/api/indexing.py:23-222](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L23-L222)
+- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:21-189](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L21-L189)
 - [packages/rag_service/src/cafetera_rag_service/rag/chain.py:89-135](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L89-L135)
+- [packages/rag_service/src/cafetera_rag_service/parser.py:20-28](file://packages/rag_service/src/cafetera_rag_service/parser.py#L20-L28)
 
-The architecture supports three primary LLM providers (Ollama, OpenAI, and llama.cpp) with automatic model downloading capabilities, ensuring flexibility in deployment environments while maintaining consistent API interfaces. The new ingestion pipeline adds S3 storage and Docling parsing capabilities for comprehensive document processing.
+The architecture supports three primary LLM providers (Ollama, OpenAI, and llama.cpp) with automatic model downloading capabilities, ensuring flexibility in deployment environments while maintaining consistent API interfaces. The new ingestion pipeline adds S3 storage and Docling parsing capabilities for comprehensive document processing with enhanced metadata extraction.
 
-**Updated** Enhanced with LLM Chain Builder and Sampling Parameters components for improved provider-specific handling.
+**Updated** Enhanced with comprehensive metadata extraction pipeline and enhanced indexing configuration capabilities.
 
 ## Core Components
 
@@ -136,7 +146,7 @@ class RAGClient {
 +ask_about_document(question : str, document_id : str) str
 +stream_about_document(question : str, document_id : str) AsyncIterator~str~
 +index_chunks(document_id : str, filename : str, chunks : list, is_search_enabled : bool) int
-+ingest_document(document_id : str, filename : str, s3_key : str, is_search_enabled : bool) int
++ingest_document(document_id : str, filename : str, s3_key : str, is_search_enabled : bool) dict~str, Any~
 +toggle_search(document_id : str, is_search_enabled : bool) None
 +delete_document(document_id : str) None
 +invalidate_cache(document_id : str | None) None
@@ -161,31 +171,41 @@ class RagServiceSettings {
 +int | None llm_top_k
 +float | None llm_presence_penalty
 }
+class ParseResult {
++Document[] chunks
++int | None page_count
++str | None binary_hash
++str | None extracted_title
+}
 RAGClient --> CoreSettings : "uses"
 CoreSettings --> RagServiceSettings : "compatible with"
+RAGClient --> ParseResult : "returns enhanced metadata"
 ```
 
 **Diagram sources**
-- [packages/core/src/cafetera_core/rag_client.py:15-193](file://packages/core/src/cafetera_core/rag_client.py#L15-L193)
+- [packages/core/src/cafetera_core/rag_client.py:15-201](file://packages/core/src/cafetera_core/rag_client.py#L15-L201)
 - [packages/core/src/cafetera_core/config.py:14-40](file://packages/core/src/cafetera_core/config.py#L14-L40)
 - [packages/rag_service/src/cafetera_rag_service/config.py:8-73](file://packages/rag_service/src/cafetera_rag_service/config.py#L8-L73)
+- [packages/rag_service/src/cafetera_rag_service/parser.py:20-28](file://packages/rag_service/src/cafetera_rag_service/parser.py#L20-L28)
 
-### Configuration Management
+### Enhanced Metadata Extraction
 
-The system employs a dual-configuration approach supporting both shared core settings and service-specific configurations:
+The system now provides comprehensive document metadata extraction through the ParseResult dataclass:
 
-| Configuration Type | Purpose | Environment Variables | Default Values |
-|-------------------|---------|----------------------|----------------|
-| Core Settings | Shared across all packages | `RAG_SERVICE_URL`, `RAG_SERVICE_API_KEY` | Localhost:8001, empty |
-| RAG Service Settings | Service-specific | `QDRANT_URL`, `LLM_PROVIDER` | Localhost:6333, Ollama |
-| LLM Sampling Parameters | Advanced generation control | `LLM_TEMPERATURE`, `LLM_TOP_P`, `LLM_TOP_K`, `LLM_PRESENCE_PENALTY` | Temperature: 0.3, others: None |
+| Metadata Field | Type | Description | Availability |
+|----------------|------|-------------|--------------|
+| `page_count` | int \| None | Total number of pages in the document | Available for supported formats |
+| `binary_hash` | str \| None | Unique hash of the document's binary content | Available for all processed documents |
+| `extracted_title` | str \| None | Extracted title from document metadata | Available when present in source |
+| `chunks` | list[Document] | Processed document chunks with metadata | Always available |
 
-**Updated** Added LLM Sampling Parameters configuration table with new advanced generation controls.
+**Updated** Added comprehensive metadata extraction capabilities with new ParseResult dataclass structure.
 
 **Section sources**
 - [packages/core/src/cafetera_core/config.py:23-36](file://packages/core/src/cafetera_core/config.py#L23-L36)
 - [packages/rag_service/src/cafetera_rag_service/config.py:22-73](file://packages/rag_service/src/cafetera_rag_service/config.py#L22-L73)
 - [.env.example:26-41](file://.env.example#L26-L41)
+- [packages/rag_service/src/cafetera_rag_service/parser.py:20-28](file://packages/rag_service/src/cafetera_rag_service/parser.py#L20-L28)
 
 ## RAG Client Implementation
 
@@ -238,9 +258,9 @@ RAGClient-->>Client : Stream Complete
 - [packages/core/src/cafetera_core/rag_client.py:54-82](file://packages/core/src/cafetera_core/rag_client.py#L54-L82)
 - [packages/rag_service/src/cafetera_rag_service/api/qa.py:62-85](file://packages/rag_service/src/cafetera_rag_service/api/qa.py#L62-L85)
 
-### Unified Document Ingestion Pipeline
+### Unified Document Ingestion Pipeline with Enhanced Metadata
 
-The RAG Client now provides a unified interface for the complete document ingestion pipeline, combining S3 download, parsing, embedding, and indexing into a single operation:
+The RAG Client now provides a unified interface for the complete document ingestion pipeline, combining S3 download, parsing, embedding, and indexing into a single operation with comprehensive metadata extraction:
 
 ```mermaid
 sequenceDiagram
@@ -255,18 +275,19 @@ RAGClient->>RAGService : POST /api/index/ingest
 RAGService->>Qdrant : DELETE existing chunks
 RAGService->>S3 : Download document
 S3-->>RAGService : File data
-RAGService->>Parser : Parse document
-Parser-->>RAGService : Parsed chunks
+RAGService->>Parser : Parse document with metadata extraction
+Parser-->>RAGService : ParseResult(chunks, page_count, binary_hash, extracted_title)
 RAGService->>RAGService : Embed + enrich chunks
 RAGService->>Qdrant : Batch upsert vectors
 Qdrant-->>RAGService : Index confirmation
-RAGService-->>RAGClient : {chunks_indexed : N}
-RAGClient-->>Admin : Ingestion complete
+RAGService-->>RAGClient : {chunks_indexed, page_count, binary_hash, extracted_title, status}
+RAGClient-->>Admin : Enhanced ingestion result with metadata
 ```
 
 **Diagram sources**
-- [packages/core/src/cafetera_core/rag_client.py:133-160](file://packages/core/src/cafetera_core/rag_client.py#L133-L160)
-- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
+- [packages/core/src/cafetera_core/rag_client.py:133-168](file://packages/core/src/cafetera_core/rag_client.py#L133-L168)
+- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:54-189](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L54-L189)
+- [packages/rag_service/src/cafetera_rag_service/parser.py:20-28](file://packages/rag_service/src/cafetera_rag_service/parser.py#L20-L28)
 
 ### Dynamic Search Visibility Control
 
@@ -281,18 +302,16 @@ participant Qdrant as "Qdrant"
 Admin->>RAGClient : toggle_search(document_id, is_search_enabled=False)
 RAGClient->>RAGService : PATCH /api/index/documents/{document_id}/search
 RAGService->>Qdrant : set_payload(is_search_enabled=False)
-Qdrant-->>RAGService : Payload updated
-RAGService->>RAGService : Invalidate QA cache
 RAGService-->>RAGClient : StatusResponse
 RAGClient-->>Admin : Search visibility toggled
 ```
 
 **Diagram sources**
-- [packages/core/src/cafetera_core/rag_client.py:162-173](file://packages/core/src/cafetera_core/rag_client.py#L162-L173)
+- [packages/core/src/cafetera_core/rag_client.py:170-182](file://packages/core/src/cafetera_core/rag_client.py#L170-L182)
 - [packages/rag_service/src/cafetera_rag_service/api/indexing.py:150-199](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L150-L199)
 
 **Section sources**
-- [packages/core/src/cafetera_core/rag_client.py:15-193](file://packages/core/src/cafetera_core/rag_client.py#L15-L193)
+- [packages/core/src/cafetera_core/rag_client.py:15-201](file://packages/core/src/cafetera_core/rag_client.py#L15-L201)
 
 ## Integration Points
 
@@ -303,7 +322,8 @@ The RAG Client seamlessly integrates with document management systems through sp
 ```mermaid
 flowchart TD
 Start([Document Upload]) --> ParseChunks["Parse Document into Chunks"]
-ParseChunks --> IndexChunks["Send Chunks to RAG Service"]
+ParseChunks --> ExtractMetadata["Extract Comprehensive Metadata<br/>(page_count, binary_hash, extracted_title)"]
+ExtractMetadata --> IndexChunks["Send Chunks to RAG Service"]
 IndexChunks --> StoreMetadata["Store Document Metadata"]
 IndexChunks --> EnableSearch["Enable Search Indexing"]
 EnableSearch --> End([Ready for QA])
@@ -318,18 +338,19 @@ ErrorHandling --> RetryLogic["Retry Logic for Failed Operations"]
 RetryLogic --> FallbackOptions["Fallback Options"]
 Start --> UnifiedIngest["Unified Ingestion Pipeline"]
 UnifiedIngest --> S3Download["Download from S3"]
-S3Download --> ParseDoc["Parse with Docling"]
+S3Download --> ParseDoc["Parse with Docling + Metadata Extraction"]
 ParseDoc --> EnrichChunks["Enrich Chunk Metadata"]
 EnrichChunks --> EmbedChunks["Generate Embeddings"]
 EmbedChunks --> IndexQdrant["Index to Qdrant"]
-IndexQdrant --> UpdateMetadata["Update Document Metadata"]
+IndexQdrant --> UpdateMetadata["Update Document Metadata with Enhanced Fields"]
 UpdateMetadata --> SearchToggle["Dynamic Search Control"]
 SearchToggle --> End
 ```
 
 **Diagram sources**
-- [packages/core/src/cafetera_core/rag_client.py:112-173](file://packages/core/src/cafetera_core/rag_client.py#L112-L173)
+- [packages/core/src/cafetera_core/rag_client.py:112-182](file://packages/core/src/cafetera_core/rag_client.py#L112-L182)
 - [packages/core/src/cafetera_core/storage/document_repo.py:75-116](file://packages/core/src/cafetera_core/storage/document_repo.py#L75-L116)
+- [packages/rag_service/src/cafetera_rag_service/parser.py:20-28](file://packages/rag_service/src/cafetera_rag_service/parser.py#L20-L28)
 
 ### Category File Service Integration
 
@@ -342,8 +363,20 @@ The system integrates with category-based document templates for VK bot function
 | `delete_file()` | Remove unused templates | Cascade delete (S3 + DB) |
 | `download_file()` | Template retrieval | S3 download with error handling |
 
+### Enhanced Indexing Configuration
+
+The Admin Panel now receives comprehensive metadata from the ingestion process:
+
+| Metadata Field | Purpose | Usage in Admin Panel |
+|----------------|---------|---------------------|
+| `page_count` | Document length indicator | Display document size in UI |
+| `binary_hash` | Content uniqueness verification | Detect duplicate documents |
+| `extracted_title` | Human-readable document name | Improve document labeling |
+| `chunks_indexed` | Processing success indicator | Confirm successful ingestion |
+
 **Section sources**
 - [packages/core/src/cafetera_core/domain/category_file_service.py:32-116](file://packages/core/src/cafetera_core/domain/category_file_service.py#L32-L116)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:194-216](file://packages/admin/src/cafetera_admin/domain/document_service.py#L194-L216)
 
 ## API Endpoints
 
@@ -365,13 +398,13 @@ Document processing and cache management endpoints with comprehensive error hand
 | Endpoint | Method | Description | Response Format |
 |----------|--------|-------------|-----------------|
 | `/api/index/chunks` | POST | Index document chunks | JSON with chunk count |
-| `/api/index/ingest` | POST | Full document pipeline (S3 → parse → embed → index) | JSON with chunk count |
+| `/api/index/ingest` | POST | Full document pipeline (S3 → parse → embed → index) | JSON with enhanced metadata |
 | `/api/index/documents/{id}` | DELETE | Remove document from index | No content |
 | `/api/index/documents/{id}/search` | PATCH | Toggle document search visibility | StatusResponse |
 | `/api/index/cache/invalidate` | POST | Invalidate search cache | StatusResponse |
 | `/api/health` | GET | Service health check | JSON status |
 
-### Request/Response Models
+### Enhanced Request/Response Models
 
 Enhanced request and response models supporting new functionality:
 
@@ -381,18 +414,20 @@ Enhanced request and response models supporting new functionality:
 | `AskDocumentRequest` | `question`, `document_id` | Document-specific QA |
 | `IndexChunksRequest` | `document_id`, `filename`, `chunks`, `is_search_enabled` | Document indexing |
 | `IngestRequest` | `document_id`, `filename`, `s3_key`, `is_search_enabled` | Unified document ingestion |
+| `IngestResponse` | `status`, `chunks_indexed`, `page_count`, `binary_hash`, `extracted_title` | Enhanced ingestion completion |
 | `ToggleSearchRequest` | `is_search_enabled` | Search visibility control |
 | `InvalidateCacheRequest` | `document_id` | Cache invalidation control |
 | `IndexChunksResponse` | `status`, `chunks_indexed` | Indexing completion |
-| `IngestResponse` | `status`, `chunks_indexed` | Ingestion completion |
 | `StatusResponse` | `status` | Generic operation status |
+
+**Updated** Enhanced IngestResponse model now includes comprehensive metadata fields for improved document tracking.
 
 **Section sources**
 - [packages/rag_service/src/cafetera_rag_service/api/qa.py:54-121](file://packages/rag_service/src/cafetera_rag_service/api/qa.py#L54-L121)
 - [packages/rag_service/src/cafetera_rag_service/api/indexing.py:25-222](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L25-L222)
-- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
-- [packages/rag_service/src/cafetera_rag_service/models.py:10-71](file://packages/rag_service/src/cafetera_rag_service/models.py#L10-L71)
-- [packages/core/src/cafetera_core/rag_client.py:112-173](file://packages/core/src/cafetera_core/rag_client.py#L112-L173)
+- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:54-189](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L54-L189)
+- [packages/rag_service/src/cafetera_rag_service/models.py:10-74](file://packages/rag_service/src/cafetera_rag_service/models.py#L10-L74)
+- [packages/core/src/cafetera_core/rag_client.py:133-168](file://packages/core/src/cafetera_core/rag_client.py#L133-L168)
 
 ## Configuration Management
 
@@ -520,9 +555,9 @@ ClientReturn --> UserAnswer["Display Answer"]
 - [packages/core/src/cafetera_core/rag_client.py:34-52](file://packages/core/src/cafetera_core/rag_client.py#L34-L52)
 - [packages/rag_service/src/cafetera_rag_service/api/qa.py:25-51](file://packages/rag_service/src/cafetera_rag_service/api/qa.py#L25-L51)
 
-### Unified Document Ingestion Workflow
+### Unified Document Ingestion Workflow with Enhanced Metadata
 
-The document processing pipeline ensures efficient vector database population with enhanced error handling and dynamic search control:
+The document processing pipeline ensures efficient vector database population with enhanced error handling, comprehensive metadata extraction, and dynamic search control:
 
 ```mermaid
 sequenceDiagram
@@ -538,21 +573,22 @@ RAGClient->>RAGService : POST /api/index/ingest
 RAGService->>Qdrant : DELETE existing chunks
 RAGService->>S3 : Download document
 S3-->>RAGService : File data
-RAGService->>Parser : Parse document
-Parser-->>RAGService : Parsed chunks
+RAGService->>Parser : Parse document with metadata extraction
+Parser-->>RAGService : ParseResult(chunks, page_count, binary_hash, extracted_title)
 RAGService->>RAGService : Enrich + embed chunks
 RAGService->>Qdrant : Batch upsert vectors
 Qdrant-->>RAGService : Index confirmation
-RAGService->>DB : Update document metadata
+RAGService->>DB : Update document metadata with enhanced fields
 DB-->>RAGService : Metadata updated
 RAGService->>RAGService : Invalidate QA cache
-RAGService-->>RAGClient : {chunks_indexed : N}
-RAGClient-->>Admin : Ingestion complete
+RAGService-->>RAGClient : {chunks_indexed, page_count, binary_hash, extracted_title, status}
+RAGClient-->>Admin : Enhanced ingestion result with comprehensive metadata
 ```
 
 **Diagram sources**
-- [packages/core/src/cafetera_core/rag_client.py:133-160](file://packages/core/src/cafetera_core/rag_client.py#L133-L160)
-- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
+- [packages/core/src/cafetera_core/rag_client.py:133-168](file://packages/core/src/cafetera_core/rag_client.py#L133-L168)
+- [packages/rag_service/src/cafetera_rag_service/api/ingest.py:54-189](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L54-L189)
+- [packages/rag_service/src/cafetera_rag_service/parser.py:20-28](file://packages/rag_service/src/cafetera_rag_service/parser.py#L20-L28)
 
 ### Dynamic Search Visibility Workflow
 
@@ -567,18 +603,16 @@ participant Qdrant as "Qdrant"
 Admin->>RAGClient : toggle_search(document_id, is_search_enabled=False)
 RAGClient->>RAGService : PATCH /api/index/documents/{document_id}/search
 RAGService->>Qdrant : set_payload(is_search_enabled=False)
-Qdrant-->>RAGService : Payload updated
-RAGService->>RAGService : Invalidate QA cache
 RAGService-->>RAGClient : StatusResponse
 RAGClient-->>Admin : Search visibility toggled
 ```
 
 **Diagram sources**
-- [packages/core/src/cafetera_core/rag_client.py:162-173](file://packages/core/src/cafetera_core/rag_client.py#L162-L173)
+- [packages/core/src/cafetera_core/rag_client.py:170-182](file://packages/core/src/cafetera_core/rag_client.py#L170-L182)
 - [packages/rag_service/src/cafetera_rag_service/api/indexing.py:150-199](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L150-L199)
 
 **Section sources**
-- [packages/core/src/cafetera_core/rag_client.py:112-173](file://packages/core/src/cafetera_core/rag_client.py#L112-L173)
+- [packages/core/src/cafetera_core/rag_client.py:112-182](file://packages/core/src/cafetera_core/rag_client.py#L112-L182)
 
 ## Performance Considerations
 
@@ -589,7 +623,7 @@ The RAG Client implements tiered timeout strategies to balance responsiveness wi
 | Operation Type | Standard Timeout | Indexing Timeout | Purpose |
 |----------------|------------------|------------------|---------|
 | QA Queries | 60.0 seconds | 300.0 seconds | Prevents hanging requests |
-| Document Indexing | 300.0 seconds | 600.0 seconds | Handles large document processing |
+| Document Indexing | 300.0 seconds | 600.0 seconds | Handles large document processing with metadata extraction |
 | Health Checks | 10.0 seconds | 30.0 seconds | Quick service availability checks |
 
 ### Concurrency Management
@@ -621,6 +655,17 @@ The RAG service implements intelligent caching for QA services with improved cac
 | Vector Cache | Document vectors | TTL-based | Improves search performance |
 | Response Cache | Frequently asked questions | Time-based | Reduces repeated processing |
 
+**Updated** Enhanced caching strategy now supports comprehensive metadata-based caching for improved document tracking.
+
+### Metadata Processing Performance
+
+The enhanced metadata extraction process adds minimal overhead to the ingestion pipeline:
+
+- **Page Count Calculation**: O(n) operation on document pages
+- **Binary Hash Generation**: Cryptographic hashing with minimal computational cost
+- **Title Extraction**: Simple metadata field extraction
+- **Chunk Metadata Enrichment**: Adds document-level metadata to each chunk
+
 **Section sources**
 - [packages/rag_service/src/cafetera_rag_service/api/qa.py:25-51](file://packages/rag_service/src/cafetera_rag_service/api/qa.py#L25-L51)
 
@@ -638,8 +683,9 @@ The RAG service implements intelligent caching for QA services with improved cac
 | Ingestion Failures | Document processing errors | Verify S3 credentials and document format compatibility |
 | Search Visibility Issues | Documents not appearing in search | Use toggle_search endpoint to enable/disable visibility |
 | Sampling Parameter Issues | Unexpected generation behavior | Check provider-specific parameter support and configuration |
+| Metadata Extraction Issues | Missing page_count or binary_hash | Verify document format support and parser configuration |
 
-**Updated** Added sampling parameter troubleshooting guidance.
+**Updated** Added metadata extraction troubleshooting guidance for new comprehensive metadata fields.
 
 ### Debugging Steps
 
@@ -651,6 +697,8 @@ The RAG service implements intelligent caching for QA services with improved cac
 6. **Validate Ingestion Pipeline**: Test unified ingestion with small documents first
 7. **Check Search Toggles**: Verify search visibility changes propagate correctly
 8. **Debug Sampling Parameters**: Verify provider-specific parameter support and configuration
+9. **Inspect Metadata Fields**: Verify page_count, binary_hash, and extracted_title are properly extracted
+10. **Monitor Ingestion Response**: Check that enhanced metadata is returned in ingest_document responses
 
 ### Performance Monitoring
 
@@ -661,8 +709,10 @@ Key metrics to monitor:
 - **Vector Database Performance**: Qdrant query response times and collection size
 - **Memory Usage**: Monitor client and service memory consumption during peak loads
 - **Cache Hit Rate**: Monitor effectiveness of QA service caching strategy
-- **Ingestion Pipeline Metrics**: Track S3 download times, parsing performance, and indexing throughput
+- **Ingestion Pipeline Metrics**: Track S3 download times, parsing performance, metadata extraction, and indexing throughput
 - **LLM Generation Quality**: Monitor response consistency with different sampling parameter combinations
+- **Metadata Extraction Performance**: Monitor time taken for page_count, binary_hash, and title extraction
+- **Enhanced Response Processing**: Monitor time for comprehensive metadata handling in ingestion responses
 
 **Section sources**
 - [packages/core/src/cafetera_core/rag_client.py:26-32](file://packages/core/src/cafetera_core/rag_client.py#L26-L32)
@@ -686,14 +736,20 @@ The RAG Client Integration represents a sophisticated solution for enterprise-gr
 
 **Provider-Specific Optimization**: Improved client integration with provider-specific parameter handling ensures optimal performance and behavior across Ollama, OpenAI, and llama.cpp deployments.
 
+**Comprehensive Metadata Extraction**: New ParseResult dataclass provides rich document metadata including page_count, binary_hash, and extracted_title for enhanced document tracking and management.
+
+**Enhanced Indexing Configuration**: Improved indexing configuration with comprehensive metadata fields enables better document organization and search capabilities.
+
 **Scalability**: The microservices architecture allows independent scaling of components based on demand, with the RAG service capable of handling multiple concurrent QA sessions and document processing operations.
 
 **Flexibility**: Support for multiple LLM providers (Ollama, OpenAI, llama.cpp) ensures deployment flexibility across different infrastructure requirements and cost models.
 
 **Maintainability**: Clean separation of concerns between the RAG Client, document management, and service configuration enables easy updates and modifications without disrupting core functionality.
 
+**Enhanced Document Management**: The comprehensive metadata extraction capabilities significantly improve document tracking, duplicate detection, and content organization within the system.
+
 The integration successfully bridges the gap between human-readable HR documentation and intelligent AI-powered search, enabling organizations to leverage their knowledge assets more effectively while maintaining security and performance standards.
 
-**Updated** Enhanced conclusion to highlight the new LLM sampling parameters and provider-specific handling capabilities.
+**Updated** Enhanced conclusion to highlight the new comprehensive metadata extraction capabilities and enhanced indexing configuration features.
 
-Future enhancements could include advanced caching strategies, distributed indexing capabilities, enhanced monitoring and alerting systems, expanded cache invalidation options for more granular control over the QA service lifecycle, additional document format support for the unified ingestion pipeline, and expanded provider-specific optimization for emerging LLM platforms.
+Future enhancements could include advanced caching strategies, distributed indexing capabilities, enhanced monitoring and alerting systems, expanded cache invalidation options for more granular control over the QA service lifecycle, additional document format support for the unified ingestion pipeline, expanded provider-specific optimization for emerging LLM platforms, and integration of the new metadata fields into advanced document analytics and reporting systems.

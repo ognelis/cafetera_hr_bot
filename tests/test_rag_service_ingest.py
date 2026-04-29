@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -122,6 +122,12 @@ class TestIngestEndpoint:
         assert data["extracted_title"] == "Test Handbook"
         assert data["status"] == "ok"
 
+        # Verify load_document was called with original_filename
+        mock_load_doc.assert_called_once_with(
+            ANY,  # tmp_path
+            ANY,  # settings
+            original_filename="test.docx",
+        )
         # Verify S3 download was called
         mock_rag_resources.s3_storage.download.assert_awaited_once_with(
             "documents/test.docx"

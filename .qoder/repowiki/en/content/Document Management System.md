@@ -33,19 +33,21 @@
 - [chain.py](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py)
 - [indexing.py](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py)
 - [test_parser.py](file://tests/test_parser.py)
+- [database.py](file://packages/core/src/cafetera_core/storage/database.py)
+- [document_repo.py](file://packages/core/src/cafetera_core/storage/document_repo.py)
+- [models.py](file://packages/core/src/cafetera_core/storage/models.py)
+- [category_models.py](file://packages/core/src/cafetera_core/storage/category_models.py)
+- [category_repo.py](file://packages/core/src/cafetera_core/storage/category_repo.py)
+- [schemas.py](file://packages/admin/src/cafetera_admin/api/schemas.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced modal window system with improved layout, automatic scrolling functionality, and better user experience for document questions and global questions
-- Implemented streaming response support for real-time question answering with automatic content scrolling
-- Added fixed header and footer layout patterns for modal dialogs with scrollable content areas
-- Improved user experience with automatic scrolling to latest content during streaming responses
-- Enhanced modal accessibility with proper backdrop handling and keyboard navigation support
-- **Updated** Enhanced Docling integration with comprehensive metadata extraction including page numbers, headings, and document structure preservation
-- **Updated** New payload index for metadata.headings field in Qdrant collection for improved document filtering and search capabilities
-- **Updated** ONNX-based document processing pipeline with pre-downloaded Docling ML models (layout analysis, TableFormer) and ONNX runtime dependencies
-- **Updated** Enhanced Docker optimization with Torch package preservation and headless OpenCV support for improved performance
+- Enhanced PostgreSQL database schema with JSONB indexing_config column for improved document metadata handling and structured storage capabilities
+- Updated document storage layer to support structured indexing configuration persistence
+- Added comprehensive indexing configuration management for document processing workflows
+- Enhanced database initialization with conditional column addition for backward compatibility
+- Updated document models and repositories to handle JSONB indexing configuration data
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -53,24 +55,28 @@
 3. [Core Components](#core-components)
 4. [Architecture Overview](#architecture-overview)
 5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Enhanced Modal Window System](#enhanced-modal-window-system)
-7. [Streaming Question Answering](#streaming-question-answering)
-8. [Enhanced Docling Integration](#enhanced-docling-integration)
-9. [ONNX-Based Document Processing Pipeline](#onnx-based-document-processing-pipeline)
-10. [Enhanced Docker Deployment](#enhanced-docker-deployment)
-11. [Testing Coverage](#testing-coverage)
-12. [Performance Considerations](#performance-considerations)
-13. [Troubleshooting Guide](#troubleshooting-guide)
-14. [Conclusion](#conclusion)
+6. [Enhanced PostgreSQL Database Schema](#enhanced-postgresql-database-schema)
+7. [JSONB Indexing Configuration Management](#jsonb-indexing-configuration-management)
+8. [Document Storage Layer Enhancements](#document-storage-layer-enhancements)
+9. [Database Migration and Compatibility](#database-migration-and-compatibility)
+10. [Enhanced Modal Window System](#enhanced-modal-window-system)
+11. [Streaming Question Answering](#streaming-question-answering)
+12. [Enhanced Docling Integration](#enhanced-docling-integration)
+13. [ONNX-Based Document Processing Pipeline](#onnx-based-document-processing-pipeline)
+14. [Enhanced Docker Deployment](#enhanced-docker-deployment)
+15. [Testing Coverage](#testing-coverage)
+16. [Performance Considerations](#performance-considerations)
+17. [Troubleshooting Guide](#troubleshooting-guide)
+18. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the Document Management System built around a VKontakte (VK) bot integrated with a Retrieval-Augmented Generation (RAG) backend. The system manages HR-related documents and provides conversational access to policies, procedures, and templates through an intuitive chat interface. It leverages configurable settings for LLM providers, vector storage, and document chunking, while offering modular handlers for different HR workflows such as hiring, termination, vacation, payroll, and general questions.
 
-**Updated** The system now features an enhanced modal window system with improved layout, automatic scrolling functionality, and better user experience for document questions and global questions. The modal system now supports streaming responses with automatic content scrolling, providing a more responsive and engaging user experience. Additionally, the system implements an ONNX-based document processing pipeline with pre-downloaded ML models for improved performance and reliability, along with comprehensive metadata extraction capabilities including page numbers, headings, and document structure preservation.
+**Updated** The system now features an enhanced PostgreSQL database schema with JSONB indexing_config column for improved document metadata handling and structured storage capabilities. This enhancement enables sophisticated indexing configuration management, allowing for flexible document processing workflows with persistent configuration storage. The database layer now supports structured indexing configurations that can be queried and filtered, providing better control over document processing pipelines and metadata extraction strategies.
 
 ## Project Structure
 The project follows a monorepo workspace managed by uv, with three main packages:
-- core: Shared RAG and infrastructure settings
+- core: Shared RAG and infrastructure settings, including enhanced database schema
 - vk_bot: VK bot implementation with handlers and UI keyboards
 - admin: Admin web UI settings extending core configuration
 - rag_service: Enhanced RAG service with comprehensive Docling integration
@@ -102,10 +108,19 @@ RESOURCES["resources.py"]
 CHAIN["rag/chain.py"]
 INDEXING["api/indexing.py"]
 end
+subgraph "Core Storage Layer"
+DATABASE["database.py"]
+DOCUMENT_REPO["document_repo.py"]
+MODELS["models.py"]
+CATEGORY_MODELS["category_models.py"]
+CATEGORY_REPO["category_repo.py"]
+SCHEMAS["schemas.py"]
+end
 CORE --> ADMIN
 CORE --> VKBOT
 CORE --> INDEXER
 CORE --> RAGSERVICE
+CORE --> DATABASE
 VKBOT --> BOT
 VKBOT --> STATES
 VKBOT --> KEYBOARDS
@@ -114,6 +129,11 @@ TESTS --> VKBOT
 TESTS --> INDEXER
 TESTS --> QA_API
 TESTS --> RAGSERVICE
+DATABASE --> DOCUMENT_REPO
+DATABASE --> MODELS
+DATABASE --> CATEGORY_MODELS
+DATABASE --> CATEGORY_REPO
+DATABASE --> SCHEMAS
 ```
 
 **Diagram sources**
@@ -130,6 +150,12 @@ TESTS --> RAGSERVICE
 - [resources.py:1-345](file://packages/rag_service/src/cafetera_rag_service/resources.py#L1-345)
 - [chain.py:1-192](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py#L1-192)
 - [indexing.py:1-222](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L1-222)
+- [database.py:1-65](file://packages/core/src/cafetera_core/storage/database.py#L1-65)
+- [document_repo.py:1-329](file://packages/core/src/cafetera_core/storage/document_repo.py#L1-329)
+- [models.py:1-40](file://packages/core/src/cafetera_core/storage/models.py#L1-40)
+- [category_models.py:1-64](file://packages/core/src/cafetera_core/storage/category_models.py#L1-64)
+- [category_repo.py:1-140](file://packages/core/src/cafetera_core/storage/category_repo.py#L1-140)
+- [schemas.py:1-83](file://packages/admin/src/cafetera_admin/api/schemas.py#L1-83)
 
 **Section sources**
 - [pyproject.toml:1-49](file://pyproject.toml#L1-L49)
@@ -140,6 +166,8 @@ TESTS --> RAGSERVICE
 - VK Handlers: Modular handlers for start/home navigation, fallback responses, and section entry points (including RAG-powered flows).
 - VK Keyboards: Builder functions for main menu, entity selection, and contextual sub-menus with standardized service buttons.
 - VK States: Multi-step dialog states, currently focused on free-text questions.
+- **Updated** Enhanced PostgreSQL Database Schema: JSONB indexing_config column for structured document metadata storage and configuration persistence.
+- **Updated** Document Storage Layer: Repository pattern implementation with JSONB configuration handling and comprehensive CRUD operations.
 - **Updated** Enhanced Modal System: Improved layout with fixed headers and footers, scrollable content areas, and automatic scrolling for streaming responses.
 - **Updated** Streaming QA Service: Real-time question answering with SSE streaming and automatic content updates.
 - **Updated** Enhanced Docling Integration: Advanced document processing with comprehensive metadata extraction including page numbers, headings, captions, content types, and structural paths.
@@ -156,9 +184,12 @@ TESTS --> RAGSERVICE
 - [indexer.py:29-54](file://packages/admin/src/cafetera_admin/indexer.py#L29-L54)
 - [parser.py:19-45](file://packages/admin/src/cafetera_admin/parser.py#L19-L45)
 - [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
+- [database.py:11-29](file://packages/core/src/cafetera_core/storage/database.py#L11-L29)
+- [document_repo.py:69-116](file://packages/core/src/cafetera_core/storage/document_repo.py#L69-L116)
+- [models.py:22-40](file://packages/core/src/cafetera_core/storage/models.py#L22-L40)
 
 ## Architecture Overview
-The system integrates VK bot routing with RAG-powered responses. Handlers trigger RAG queries and present templated answers with navigation back to relevant sections. Configuration is shared across packages to maintain consistent behavior for indexing and retrieval. **Updated** The enhanced modal system now supports streaming responses with automatic content scrolling, providing a more responsive user experience. The ONNX-based document processing pipeline ensures reliable and efficient document parsing with pre-downloaded ML models. The enhanced Docling integration provides comprehensive metadata extraction including page numbers, headings, captions, content types, and structural paths for improved document understanding and filtering.
+The system integrates VK bot routing with RAG-powered responses. Handlers trigger RAG queries and present templated answers with navigation back to relevant sections. Configuration is shared across packages to maintain consistent behavior for indexing and retrieval. **Updated** The enhanced PostgreSQL database schema now includes JSONB indexing_config column for structured document metadata storage, enabling sophisticated configuration management and querying capabilities. The document storage layer provides comprehensive CRUD operations with JSONB configuration handling, supporting flexible indexing workflows and metadata persistence.
 
 ```mermaid
 graph TB
@@ -179,6 +210,8 @@ PAYLOAD_INDEX["Payload Index<br/>metadata.headings"]
 MODAL_SYS["Enhanced Modal System<br/>documents.html + components.js"]
 TESTS["Comprehensive Tests<br/>test_indexer.py + qa tests + test_parser.py"]
 DOCKER["Enhanced Docker<br/>docker-compose.yml + Dockerfiles"]
+DATABASE["Enhanced Database Schema<br/>JSONB indexing_config column"]
+STORAGE_LAYER["Document Storage Layer<br/>JSONB config handling"]
 USER --> BOT
 BOT --> LABELERS
 LABELERS --> STATE
@@ -186,7 +219,9 @@ LABELERS --> KB
 BOT --> CORECFG
 ADMINCFG --> CORECFG
 INDEXER --> DOCSVC
-DOCSVC --> PARSER
+DOCSVC --> STORAGE_LAYER
+STORAGE_LAYER --> DATABASE
+DATABASE --> PARSER
 PARSER --> DOCLET_PARSER
 DOCLET_PARSER --> METADATA_EXTRACTOR
 METADATA_EXTRACTOR --> PAYLOAD_INDEX
@@ -217,6 +252,8 @@ DOCKER --> DOCLET_PARSER
 - [components.js:417-558](file://static/js/components.js#L417-L558)
 - [test_indexer.py:1-618](file://tests/test_indexer.py#L1-618)
 - [docker-compose.yml:1-120](file://docker-compose.yml#L1-120)
+- [database.py:11-29](file://packages/core/src/cafetera_core/storage/database.py#L11-L29)
+- [document_repo.py:69-116](file://packages/core/src/cafetera_core/storage/document_repo.py#L69-L116)
 
 ## Detailed Component Analysis
 
@@ -306,7 +343,7 @@ class KeyboardBuilders {
 - [keyboards.py:1-263](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L1-L263)
 
 ### Configuration Model and Indexing
-Core settings encapsulate RAG, LLM, embeddings, storage, chunking, hybrid search, and reranking parameters. A helper extracts indexing configuration for document metadata. **Updated** Enhanced with new indexing parameters for batch processing and parallel operations.
+Core settings encapsulate RAG, LLM, embeddings, storage, chunking, hybrid search, and reranking parameters. A helper extracts indexing configuration for document metadata. **Updated** Enhanced with new indexing parameters for batch processing and parallel operations, now including JSONB configuration support for structured indexing workflows.
 
 ```mermaid
 classDiagram
@@ -368,6 +405,251 @@ AdminSettings --|> CoreSettings : "inherits"
 
 **Section sources**
 - [config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
+
+## Enhanced PostgreSQL Database Schema
+
+### JSONB Column Implementation
+The PostgreSQL database schema has been enhanced with a JSONB indexing_config column to support structured document metadata storage and configuration persistence. This column enables sophisticated indexing workflows with flexible configuration management.
+
+```mermaid
+classDiagram
+class DocumentsTable {
++id : SERIAL PRIMARY KEY
++document_id : TEXT UNIQUE NOT NULL
++filename : TEXT NOT NULL
++title : TEXT NOT NULL
++s3_key : TEXT NOT NULL
++mime_type : TEXT NOT NULL
++size_bytes : INTEGER NOT NULL
++status : TEXT NOT NULL DEFAULT 'pending'
++is_search_enabled : BOOLEAN NOT NULL DEFAULT TRUE
++error : TEXT
++created_at : TIMESTAMPTZ NOT NULL
++updated_at : TIMESTAMPTZ NOT NULL
++indexed_at : TIMESTAMPTZ
++chunk_count : INTEGER NOT NULL DEFAULT 0
++indexing_config : JSONB
+}
+class CategoryFilesTable {
++id : SERIAL PRIMARY KEY
++file_id : TEXT NOT NULL UNIQUE
++category : TEXT NOT NULL
++subcategory : TEXT NOT NULL
++entity_id : INTEGER NOT NULL
++filename : TEXT NOT NULL
++s3_key : TEXT NOT NULL
++mime_type : TEXT NOT NULL
++size_bytes : INTEGER NOT NULL
++created_at : TIMESTAMPTZ NOT NULL
++updated_at : TIMESTAMPTZ NOT NULL
+}
+```
+
+**Diagram sources**
+- [database.py:11-29](file://packages/core/src/cafetera_core/storage/database.py#L11-L29)
+- [database.py:31-45](file://packages/core/src/cafetera_core/storage/database.py#L31-L45)
+
+### Conditional Column Addition
+The database initialization includes conditional column addition to ensure backward compatibility with existing installations while adding the new JSONB indexing_config column.
+
+```mermaid
+sequenceDiagram
+participant DBInit as "Database Initializer"
+participant DocumentsTable as "Documents Table"
+participant CategoryFilesTable as "Category Files Table"
+DBInit->>DocumentsTable : "CREATE TABLE IF NOT EXISTS"
+DBInit->>DocumentsTable : "ADD COLUMN IF NOT EXISTS indexing_config JSONB"
+DBInit->>CategoryFilesTable : "CREATE TABLE IF NOT EXISTS"
+DBInit->>CategoryFilesTable : "CREATE UNIQUE INDEX IF NOT EXISTS"
+DBInit-->>DBInit : "Database tables initialised"
+```
+
+**Diagram sources**
+- [database.py:58-64](file://packages/core/src/cafetera_core/storage/database.py#L58-L64)
+
+**Section sources**
+- [database.py:11-29](file://packages/core/src/cafetera_core/storage/database.py#L11-L29)
+- [database.py:53-55](file://packages/core/src/cafetera_core/storage/database.py#L53-L55)
+- [database.py:58-64](file://packages/core/src/cafetera_core/storage/database.py#L58-L64)
+
+## JSONB Indexing Configuration Management
+
+### Structured Configuration Storage
+The JSONB indexing_config column enables structured storage of indexing configurations, allowing for flexible document processing workflows with persistent configuration data.
+
+```mermaid
+classDiagram
+class DocumentRecord {
++id : int
++document_id : str
++filename : str
++title : str
++s3_key : str
++mime_type : str
++size_bytes : int
++status : DocumentStatus
++is_search_enabled : bool
++error : str | None
++created_at : datetime
++updated_at : datetime
++indexed_at : datetime | None
++chunk_count : int
++indexing_config : dict[str, Any] | None
+}
+class IndexingConfig {
++chunk_size : int
++chunk_overlap : int
++split_by : str
++include_metadata : bool
++payload_fields : list[str]
++vector_config : dict
+}
+DocumentRecord --> IndexingConfig : "stores"
+```
+
+**Diagram sources**
+- [models.py:22-40](file://packages/core/src/cafetera_core/storage/models.py#L22-L40)
+
+### JSON Serialization and Deserialization
+The document repository handles JSON serialization and deserialization for the indexing_config column, ensuring proper data persistence and retrieval.
+
+```mermaid
+sequenceDiagram
+participant Repo as "DocumentRepository"
+participant DB as "PostgreSQL Database"
+participant JSON as "JSON Serialization"
+Repo->>JSON : "json.dumps(indexing_config)"
+JSON->>DB : "INSERT/UPDATE documents"
+DB-->>Repo : "Row with JSONB data"
+Repo->>JSON : "json.loads(raw_config)"
+JSON->>Repo : "Parsed indexing_config dict"
+```
+
+**Diagram sources**
+- [document_repo.py:77-116](file://packages/core/src/cafetera_core/storage/document_repo.py#L77-L116)
+- [document_repo.py:223-288](file://packages/core/src/cafetera_core/storage/document_repo.py#L223-L288)
+
+**Section sources**
+- [models.py:22-40](file://packages/core/src/cafetera_core/storage/models.py#L22-L40)
+- [document_repo.py:35-55](file://packages/core/src/cafetera_core/storage/document_repo.py#L35-L55)
+- [document_repo.py:107-113](file://packages/core/src/cafetera_core/storage/document_repo.py#L107-L113)
+- [document_repo.py:269-274](file://packages/core/src/cafetera_core/storage/document_repo.py#L269-L274)
+
+## Document Storage Layer Enhancements
+
+### Repository Pattern Implementation
+The document storage layer implements a comprehensive repository pattern with JSONB configuration handling, providing full CRUD operations for document metadata with indexing configuration support.
+
+```mermaid
+classDiagram
+class DocumentRepository {
++create(record) DocumentRecord
++get(document_id) DocumentRecord | None
++list_page(page, per_page, search, date_from, date_to, status, source_type, sort_field, sort_dir) tuple
++update(document_id, title, status, is_search_enabled, error, chunk_count, indexed_at, indexing_config) DocumentRecord | None
++toggle_search(document_id, enabled) DocumentRecord | None
++list_recently_finished(seconds) list[DocumentRecord]
++delete(document_id) bool
+}
+class DocumentRecord {
++id : int
++document_id : str
++filename : str
++title : str
++s3_key : str
++mime_type : str
++size_bytes : int
++status : DocumentStatus
++is_search_enabled : bool
++error : str | None
++created_at : datetime
++updated_at : datetime
++indexed_at : datetime | None
++chunk_count : int
++indexing_config : dict[str, Any] | None
+}
+DocumentRepository --> DocumentRecord : "manages"
+```
+
+**Diagram sources**
+- [document_repo.py:69-329](file://packages/core/src/cafetera_core/storage/document_repo.py#L69-L329)
+- [models.py:22-40](file://packages/core/src/cafetera_core/storage/models.py#L22-L40)
+
+### Enhanced CRUD Operations
+The repository provides enhanced CRUD operations with comprehensive indexing configuration management, supporting flexible document processing workflows.
+
+```mermaid
+flowchart TD
+CreateOperation["Create Operation"] --> SerializeConfig["Serialize indexing_config to JSON"]
+SerializeConfig --> InsertQuery["INSERT INTO documents"]
+InsertQuery --> ReturnRecord["Return DocumentRecord"]
+UpdateOperation["Update Operation"] --> CheckConfig{"indexing_config provided?"}
+CheckConfig --> |Yes| SerializeUpdate["Serialize indexing_config to JSON"]
+CheckConfig --> |No| SkipSerialize["Skip serialization"]
+SerializeUpdate --> UpdateQuery["UPDATE documents SET ..."]
+SkipSerialize --> UpdateQuery
+UpdateQuery --> FetchUpdated["Fetch updated record"]
+FetchUpdated --> ParseConfig["Parse JSONB to dict"]
+ParseConfig --> ReturnUpdated["Return updated DocumentRecord"]
+DeleteOperation["Delete Operation"] --> DeleteQuery["DELETE FROM documents"]
+DeleteQuery --> ReturnBool["Return boolean result"]
+```
+
+**Diagram sources**
+- [document_repo.py:77-116](file://packages/core/src/cafetera_core/storage/document_repo.py#L77-L116)
+- [document_repo.py:223-288](file://packages/core/src/cafetera_core/storage/document_repo.py#L223-L288)
+
+**Section sources**
+- [document_repo.py:69-329](file://packages/core/src/cafetera_core/storage/document_repo.py#L69-L329)
+- [schemas.py:13-31](file://packages/admin/src/cafetera_admin/api/schemas.py#L13-L31)
+
+## Database Migration and Compatibility
+
+### Backward Compatibility Strategy
+The database migration strategy ensures backward compatibility by using conditional column addition, allowing existing installations to upgrade without data loss.
+
+```mermaid
+sequenceDiagram
+participant Migration as "Migration Script"
+participant OldDB as "Old Database"
+participant NewDB as "New Database"
+Migration->>NewDB : "CREATE TABLE documents"
+Migration->>NewDB : "ADD COLUMN indexing_config JSONB"
+Migration->>OldDB : "Verify existing data integrity"
+Migration->>NewDB : "Copy existing data to new schema"
+Migration->>NewDB : "Add unique constraints and indexes"
+Migration-->>Migration : "Migration complete"
+```
+
+**Diagram sources**
+- [database.py:58-64](file://packages/core/src/cafetera_core/storage/database.py#L58-L64)
+
+### Data Integrity and Validation
+The enhanced schema maintains data integrity through proper validation and constraint enforcement, ensuring consistent document metadata storage across the system.
+
+```mermaid
+classDiagram
+class DatabaseConstraints {
++UNIQUE(document_id)
++DEFAULT status = 'pending'
++DEFAULT is_search_enabled = TRUE
++DEFAULT chunk_count = 0
++JSONB indexing_config validation
+}
+class DataValidation {
++JSONB format validation
++Required field constraints
++Type safety enforcement
+}
+DatabaseConstraints --> DataValidation : "enforces"
+```
+
+**Diagram sources**
+- [database.py:11-29](file://packages/core/src/cafetera_core/storage/database.py#L11-L29)
+
+**Section sources**
+- [database.py:53-55](file://packages/core/src/cafetera_core/storage/database.py#L53-L55)
+- [database.py:58-64](file://packages/core/src/cafetera_core/storage/database.py#L58-L64)
 
 ## Enhanced Modal Window System
 
@@ -798,6 +1080,8 @@ ModalTests["Modal System Tests"]
 StreamingTests["Streaming Response Tests"]
 ONNXTests["ONNX Pipeline Tests"]
 DoclingTests["Enhanced Docling Tests"]
+DatabaseTests["Database Schema Tests"]
+JSONBTests["JSONB Configuration Tests"]
 TestSuite --> ParallelTests
 TestSuite --> BatchTests
 TestSuite --> RetryTests
@@ -806,6 +1090,8 @@ TestSuite --> ModalTests
 TestSuite --> StreamingTests
 TestSuite --> ONNXTests
 TestSuite --> DoclingTests
+TestSuite --> DatabaseTests
+TestSuite --> JSONBTests
 ParallelTests --> DenseSparseColBERT["Dense + Sparse + ColBERT"]
 BatchTests --> BatchUpsert["Batched Upserts"]
 BatchTests --> DeferredIndexing["Deferred Indexing"]
@@ -822,6 +1108,9 @@ ONNXTests --> OfflineMode["Offline Mode Tests"]
 DoclingTests --> MetadataExtraction["Metadata Extraction Tests"]
 DoclingTests --> HeadingIndexing["Heading Indexing Tests"]
 DoclingTests --> PageNumberExtraction["Page Number Extraction Tests"]
+DatabaseTests --> SchemaCompatibility["Schema Compatibility Tests"]
+JSONBTests --> ConfigSerialization["Configuration Serialization Tests"]
+JSONBTests --> ConfigDeserialization["Configuration Deserialization Tests"]
 ```
 
 **Diagram sources**
@@ -840,6 +1129,8 @@ DoclingTests --> PageNumberExtraction["Page Number Extraction Tests"]
 - **Streaming Responses**: Validates SSE integration, error handling, and real-time content updates
 - **ONNX Pipeline**: Tests model caching, document parsing, and offline mode functionality
 - **Enhanced Docling Integration**: Tests comprehensive metadata extraction including page numbers, headings, captions, and content types
+- **Database Schema**: Tests PostgreSQL schema compatibility and JSONB column functionality
+- **JSONB Configuration**: Tests serialization, deserialization, and querying of indexing configurations
 
 **Section sources**
 - [test_indexer.py:1-618](file://tests/test_indexer.py#L1-618)
@@ -864,6 +1155,8 @@ DoclingTests --> PageNumberExtraction["Page Number Extraction Tests"]
 - **Updated** Headless Optimization: Headless OpenCV eliminates GUI dependencies while maintaining full computer vision functionality.
 - **Updated** Enhanced Metadata Extraction: Comprehensive metadata extraction including page numbers, headings, captions, and content types improves document understanding and filtering performance.
 - **Updated** Payload Indexing: Dedicated metadata.headings payload index enables efficient filtering and searching of documents by their headings.
+- **Updated** JSONB Configuration Performance: JSONB indexing_config column provides efficient storage and querying of structured indexing configurations with minimal overhead.
+- **Updated** Database Schema Optimization: Proper indexing and constraint enforcement ensure optimal query performance for document metadata operations.
 
 ## Troubleshooting Guide
 - Logging: Configure global logging for consistent log formatting across the system.
@@ -885,6 +1178,9 @@ DoclingTests --> PageNumberExtraction["Page Number Extraction Tests"]
 - **Updated** Headless OpenCV Problems: Verify that opencv-python-headless is properly installed and functioning in Docker containers.
 - **Updated** Enhanced Docling Integration: Verify that metadata extraction functions are properly extracting page numbers, headings, captions, and content types from parsed documents.
 - **Updated** Payload Index Issues: Check that metadata.headings payload index is properly created and accessible in Qdrant collection for efficient document filtering.
+- **Updated** Database Schema Issues: Verify that JSONB indexing_config column exists and is properly indexed for optimal query performance.
+- **Updated** JSONB Configuration Problems: Check that indexing_config data is properly serialized/deserialized and stored/retrieved from the database.
+- **Updated** Document Repository Issues: Verify that DocumentRepository methods properly handle JSONB configuration data during CRUD operations.
 
 **Section sources**
 - [config.py:7-12](file://packages/core/src/cafetera_core/config.py#L7-L12)
@@ -899,12 +1195,16 @@ DoclingTests --> PageNumberExtraction["Page Number Extraction Tests"]
 - [parser.py:129-164](file://packages/rag_service/src/cafetera_rag_service/parser.py#L129-L164)
 - [resources.py:137-148](file://packages/rag_service/src/cafetera_rag_service/resources.py#L137-L148)
 - [pyproject.toml:28-32](file://pyproject.toml#L28-L32)
+- [database.py:53-55](file://packages/core/src/cafetera_core/storage/database.py#L53-L55)
+- [document_repo.py:35-55](file://packages/core/src/cafetera_core/storage/document_repo.py#L35-L55)
 
 ## Conclusion
-The Document Management System provides a robust, extensible foundation for HR document access via a VK bot. Its modular design, centralized configuration, and structured handler routing enable efficient development and maintenance. **Updated** The system now features significant enhancements to the modal window system, including improved layout architecture, automatic scrolling functionality, and better user experience for document questions and global questions. The enhanced modal system with fixed headers, scrollable content areas, and automatic scrolling provides a more responsive and engaging user interface. Combined with real-time streaming responses and SSE integration, the system delivers a modern, efficient user experience for HR document management.
+The Document Management System provides a robust, extensible foundation for HR document access via a VK bot. Its modular design, centralized configuration, and structured handler routing enable efficient development and maintenance. **Updated** The system now features significant enhancements to the PostgreSQL database schema with JSONB indexing_config column for improved document metadata handling and structured storage capabilities. This enhancement enables sophisticated indexing configuration management, allowing for flexible document processing workflows with persistent configuration storage and efficient querying capabilities.
 
-**Updated** The ONNX-based document processing pipeline represents a major advancement in document handling capabilities, providing reliable and efficient processing of PDF, DOCX, and XLSX files with pre-downloaded ML models for zero-latency performance. The enhanced Docker deployment strategy with Torch package preservation and headless OpenCV support ensures optimal performance across different environments while maintaining full functionality.
+The enhanced modal window system, including improved layout architecture, automatic scrolling functionality, and better user experience for document questions and global questions, provides a more responsive and engaging user interface. Combined with real-time streaming responses and SSE integration, the system delivers a modern, efficient user experience for HR document management.
 
-**Updated** The enhanced Docling integration provides comprehensive metadata extraction capabilities including page numbers, headings, captions, content types, and structural paths, significantly improving document understanding and filtering. The new payload index for metadata.headings field in Qdrant collection enables efficient filtering and searching of documents by their headings, making the system more powerful and user-friendly.
+The ONNX-based document processing pipeline represents a major advancement in document handling capabilities, providing reliable and efficient processing of PDF, DOCX, and XLSX files with pre-downloaded ML models for zero-latency performance. The enhanced Docker deployment strategy with Torch package preservation and headless OpenCV support ensures optimal performance across different environments while maintaining full functionality.
 
-The comprehensive testing coverage ensures these new features function correctly under various conditions, making the system more robust and maintainable. The system's architecture supports future enhancements while maintaining backward compatibility and operational reliability.
+The enhanced Docling integration provides comprehensive metadata extraction capabilities including page numbers, headings, captions, content types, and structural paths, significantly improving document understanding and filtering. The new payload index for metadata.headings field in Qdrant collection enables efficient filtering and searching of documents by their headings, making the system more powerful and user-friendly.
+
+The comprehensive testing coverage ensures these new features function correctly under various conditions, making the system more robust and maintainable. The system's architecture supports future enhancements while maintaining backward compatibility and operational reliability. The enhanced database schema with JSONB indexing_config column provides a solid foundation for advanced document management capabilities and future scalability requirements.

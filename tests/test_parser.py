@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from langchain_core.documents import Document as LCDocument
@@ -54,7 +54,9 @@ class TestLoadDocument:
         assert result.page_count == 5
         assert result.binary_hash == "abc123"
         assert result.extracted_title == "Test Document"
-        mock_load.assert_called_once_with(docx_path, settings)
+        mock_load.assert_called_once_with(
+            docx_path, settings, original_filename=None
+        )
 
     def test_load_document_pdf(self, tmp_path: Path):
         pdf_path = tmp_path / "test.pdf"
@@ -90,7 +92,9 @@ class TestLoadDocument:
         assert result.page_count == 3
         assert result.binary_hash == "pdf456"
         assert result.extracted_title == "PDF Document"
-        mock_load.assert_called_once_with(pdf_path, settings)
+        mock_load.assert_called_once_with(
+            pdf_path, settings, original_filename=None
+        )
 
     def test_load_document_xlsx(self, tmp_path: Path):
         xlsx_path = tmp_path / "test.xlsx"
@@ -126,7 +130,9 @@ class TestLoadDocument:
         assert result.page_count == 1
         assert result.binary_hash == "xlsx789"
         assert result.extracted_title == "XLSX Document"
-        mock_load.assert_called_once_with(xlsx_path, settings)
+        mock_load.assert_called_once_with(
+            xlsx_path, settings, original_filename=None
+        )
 
     def test_load_document_doc_raises_valueerror(self, tmp_path: Path):
         doc_path = tmp_path / "test.doc"
@@ -147,3 +153,29 @@ class TestLoadDocument:
             load_document(txt_path, settings)
 
         assert "Unsupported file format" in str(exc_info.value)
+
+    def test_load_document_with_original_filename(self, tmp_path: Path):
+        """extracted_title should use original_filename stem when provided."""
+        test_file = tmp_path / "tmpABC123.pdf"
+        test_file.write_bytes(b"%PDF-1.4 minimal")
+        settings = _make_settings()
+
+        with patch("docling.document_converter.DocumentConverter") as MockConverter:
+            mock_result = MagicMock()
+            mock_result.pages = [MagicMock()]  # 1 page
+            mock_result.document.name = "tmpABC123"
+            mock_result.document.origin.binary_hash = "abc123hash"
+            mock_instance = MockConverter.return_value
+            mock_instance.convert.return_value = mock_result
+
+            with patch("cafetera_rag_service.parser._get_chunker") as mock_chunker, \
+                 patch("docling_onnx_models.layoutmodel.layout_predictor.LayoutPredictor"):
+                mock_chunker.return_value.chunk.return_value = []
+
+                result = load_document(
+                    test_file,
+                    settings,
+                    original_filename="My Important Report.pdf",
+                )
+
+        assert result.extracted_title == "My Important Report"

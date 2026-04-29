@@ -56,7 +56,12 @@ def ensure_models_cached(model_name: str) -> None:
     logger.info("HuggingFace offline mode enabled")
 
 
-def load_document(path: str | Path, settings: RagServiceSettings) -> ParseResult:
+def load_document(
+    path: str | Path,
+    settings: RagServiceSettings,
+    *,
+    original_filename: str | None = None,
+) -> ParseResult:
     """Parse a document file into chunked LangChain Document objects.
 
     Dispatches to the appropriate loader based on file extension:
@@ -66,6 +71,9 @@ def load_document(path: str | Path, settings: RagServiceSettings) -> ParseResult
     Args:
         path: Path to the document file.
         settings: RagServiceSettings with chunk_size and chunker_tokenizer_model.
+        original_filename: Original filename (before temp-file rename) used for
+            extracted_title so that the title reflects the real document name
+            rather than the temp path.
 
     Returns:
         ParseResult with chunks and document-level metadata.
@@ -77,7 +85,7 @@ def load_document(path: str | Path, settings: RagServiceSettings) -> ParseResult
     ext = path.suffix.lower()
 
     if ext in (".pdf", ".docx", ".xlsx"):
-        return _load_with_docling(path, settings)
+        return _load_with_docling(path, settings, original_filename=original_filename)
     if ext == ".doc":
         raise ValueError(
             "Legacy .doc format is no longer supported. Please convert to .docx"
@@ -137,7 +145,12 @@ def _detect_content_type(chunk) -> str:
     return "text"
 
 
-def _load_with_docling(path: Path, settings: RagServiceSettings) -> ParseResult:
+def _load_with_docling(
+    path: Path,
+    settings: RagServiceSettings,
+    *,
+    original_filename: str | None = None,
+) -> ParseResult:
     """Parse PDF/DOCX/XLSX files using Docling with HybridChunker.
 
     Uses DocumentConverter + HybridChunker directly (instead of langchain-docling
@@ -155,7 +168,10 @@ def _load_with_docling(path: Path, settings: RagServiceSettings) -> ParseResult:
 
     page_count = len(result.pages) if result.pages else None
     binary_hash = str(dl_doc.origin.binary_hash) if dl_doc.origin else None
-    extracted_title = dl_doc.name or None
+    extracted_title = (
+        Path(original_filename).stem if original_filename
+        else (dl_doc.name if dl_doc.name else None)
+    )
 
     chunker = _get_chunker(settings.chunker_tokenizer_model, settings.chunk_size)
     docs: list[Document] = []
