@@ -303,15 +303,22 @@
       <!-- Fixed bottom buttons -->
       <div class="flex justify-between items-center pt-4 border-t border-base-300 mt-4 shrink-0">
         <button class="btn" @click="closeDocQuestion()">Закрыть</button>
-        <button
-          class="btn btn-primary"
-          @click="submitDocQuestion()"
-          :disabled="docQuestionLoading || !docQuestionText.trim()"
-        >
-          <span x-show="docQuestionLoading" class="loading loading-spinner loading-sm"></span>
-          <span x-show="!docQuestionLoading">Спросить</span>
-          <span x-show="docQuestionLoading">Обработка...</span>
-        </button>
+        <div class="flex gap-2">
+          <button
+            class="btn btn-warning"
+            x-show="docQuestionLoading"
+            @click="stopDocQuestion()"
+          >Стоп</button>
+          <button
+            class="btn btn-primary"
+            @click="submitDocQuestion()"
+            :disabled="docQuestionLoading || !docQuestionText.trim()"
+          >
+            <span x-show="docQuestionLoading" class="loading loading-spinner loading-sm"></span>
+            <span x-show="!docQuestionLoading">Спросить</span>
+            <span x-show="docQuestionLoading">Обработка...</span>
+          </button>
+        </div>
       </div>
     </div>
     <form method="dialog" class="modal-backdrop">
@@ -354,15 +361,22 @@
       <!-- Fixed bottom buttons -->
       <div class="flex justify-between items-center pt-4 border-t border-base-300 mt-4 shrink-0">
         <button class="btn" @click="closeGlobalQuestion()">Закрыть</button>
-        <button
-          class="btn btn-primary"
-          @click="submitGlobalQuestion()"
-          :disabled="globalLoading || !globalQuestion.trim()"
-        >
-          <span x-show="globalLoading" class="loading loading-spinner loading-sm"></span>
-          <span x-show="!globalLoading">Спросить</span>
-          <span x-show="globalLoading">Обработка...</span>
-        </button>
+        <div class="flex gap-2">
+          <button
+            class="btn btn-warning"
+            x-show="globalLoading"
+            @click="stopGlobalQuestion()"
+          >Стоп</button>
+          <button
+            class="btn btn-primary"
+            @click="submitGlobalQuestion()"
+            :disabled="globalLoading || !globalQuestion.trim()"
+          >
+            <span x-show="globalLoading" class="loading loading-spinner loading-sm"></span>
+            <span x-show="!globalLoading">Спросить</span>
+            <span x-show="globalLoading">Обработка...</span>
+          </button>
+        </div>
       </div>
     </div>
     <form method="dialog" class="modal-backdrop">

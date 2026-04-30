@@ -7,6 +7,7 @@ string, even on error.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections import OrderedDict
 from typing import TYPE_CHECKING
@@ -248,6 +249,9 @@ class QAService:
                     yield str(token.content)
                 else:
                     yield str(token)
+        except asyncio.CancelledError:
+            logger.info("Streaming cancelled for global question: %s", question)
+            raise
         except Exception:
             logger.error(
                 "RAG chain streaming failed for global question: %s",
@@ -275,6 +279,11 @@ class QAService:
                     yield str(token.content)
                 else:
                     yield str(token)
+        except asyncio.CancelledError:
+            logger.info(
+                "Streaming cancelled for document %s question: %s", document_id, question
+            )
+            raise
         except Exception:
             logger.error(
                 "RAG chain streaming failed for document %s question: %s",

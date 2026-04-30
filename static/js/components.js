@@ -85,6 +85,10 @@ document.addEventListener('alpine:init', () => {
     globalLoading: false,
     globalError: '',
 
+    // EventSource state
+    _globalSource: null,
+    _docSource: null,
+
     // Pagination state
     currentPage: 1,
     perPage: 10,
@@ -405,12 +409,20 @@ document.addEventListener('alpine:init', () => {
     },
 
     closeDocQuestion() {
+      this._docSource?.close();
+      this._docSource = null;
       this.$refs.docQuestionModal.close();
       this.docQuestionId = '';
       this.docQuestionTitle = '';
       this.docQuestionText = '';
       this.docQuestionAnswer = '';
       this.docQuestionError = '';
+      this.docQuestionLoading = false;
+    },
+
+    stopDocQuestion() {
+      this._docSource?.close();
+      this._docSource = null;
       this.docQuestionLoading = false;
     },
 
@@ -425,6 +437,8 @@ document.addEventListener('alpine:init', () => {
     },
 
     closeGlobalQuestion() {
+      this._globalSource?.close();
+      this._globalSource = null;
       this.$refs.globalQuestionModal.close();
       this.globalQuestionOpen = false;
       this.globalQuestion = '';
@@ -433,128 +447,108 @@ document.addEventListener('alpine:init', () => {
       this.globalLoading = false;
     },
 
-    async submitGlobalQuestion() {
+    stopGlobalQuestion() {
+      this._globalSource?.close();
+      this._globalSource = null;
+      this.globalLoading = false;
+    },
+
+    submitGlobalQuestion() {
       if (!this.globalQuestion.trim()) return;
       this.globalLoading = true;
       this.globalError = '';
       this.globalAnswer = '';
 
-      const fd = new FormData();
-      fd.append('question', this.globalQuestion.trim());
+      const q = encodeURIComponent(this.globalQuestion.trim());
+      const source = new EventSource(`/api/qa/ask-global?question=${q}`);
+      this._globalSource = source;
 
-      try {
-        const resp = await fetch('/api/qa/ask-global', {
-          method: 'POST',
-          body: fd,
-        });
-
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          this.globalError = err.detail || 'Ошибка при получении ответа';
-          this.globalLoading = false;
-          return;
-        }
-
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.token) {
-                  const unescapedToken = data.token.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                  this.globalAnswer += unescapedToken;
-                  this.$nextTick(() => {
-                    const el = this.$refs.globalQuestionScroll;
-                    if (el) el.scrollTop = el.scrollHeight;
-                  });
-                }
-                if (data.error) {
-                  this.globalError = data.error;
-                }
-              } catch (e) {
-                // skip malformed SSE lines
-              }
-            }
+      source.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.done) {
+            source.close();
+            this._globalSource = null;
+            this.globalLoading = false;
+            return;
           }
+          if (data.error) {
+            this.globalError = data.error;
+            source.close();
+            this._globalSource = null;
+            this.globalLoading = false;
+            return;
+          }
+          if (data.token) {
+            const unescapedToken = data.token.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            this.globalAnswer += unescapedToken;
+            this.$nextTick(() => {
+              const el = this.$refs.globalQuestionScroll;
+              if (el) el.scrollTop = el.scrollHeight;
+            });
+          }
+        } catch (e) {
+          // skip malformed SSE lines
         }
-      } catch (e) {
-        this.globalError = 'Ошибка сети при получении ответа';
-      } finally {
+      };
+
+      source.onerror = () => {
+        if (this._globalSource) {  // not user-cancelled
+          this.globalError = 'Ошибка сети при получении ответа';
+        }
+        source.close();
+        this._globalSource = null;
         this.globalLoading = false;
-      }
+      };
     },
 
-    async submitDocQuestion() {
+    submitDocQuestion() {
       if (!this.docQuestionText.trim()) return;
       this.docQuestionLoading = true;
       this.docQuestionAnswer = '';
       this.docQuestionError = '';
 
-      const fd = new FormData();
-      fd.append('question', this.docQuestionText.trim());
+      const q = encodeURIComponent(this.docQuestionText.trim());
+      const source = new EventSource(`/api/documents/${this.docQuestionId}/ask?question=${q}`);
+      this._docSource = source;
 
-      try {
-        const resp = await fetch(`/api/documents/${this.docQuestionId}/ask`, {
-          method: 'POST',
-          body: fd,
-        });
-
-        if (!resp.ok) {
-          const err = await resp.json().catch(() => ({}));
-          this.docQuestionError = err.detail || 'Ошибка при получении ответа';
-          this.docQuestionLoading = false;
-          return;
-        }
-
-        const reader = resp.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.token) {
-                  const unescapedToken = data.token.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                  this.docQuestionAnswer += unescapedToken;
-                  this.$nextTick(() => {
-                    const el = this.$refs.docQuestionScroll;
-                    if (el) el.scrollTop = el.scrollHeight;
-                  });
-                }
-                if (data.error) {
-                  this.docQuestionError = data.error;
-                }
-              } catch (e) {
-                // skip malformed SSE lines
-              }
-            }
+      source.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.done) {
+            source.close();
+            this._docSource = null;
+            this.docQuestionLoading = false;
+            return;
           }
+          if (data.error) {
+            this.docQuestionError = data.error;
+            source.close();
+            this._docSource = null;
+            this.docQuestionLoading = false;
+            return;
+          }
+          if (data.token) {
+            const unescapedToken = data.token.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            this.docQuestionAnswer += unescapedToken;
+            this.$nextTick(() => {
+              const el = this.$refs.docQuestionScroll;
+              if (el) el.scrollTop = el.scrollHeight;
+            });
+          }
+        } catch (e) {
+          // skip malformed SSE lines
         }
-      } catch (e) {
-        this.docQuestionError = 'Ошибка сети при получении ответа';
-      } finally {
+      };
+
+      source.onerror = () => {
+        if (this._docSource) {
+          this.docQuestionError = 'Ошибка сети при получении ответа';
+        }
+        source.close();
+        this._docSource = null;
         this.docQuestionLoading = false;
-      }
+      };
     },
 
     // Upload methods

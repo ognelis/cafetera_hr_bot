@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 
@@ -74,6 +75,9 @@ async def stream_ask(request: Request, body: AskRequest):
                 )
                 yield f'data: {{"token": "{escaped}"}}\n\n'
             yield "data: [DONE]\n\n"
+        except asyncio.CancelledError:
+            logger.info("Client disconnected during stream for question: %.100s", body.question)
+            return
         except Exception as exc:
             logger.error("SSE stream error: %s", exc, exc_info=True)
             yield 'data: {"error": "Internal error"}\n\n'
@@ -109,6 +113,9 @@ async def stream_document(request: Request, body: AskDocumentRequest):
                 )
                 yield f'data: {{"token": "{escaped}"}}\n\n'
             yield "data: [DONE]\n\n"
+        except asyncio.CancelledError:
+            logger.info("Client disconnected during document stream: %.100s", body.question)
+            return
         except Exception as exc:
             logger.error("SSE stream error for document: %s", exc, exc_info=True)
             yield 'data: {"error": "Internal error"}\n\n'
