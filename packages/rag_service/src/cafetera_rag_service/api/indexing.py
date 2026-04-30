@@ -17,6 +17,7 @@ from cafetera_rag_service.models import (
     ToggleSearchRequest,
 )
 from cafetera_rag_service.rag.retriever import _to_list
+from cafetera_rag_service.rag.text_processor import preprocess_russian
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,10 @@ async def index_chunks(request: Request, body: IndexChunksRequest) -> IndexChunk
         sparse_vectors: list[models.SparseVector | None] = []
         if res.sparse_embeddings is not None:
             for text in texts:
-                sparse_result = res.sparse_embeddings.embed_query(text)
+                processed_text = (
+                    preprocess_russian(text) if settings.bm25_lemmatize else text
+                )
+                sparse_result = res.sparse_embeddings.embed_query(processed_text)
                 sparse_vectors.append(
                     models.SparseVector(
                         indices=_to_list(sparse_result.indices),

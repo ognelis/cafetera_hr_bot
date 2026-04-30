@@ -52,6 +52,7 @@ class RagServiceSettings(BaseSettings):
 
     # Hybrid search (sparse BM25 embeddings)
     sparse_embedding_model: str = "Qdrant/bm25"
+    bm25_lemmatize: bool = True
 
     # Retrieval k defaults
     doc_query_k: int = 15

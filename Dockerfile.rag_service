@@ -54,7 +54,8 @@ ENV HF_HOME=/app/.cache/huggingface
 RUN .venv/bin/python -c "from langchain_qdrant import FastEmbedSparse; FastEmbedSparse(model_name='Qdrant/bm25')" && \
     .venv/bin/python -c "from fastembed.rerank.cross_encoder import TextCrossEncoder; TextCrossEncoder(model_name='${RERANKER_MODEL}')" && \
     .venv/bin/python -c "from docling_onnx_models.layoutmodel.layout_predictor import LayoutPredictor; from docling.document_converter import DocumentConverter; DocumentConverter()" && \
-    .venv/bin/python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('${CHUNKER_TOKENIZER_MODEL}')"
+    .venv/bin/python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('${CHUNKER_TOKENIZER_MODEL}')" && \
+    .venv/bin/python -c "import pymorphy3; pymorphy3.MorphAnalyzer()"
 
 # Cleanup: remove test files, caches, and docs to reduce image size
 RUN find /app/.venv/lib/python3.13/site-packages \

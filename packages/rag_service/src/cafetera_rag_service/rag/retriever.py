@@ -14,6 +14,8 @@ from langchain_core.retrievers import BaseRetriever
 from pydantic import ConfigDict
 from qdrant_client import AsyncQdrantClient, models
 
+from cafetera_rag_service.rag.text_processor import preprocess_russian
+
 
 def _to_list(value) -> list:
     """Convert numpy array or passthrough plain list to Python list."""
@@ -39,6 +41,7 @@ class AsyncQdrantRetriever(BaseRetriever):
     collection_name: str
     embeddings: Any
     sparse_embedding: Any = None
+    lemmatize: bool = False
     k: int = 5
     prefetch_limit: int = 20
     filter: models.Filter | None = None
@@ -51,11 +54,13 @@ class AsyncQdrantRetriever(BaseRetriever):
         """Retrieve relevant documents asynchronously."""
         query_vector = await self.embeddings.aembed_query(query)
 
-        if self.sparse_embedding is not None:
+        sparse_query = preprocess_russian(query) if self.lemmatize else query
+
+        if self.sparse_embedding is not None and sparse_query.strip():
             # Hybrid search: dense + BM25 prefetch, fused by RRF
             from qdrant_client.models import Prefetch, Rrf, RrfQuery, SparseVector
 
-            sparse_result = self.sparse_embedding.embed_query(query)
+            sparse_result = self.sparse_embedding.embed_query(sparse_query)
             sparse_vec = SparseVector(
                 indices=_to_list(sparse_result.indices),
                 values=_to_list(sparse_result.values),
@@ -72,7 +77,10 @@ class AsyncQdrantRetriever(BaseRetriever):
                 query_filter=self.filter,
             )
         else:
-            # Dense-only search
+            # Dense-only search (also used when sparse query is empty after
+            # stop-word removal to avoid zero-vector BM25 prefetch).
+            if self.sparse_embedding is not None and not sparse_query.strip():
+                logger.debug("Sparse query empty after preprocessing, falling back to dense-only")
             results = await self.client.query_points(
                 collection_name=self.collection_name,
                 query=query_vector,
@@ -240,6 +248,7 @@ def build_retriever(
         collection_name=collection_name,
         embeddings=embeddings,
         sparse_embedding=sparse_embedding,
+        lemmatize=settings.bm25_lemmatize,
         k=effective_k,
         filter=search_filter,
     )
@@ -287,6 +296,7 @@ def build_retriever_for_document(
         collection_name=collection_name,
         embeddings=embeddings,
         sparse_embedding=sparse_embedding,
+        lemmatize=settings.bm25_lemmatize,
         k=effective_k,
         filter=search_filter,
     )

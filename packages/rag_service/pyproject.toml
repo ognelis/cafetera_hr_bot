@@ -19,6 +19,7 @@ dependencies = [
     "opencv-python-headless",
     "torch",
     "torchvision",
+    "pymorphy3",
 ]
 
 [tool.uv.sources]
