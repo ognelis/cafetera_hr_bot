@@ -224,6 +224,59 @@ class QAService:
 
         return _truncate(answer.strip())
 
+    async def ask_with_contexts(
+        self, question: str, category: str | None = None,
+    ) -> tuple[str, list[str]]:
+        """Return (answer, retrieved_contexts) for evaluation purposes."""
+        from cafetera_rag_service.rag.retriever import build_retriever, estimate_k
+
+        if (
+            self._qdrant_client is None
+            or self._settings is None
+            or self._embeddings is None
+            or self._llm is None
+        ):
+            return ERR_NO_ANSWER, []
+
+        k = estimate_k(
+            question,
+            max_k=self._settings.global_max_k if self._settings else 10,
+        )
+        chain = self._build_global_chain(k, category=category)
+        if chain is None:
+            return ERR_NO_ANSWER, []
+
+        retriever = build_retriever(
+            self._settings,
+            qdrant_client=self._qdrant_client,
+            embeddings=self._embeddings,
+            collection_name=self._settings.qdrant_collection,
+            k=k,
+            sparse_embedding=self._sparse_embedding,
+        )
+
+        try:
+            docs = await retriever.ainvoke(question)
+            contexts = [doc.page_content for doc in docs]
+        except Exception:
+            logger.error(
+                "Retriever failed for question: %s", question, exc_info=True,
+            )
+            contexts = []
+
+        try:
+            answer: str = await chain.ainvoke(question)
+        except Exception:
+            logger.error(
+                "RAG chain failed for question: %s", question, exc_info=True,
+            )
+            return ERR_DOCUMENT_UNAVAILABLE, contexts
+
+        if not answer or not answer.strip():
+            return ERR_NO_ANSWER, contexts
+
+        return answer.strip(), contexts
+
     async def stream_ask(self, question: str, category: str | None = None):
         """Stream tokens from the global RAG chain.
 

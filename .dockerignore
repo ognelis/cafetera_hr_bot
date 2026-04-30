@@ -17,3 +17,4 @@ models/
 data/
 *.md
 uv.lock.bak
+ragas/
