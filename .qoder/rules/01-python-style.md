@@ -31,28 +31,45 @@ glob: packages/**/*.py, scripts/**/*.py, tests/**/*.py
 
 ## OOP vs Functional style
 
-Default to functions. Use plain `def` or `async def` for data transformations,
-business rules, validation, and async workflow steps. Prefer a module of focused
-functions over a class with methods when no persistent state is involved.
+Default to functions. Use `def` / `async def` for data transformations, business
+rules, validation, and workflow steps. Prefer a module of focused functions over
+a class when no persistent state is involved.
 
-Use a class when:
-- You need mutable state shared across multiple methods with a clear lifecycle
-  (e.g. `QdrantRepository`, `RedisClient`, `S3Adapter`).
-- Implementing a Protocol, ABC, or framework interface that requires a class.
-- Grouping I/O operations that share initialization config or a connection
-  object — repository, adapter, or external client wrapper.
-- Modeling structured data — always use Pydantic `BaseModel` or `dataclass`,
-  never a plain class with `__init__` and loose attributes.
+Use a class only for:
+- Stateful I/O adapters with a connection lifecycle (`RAGClient`, `S3Storage`, `QdrantRepository`).
+- Protocol / ABC implementations required by a framework.
+- Structured data — always via Pydantic `BaseModel` or `dataclass`.
 
 Do not:
-- Do not wrap a single function in a class — use a plain function or module instead.
-- Do not use inheritance deeper than one level — prefer Protocol + composition.
-- Do not create `@staticmethod`-only classes — that is a module, not a class.
-- Do not put business logic inside class methods — keep it in standalone
-  functions that are testable without instantiation.
+- Wrap a single function in a class — use a plain function or module.
+- Inherit deeper than one level — prefer Protocol + composition.
+- Create `@staticmethod`-only classes — that is a module.
+- Put pure business logic inside class methods — keep it in standalone functions.
 
-Good: standalone functions for business logic, classes for I/O adapters with connection state, Pydantic `BaseModel` for structured data.
-Avoid: single-function wrapper classes, business logic inside class methods, `@staticmethod`-only classes.
+
+## Responsibility assignment (GRASP)
+
+Apply these principles when deciding where new code belongs.
+
+- **Information Expert** — assign behaviour to the module that owns the data.
+  `QAService` owns the retriever and LLM, so it owns query execution.
+- **Creator** — complex object assembly lives in dedicated factories.
+  `build_resources()` / `build_rag_resources()` wire up all dependencies.
+- **Controller** — transport handlers stay thin and delegate immediately.
+  FastAPI routes delegate to `DocumentService`; VK handlers delegate to `RAGClient`.
+- **Low Coupling** — packages communicate through narrow interfaces.
+  Admin and VK bot reach RAG only via `RAGClient`, never by importing `rag_service`.
+- **High Cohesion** — each service handles one concern.
+  `DocumentService` = doc lifecycle, `QAService` = Q&A, `S3Storage` = file I/O.
+- **Indirection** — introduce a mediator to decouple consumers from providers.
+  `RAGClient` shields callers from HTTP details of the RAG service API.
+- **Pure Fabrication** — invent service objects when no domain entity fits.
+  `RAGClient`, `QAService`, `DocumentService` are fabricated to keep cohesion high.
+- **Protected Variations** — isolate what changes behind a stable interface.
+  If the RAG service API changes, only `RAGClient` is updated — callers are unaffected.
+- **Polymorphism** — rarely needed here; the project prefers functions and
+  composition over class hierarchies. Use Protocol when you genuinely need
+  interchangeable implementations.
 
 
 ## Do not

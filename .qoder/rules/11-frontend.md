@@ -14,11 +14,11 @@ glob: templates/**/*.html, static/**/*.js, static/**/*.css
 - All libraries are vendored into `static/vendor/` — never load from CDN.
 
 ```html
-<link rel="stylesheet" href="{{ url_for('static', path='vendor/daisyui/themes.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='vendor/daisyui/daisyui.min.css') }}">
 <script src="{{ url_for('static', path='vendor/tailwindcss/tailwind-browser.js') }}"></script>
-<style type="text/tailwindcss">@plugin "daisyui";</style>
 <script src="{{ url_for('static', path='vendor/htmx/htmx.min.js') }}" defer></script>
 <script src="{{ url_for('static', path='vendor/alpinejs/cdn.min.js') }}" defer></script>
+<script src="{{ url_for('static', path='vendor/marked/marked.min.js') }}" defer></script>
 ```
 
 ***
@@ -28,16 +28,24 @@ glob: templates/**/*.html, static/**/*.js, static/**/*.css
 ```
 templates/
   base.html              ← layout, vendor scripts, sidebar nav
+  documents.html         ← document management page
+  category_files.html    ← category file management page
+  login.html             ← admin login page
   partials/              ← HTMX fragments and reusable components (one component per file)
-  macros/
-    ui.html              ← pure rendering helpers (badges, icons, labels)
-  pages/                 ← full pages extending base.html
+    category_slot.html
+    document_row.html
+    document_table.html
+    pagination.html
+    status_poller.html
+  macros/                ← (planned) pure rendering helpers (badges, icons, labels)
+  pages/                 ← (planned) full pages extending base.html
 static/
   vendor/
     tailwindcss/tailwind-browser.js
-    daisyui/themes.css
+    daisyui/daisyui.min.css
     htmx/htmx.min.js
     alpinejs/cdn.min.js
+    marked/marked.min.js
   js/
     components.js        ← Alpine.data() and Alpine.store() definitions
     upload.js            ← XHR upload logic (see 10-doc-upload.md)
@@ -60,7 +68,7 @@ Use `{% include %}` with `with context` to pass the current template variables:
 ```
 
 For pure rendering helpers (no server logic, no HTMX — just markup with parameters)
-use Jinja2 macros in `macros/ui.html`:
+use Jinja2 macros in `macros/ui.html` (planned — not yet created):
 
 ```html
 {% from "macros/ui.html" import status_badge %}

@@ -5,14 +5,9 @@ trigger: always_on
 
 ## General rules
 
-- Always use async context managers or lifespan hooks for resource initialization
-  and teardown.
-- Never create long-lived clients (HTTP, Qdrant, LLM) inside request handlers —
-  initialize them once in lifespan.
-- Always close clients and connections on application shutdown.
-- Do not leave unclosed aiohttp sessions, httpx clients, or qdrant connections.
-- Prefer dependency injection via `app.state` or FastAPI `Depends` for shared resources.
-- Prefer `asynccontextmanager` for wrapping resource lifecycle in reusable blocks.
+- Initialize shared resources once in lifespan; close them on shutdown.
+- Never create clients per-request; prefer dependency injection via `app.state`.
+- See subsections below for specific resource patterns.
 
 ***
 
@@ -24,7 +19,7 @@ trigger: always_on
   inside `lifespan` and attach to `app.state`.
 - Always yield inside lifespan — teardown code must be after `yield`.
 
-### Canonical pattern
+### Canonical pattern (Admin)
 ```python
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -32,12 +27,15 @@ from cafetera_core.resources import build_resources, close_resources
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup — build all shared resources via factory
+    settings = app.state.settings
     res = await build_resources(settings, with_s3=True, with_db=True)
-    app.state.qa_service = res.build_qa_service(SYSTEM_PROMPT)
+
+    # Store individual resources in app.state for FastAPI deps
+    app.state.rag_client = res.rag_client
+    app.state.s3 = res.s3
+    app.state.doc_repo = res.doc_repo
     app.state.category_file_service = res.category_file_service
     yield
-    # teardown — close all resources
     await close_resources(res)
 
 app = FastAPI(lifespan=lifespan)
@@ -90,4 +88,39 @@ app = FastAPI(lifespan=lifespan)
 - Do not create new DB or vector store connections per request.
 - Do not skip client.close() / session.close() calls on shutdown.
 
-Reference: https://fastapi.tiangolo.com/advanced/events/
+***
+
+## RAG Microservice Resources
+
+The RAG service (`packages/rag_service`) uses its own resource container
+separate from `AppResources` in core.
+
+- `RagResources` dataclass holds: `qdrant_client`, `embeddings`, `llm`,
+  `sparse_embeddings`, `reranker`, `s3_storage`.
+- Factory: `build_rag_resources(settings)` / `close_rag_resources(res)` in
+  `cafetera_rag_service.resources`.
+- Helper: `build_qa_service(res, system_prompt)` creates a `QAService` from
+  initialized resources. Raises `ValueError` if required resources are missing.
+
+### Canonical pattern (RAG service)
+```python
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from cafetera_rag_service.config import RagServiceSettings
+from cafetera_rag_service.resources import build_rag_resources, close_rag_resources
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = RagServiceSettings()
+    res = await build_rag_resources(settings)
+    app.state.rag_resources = res
+    app.state.settings = settings
+    app.state.qa_services = {}  # cache: prompt -> QAService
+    yield
+    await close_rag_resources(res)
+```
+
+### Do not
+- Do not use `AppResources` / `build_resources()` inside the RAG service — it has
+  its own factory.
+- Do not instantiate `QAService` per request — cache by system prompt hash.

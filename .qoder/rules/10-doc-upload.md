@@ -1,6 +1,6 @@
 ---
 trigger: glob
-glob: packages/admin/src/cafetera_admin/api/documents*.py, packages/core/src/cafetera_core/storage/**/*.py, templates/**/*.html, static/**/*.js
+glob: packages/admin/src/cafetera_admin/api/documents*.py, packages/core/src/cafetera_core/storage/**/*.py, packages/rag_service/src/cafetera_rag_service/api/ingest.py, packages/rag_service/src/cafetera_rag_service/parser.py, templates/**/*.html, static/**/*.js
 ---
 # Document Upload — API and Storage
 
@@ -87,6 +87,8 @@ Security details → see `09-security.md` (Files and uploads section).
 ## Document parsing
 
 The project uses **Docling** (`langchain-docling` + `docling`) for advanced document parsing:
+- Parser location: `packages/rag_service/src/cafetera_rag_service/parser.py`.
+- Parsing runs inside the **RAG service**, not in admin.
 - Supports DOCX, XLSX, and PDF formats.
 - Handles tables, headers, and structured content extraction.
 - Docling ML models are pre-downloaded during Docker build to avoid runtime network calls.
@@ -95,7 +97,15 @@ The project uses **Docling** (`langchain-docling` + `docling`) for advanced docu
 
 ## Ingestion task
 
-Background ingestion: update status to `ingesting`, upload to S3, parse with Docling, chunk, embed, index to Qdrant, update status to `indexed` or `failed`.
+Ingestion is **distributed** across admin and RAG service:
+
+1. **Admin** handles the upload UI, S3 persistence, and PostgreSQL metadata creation.
+2. **Admin background task** calls `rag_client.ingest_document(document_id, filename, s3_key)` via HTTP.
+3. **RAG service** (`POST /api/index/ingest`) performs the heavy work: download from S3, parse with Docling, chunk, embed, and index to Qdrant.
+4. **Admin background task** updates the document status in PostgreSQL based on the RAG service response (`indexed` or `failed`).
+
+See `cafetera_admin.api.documents_upload._index_document_from_s3` for the admin-side background task.
+See `cafetera_rag_service.api.ingest.ingest_document` for the RAG service ingestion endpoint.
 
 ***
 
@@ -123,5 +133,3 @@ Background ingestion: update status to `ingesting`, upload to S3, parse with Doc
 - Do not use `fetch()` for upload progress — use `XMLHttpRequest`.
 - Do not hardcode MinIO credentials — load from settings via `pydantic-settings`.
 - Do not create a new `S3Storage` instance per request — initialize once in lifespan.
-
-Reference: https://docs.python.org/3/library/asyncio.html

@@ -7,9 +7,9 @@ glob: packages/vk_bot/src/cafetera_vk_bot/**/*.py, packages/admin/src/cafetera_a
 ## Telegram — aiogram 3.x
 
 ### Reference
-- aiogram 3.x docs: https://docs.aiogram.dev/en/latest/
-- Webhook integration: https://docs.aiogram.dev/en/latest/dispatcher/webhook.html
-- Telegram Bot API methods: https://core.telegram.org/bots/api#available-methods
+
+For detailed Telegram Bot API method signatures beyond those shown above,
+consult the official Telegram Bot API documentation.
 
 ### Rules
 - Use aiogram 3.x (not 2.x). Import paths, types, and patterns differ significantly.
@@ -33,8 +33,8 @@ Run `scripts/polling.py`: delete webhook, then `dp.start_polling(bot)`.
 ## VK — vkbottle 4.x
 
 ### Reference
-- vkbottle docs: https://vkbottle.readthedocs.io/en/latest/
-- VK API methods: https://dev.vk.com/en/method
+
+For VK API method documentation, consult the official VK developer portal.
 
 ### Rules
 - Use vkbottle 4.x. Register handlers via `@bot.on.message(...)` decorators.
@@ -65,6 +65,43 @@ Note: append already-called coroutines (not coroutine functions) to `on_startup`
 ### Do not
 - Do not block the response with heavy handler logic in Callback mode — use background tasks.
 - Do not skip `secret` validation on incoming events in Callback mode.
+
+***
+
+## RAG service integration via RAGClient
+
+Bot handlers do **not** contain local RAG logic. They communicate with the RAG
+microservice over HTTP using `RAGClient` from `cafetera_core.rag_client`.
+
+### Injection pattern (polling mode)
+```python
+# In polling.py _setup:
+res = await build_resources(settings, with_s3=True, with_db=True)
+set_rag_client(res.rag_client)
+set_system_prompt(SYSTEM_PROMPT)
+```
+
+### Query pattern (inside handlers)
+```python
+answer = await get_rag_client().ask(
+    question,
+    system_prompt=get_system_prompt(),
+    category=category,
+    include_metadata=True,
+)
+# Or streaming:
+async for token in get_rag_client().stream_ask(question, system_prompt=..., category=...):
+    ...
+```
+
+### Error handling
+- If `RAGClient` is `None` at startup, log a warning and disable QA features gracefully.
+- Wrap RAG calls in try/except — `httpx.HTTPStatusError` or `httpx.ConnectError` indicate service unavailability.
+- Send a user-friendly message (e.g., "Service temporarily unavailable") when the RAG service cannot be reached.
+
+### Do not
+- Do not import RAG chain, retriever, or LLM directly in bot handlers.
+- Do not initialize `RAGClient` per-request — use the shared instance from `Holder`.
 
 ***
 

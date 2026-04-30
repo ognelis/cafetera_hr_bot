@@ -28,4 +28,8 @@ glob: tests/**/*.py
 - Do not make tests depend on real model credentials.
 - Do not hide important assertions in helper functions.
 
-Reference: https://docs.pytest.org/en/stable/goodpractices.html
+## Docker-based fixtures
+- `testcontainers[postgres]` is used in `tests/conftest.py` to provision a real PostgreSQL instance per test session.
+- Tests requiring Docker are marked with `@pytest.mark.requires_docker`.
+- If Docker is not available, these tests are automatically skipped.
+- Do not assume Docker is always present — guard with the marker.

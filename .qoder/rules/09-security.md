@@ -62,6 +62,31 @@ trigger: always_on
 
 ---
 
+## Inter-service authentication
+
+- Admin and VK bot authenticate to the RAG service via the `X-API-Key` header.
+- The shared secret is configured via the `RAG_SERVICE_API_KEY` environment variable
+  (present in both the calling service and the RAG service).
+- `RAGClient` automatically attaches the key to every outgoing request.
+- The RAG service validates the key using the `verify_api_key()` FastAPI dependency
+  (`secrets.compare_digest` for constant-time comparison).
+- When `RAG_SERVICE_API_KEY` is empty/unset, the RAG service operates in
+  unauthenticated development mode — never deploy this way in production.
+
+### Network isolation
+- The RAG service should only be accessible from internal services (admin, VK bot),
+  not from the public internet.
+- In Docker Compose: place the RAG service on an internal network and do **not**
+  expose port 8001 to the host in production.
+- Use service DNS names (e.g., `http://rag_service:8001`) for inter-service URLs.
+
+### Do not
+- Do not expose the RAG service port to the public internet.
+- Do not hardcode `RAG_SERVICE_API_KEY` — load via `pydantic-settings`.
+- Do not skip API key validation in production deployments.
+
+---
+
 ## Telegram webhook security
 
 - Use Telegram webhook mode for production.
@@ -189,11 +214,9 @@ trigger: always_on
 
 ## Do not
 
-- Do not trust external input by default.
-- Do not skip webhook secret validation.
-- Do not expose debug information in production.
-- Do not log secrets or sensitive user content carelessly.
-- Do not deploy public expensive endpoints without rate limiting or abuse controls.
+- Do not trust external input, skip webhook validation, or expose debug information in production.
+- Do not log secrets, tokens, or sensitive user content.
+- Do not deploy expensive public endpoints without rate limiting.
 
 ---
 
@@ -234,5 +257,5 @@ trigger: always_on
 
 ## Further reading
 
-- [OWASP Input Validation Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html)
-- [OWASP Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)
+Consult the OWASP Cheat Sheet Series for expanded guidelines on input validation and secrets management.
+The key patterns from these references are inlined above in the "Input Validation Patterns" and "Secrets Lifecycle" sections.

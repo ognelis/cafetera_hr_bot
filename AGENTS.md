@@ -4,45 +4,21 @@
 This repository uses agentic coding for implementation assistance, but architecture, invariants, and acceptance are human-led.
 
 ## Stack
-- Python 3.13. Package manager: `uv` only — never pip or poetry.
-- FastAPI + pydantic v2 + pydantic-settings.
-- **Primary channel: VK** — vkbottle 4.x. Telegram (aiogram 3.x) is Post-MVP.
-- RAG: LangChain + Qdrant.
-- ASGI server: Hypercorn.
-- HTTP client: `httpx.AsyncClient` only — never `requests` or bare `aiohttp`.
-- File uploads: `python-multipart`.
-- Database: `databases[asyncpg]` for PostgreSQL in prod and locally.
-- Run commands via `uv run` (e.g. `uv run pytest`, `uv run uvicorn ...`).
+- Python 3.13. Package manager: `uv` only — never pip or poetry. FastAPI + pydantic v2 + pydantic-settings.
+- Primary channel: VK (vkbottle 4.x); Telegram Post-MVP (aiogram 3.x). RAG: LangChain + Qdrant. HTTP client: `httpx.AsyncClient` only.
+- Production: webhook via FastAPI lifespan. Local dev: `uv run python scripts/polling_vk.py` (VK), `uv run python scripts/admin_server.py` (admin, port 8000), `uv run python scripts/rag_server.py` (RAG, port 8001).
 
-## Prod vs local
-- **Local dev:** polling — `uv run python scripts/polling_vk.py` (VK), `uv run python scripts/polling.py` (Telegram, Post-MVP).
-- **Production:** webhook via FastAPI lifespan — never use polling in production.
+Reference: `.qoder/rules/04-uv-workflow.md`, `.qoder/rules/07-bot-apis.md`
 
 ## Secrets & Configuration
-Settings use inheritance: `CoreSettings` (shared RAG, storage, LLM config) → `AdminSettings` (adds `admin_api_key`) / `VKSettings` (adds `vk_access_token`, `vk_group_id`). Each uses `model_config = {"extra": "ignore"}` to share `.env` files. See `packages/*/src/*/config.py`.
+Settings use inheritance: `CoreSettings` → `AdminSettings` / `VKSettings`. Each uses `model_config = {"extra": "ignore"}` to share `.env` files. See `packages/*/src/*/config.py`.
 
-- Never hardcode secrets — load via `pydantic-settings` from environment variables
-- Provide `.env.example` with placeholders only; never commit real secrets
-- Redact secrets from logs, traces, and debug output
-- Use `secrets.compare_digest()` for constant-time comparison of webhook tokens
-- Keep production and development secrets separate
-
-Reference: `.qoder/rules/09-security.md`
+Reference: `.qoder/rules/09-security.md` for full security requirements.
 
 ## Architecture
-Packages: `packages/core` (shared RAG, storage, domain) → `packages/admin` (FastAPI admin UI) / `packages/vk_bot` (VK bot).
+Monorepo: `packages/core` → `packages/admin` / `packages/vk_bot` / `packages/rag_service`. Keep transport, business logic, and RAG pipeline separated. New shared logic goes into `packages/core`.
 
-Core layers: `cafetera_core/rag` (retrieval/prompts/chains), `cafetera_core/domain` (services), `cafetera_core/storage` (DB + S3).
-Admin: `cafetera_admin/api` (routes), `cafetera_admin/domain` (admin-specific services).
-VK Bot: `cafetera_vk_bot/handlers/` (message handlers), `cafetera_vk_bot/domain/` (VK-specific content/entities).
-
-- Keep transport, business logic, and RAG pipeline separated
-- FastAPI endpoints stay thin and delegate to services
-- Shared logic for Telegram and VK lives in domain services in `packages/core`
-- Prefer modular files over monolithic architecture
-- New shared logic goes into `packages/core`. Package-specific logic stays in its package.
-
-Reference: `.qoder/rules/00-architecture.md`
+Reference: `.qoder/rules/00-architecture.md` for package structure and layer boundaries.
 
 ## Resource Safety & Lifespan
 Use `build_resources()` / `close_resources()` from `cafetera_core.resources` for all resource lifecycle.
@@ -53,12 +29,10 @@ Validate all webhook secrets with `secrets.compare_digest()`. Never log secrets 
 Reference: `.qoder/rules/07-bot-apis.md`, `.qoder/rules/09-security.md`
 
 ## Document Upload & Ingestion
-Upload → S3/MinIO storage + PostgreSQL metadata → background Docling parsing → chunk → embed → Qdrant.
-Reference: `.qoder/rules/10-doc-upload.md`
+Upload → S3 + PostgreSQL → Docling parsing → chunk → embed → Qdrant. See `.qoder/rules/10-doc-upload.md`.
 
 ## Frontend & Admin UI
-HTMX + Alpine.js + Tailwind v4 + DaisyUI v5. No build pipeline. Vendor libs in `static/vendor/`.
-Reference: `.qoder/rules/11-frontend.md`, `.qoder/rules/12-admin-ui-design.md`
+HTMX + Alpine.js + Tailwind v4 + DaisyUI v5. No build pipeline. See `.qoder/rules/11-frontend.md`, `.qoder/rules/12-admin-ui-design.md`.
 
 ## Core workflow
 1. First inspect relevant files and existing patterns.
@@ -95,7 +69,7 @@ Before finishing, always:
   - `asyncio_mode = "auto"` — async tests run without extra decorators
 - `uv run ruff check .` — linting with rules E/F/I/UP/B, line-length 100
 - `uv run mypy packages/` — type checking with `strict = false`, `warn_unused_ignores = true`
-- `uv run python -c 'import cafetera_core; import cafetera_admin; import cafetera_vk_bot'` — catch import errors early
+- `uv run python -c 'import cafetera_core; import cafetera_admin; import cafetera_vk_bot; import cafetera_rag_service'` — catch import errors early
 - Check for import errors and missing dependencies.
 - Summarize: what passed, what failed, what was skipped and why.
 
