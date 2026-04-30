@@ -128,7 +128,28 @@ uv sync
 
 # ─── Run evaluation ──────────────────────────────────────────────────────────
 
-ACTION="${1:-all}"  # generate | evaluate | all
+if [ $# -eq 0 ]; then
+  echo
+  log "Select mode:"
+  echo "  1) generate  — generate synthetic testset only"
+  echo "  2) evaluate  — run RAGAS evaluation only"
+  echo "  3) all       — generate + evaluate (default)"
+  read -r -p "[ragas] Enter choice [1-3, Enter=3]: " mode_choice
+
+  case "${mode_choice:-3}" in
+    1|generate)  ACTION="generate" ;;
+    2|evaluate)  ACTION="evaluate" ;;
+    3|all|"")    ACTION="all" ;;
+    *) log "ERROR: Invalid choice '$mode_choice'. Use 1, 2, or 3."; exit 1 ;;
+  esac
+else
+  ACTION="$1"
+fi
+
+if [[ "$ACTION" != "generate" && "$ACTION" != "evaluate" && "$ACTION" != "all" ]]; then
+  log "ERROR: Unknown action '$ACTION'. Use: generate | evaluate | all"
+  exit 1
+fi
 
 echo
 log "✓ Qdrant ready at ${QDRANT_URL}"
