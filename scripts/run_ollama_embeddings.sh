@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ── Load from .env (if present; existing env vars take priority) ──────────
+_load_env_var() {
+  local var_name="$1"
+  if [[ -z "${!var_name:-}" ]]; then
+    local val
+    val=$(grep -E "^${var_name}=" "${BASH_SOURCE[0]%/*}/../.env" 2>/dev/null | head -1 | cut -d= -f2- | sed "s/^[\"']*//;s/[\"']*$//") || true
+    if [[ -n "${val:-}" ]]; then
+      export "$var_name=$val"
+    fi
+  fi
+}
+
+_load_env_var OLLAMA_NUM_GPU
+_load_env_var OLLAMA_HOST
+
 # ── GPU detection ─────────────────────────────────────────────────────────
 detect_gpu() {
   if [[ "$(uname -s)" == "Darwin" ]]; then

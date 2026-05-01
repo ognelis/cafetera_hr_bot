@@ -30,6 +30,7 @@ class TestRagSettings:
         assert s.llm_base_url == "http://localhost:11434"
         assert s.llm_api_key == ""
         assert s.llm_num_ctx == 8192
+        assert s.llm_disable_thinking is True
 
     def test_defaults_for_retrieval_k(self):
         s = RagServiceSettings(_env_file=None)
@@ -269,7 +270,10 @@ class TestBuildLlmLlamaCpp:
                 api_key="no-key",
                 base_url="http://localhost:8080/v1",
                 temperature=0.3,
-                model_kwargs={"extra_body": {"n_ctx": 8192}},
+                extra_body={
+                    "n_ctx": 8192,
+                    "chat_template_kwargs": {"enable_thinking": False},
+                },
             )
 
     def test_passes_real_api_key_when_set(self):
@@ -284,7 +288,10 @@ class TestBuildLlmLlamaCpp:
                 api_key="real-key",
                 base_url="http://localhost:8080/v1",
                 temperature=0.3,
-                model_kwargs={"extra_body": {"n_ctx": 8192}},
+                extra_body={
+                    "n_ctx": 8192,
+                    "chat_template_kwargs": {"enable_thinking": False},
+                },
             )
 
     def test_passes_custom_base_url(self):
@@ -299,8 +306,33 @@ class TestBuildLlmLlamaCpp:
                 api_key="no-key",
                 base_url="http://gpu-box:9090/v1",
                 temperature=0.3,
-                model_kwargs={"extra_body": {"n_ctx": 8192}},
+                extra_body={
+                    "n_ctx": 8192,
+                    "chat_template_kwargs": {"enable_thinking": False},
+                },
             )
+
+    def test_disable_thinking_true_adds_chat_template_kwargs(self):
+        from cafetera_rag_service.rag.chain import build_llm
+
+        fake = self._fake_langchain_openai()
+        s = self._settings(llm_disable_thinking=True)
+        with patch.dict(sys.modules, {"langchain_openai": fake}):
+            build_llm(s)
+            call_kwargs = fake.ChatOpenAI.call_args[1]
+            extra_body = call_kwargs["extra_body"]
+            assert extra_body["chat_template_kwargs"] == {"enable_thinking": False}
+
+    def test_disable_thinking_false_no_chat_template_kwargs(self):
+        from cafetera_rag_service.rag.chain import build_llm
+
+        fake = self._fake_langchain_openai()
+        s = self._settings(llm_disable_thinking=False)
+        with patch.dict(sys.modules, {"langchain_openai": fake}):
+            build_llm(s)
+            call_kwargs = fake.ChatOpenAI.call_args[1]
+            extra_body = call_kwargs["extra_body"]
+            assert "chat_template_kwargs" not in extra_body
 
     def test_import_error_message(self):
         import builtins
@@ -354,6 +386,7 @@ class TestBuildLlmOllama:
                 base_url="http://localhost:11434",
                 temperature=0.3,
                 num_ctx=16384,
+                model_kwargs={"think": False},
             )
 
     def test_default_num_ctx_is_8192(self):

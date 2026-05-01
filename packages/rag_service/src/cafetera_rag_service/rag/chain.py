@@ -65,7 +65,7 @@ def _openai_sampling_kwargs(settings: RagServiceSettings) -> dict[str, Any]:
 
     ``top_p`` and ``presence_penalty`` are native Chat Completions parameters.
     ``top_k`` is non-standard for OpenAI but accepted by vLLM and llama-server
-    via ``extra_body``; we forward it through ``model_kwargs``.
+    via ``extra_body`` (passed directly to ``ChatOpenAI``).
     """
     extra: dict[str, Any] = {}
     if settings.llm_top_p is not None:
@@ -73,7 +73,7 @@ def _openai_sampling_kwargs(settings: RagServiceSettings) -> dict[str, Any]:
     if settings.llm_presence_penalty is not None:
         extra["presence_penalty"] = settings.llm_presence_penalty
     if settings.llm_top_k is not None:
-        extra["model_kwargs"] = {"extra_body": {"top_k": settings.llm_top_k}}
+        extra.setdefault("extra_body", {})["top_k"] = settings.llm_top_k
     return extra
 
 
@@ -128,9 +128,10 @@ def build_llm(settings: RagServiceSettings) -> BaseChatModel:
                 "uv sync --extra openai_compatible"
             ) from exc
         kwargs = _openai_sampling_kwargs(settings)
-        model_kw = kwargs.setdefault("model_kwargs", {})
-        extra_body = model_kw.setdefault("extra_body", {})
+        extra_body = kwargs.setdefault("extra_body", {})
         extra_body["n_ctx"] = settings.llm_num_ctx
+        if settings.llm_disable_thinking:
+            extra_body["chat_template_kwargs"] = {"enable_thinking": False}
         return ChatOpenAI(
             model=settings.llm_model,
             api_key=settings.llm_api_key or "no-key",  # type: ignore[arg-type]
@@ -146,12 +147,15 @@ def build_llm(settings: RagServiceSettings) -> BaseChatModel:
         raise ImportError(
             "Install the 'ollama' extra: uv sync --extra ollama"
         ) from exc
+    kwargs = _ollama_sampling_kwargs(settings)
+    if settings.llm_disable_thinking:
+        kwargs["model_kwargs"] = {"think": False}
     return ChatOllama(
         model=settings.llm_model,
         base_url=settings.llm_base_url,
         temperature=settings.llm_temperature,
         num_ctx=settings.llm_num_ctx,
-        **_ollama_sampling_kwargs(settings),
+        **kwargs,
     )
 
 

@@ -147,6 +147,10 @@ load_env_var OLLAMA_NUM_GPU
 load_env_var DATABASE_URL
 load_env_var RAG_SERVICE_URL
 load_env_var RAG_SERVICE_API_KEY
+load_env_var LLM_NUM_CTX
+load_env_var LLM_DISABLE_THINKING
+load_env_var EMBED_CTX_SIZE
+load_env_var EMBED_UBATCH_SIZE
 
 log "Loaded .env overrides (if any)"
 

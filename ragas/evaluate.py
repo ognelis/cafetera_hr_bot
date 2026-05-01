@@ -48,20 +48,18 @@ DEFAULT_TESTSET = Path(__file__).parent / "testset.json"
 
 # Default system prompt for evaluation — matches the admin global prompt.
 _EVAL_SYSTEM_PROMPT = """\
-Ты -- ассистент для HR-специалистов компании Кафетера. Помогай разбираться \
-во всей базе знаний HR-документов. Отвечай на любые вопросы, опираясь на \
-все доступные документы.
+Ты -- ассистент компании Кафетера. Отвечай на вопросы сотрудников \
+строго на основе предоставленного контекста.
 
 Правила:
-- Отвечай кратко, структурированно и по существу.
-- Используй списки и нумерацию для пошаговых ответов.
-- Если в базе знаний недостаточно информации для полного ответа -- \
-скажи об этом прямо и укажи, что база знаний не содержит достаточно данных.
-- Допускай общие пояснения и синтез информации из разных документов, \
-если это помогает дать полный ответ.
-- При цитировании или использовании информации из конкретного документа — \
-указывай его название.
-- Отвечай на русском языке.
+- Отвечай вежливо, кратко и структурированно на русском языке.
+- Опирайся строго на предоставленный контекст. Не выдумывай информацию.
+- Не описывай и не пересказывай, какая информация содержится в контексте.
+- Если ответа на вопрос нет в контексте — не объясняй, почему ответ не найден, и не описывай, 
+  о чём идёт речь в контексте.
+- Используй нумерованные списки для пошаговых инструкций, 
+  буллиты — для перечислений из 3+ пунктов, 
+  обычный текст — для коротких ответов.
 
 Контекст из всех доступных документов:
 {context}"""
@@ -82,24 +80,57 @@ def _load_testset(path: Path) -> list[dict[str, Any]]:
 
 
 def _build_ragas_llm(settings: RagServiceSettings):
-    """Build a RAGAS evaluator LLM backed by Ollama via OpenAI-compatible API."""
-    async_client = AsyncOpenAI(
-        base_url=f"{settings.llm_base_url}/v1",
-        api_key="ollama",
-    )
-    return llm_factory(
+    """Build a RAGAS evaluator LLM from configured provider."""
+    provider = settings.llm_provider.lower()
+    if provider == "openai":
+        base_url = settings.llm_base_url  # already includes /v1
+        api_key = settings.llm_api_key
+    elif provider == "llamacpp":
+        base_url = f"{settings.llm_base_url}/v1"
+        api_key = "no-key"
+    else:  # ollama (default)
+        base_url = f"{settings.llm_base_url}/v1"
+        api_key = "ollama"
+
+    async_client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+
+    ragas_llm = llm_factory(
         model=settings.llm_model,
         provider="openai",
         client=async_client,
     )
 
+    # Inject extra_body into the instructor client's default kwargs so that
+    # every chat.completions.create() call includes the context window hint.
+    # RAGAS's InstructorLLM stores extra_body in model_args but the instructor
+    # layer may not forward it reliably; setting it on client.kwargs uses
+    # instructor's own handle_kwargs() merge which is guaranteed to apply.
+    extra_body: dict[str, Any] = {}
+    if provider == "ollama" and settings.llm_num_ctx:
+        extra_body = {"options": {"num_ctx": settings.llm_num_ctx}}
+    elif provider == "llamacpp" and settings.llm_num_ctx:
+        extra_body = {"n_ctx": settings.llm_num_ctx}
+
+    if extra_body:
+        ragas_llm.client.kwargs["extra_body"] = extra_body
+
+    return ragas_llm
+
 
 def _build_ragas_embeddings(settings: RagServiceSettings):
-    """Build RAGAS embeddings backed by Ollama via OpenAI-compatible API."""
-    async_client = AsyncOpenAI(
-        base_url=f"{settings.embedding_base_url}/v1",
-        api_key="ollama",
-    )
+    """Build RAGAS embeddings from configured provider."""
+    provider = settings.embedding_provider.lower()
+    if provider == "openai":
+        base_url = settings.embedding_base_url
+        api_key = settings.embedding_api_key
+    elif provider == "llamacpp":
+        base_url = settings.embedding_base_url  # already includes /v1
+        api_key = "no-key"
+    else:  # ollama (default)
+        base_url = f"{settings.embedding_base_url}/v1"
+        api_key = "ollama"
+
+    async_client = AsyncOpenAI(base_url=base_url, api_key=api_key)
     return embedding_factory(
         provider="openai",
         model=settings.embedding_model,

@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ── Load from .env (if present; existing env vars take priority) ──────────
+_load_env_var() {
+  local var_name="$1"
+  if [[ -z "${!var_name:-}" ]]; then
+    local val
+    val=$(grep -E "^${var_name}=" "${BASH_SOURCE[0]%/*}/../.env" 2>/dev/null | head -1 | cut -d= -f2- | sed "s/^[\"']*//;s/[\"']*$//") || true
+    if [[ -n "${val:-}" ]]; then
+      export "$var_name=$val"
+    fi
+  fi
+}
+
+_load_env_var LLM_NUM_CTX
+_load_env_var LLM_N_GPU_LAYERS
+_load_env_var LLM_DISABLE_THINKING
+_load_env_var LLM_MODEL_PATH
+_load_env_var LLM_MODEL_URL
+
 # ── GPU detection ─────────────────────────────────────────────────────────
 detect_gpu() {
   if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -28,7 +46,7 @@ LLM_MODEL_PATH="${LLM_MODEL_PATH:-./models/Qwen3.5-4B-Q4_K_M.gguf}"
 LLM_MODEL_URL="${LLM_MODEL_URL:-https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf}"
 LLM_HOST="${LLM_HOST:-127.0.0.1}"
 LLM_PORT="${LLM_PORT:-8080}"
-LLM_CTX_SIZE="${LLM_CTX_SIZE:-8192}"
+LLM_CTX_SIZE="${LLM_NUM_CTX:-8192}"
 LLM_N_GPU_LAYERS="${LLM_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
 
 detect_cpu_count() {
@@ -79,6 +97,13 @@ if [ ! -f "$LLM_MODEL_PATH" ]; then
   echo "Download complete: $LLM_MODEL_PATH"
 fi
 
+LLM_DISABLE_THINKING="${LLM_DISABLE_THINKING:-true}"
+
+REASONING_ARGS=""
+if [ "$LLM_DISABLE_THINKING" = "true" ]; then
+  REASONING_ARGS="--reasoning-budget 0"
+fi
+
 echo "Starting llama-server (LLM inference)"
 echo "MODEL_PATH=$LLM_MODEL_PATH"
 echo "HOST=$LLM_HOST"
@@ -87,6 +112,7 @@ echo "CTX_SIZE=$LLM_CTX_SIZE"
 echo "CPU_COUNT=$CPU_COUNT"
 echo "THREADS=$THREADS"
 echo "GPU: $DETECTED_GPU → offloading $LLM_N_GPU_LAYERS layers"
+echo "DISABLE_THINKING=$LLM_DISABLE_THINKING"
 
 exec llama-server \
   --model "$LLM_MODEL_PATH" \
@@ -94,4 +120,5 @@ exec llama-server \
   --port "$LLM_PORT" \
   --ctx-size "$LLM_CTX_SIZE" \
   --threads "$THREADS" \
-  --n-gpu-layers "$LLM_N_GPU_LAYERS"
+  --n-gpu-layers "$LLM_N_GPU_LAYERS" \
+  $REASONING_ARGS

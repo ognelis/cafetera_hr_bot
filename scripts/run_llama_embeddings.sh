@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ── Load from .env (if present; existing env vars take priority) ──────────
+_load_env_var() {
+  local var_name="$1"
+  if [[ -z "${!var_name:-}" ]]; then
+    local val
+    val=$(grep -E "^${var_name}=" "${BASH_SOURCE[0]%/*}/../.env" 2>/dev/null | head -1 | cut -d= -f2- | sed "s/^[\"']*//;s/[\"']*$//") || true
+    if [[ -n "${val:-}" ]]; then
+      export "$var_name=$val"
+    fi
+  fi
+}
+
+_load_env_var EMBED_CTX_SIZE
+_load_env_var EMBED_N_GPU_LAYERS
+_load_env_var EMBED_UBATCH_SIZE
+
 # ── GPU detection ─────────────────────────────────────────────────────────
 detect_gpu() {
   if [[ "$(uname -s)" == "Darwin" ]]; then

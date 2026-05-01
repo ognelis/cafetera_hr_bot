@@ -50,6 +50,7 @@ via `RAGClient`, a thin async HTTP client in `cafetera_core/rag_client.py`.
 - Adaptive `k` is computed by `estimate_k()` in `retriever.py` based on question complexity.
 - `build_retriever()` applies a filter excluding chunks where `is_search_enabled` is `False`.
 - `build_retriever_for_document()` scopes search to a single `document_id`.
+- Dense-branch score threshold (`DENSE_SCORE_THRESHOLD`) filters low-confidence results; applied to dense Prefetch and dense-only queries, NOT to BM25 or RRF-fused results.
 
 ## Prompting
 - Keep prompts in dedicated modules — never inline giant prompt strings in services or handlers.

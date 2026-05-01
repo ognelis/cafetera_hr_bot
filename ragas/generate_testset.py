@@ -1,7 +1,7 @@
 """Generate synthetic QA testset from Qdrant document chunks using RAGAS.
 
 Connects to Qdrant, reads all stored chunks from the configured collection,
-and uses RAGAS TestsetGenerator with the local Ollama LLM to produce
+and uses RAGAS TestsetGenerator with the configured LLM provider to produce
 synthetic question-answer pairs for RAG evaluation.
 
 Usage:
@@ -111,11 +111,19 @@ _LLM_TEMPERATURE = 0.2
 
 
 def _build_ragas_llm(settings: RagServiceSettings):
-    """Build a RAGAS evaluator LLM backed by Ollama via OpenAI-compatible API."""
-    client = OpenAI(
-        base_url=f"{settings.llm_base_url}/v1",
-        api_key="ollama",
-    )
+    """Build a RAGAS evaluator LLM from configured provider."""
+    provider = settings.llm_provider.lower()
+    if provider == "openai":
+        base_url = settings.llm_base_url  # already includes /v1
+        api_key = settings.llm_api_key
+    elif provider == "llamacpp":
+        base_url = f"{settings.llm_base_url}/v1"
+        api_key = "no-key"
+    else:  # ollama (default)
+        base_url = f"{settings.llm_base_url}/v1"
+        api_key = "ollama"
+
+    client = OpenAI(base_url=base_url, api_key=api_key)
     return llm_factory(
         model=settings.llm_model,
         provider="openai",
@@ -126,11 +134,19 @@ def _build_ragas_llm(settings: RagServiceSettings):
 
 
 def _build_ragas_embeddings(settings: RagServiceSettings):
-    """Build RAGAS embeddings backed by Ollama via OpenAI-compatible API."""
-    client = OpenAI(
-        base_url=f"{settings.embedding_base_url}/v1",
-        api_key="ollama",
-    )
+    """Build RAGAS embeddings from configured provider."""
+    provider = settings.embedding_provider.lower()
+    if provider == "openai":
+        base_url = settings.embedding_base_url
+        api_key = settings.embedding_api_key
+    elif provider == "llamacpp":
+        base_url = settings.embedding_base_url  # already includes /v1
+        api_key = "no-key"
+    else:  # ollama (default)
+        base_url = f"{settings.embedding_base_url}/v1"
+        api_key = "ollama"
+
+    client = OpenAI(base_url=base_url, api_key=api_key)
     return embedding_factory(
         provider="openai",
         model=settings.embedding_model,

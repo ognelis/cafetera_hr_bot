@@ -45,6 +45,7 @@ class AsyncQdrantRetriever(BaseRetriever):
     k: int = 5
     prefetch_limit: int = 20
     filter: models.Filter | None = None
+    score_threshold: float | None = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -66,7 +67,12 @@ class AsyncQdrantRetriever(BaseRetriever):
                 values=_to_list(sparse_result.values),
             )
             prefetch = [
-                Prefetch(query=query_vector, using="dense", limit=self.prefetch_limit),
+                Prefetch(
+                    query=query_vector,
+                    using="dense",
+                    limit=self.prefetch_limit,
+                    score_threshold=self.score_threshold,
+                ),
                 Prefetch(query=sparse_vec, using="bm25", limit=self.prefetch_limit),
             ]
             results = await self.client.query_points(
@@ -76,6 +82,22 @@ class AsyncQdrantRetriever(BaseRetriever):
                 limit=self.k,
                 query_filter=self.filter,
             )
+            # Fallback: if hybrid returned nothing (both dense threshold and
+            # BM25 found nothing), retry dense-only without threshold.
+            if not results.points and self.score_threshold is not None:
+                logger.debug(
+                    "Hybrid search returned 0 results (threshold=%.2f), "
+                    "falling back to dense top-1 without threshold",
+                    self.score_threshold,
+                )
+                results = await self.client.query_points(
+                    collection_name=self.collection_name,
+                    query=query_vector,
+                    using="dense",
+                    limit=1,
+                    query_filter=self.filter,
+                )
+            points = results.points
         else:
             # Dense-only search (also used when sparse query is empty after
             # stop-word removal to avoid zero-vector BM25 prefetch).
@@ -88,9 +110,24 @@ class AsyncQdrantRetriever(BaseRetriever):
                 limit=self.k,
                 query_filter=self.filter,
             )
+            # Client-side filtering with min-1 guarantee
+            points = results.points
+            if self.score_threshold is not None and points:
+                filtered = [r for r in points if r.score >= self.score_threshold]
+                if filtered:
+                    points = filtered
+                else:
+                    logger.debug(
+                        "All %d dense results below threshold %.2f, "
+                        "keeping top-1 (score=%.3f)",
+                        len(results.points),
+                        self.score_threshold,
+                        results.points[0].score,
+                    )
+                    points = [results.points[0]]
 
         docs: list[Document] = []
-        for r in results.points:
+        for r in points:
             if r.payload is not None:
                 docs.append(
                     Document(
@@ -251,6 +288,7 @@ def build_retriever(
         lemmatize=settings.bm25_lemmatize,
         k=effective_k,
         filter=search_filter,
+        score_threshold=settings.dense_score_threshold,
     )
 
 
@@ -299,4 +337,5 @@ def build_retriever_for_document(
         lemmatize=settings.bm25_lemmatize,
         k=effective_k,
         filter=search_filter,
+        score_threshold=settings.dense_score_threshold,
     )

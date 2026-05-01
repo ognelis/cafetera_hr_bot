@@ -44,6 +44,9 @@ class RagServiceSettings(BaseSettings):
     llm_top_k: int | None = None
     llm_presence_penalty: float | None = None
 
+    # Disable thinking/reasoning mode for Qwen3/Qwen3.5 models (Ollama and llamacpp)
+    llm_disable_thinking: bool = True
+
     # Embeddings
     embedding_provider: str = "ollama"
     embedding_model: str = "qwen3-embedding:4b-q4_K_M"
@@ -57,6 +60,7 @@ class RagServiceSettings(BaseSettings):
     # Retrieval k defaults
     doc_query_k: int = 15
     global_max_k: int = 10
+    dense_score_threshold: float = 0.5
 
     # Reranking
     reranking_enabled: bool = False
