@@ -107,7 +107,7 @@ def _get_chunker(tokenizer_model: str, max_tokens: int):
         tokenizer=AutoTokenizer.from_pretrained(tokenizer_model, local_files_only=True),
         max_tokens=max_tokens,
     )
-    return HybridChunker(tokenizer=tokenizer, max_tokens=max_tokens)  # type: ignore[call-arg]
+    return HybridChunker(tokenizer=tokenizer, max_tokens=max_tokens, merge_peers=True)  # type: ignore[call-arg]
 
 
 def _extract_page_numbers(chunk) -> list[int]:
@@ -176,19 +176,31 @@ def _load_with_docling(
     chunker = _get_chunker(settings.chunker_tokenizer_model, settings.chunk_size)
     docs: list[Document] = []
     for chunk in chunker.chunk(dl_doc=dl_doc):
-        contextualized = chunker.contextualize(chunk)
-        page_numbers = _extract_page_numbers(chunk)
         content_type = _detect_content_type(chunk)
 
+        # Tables retain structure better without contextualize
+        if content_type == "table":
+            page_content = chunk.text
+        else:
+            page_content = chunker.contextualize(chunk)
+
+        if extracted_title:
+            page_content = f"[Документ: {extracted_title}]\n{page_content}"
+
+        if not page_content or len(page_content.strip()) < 30:
+            continue
+
+        page_numbers = _extract_page_numbers(chunk)
         metadata = {
             "source": str(path),
             "headings": list(chunk.meta.headings) if chunk.meta.headings else [],
             "captions": _extract_captions(chunk),
             "page_numbers": page_numbers,
             "content_type": content_type,
+            "document_title": extracted_title or "",
             "section_path": chunk.meta.doc_items[0].self_ref if chunk.meta.doc_items else "",
         }
-        docs.append(Document(page_content=contextualized, metadata=metadata))
+        docs.append(Document(page_content=page_content, metadata=metadata))
 
     logger.info("Docling loaded %d chunks from %s", len(docs), path.name)
     return ParseResult(

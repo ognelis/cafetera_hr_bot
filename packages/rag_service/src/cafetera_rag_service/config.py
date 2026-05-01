@@ -69,7 +69,7 @@ class RagServiceSettings(BaseSettings):
     reranker_prefetch_limit: int = 20
 
     # Chunking / parsing
-    chunk_size: int = 500
+    chunk_size: int = 512
     chunker_tokenizer_model: str = "Qwen/Qwen3-Embedding-0.6B"
 
     # S3 / MinIO
