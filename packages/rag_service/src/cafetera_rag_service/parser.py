@@ -133,6 +133,20 @@ def _extract_captions(chunk) -> list[str]:
     ]
 
 
+def _format_page_numbers(pages: list[int]) -> str:
+    """Format page numbers as single value, range, or comma-separated list.
+
+    Examples: `5` for single, `5-6` for consecutive, `5, 7` for non-consecutive.
+    """
+    if not pages:
+        return ""
+    if len(pages) == 1:
+        return str(pages[0])
+    if pages == list(range(pages[0], pages[-1] + 1)):
+        return f"{pages[0]}-{pages[-1]}"
+    return ", ".join(str(p) for p in pages)
+
+
 def _detect_content_type(chunk) -> str:
     """Detect the dominant content type of a chunk from its doc_items labels."""
     from docling_core.types.doc.document import DocItemLabel
@@ -157,12 +171,23 @@ def _load_with_docling(
     DoclingLoader) for full access to chunk metadata: headings, captions,
     page numbers, content type, and structural path.
     """
-    from docling.document_converter import DocumentConverter
+    from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import PdfPipelineOptions
+    from docling.document_converter import DocumentConverter, PdfFormatOption
     from docling_onnx_models.layoutmodel.layout_predictor import (
         LayoutPredictor,  # noqa: F401  — force ONNX backend
     )
 
-    converter = DocumentConverter()
+    pdf_pipeline_options = PdfPipelineOptions(do_ocr=False)
+    converter = DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(
+                pipeline_options=pdf_pipeline_options,
+                backend=PyPdfiumDocumentBackend,
+            ),
+        },
+    )
     result = converter.convert(str(path))
     dl_doc = result.document
 
@@ -184,17 +209,30 @@ def _load_with_docling(
         else:
             page_content = chunker.contextualize(chunk)
 
+        page_numbers = _extract_page_numbers(chunk)
+        captions = _extract_captions(chunk)
+
+        if captions:
+            captions_str = "; ".join(captions)
+            page_content = f"[Подпись: {captions_str}]\n{page_content}"
+
+        if page_numbers:
+            page_content = f"[Страница: {_format_page_numbers(page_numbers)}]\n{page_content}"
+
+        if chunk.meta.headings:
+            headings_prefix = " > ".join(chunk.meta.headings)
+            page_content = f"[Разделы: {headings_prefix}]\n{page_content}"
+
         if extracted_title:
             page_content = f"[Документ: {extracted_title}]\n{page_content}"
 
         if not page_content or len(page_content.strip()) < 30:
             continue
 
-        page_numbers = _extract_page_numbers(chunk)
         metadata = {
             "source": str(path),
             "headings": list(chunk.meta.headings) if chunk.meta.headings else [],
-            "captions": _extract_captions(chunk),
+            "captions": captions,
             "page_numbers": page_numbers,
             "content_type": content_type,
             "document_title": extracted_title or "",

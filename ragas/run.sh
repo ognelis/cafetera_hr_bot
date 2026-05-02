@@ -115,6 +115,8 @@ load_env_var LLM_DISABLE_THINKING
 load_env_var EMBED_CTX_SIZE
 load_env_var EMBED_N_GPU_LAYERS
 load_env_var EMBED_UBATCH_SIZE
+load_env_var RERANKING_ENABLED
+load_env_var RERANKER_URL
 
 # Set URL defaults after loading env
 QDRANT_URL="${QDRANT_URL:-http://localhost:6333}"
@@ -349,6 +351,29 @@ if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
   log "Embedding provider: OpenAI (remote, no local server needed)"
 fi
 
+# Reranker — start if enabled
+if [[ "${RERANKING_ENABLED:-false}" == "true" ]]; then
+  RERANKER_URL="${RERANKER_URL:-http://localhost:8082}"
+  log "Checking reranker at ${RERANKER_URL}..."
+  if ! curl -sf "${RERANKER_URL}/health" >/dev/null 2>&1; then
+    if command_exists llama-server; then
+      log "Starting reranker server in background..."
+      "$SCRIPT_DIR/../scripts/run_llama_reranker.sh" >/tmp/llama_reranker.log 2>&1 &
+      BG_PIDS+=("$!")
+      if ! wait_for_service "Reranker" "${RERANKER_URL}/health" 60 2; then
+        log "ERROR: Reranker failed to start. Check /tmp/llama_reranker.log"
+        exit 1
+      fi
+    else
+      log "ERROR: llama-server not found and reranker not running at ${RERANKER_URL}"
+      log "FIX:   Install llama.cpp or start reranker manually"
+      exit 1
+    fi
+  else
+    log "Reranker is already running at ${RERANKER_URL}"
+  fi
+fi
+
 # ─── Sync dependencies ───────────────────────────────────────────────────────
 
 log "Syncing Python dependencies..."
@@ -363,6 +388,9 @@ echo
 log "✓ Qdrant ready at ${QDRANT_URL}"
 log "LLM:         ${LLM_PROVIDER} (${LLM_MODEL})"
 log "Embedding:   ${EMBEDDING_PROVIDER} (${EMBEDDING_MODEL})"
+if [[ "${RERANKING_ENABLED:-false}" == "true" ]]; then
+  log "Reranker:    ${RERANKER_URL}"
+fi
 echo
 
 if [ "$ACTION" = "generate" ] || [ "$ACTION" = "all" ]; then

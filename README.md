@@ -10,9 +10,8 @@
 2. [Установить Docker](#2-установить-docker)
 3. [Установить uv](#3-установить-uv)
 4. [Установить Ollama (если используете локальный ИИ)](#4-установить-ollama-если-используете-локальный-ии)
-5. [Установить llama.cpp (если используете llamacpp)](#5-установить-llamacpp-если-используете-llamacpp)
-6. [Скачать проект](#6-скачать-проект)
-7. [Настроить файл .env](#7-настроить-файл-env)
+5. [Скачать проект](#5-скачать-проект)
+6. [Настроить файл .env](#6-настроить-файл-env)
 7. [Выбрать способ запуска](#7-выбрать-способ-запуска)
    - [Вариант А — только Админ-панель (bash-скрипт)](#вариант-а--только-админ-панель-bash-скрипт)
    - [Вариант Б — только Админ-панель (через Docker)](#вариант-б--только-админ-панель-через-docker)
@@ -20,8 +19,8 @@
    - [Вариант Г — Всё через Docker Compose (для сервера/продакшна)](#вариант-г--всё-через-docker-compose-для-серверапродакшна)
 8. [Открыть админ-панель](#8-открыть-админ-панель)
 9. [Остановить сервисы](#9-остановить-сервисы)
-10. [Частые проблемы](#10-частые-проблемы)
-11. [Запуск серверов llama.cpp вручную](#11-запуск-серверов-llamacpp-вручную)
+10. [Оценка качества ответов (RAGAS)](#10-оценка-качества-ответов-ragas)
+11. [Дополнительная документация](#11-дополнительная-документация)
 
 ---
 
@@ -166,81 +165,7 @@ ollama --version
 
 ---
 
-## 5. Установить llama.cpp (если используете llamacpp)
-
-llama.cpp — продвинутый вариант локального запуска ИИ-моделей. В отличие от Ollama, вы сами кладёте файлы моделей в папку `models/` и управляете серверами напрямую. Подходит, если вам нужен максимальный контроль над потреблением памяти и скоростью.
-
-> Если вы используете **Ollama** или **OpenAI** — этот шаг пропустите.
-
-### Установить llama-server
-
-#### macOS (через Homebrew)
-
-```bash
-brew install llama.cpp
-```
-
-> Если Homebrew не установлен: перейдите на https://brew.sh и следуйте инструкции.
-
-#### Linux (сборка из исходников)
-
-```bash
-sudo apt-get install -y build-essential cmake
-git clone https://github.com/ggerganov/llama.cpp
-cd llama.cpp
-cmake -B build
-cmake --build build --config Release -j$(nproc)
-sudo cp build/bin/llama-server /usr/local/bin/
-```
-
-Проверьте установку:
-
-```bash
-llama-server --version
-```
-
-### Файлы моделей (.gguf)
-
-llama.cpp использует модели в формате `.gguf`. Файлы нужно положить в папку `models/` в корне проекта.
-
-По умолчанию скрипты ожидают два файла:
-
-| Файл | Назначение | Размер |
-|---|---|---|
-| `models/Qwen3.5-4B-Q4_K_M.gguf` | LLM — языковая модель | ~2.5 ГБ |
-| `models/Qwen3-Embedding-4B-Q4_K_M.gguf` | Embedding — поиск по документам | ~2.4 ГБ |
-
-**Скрипты скачают модели автоматически** при первом запуске, если файлов нет. URL для скачивания можно переопределить через `LLM_MODEL_URL` / `EMBED_MODEL_URL` (см. раздел 12). Для ручного скачивания по умолчанию:
-
-```bash
-# LLM-модель
-curl -L -o models/Qwen3.5-4B-Q4_K_M.gguf \
-  https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf
-
-# Embedding-модель
-curl -L -o models/Qwen3-Embedding-4B-Q4_K_M.gguf \
-  https://huggingface.co/Qwen/Qwen3-Embedding-4B-GGUF/resolve/main/Qwen3-Embedding-4B-Q4_K_M.gguf
-```
-
-### Ускорение через GPU (определяется автоматически)
-
-Скрипты сами определяют тип GPU и включают ускорение:
-
-| Железо | Что используется |
-|---|---|
-| Mac на Apple Silicon (M1/M2/M3/M4) | Metal — все слои модели на GPU |
-| NVIDIA (Linux) | CUDA — все слои модели на GPU |
-| Всё остальное | CPU (без GPU-ускорения) |
-
-Если нужно переопределить вручную — задайте переменные в `.env`:
-```
-LLM_N_GPU_LAYERS=99     # 99 = все слои на GPU, 0 = только CPU
-EMBED_N_GPU_LAYERS=99
-```
-
----
-
-## 6. Скачать проект
+## 5. Скачать проект
 
 Если у вас уже есть папка с проектом — пропустите этот шаг.
 
@@ -258,7 +183,7 @@ cd cafetera_hr_bot
 
 ---
 
-## 7. Настроить файл .env
+## 6. Настроить файл .env
 
 Файл `.env` — это файл с настройками. Скрипты и Docker читают настройки именно из него.
 
@@ -304,41 +229,15 @@ nano .env
 
 ### Настройка ИИ-провайдера в .env (необязательно)
 
-Если вы хотите, чтобы скрипт не спрашивал каждый раз — укажите провайдера прямо в `.env`:
+Если не задавать провайдера явно, скрипты `run_admin.sh` / `run_all.sh` спросят его при каждом запуске. Чтобы зафиксировать выбор (Ollama / OpenAI / llama.cpp) и задать нужные `LLM_*` / `EMBEDDING_*` переменные — см. **[docs/providers.md](docs/providers.md)**.
 
-**Для Ollama (по умолчанию, бесплатно):**
-```
-LLM_PROVIDER=ollama
-LLM_MODEL=qwen3.5:4b-q4_K_M
-EMBEDDING_PROVIDER=ollama
-EMBEDDING_MODEL=qwen3-embedding:4b-q4_K_M
-```
-
-**Для OpenAI (платно, нужен API-ключ):**
-```
-LLM_PROVIDER=openai
-LLM_MODEL=gpt-4o-mini
-LLM_API_KEY=sk-...ваш-ключ...
-EMBEDDING_PROVIDER=openai
-EMBEDDING_MODEL=text-embedding-3-small
-EMBEDDING_API_KEY=sk-...ваш-ключ...
-```
-
-**Для llama.cpp (бесплатно, нужны файлы моделей в папке `models/`):**
-```
-LLM_PROVIDER=llamacpp
-LLM_MODEL=local-model
-EMBEDDING_PROVIDER=llamacpp
-EMBEDDING_MODEL=qwen3-embedding
-```
-
-> При выборе llamacpp скрипты (`run_admin.sh`, `run_all.sh`) автоматически запускают два сервера: LLM на порту `8080` и Embedding на порту `8090`. Если файлов моделей нет — скрипт скачивает их с HuggingFace автоматически.
+Для варианта **llama.cpp** дополнительно нужен `llama-server` и `.gguf`-файлы моделей — см. **[docs/llamacpp.md](docs/llamacpp.md)**.
 
 Остальные параметры (`DATABASE_URL`, `QDRANT_URL`, `S3_ENDPOINT_URL`) оставьте как есть — скрипты и Docker подставят правильные значения автоматически.
 
 ---
 
-## 8. Выбрать способ запуска
+## 7. Выбрать способ запуска
 
 Доступны четыре варианта. Прочитайте описание и выберите подходящий.
 
@@ -453,7 +352,7 @@ bash scripts/run_all.sh
 
 **Требования:** Docker, Ollama запущена на хосте (или OpenAI API-ключ прописан в `.env`).
 
-> Перед запуском убедитесь, что в `.env` заполнены `ADMIN_API_KEY`, `VK_ACCESS_TOKEN`, `VK_GROUP_ID`, и выбраны провайдеры LLM/Embedding (см. [раздел 6](#настройка-ии-провайдера-в-env-необязательно)).
+> Перед запуском убедитесь, что в `.env` заполнены `ADMIN_API_KEY`, `VK_ACCESS_TOKEN`, `VK_GROUP_ID`, и выбраны провайдеры LLM/Embedding (см. [docs/providers.md](docs/providers.md)).
 
 **Запуск всего стека:**
 
@@ -499,7 +398,7 @@ docker compose up -d --build qdrant minio postgres rag-service vk_bot
 
 ---
 
-## 9. Открыть админ-панель
+## 8. Открыть админ-панель
 
 После запуска любым из вариантов откройте браузер и перейдите по адресу:
 
@@ -518,7 +417,7 @@ docker compose up -d --build qdrant minio postgres rag-service vk_bot
 
 ---
 
-## 10. Остановить сервисы
+## 9. Остановить сервисы
 
 | Способ запуска | Как остановить |
 |---|---|
@@ -527,126 +426,33 @@ docker compose up -d --build qdrant minio postgres rag-service vk_bot
 
 ---
 
-## 11. Частые проблемы
+## 10. Оценка качества ответов (RAGAS)
 
-### «docker: command not found»
-Docker не установлен или не запущен. Вернитесь к [шагу 2](#2-установить-docker).
+Чтобы проверить, насколько хорошо бот отвечает на вопросы по загруженным документам, в проекте есть автоматическая оценка на базе [RAGAS](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/).
 
-### «uv: command not found»
-Закройте Терминал и откройте заново. Если не помогло — повторите [шаг 3](#3-установить-uv).
+Быстрый запуск:
 
-### «ADMIN_API_KEY is not set»
-Откройте файл `.env` и убедитесь, что строка `ADMIN_API_KEY=` содержит значение (не пустая).
-
-### «Qdrant failed to start» / «MinIO failed to start» / «PostgreSQL failed to start»
-- Убедитесь, что Docker запущен.
-- Проверьте, не заняты ли порты другими программами:
-  ```bash
-  lsof -i :6333   # Qdrant
-  lsof -i :9000   # MinIO
-  lsof -i :5432   # PostgreSQL
-  ```
-- Посмотрите логи Docker:
-  ```bash
-  docker compose logs
-  ```
-
-### «Ollama is not installed»
-Вернитесь к [шагу 4](#4-установить-ollama-если-используете-локальный-ии) и установите Ollama.
-
-### Модель скачивается очень долго
-При первом запуске Ollama скачивает модели — суммарно около 4–6 ГБ. Это нормально. Дождитесь завершения — при следующем запуске модели уже будут скачаны.
-
-### Порт 8000 уже занят
-Запустите на другом порту (например, 8080):
 ```bash
-ADMIN_PORT=8080 bash scripts/run_admin.sh
-```
-Тогда AdminUI будет доступна по адресу http://127.0.0.1:8080/documents
-
-### Порт 8001 уже занят (RAG-сервис не запускается)
-RAG-сервис использует порт 8001. Проверьте:
-```bash
-lsof -i :8001
-```
-Если порт занят — остановите другой процесс или измените порт в `.env`:
-```
-RAG_SERVICE_PORT=9001
-RAG_SERVICE_URL=http://localhost:9001
+bash ragas/run.sh
 ```
 
-### VK-бот не отвечает в группе
-1. Проверьте, что `VK_ACCESS_TOKEN` и `VK_GROUP_ID` правильно заполнены в `.env`.
-2. Убедитесь, что бот запущен: `docker compose logs -f vk_bot`
-3. Проверьте, что в настройках VK-сообщества включены «Сообщения».
+Скрипт спросит провайдера LLM/Embedding, сгенерирует тестовые вопросы по уже загруженным документам и прогонит их через RAG-конвейер. Результаты сохраняются в `ragas/scores.json`.
 
-### Ошибка при запуске через Docker на Linux: «host.docker.internal»
-На Linux это имя хоста не всегда работает автоматически. Скрипт и `docker-compose.yml` добавляют `extra_hosts: host.docker.internal:host-gateway` — это должно решить проблему. Если нет — проверьте версию Docker: `docker --version` (нужна 20.10+).
-
-### Ошибка: «llamacpp: llama-server not found» или порт 8080/8090 уже занят
-Что проверить:
-1. `llama-server` установлен: `llama-server --version`
-2. Порты свободны:
-   ```bash
-   lsof -i :8080   # LLM-сервер
-   lsof -i :8090   # Embedding-сервер
-   ```
-3. Файлы моделей есть в `models/`: `ls -lh models/`
-4. Если сервер упал — посмотрите логи: `/tmp/llama_llm.log` и `/tmp/llama_embed.log`
+Подробное описание метрик простым языком (что измеряется, как считается, как читать результат) — см. **[docs/ragas.md](docs/ragas.md)**.
 
 ---
 
-## 12. Запуск серверов llama.cpp вручную
+## 11. Дополнительная документация
 
-Скрипты `run_admin.sh` и `run_all.sh` запускают `llama-server` автоматически. Но если вам нужно запустить серверы отдельно (например, в отдельном окне терминала):
+Расширенные темы вынесены в папку `docs/`:
 
-**LLM-сервер** (порт 8080):
-```bash
-bash scripts/run_llama_llm.sh
-```
-
-**Embedding-сервер** (порт 8090):
-```bash
-bash scripts/run_llama_embeddings.sh
-```
-
-Оба скрипта автоматически:
-- Определяют тип GPU (Metal на Mac M1/M2/M3/M4, CUDA на NVIDIA, иначе CPU) и включают ускорение
-- Скачивают файл модели с HuggingFace, если его нет в `models/`
-
-Параметры можно переопределить через переменные среды:
-
-```bash
-# Использовать другой файл LLM-модели:
-LLM_MODEL_PATH=./models/my-llm.gguf bash scripts/run_llama_llm.sh
-
-# Скачать LLM-модель с другого URL вместо HuggingFace по умолчанию:
-LLM_MODEL_URL=https://example.com/my-model.gguf bash scripts/run_llama_llm.sh
-
-# Использовать другой файл Embedding-модели:
-EMBED_MODEL_PATH=./models/my-embed.gguf bash scripts/run_llama_embeddings.sh
-
-# Скачать Embedding-модель с другого URL:
-EMBED_MODEL_URL=https://example.com/my-embed.gguf bash scripts/run_llama_embeddings.sh
-
-# Принудительно только CPU (без GPU):
-LLM_N_GPU_LAYERS=0 bash scripts/run_llama_llm.sh
-EMBED_N_GPU_LAYERS=0 bash scripts/run_llama_embeddings.sh
-```
-
----
-
-## GPU-ускорение (PyTorch)
-
-По умолчанию на Linux (включая Docker) `torch` устанавливается как CPU-only версию через `[tool.uv.sources]` в `pyproject.toml`. На macOS Apple Silicon torch из PyPI автоматически включает поддержку MPS (Metal) GPU.
-
-> **Примечание:** GPU-ускорение (PyTorch) используется RAG-сервисом для парсинга и обработки документов (Docling). Админ-панель не содержит Docling/torch — она делегирует обработку RAG-сервису.
-
-Если у вас NVIDIA GPU на Linux и нужно CUDA-ускорение, после `uv sync` переустановите torch:
-
-```bash
-uv pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128 --reinstall
-```
+| Файл | О чём |
+|---|---|
+| [docs/providers.md](docs/providers.md) | Выбор ИИ-провайдера (Ollama / OpenAI / llama.cpp) и его `.env`-переменные. |
+| [docs/llamacpp.md](docs/llamacpp.md) | Установка `llama-server`, `.gguf`-файлы, GPU-ускорение, ручной запуск серверов. |
+| [docs/ragas.md](docs/ragas.md) | RAGAS-метрики простым языком: что измеряется и как читать результат. |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Частые ошибки при запуске и способы их решения. |
+| [AGENTS.md](AGENTS.md) | Стек, архитектура, правила для агентов и разработчиков. |
 
 ---
 

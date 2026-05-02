@@ -50,7 +50,6 @@ async def bulk_delete_documents(
     service: ServiceDep,
     repo: RepoDep,
     templates: TemplatesDep,
-    qa: RAGClientDep,
     body: BulkIdsRequest,
 ):
     """Delete multiple documents by ID. Returns refreshed document table partial."""
@@ -79,11 +78,6 @@ async def bulk_delete_documents(
             )
             if not deleted:
                 errors.append(f"Document {document_id}: delete failed")
-            else:
-                try:
-                    await qa.invalidate_cache(document_id)
-                except Exception:
-                    pass
         except Exception as exc:
             logger.error("Bulk delete failed for %s", document_id, exc_info=True)
             errors.append(f"Document {document_id}: {exc}")
@@ -178,7 +172,6 @@ async def bulk_toggle_search(
     service: ServiceDep,
     repo: RepoDep,
     templates: TemplatesDep,
-    qa: RAGClientDep,
     body: BulkSearchToggleRequest,
 ):
     """Toggle search enabled for multiple documents. Returns refreshed document table partial."""
@@ -205,11 +198,6 @@ async def bulk_toggle_search(
             updated = await service.toggle_search(document_id, enabled=body.enabled)
             if updated is None:
                 errors.append(f"Document {document_id}: toggle failed")
-            else:
-                try:
-                    await qa.invalidate_cache(document_id)
-                except Exception:
-                    pass
         except Exception as exc:
             logger.error("Bulk toggle search failed for %s", document_id, exc_info=True)
             errors.append(f"Document {document_id}: {exc}")

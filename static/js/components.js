@@ -98,69 +98,15 @@ document.addEventListener('alpine:init', () => {
     bulkConfirmAction: null,
     bulkConfirmMessage: '',
 
-    get statusFilterLabel() {
-      const labels = {
-        all: 'Все',
-        completed: 'Готов',
-        processing: 'Индексация',
-        pending: 'Ожидание',
-        failed: 'Ошибка',
-        stale: 'Устарел'
-      };
-      return labels[this.statusFilter] || 'Все';
-    },
-
-    get sourceTypeFilterLabel() {
-      const labels = {
-        all: 'Все',
-        docx: 'DOCX',
-        xlsx: 'XLSX',
-        other: 'Другие'
-      };
-      return labels[this.sourceTypeFilter] || 'Все';
-    },
-
-    get dateFilterLabel() {
-      const fromValue = String(this.dateFrom || '').trim();
-      const toValue = String(this.dateTo || '').trim();
-      const fromDate = fromValue ? new Date(fromValue) : null;
-      const toDate = toValue ? new Date(toValue) : null;
-      const hasFrom = fromDate && !isNaN(fromDate.getTime());
-      const hasTo = toDate && !isNaN(toDate.getTime());
-
-      if (hasFrom && hasTo) {
-        return `${fromDate.toLocaleDateString('ru-RU')} – ${toDate.toLocaleDateString('ru-RU')}`;
-      } else if (hasFrom) {
-        return `С ${fromDate.toLocaleDateString('ru-RU')}`;
-      } else if (hasTo) {
-        return `По ${toDate.toLocaleDateString('ru-RU')}`;
-      }
-      return 'Все';
-    },
-
-    get visibleCount() {
-      const rows = document.querySelectorAll('#document-table-body tr[data-document-id]');
-      let count = 0;
-      rows.forEach(row => {
-        if (this.shouldShowRow(row)) count++;
-      });
-      return count;
-    },
-
     get allSelected() {
       const visibleRows = document.querySelectorAll('#document-table-body tr[data-document-id]');
       if (visibleRows.length === 0) return false;
       for (const row of visibleRows) {
         const id = row.getAttribute('data-document-id');
-        if (this.shouldShowRow(row) && !this.selectedIds.includes(id)) {
+        if (!this.selectedIds.includes(id)) {
           return false;
         }
       }
-      return true;
-    },
-
-    shouldShowRow(/* row */) {
-      // All filtering is now server-side
       return true;
     },
 
@@ -187,16 +133,14 @@ document.addEventListener('alpine:init', () => {
       if (allVisibleSelected) {
         visibleRows.forEach(row => {
           const id = row.getAttribute('data-document-id');
-          if (this.shouldShowRow(row)) {
-            this.selectedIds = this.selectedIds.filter(i => i !== id);
-            const checkbox = row.querySelector('input[type="checkbox"]');
-            if (checkbox) checkbox.checked = false;
-          }
+          this.selectedIds = this.selectedIds.filter(i => i !== id);
+          const checkbox = row.querySelector('input[type="checkbox"]');
+          if (checkbox) checkbox.checked = false;
         });
       } else {
         visibleRows.forEach(row => {
           const id = row.getAttribute('data-document-id');
-          if (this.shouldShowRow(row) && !this.selectedIds.includes(id)) {
+          if (!this.selectedIds.includes(id)) {
             this.selectedIds.push(id);
             const checkbox = row.querySelector('input[type="checkbox"]');
             if (checkbox) checkbox.checked = true;
@@ -245,13 +189,13 @@ document.addEventListener('alpine:init', () => {
             const p = url.searchParams.get('page');
             const pp = url.searchParams.get('per_page');
             const status = url.searchParams.get('status');
-            const sourceType = url.searchParams.get('source_type');
             const sortField = url.searchParams.get('sort_field');
             const sortDir = url.searchParams.get('sort_dir');
             if (p) this.currentPage = parseInt(p);
             if (pp) this.perPage = parseInt(pp);
             if (status) this.statusFilter = status;
-            if (sourceType) this.sourceTypeFilter = sourceType;
+            // sourceTypeFilter is NOT synced from response URL —
+            // Alpine state is the source of truth for this filter.
             if (sortField) this.sortField = sortField;
             if (sortDir) this.sortDir = sortDir;
           }

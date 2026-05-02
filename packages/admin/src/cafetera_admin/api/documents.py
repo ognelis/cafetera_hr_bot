@@ -363,17 +363,11 @@ async def toggle_search(
     service: ServiceDep,
     templates: TemplatesDep,
     repo: RepoDep,
-    rag_client: RAGClientDep,
     enabled: Annotated[bool, Form()],
 ):
     record = await service.toggle_search(document_id, enabled=enabled)
     if record is None:
         raise HTTPException(status_code=404, detail="Document not found")
-
-    try:
-        await rag_client.invalidate_cache(document_id)
-    except Exception:
-        pass
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:
@@ -470,7 +464,6 @@ async def delete_document(
     s3: S3Dep,
     service: ServiceDep,
     repo: RepoDep,
-    rag_client: RAGClientDep,
 ):
     record = await repo.get(document_id)
     if record is None:
@@ -481,11 +474,6 @@ async def delete_document(
     )
     if not deleted:
         raise HTTPException(status_code=404, detail="Document not found")
-
-    try:
-        await rag_client.invalidate_cache(document_id)
-    except Exception:
-        pass
 
     is_htmx = request.headers.get("HX-Request") == "true"
     if is_htmx:

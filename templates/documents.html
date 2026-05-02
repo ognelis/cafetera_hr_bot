@@ -71,11 +71,12 @@
       <button tabindex="0" class="inline-flex items-center gap-1.5 h-7 px-3.5 text-xs rounded-full border border-base-300 bg-base-100 hover:bg-base-200 transition-colors cursor-pointer">
         <span class="text-base-content/55 hidden sm:inline">Тип источника:</span>
         <span class="text-base-content/55 sm:hidden">Тип:</span>
-        <span class="font-semibold text-primary" x-text="sourceTypeFilterLabel"></span>
+        <span class="font-semibold text-primary" x-text="({'all':'Все','docx':'DOCX','pdf':'PDF','xlsx':'XLSX','other':'Другие'})[sourceTypeFilter] || 'Все'"></span>
       </button>
       <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-lg border border-base-300 shadow-sm z-10 w-40 p-1 mt-1">
         <li><a @click.prevent="sourceTypeFilter = 'all'" :class="sourceTypeFilter === 'all' ? 'active' : ''">Все</a></li>
         <li><a @click.prevent="sourceTypeFilter = 'docx'" :class="sourceTypeFilter === 'docx' ? 'active' : ''">DOCX</a></li>
+        <li><a @click.prevent="sourceTypeFilter = 'pdf'" :class="sourceTypeFilter === 'pdf' ? 'active' : ''">PDF</a></li>
         <li><a @click.prevent="sourceTypeFilter = 'xlsx'" :class="sourceTypeFilter === 'xlsx' ? 'active' : ''">XLSX</a></li>
       </ul>
     </div>
@@ -85,7 +86,7 @@
       <button tabindex="0" class="inline-flex items-center gap-1.5 h-7 px-3.5 text-xs rounded-full border border-base-300 bg-base-100 hover:bg-base-200 transition-colors cursor-pointer">
         <span class="text-base-content/55 hidden sm:inline">Статус:</span>
         <span class="text-base-content/55 sm:hidden">Стат:</span>
-        <span class="font-semibold text-primary" x-text="statusFilterLabel"></span>
+        <span class="font-semibold text-primary" x-text="({'all':'Все','completed':'Готов','processing':'Индексация','pending':'Ожидание','failed':'Ошибка','stale':'Устарел'})[statusFilter] || 'Все'"></span>
       </button>
       <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-lg border border-base-300 shadow-sm z-10 w-40 p-1 mt-1">
         <li><a @click.prevent="statusFilter = 'all'" :class="statusFilter === 'all' ? 'active' : ''">Все</a></li>
@@ -102,7 +103,7 @@
       <button tabindex="0" class="inline-flex items-center gap-1.5 min-h-[44px] h-7 px-3.5 text-xs rounded-full border border-base-300 bg-base-100 hover:bg-base-200 transition-colors cursor-pointer touch-manipulation">
         <span class="text-base-content/55 hidden sm:inline">Дата добавления:</span>
         <span class="text-base-content/55 sm:hidden">Дата:</span>
-        <span class="font-semibold text-primary" x-text="dateFilterLabel"></span>
+        <span class="font-semibold text-primary" x-text="(dateFrom && dateTo) ? (new Date(dateFrom).toLocaleDateString('ru-RU') + ' \u2013 ' + new Date(dateTo).toLocaleDateString('ru-RU')) : dateFrom ? ('С ' + new Date(dateFrom).toLocaleDateString('ru-RU')) : dateTo ? ('По ' + new Date(dateTo).toLocaleDateString('ru-RU')) : 'Все'"></span>
       </button>
       <div tabindex="0" class="dropdown-content bg-base-100 rounded-lg border border-base-300 shadow-sm z-10 w-[calc(100vw-2rem)] max-w-72 p-3 mt-1 right-0">
         <div class="space-y-3">
@@ -236,7 +237,7 @@
           <p class="text-sm text-base-content/50">
             Перетащите файлы сюда или <span class="text-primary font-medium">выберите</span>
           </p>
-          <p class="text-xs text-base-content/35">DOCX, DOC, XLSX до 10 МБ</p>
+          <p class="text-xs text-base-content/35">PDF, DOCX, XLSX до 10 МБ</p>
         </div>
       </div>
 

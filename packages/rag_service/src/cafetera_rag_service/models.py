@@ -40,10 +40,6 @@ class IndexChunksResponse(BaseModel):
     chunks_indexed: int
 
 
-class InvalidateCacheRequest(BaseModel):
-    document_id: str | None = None
-
-
 class ToggleSearchRequest(BaseModel):
     is_search_enabled: bool
 

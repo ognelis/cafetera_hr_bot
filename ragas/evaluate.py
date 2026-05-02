@@ -32,9 +32,16 @@ from ragas.metrics.collections import (
 )
 
 from cafetera_rag_service.config import RagServiceSettings
+from cafetera_rag_service.rag.chain import build_llm
+from cafetera_rag_service.rag.retriever import (
+    build_embeddings,
+    build_qdrant_client,
+    build_sparse_embeddings,
+)
 from cafetera_rag_service.resources import (
+    RagResources,
     build_qa_service,
-    build_rag_resources,
+    build_reranker,
     close_rag_resources,
 )
 
@@ -46,20 +53,48 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TESTSET = Path(__file__).parent / "testset.json"
 
+
+async def build_ragas_resources(settings: RagServiceSettings) -> RagResources:
+    """Lightweight resource init for RAGAS evaluation.
+
+    Initializes only what the QAService needs (Qdrant, embeddings, LLM,
+    sparse embeddings, reranker).  Skips S3 — RAGAS doesn't ingest documents.
+    """
+    res = RagResources(settings=settings)
+
+    # 1. Qdrant + embeddings
+    qdrant_client = build_qdrant_client(settings)
+    embeddings = build_embeddings(settings)
+    res.qdrant_client = qdrant_client
+    res.embeddings = embeddings
+
+    # 2. Sparse embeddings (optional)
+    res.sparse_embeddings = build_sparse_embeddings(settings)
+
+    # 3. Reranker (optional)
+    reranker, reranker_http = build_reranker(settings)
+    res.reranker = reranker
+    res.reranker_http_client = reranker_http
+
+    # 4. LLM
+    res.llm = build_llm(settings)
+
+    return res
+
 # Default system prompt for evaluation — matches the admin global prompt.
 _EVAL_SYSTEM_PROMPT = """\
-Ты -- ассистент компании Кафетера. Отвечай на вопросы сотрудников \
+Ты — ассистент компании Кафетера. Отвечай на вопросы сотрудников \
 строго на основе предоставленного контекста.
 
 Правила:
-- Отвечай вежливо, кратко и структурированно на русском языке.
+- Отвечай на русском языке, по существу и полно.
+- Отвечай непосредственно на заданный вопрос — не отклоняйся от темы.
+- Используй всю релевантную информацию из контекста для полного ответа.
 - Опирайся строго на предоставленный контекст. Не выдумывай информацию.
-- Не описывай и не пересказывай, какая информация содержится в контексте.
-- Если ответа на вопрос нет в контексте — не объясняй, почему ответ не найден, и не описывай, 
-  о чём идёт речь в контексте.
-- Используй нумерованные списки для пошаговых инструкций, 
-  буллиты — для перечислений из 3+ пунктов, 
-  обычный текст — для коротких ответов.
+- При использовании информации из конкретного документа — указывай его название.
+- Используй нумерованные списки для пошаговых инструкций, \
+буллиты — для перечислений из 3+ пунктов.
+- Если в контексте недостаточно информации — скажи об этом прямо.
 
 Контекст из всех доступных документов:
 {context}"""
@@ -77,6 +112,16 @@ def _load_testset(path: Path) -> list[dict[str, Any]]:
         sys.exit(1)
 
     return data
+
+
+# -- LLM tuning for local models -------------------------------------------------
+# Small local models (e.g. Qwen3.5-4B q4) are prone to repetition loops during
+# NER extraction in Faithfulness scoring — the model gets stuck repeating tokens
+# until max_tokens is exhausted, producing invalid JSON.  Lowering temperature
+# reduces degenerate repetitions, and repetition/frequency penalties actively
+# suppress token loops.
+_LLM_MAX_TOKENS = 4096
+_LLM_TEMPERATURE = 0.2
 
 
 def _build_ragas_llm(settings: RagServiceSettings):
@@ -101,16 +146,24 @@ def _build_ragas_llm(settings: RagServiceSettings):
     )
 
     # Inject extra_body into the instructor client's default kwargs so that
-    # every chat.completions.create() call includes the context window hint.
+    # every chat.completions.create() call includes the context window hint
+    # and repetition penalty controls.
     # RAGAS's InstructorLLM stores extra_body in model_args but the instructor
     # layer may not forward it reliably; setting it on client.kwargs uses
     # instructor's own handle_kwargs() merge which is guaranteed to apply.
     extra_body: dict[str, Any] = {}
-    if provider == "ollama" and settings.llm_num_ctx:
-        extra_body = {"options": {"num_ctx": settings.llm_num_ctx}}
-    elif provider == "llamacpp" and settings.llm_num_ctx:
-        extra_body = {"n_ctx": settings.llm_num_ctx}
+    if provider == "ollama":
+        extra_body = {"options": {}}
+        if settings.llm_num_ctx:
+            extra_body["options"]["num_ctx"] = settings.llm_num_ctx
+        extra_body["options"]["repeat_penalty"] = 1.2
+    elif provider == "llamacpp":
+        if settings.llm_num_ctx:
+            extra_body["n_ctx"] = settings.llm_num_ctx
+        extra_body["frequency_penalty"] = 0.3
 
+    ragas_llm.client.kwargs["max_tokens"] = _LLM_MAX_TOKENS
+    ragas_llm.client.kwargs["temperature"] = _LLM_TEMPERATURE
     if extra_body:
         ragas_llm.client.kwargs["extra_body"] = extra_body
 
@@ -144,7 +197,7 @@ async def _collect_answers(
     settings: RagServiceSettings,
 ) -> list[dict[str, Any]]:
     """Run each testset question through QAService and collect answers + contexts."""
-    res = await build_rag_resources(settings)
+    res = await build_ragas_resources(settings)
     try:
         qa = build_qa_service(res, _EVAL_SYSTEM_PROMPT)
 

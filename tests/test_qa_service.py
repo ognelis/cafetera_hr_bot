@@ -33,7 +33,6 @@ def qa_service_with_mock_chain(mock_settings):
     """Create a QAService instance with a mock chain."""
     mock_chain = AsyncMock()
     service = QAService(
-        chain=mock_chain,
         qdrant_client=MagicMock(),
         embeddings=MagicMock(),
         llm=MagicMock(),
@@ -120,20 +119,17 @@ class TestTruncate:
 
 class TestQAServiceInit:
     def test_initializes_with_all_dependencies(self, mock_settings):
-        mock_chain = MagicMock()
         mock_qdrant = MagicMock()
         mock_embeddings = MagicMock()
         mock_llm = MagicMock()
 
         service = QAService(
-            chain=mock_chain,
             qdrant_client=mock_qdrant,
             embeddings=mock_embeddings,
             llm=mock_llm,
             settings=mock_settings,
         )
 
-        assert service._chain is mock_chain
         assert service._qdrant_client is mock_qdrant
         assert service._embeddings is mock_embeddings
         assert service._llm is mock_llm
@@ -142,21 +138,16 @@ class TestQAServiceInit:
     def test_initializes_with_none_defaults(self):
         service = QAService()
 
-        assert service._chain is None
         assert service._qdrant_client is None
         assert service._embeddings is None
         assert service._llm is None
         assert service._settings is None
 
     def test_initializes_with_partial_dependencies(self, mock_settings):
-        mock_chain = MagicMock()
-
         service = QAService(
-            chain=mock_chain,
             settings=mock_settings,
         )
 
-        assert service._chain is mock_chain
         assert service._qdrant_client is None
         assert service._embeddings is None
         assert service._llm is None
@@ -168,13 +159,11 @@ class TestQAServiceInit:
 
 class TestQAServiceClose:
     def test_resets_state(self, mock_settings):
-        mock_chain = MagicMock()
         mock_qdrant = MagicMock()
         mock_embeddings = MagicMock()
         mock_llm = MagicMock()
 
         service = QAService(
-            chain=mock_chain,
             qdrant_client=mock_qdrant,
             embeddings=mock_embeddings,
             llm=mock_llm,
@@ -183,7 +172,6 @@ class TestQAServiceClose:
 
         service.close()
 
-        assert service._chain is None
         assert service._qdrant_client is None
         assert service._embeddings is None
         assert service._llm is None

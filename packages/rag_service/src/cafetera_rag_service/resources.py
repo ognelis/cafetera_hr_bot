@@ -10,11 +10,13 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import httpx
+
 from cafetera_core.storage.s3 import S3Storage
 from cafetera_rag_service.config import RagServiceSettings
 from cafetera_rag_service.qa_service import QAService
 from cafetera_rag_service.rag.chain import build_llm
-from cafetera_rag_service.rag.reranker import CrossEncoderReranker
+from cafetera_rag_service.rag.reranker import HttpRerankerClient
 from cafetera_rag_service.rag.retriever import (
     build_embeddings,
     build_qdrant_client,
@@ -38,7 +40,7 @@ async def _ensure_collection(
     """Ensure the Qdrant collection exists, creating it if necessary.
 
     Creates the collection with named dense vector + optional BM25 sparse
-    layout.  Reranking is handled downstream by the cross-encoder
+    layout.  Reranking is handled downstream by the HTTP reranker
     retriever wrapper, so the collection schema no longer varies.
     """
     from qdrant_client import models
@@ -148,23 +150,29 @@ async def _ensure_collection(
     )
 
 
-def build_reranker(settings: RagServiceSettings) -> CrossEncoderReranker | None:
-    """Build a cross-encoder reranker from settings.
+def build_reranker(
+    settings: RagServiceSettings,
+) -> tuple[HttpRerankerClient | None, httpx.AsyncClient | None]:
+    """Build an HTTP reranker client from settings.
 
-    Returns ``None`` when reranking is disabled.
+    Returns a tuple of (reranker, httpx_client).  Both are ``None`` when
+    reranking is disabled.  The caller owns the httpx_client lifecycle.
     """
     if not settings.reranking_enabled:
-        return None
+        return None, None
 
     logger.info(
-        "Loading cross-encoder reranker (model=%s, top_n=%d)",
-        settings.reranker_model,
+        "Initializing HTTP reranker (url=%s, top_n=%d, timeout=%.1fs)",
+        settings.reranker_url,
         settings.reranker_top_n,
+        settings.reranker_timeout,
     )
-    return CrossEncoderReranker(
-        model_name=settings.reranker_model,
-        top_n=settings.reranker_top_n,
+    client = httpx.AsyncClient(
+        base_url=settings.reranker_url,
+        timeout=settings.reranker_timeout,
     )
+    reranker = HttpRerankerClient(client=client, top_n=settings.reranker_top_n)
+    return reranker, client
 
 
 @dataclass
@@ -181,11 +189,14 @@ class RagResources:
     embeddings: Embeddings | None = None
     llm: BaseChatModel | None = None
     sparse_embeddings: object | None = None
-    reranker: CrossEncoderReranker | None = None
+    reranker: HttpRerankerClient | None = None
+    reranker_http_client: httpx.AsyncClient | None = None
     s3_storage: S3Storage | None = None
 
 
-async def build_rag_resources(settings: RagServiceSettings) -> RagResources:
+async def build_rag_resources(
+    settings: RagServiceSettings,
+) -> RagResources:
     """Build and initialize all RAG resources.
 
     Each major block is wrapped in try/except with logging for
@@ -232,18 +243,21 @@ async def build_rag_resources(settings: RagServiceSettings) -> RagResources:
             )
             res.sparse_embeddings = None
 
-    # 3. Cross-encoder reranker (optional, degrades gracefully)
+    # 3. HTTP reranker client (optional, degrades gracefully)
     if res.embeddings is not None:
         try:
-            res.reranker = build_reranker(settings)
+            reranker, reranker_http = build_reranker(settings)
+            res.reranker = reranker
+            res.reranker_http_client = reranker_http
             if res.reranker is not None:
-                logger.info("Cross-encoder reranker initialized")
+                logger.info("HTTP reranker client initialized")
         except Exception:
             logger.warning(
                 "Reranker not available — falling back to dense+sparse",
                 exc_info=True,
             )
             res.reranker = None
+            res.reranker_http_client = None
 
     # 4. Ensure collection exists and build LLM
     if qdrant_client is not None and embeddings is not None:
@@ -273,7 +287,8 @@ async def build_rag_resources(settings: RagServiceSettings) -> RagResources:
             secret_key=settings.s3_secret_key,
             bucket=settings.s3_bucket,
         )
-        logger.info("S3 storage initialized")
+        await res.s3_storage.open()
+        logger.info("S3 storage ready (bucket=%s)", settings.s3_bucket)
     except Exception:
         logger.warning("S3 storage not available — ingestion will fail", exc_info=True)
         res.s3_storage = None
@@ -287,6 +302,13 @@ async def close_rag_resources(res: RagResources) -> None:
     Closes resources with try/except per resource to ensure all cleanup
     is attempted even if individual resources fail to close.
     """
+    # Close reranker HTTP client if present
+    if res.reranker_http_client is not None:
+        try:
+            await res.reranker_http_client.aclose()
+        except Exception:
+            logger.warning("Error closing reranker HTTP client", exc_info=True)
+
     # Close S3 storage if present
     if res.s3_storage is not None:
         try:
@@ -306,6 +328,7 @@ async def close_rag_resources(res: RagResources) -> None:
     res.embeddings = None
     res.sparse_embeddings = None
     res.reranker = None
+    res.reranker_http_client = None
     res.llm = None
     res.s3_storage = None
 

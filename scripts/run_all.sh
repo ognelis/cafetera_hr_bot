@@ -193,6 +193,8 @@ load_env_var LLM_N_GPU_LAYERS
 load_env_var EMBED_N_GPU_LAYERS
 load_env_var OLLAMA_NUM_GPU
 load_env_var RAG_SERVICE_API_KEY
+load_env_var RERANKING_ENABLED
+load_env_var RERANKER_URL
 # NOTE: Do NOT load DATABASE_URL, QDRANT_URL, S3_ENDPOINT_URL from .env
 # These will be overridden with Docker service names below
 
@@ -413,6 +415,29 @@ if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
   log "Embedding provider: OpenAI (remote, no local server needed)"
 fi
 
+# Reranker — start if enabled
+if [[ "${RERANKING_ENABLED:-false}" == "true" ]]; then
+  RERANKER_URL="${RERANKER_URL:-http://localhost:8082}"
+  log "Checking reranker at ${RERANKER_URL}..."
+  if ! curl -sf "${RERANKER_URL}/health" >/dev/null 2>&1; then
+    if ! command_exists llama-server; then
+      log "ERROR: llama-server not found and reranker not running at ${RERANKER_URL}"
+      log "FIX:   Install llama.cpp or start reranker manually: scripts/run_llama_reranker.sh"
+      exit 1
+    fi
+    log "Starting reranker server in background..."
+    "$PROJECT_DIR/scripts/run_llama_reranker.sh" >/tmp/llama_reranker.log 2>&1 &
+    BG_PIDS+=("$!")
+    if ! wait_for_service "Reranker" "${RERANKER_URL}/health" 60 2; then
+      log "ERROR: Reranker failed to start. Check /tmp/llama_reranker.log"
+      exit 1
+    fi
+  else
+    log "Reranker is already running at ${RERANKER_URL}"
+  fi
+  export RERANKER_URL="http://host.docker.internal:8082"
+fi
+
 # docker-compose.yml handles env_file and service URLs directly
 
 # Print startup info
@@ -433,6 +458,9 @@ log ""
 log "AI Services:"
 log "  LLM:         $LLM_PROVIDER ($LLM_MODEL)"
 log "  Embedding:   $EMBEDDING_PROVIDER ($EMBEDDING_MODEL)"
+if [[ "${RERANKING_ENABLED:-false}" == "true" ]]; then
+  log "  Reranker:    ${RERANKER_URL}"
+fi
 if [[ "$LLM_PROVIDER" == "ollama" || "$EMBEDDING_PROVIDER" == "ollama" ]]; then
   log "  Ollama:      $OLLAMA_URL"
 fi

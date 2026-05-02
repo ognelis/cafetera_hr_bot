@@ -254,7 +254,7 @@ def build_retriever(
 
     Returns a hybrid ``AsyncQdrantRetriever`` (dense + sparse).
     When ``settings.reranking_enabled``, uses a larger ``k`` equal to
-    ``reranker_prefetch_limit`` so the downstream cross-encoder
+    ``reranker_prefetch_limit`` so the downstream HTTP reranker
     reranker receives enough candidates.
 
     Only chunks where ``is_search_enabled`` is not explicitly ``False``
@@ -306,7 +306,7 @@ def build_retriever_for_document(
 
     Returns a hybrid ``AsyncQdrantRetriever`` (dense + sparse).
     When ``settings.reranking_enabled``, uses a larger ``k`` equal to
-    ``reranker_prefetch_limit`` so the downstream cross-encoder
+    ``reranker_prefetch_limit`` so the downstream HTTP reranker
     reranker receives enough candidates.
     """
     if qdrant_client is None:

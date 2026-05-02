@@ -184,13 +184,6 @@ class RAGClient:
         resp = await self._client.delete(f"/api/index/documents/{document_id}")
         resp.raise_for_status()
 
-    async def invalidate_cache(self, document_id: str | None = None) -> None:
-        resp = await self._client.post(
-            "/api/index/cache/invalidate",
-            json={"document_id": document_id},
-        )
-        resp.raise_for_status()
-
     async def health(self) -> dict[str, str]:
         resp = await self._client.get("/api/health")
         resp.raise_for_status()

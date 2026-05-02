@@ -13,11 +13,10 @@ _load_env_var() {
   fi
 }
 
-_load_env_var EMBED_MODEL_PATH
-_load_env_var EMBED_MODEL_URL
-_load_env_var EMBED_CTX_SIZE
-_load_env_var EMBED_N_GPU_LAYERS
-_load_env_var EMBED_UBATCH_SIZE
+_load_env_var RERANKER_CTX_SIZE
+_load_env_var RERANKER_N_GPU_LAYERS
+_load_env_var RERANKER_MODEL_PATH
+_load_env_var RERANKER_MODEL_URL
 
 # ── GPU detection ─────────────────────────────────────────────────────────
 detect_gpu() {
@@ -42,13 +41,12 @@ case "$DETECTED_GPU" in
   *)          _DEFAULT_GPU_LAYERS=0  ;;
 esac
 
-EMBED_MODEL_PATH="${EMBED_MODEL_PATH:-./models/Qwen3-Embedding-0.6B-f16.gguf}"
-EMBED_MODEL_URL="${EMBED_MODEL_URL:-https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-f16.gguf}"
-EMBED_HOST="${EMBED_HOST:-127.0.0.1}"
-EMBED_PORT="${EMBED_PORT:-8090}"
-EMBED_CTX_SIZE="${EMBED_CTX_SIZE:-2048}"
-EMBED_N_GPU_LAYERS="${EMBED_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
-EMBED_UBATCH_SIZE="${EMBED_UBATCH_SIZE:-1024}"
+RERANKER_MODEL_PATH="${RERANKER_MODEL_PATH:-./models/Qwen3-Reranker-0.6B-Q4_K_M.gguf}"
+RERANKER_MODEL_URL="${RERANKER_MODEL_URL:-https://huggingface.co/mradermacher/Qwen3-Reranker-0.6B-GGUF/resolve/main/Qwen3-Reranker-0.6B.Q4_K_M.gguf}"
+RERANKER_HOST="${RERANKER_HOST:-127.0.0.1}"
+RERANKER_PORT="${RERANKER_PORT:-8082}"
+RERANKER_CTX_SIZE="${RERANKER_CTX_SIZE:-8192}"
+RERANKER_N_GPU_LAYERS="${RERANKER_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
 
 detect_cpu_count() {
   if command -v nproc >/dev/null 2>&1; then
@@ -78,43 +76,41 @@ if ! command -v llama-server >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -f "$EMBED_MODEL_PATH" ]; then
-  echo "Model file not found: $EMBED_MODEL_PATH"
-  echo "Downloading from $EMBED_MODEL_URL ..."
-  mkdir -p "$(dirname "$EMBED_MODEL_PATH")"
+if [ ! -f "$RERANKER_MODEL_PATH" ]; then
+  echo "Model file not found: $RERANKER_MODEL_PATH"
+  echo "Downloading from $RERANKER_MODEL_URL ..."
+  mkdir -p "$(dirname "$RERANKER_MODEL_PATH")"
   if command -v curl >/dev/null 2>&1; then
-    curl -L --progress-bar -o "$EMBED_MODEL_PATH" "$EMBED_MODEL_URL"
+    curl -L --progress-bar -o "$RERANKER_MODEL_PATH" "$RERANKER_MODEL_URL"
   elif command -v wget >/dev/null 2>&1; then
-    wget --show-progress -O "$EMBED_MODEL_PATH" "$EMBED_MODEL_URL"
+    wget --show-progress -O "$RERANKER_MODEL_PATH" "$RERANKER_MODEL_URL"
   else
     echo "Error: neither curl nor wget found. Install one or download manually:"
-    echo "  $EMBED_MODEL_URL"
+    echo "  $RERANKER_MODEL_URL"
     exit 1
   fi
-  if [ ! -f "$EMBED_MODEL_PATH" ]; then
+  if [ ! -f "$RERANKER_MODEL_PATH" ]; then
     echo "Error: download failed"
     exit 1
   fi
-  echo "Download complete: $EMBED_MODEL_PATH"
+  echo "Download complete: $RERANKER_MODEL_PATH"
 fi
 
-echo "Starting llama-server (Embeddings)"
-echo "MODEL_PATH=$EMBED_MODEL_PATH"
-echo "HOST=$EMBED_HOST"
-echo "PORT=$EMBED_PORT"
-echo "CTX_SIZE=$EMBED_CTX_SIZE"
-echo "UBATCH_SIZE=$EMBED_UBATCH_SIZE"
+echo "Starting llama-server (Reranker)"
+echo "MODEL_PATH=$RERANKER_MODEL_PATH"
+echo "HOST=$RERANKER_HOST"
+echo "PORT=$RERANKER_PORT"
+echo "CTX_SIZE=$RERANKER_CTX_SIZE"
 echo "CPU_COUNT=$CPU_COUNT"
 echo "THREADS=$THREADS"
-echo "GPU: $DETECTED_GPU → offloading $EMBED_N_GPU_LAYERS layers"
+echo "GPU: $DETECTED_GPU → offloading $RERANKER_N_GPU_LAYERS layers"
 
 exec llama-server \
-  --model "$EMBED_MODEL_PATH" \
-  --host "$EMBED_HOST" \
-  --port "$EMBED_PORT" \
-  --ctx-size "$EMBED_CTX_SIZE" \
-  --ubatch-size "$EMBED_UBATCH_SIZE" \
+  --model "$RERANKER_MODEL_PATH" \
+  --host "$RERANKER_HOST" \
+  --port "$RERANKER_PORT" \
+  --ctx-size "$RERANKER_CTX_SIZE" \
   --threads "$THREADS" \
-  --n-gpu-layers "$EMBED_N_GPU_LAYERS" \
+  --n-gpu-layers "$RERANKER_N_GPU_LAYERS" \
   --embedding \
-  --pooling mean
+  --pooling rank

@@ -12,7 +12,6 @@ from cafetera_rag_service.api.deps import verify_api_key
 from cafetera_rag_service.models import (
     IndexChunksRequest,
     IndexChunksResponse,
-    InvalidateCacheRequest,
     StatusResponse,
     ToggleSearchRequest,
 )
@@ -190,36 +189,9 @@ async def toggle_document_search(
         )
         raise HTTPException(status_code=500, detail="Toggle search failed") from exc
 
-    # Invalidate QA cache so new retrieval reflects the change
-    qa_cache: dict = request.app.state.qa_services
-    for qa_service in qa_cache.values():
-        qa_service.invalidate_document_chain_cache(document_id)
-
     logger.info(
         "Toggled search for document %s: is_search_enabled=%s",
         document_id,
         body.is_search_enabled,
-    )
-    return StatusResponse()
-
-
-@router.post("/cache/invalidate", response_model=StatusResponse)
-async def invalidate_cache(
-    request: Request,
-    body: InvalidateCacheRequest,
-) -> StatusResponse:
-    """Clear QAService cached chains.
-
-    If document_id is provided, only that document's chain is removed.
-    If document_id is None, the entire cache across all QAService instances
-    is cleared.
-    """
-    qa_cache: dict = request.app.state.qa_services
-    for qa_service in qa_cache.values():
-        qa_service.invalidate_document_chain_cache(body.document_id)
-    logger.info(
-        "Invalidated cache for document_id=%s (%d services)",
-        body.document_id,
-        len(qa_cache),
     )
     return StatusResponse()

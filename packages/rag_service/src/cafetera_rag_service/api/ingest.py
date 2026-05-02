@@ -173,11 +173,6 @@ async def ingest_document(request: Request, body: IngestRequest) -> IngestRespon
         )
         raise HTTPException(status_code=500, detail="Ingestion failed") from exc
 
-    # Step 7: Invalidate QA cache
-    qa_cache: dict = request.app.state.qa_services
-    for qa_service in qa_cache.values():
-        qa_service.invalidate_document_chain_cache(body.document_id)
-
     logger.info(
         "Ingested document %s (%s): %d chunks indexed",
         body.document_id,

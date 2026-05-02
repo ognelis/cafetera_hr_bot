@@ -69,7 +69,6 @@ def mock_rag_client():
     }
     client.toggle_search.return_value = None
     client.delete_document.return_value = None
-    client.invalidate_cache.return_value = None
     client.aclose.return_value = None
     return client
 

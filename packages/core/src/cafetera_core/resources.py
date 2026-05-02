@@ -74,9 +74,10 @@ async def build_resources(
                 secret_key=settings.s3_secret_key,
                 bucket=settings.s3_bucket,
             )
+            await s3.open()
             res.s3 = s3
             logger.info(
-                "S3 storage configured (bucket=%s) — will connect lazily",
+                "S3 storage ready (bucket=%s)",
                 settings.s3_bucket,
             )
         except Exception:

@@ -183,10 +183,16 @@ class DocumentRepository:
                     "(filename ILIKE '%.doc'"
                     " AND filename NOT ILIKE '%.docx')"
                 )
+            elif source_type == "pdf":
+                where_clauses.append("filename ILIKE '%.pdf'")
+            elif source_type == "xlsx":
+                where_clauses.append("filename ILIKE '%.xlsx'")
             elif source_type == "other":
                 where_clauses.append(
                     "filename NOT ILIKE '%.doc'"
                     " AND filename NOT ILIKE '%.docx'"
+                    " AND filename NOT ILIKE '%.pdf'"
+                    " AND filename NOT ILIKE '%.xlsx'"
                 )
 
         where_sql = ""

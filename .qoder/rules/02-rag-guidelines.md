@@ -17,7 +17,7 @@ via `RAGClient`, a thin async HTTP client in `cafetera_core/rag_client.py`.
 ### Key modules inside `cafetera_rag_service`
 - `rag/chain.py` — `build_llm()`, `build_rag_chain()`: LLM instantiation and chain assembly (retrieve → format → prompt → LLM → text).
 - `rag/retriever.py` — `AsyncQdrantRetriever`, `build_retriever()`, `build_retriever_for_document()`, `build_qdrant_client()`, `build_embeddings()`.
-- `rag/reranker.py` — `CrossEncoderReranker`, `RerankingRetriever`: optional cross-encoder reranking via FastEmbed.
+- `rag/reranker.py` — `HttpRerankerClient`, `RerankingRetriever`: optional reranking via an external llama.cpp `/v1/rerank` HTTP endpoint (Qwen3-Reranker).
 - `rag/prompts.py` — `CATEGORY_HINTS` dict, `DOCUMENT_EXPERTS_PROMPT`. Package-specific system prompts live elsewhere (see Prompting).
 - `rag/text_processor.py` — Russian lemmatization for BM25 queries.
 - `qa_service.py` — `QAService`: stateful service holding chain, qdrant client, embeddings, LLM. Provides `ask()`, `ask_about_document()`, `stream_ask()`, `stream_about_document()`.
@@ -37,7 +37,7 @@ via `RAGClient`, a thin async HTTP client in `cafetera_core/rag_client.py`.
 - Retrieval logic must be centralized in `cafetera_rag_service/rag/`.
 - Preserve source metadata for citations, tracing, and debugging.
 - Keep ingestion code separate from online query path.
-- The project uses hybrid retrieval (dense + sparse BM25) by default, with optional ColBERT reranking.
+- The project uses hybrid retrieval (dense + sparse BM25) by default, with optional HTTP-based reranking (external llama.cpp `/v1/rerank` endpoint).
 - Keep model provider details out of business logic where possible.
 
 ## Retrieval
@@ -46,7 +46,7 @@ via `RAGClient`, a thin async HTTP client in `cafetera_core/rag_client.py`.
 - Use configurable search parameters instead of magic constants.
 - Make it easy to switch retrieval mode via config or feature flag.
 - Hybrid search uses Qdrant prefetch + RRF (Reciprocal Rank Fusion) via `AsyncQdrantRetriever`.
-- ColBERT reranking is enabled via `RERANKING_ENABLED=true` in `RagServiceSettings`.
+- HTTP reranking is enabled via `RERANKING_ENABLED=true` in `RagServiceSettings`; the reranker URL is configured via `RERANKER_URL`.
 - Adaptive `k` is computed by `estimate_k()` in `retriever.py` based on question complexity.
 - `build_retriever()` applies a filter excluding chunks where `is_search_enabled` is `False`.
 - `build_retriever_for_document()` scopes search to a single `document_id`.

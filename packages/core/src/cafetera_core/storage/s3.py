@@ -7,6 +7,7 @@ from types import TracebackType
 from typing import Any
 
 from aiobotocore.session import AioSession, get_session  # type: ignore[import-untyped]
+from botocore.exceptions import ClientError  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,17 @@ class S3Storage:
             await self._client.head_bucket(Bucket=self._bucket)
         except Exception:
             logger.info("Bucket %s not found — creating", self._bucket)
-            await self._client.create_bucket(Bucket=self._bucket)
+            try:
+                await self._client.create_bucket(Bucket=self._bucket)
+                logger.info("Bucket %s created", self._bucket)
+            except ClientError as exc:
+                if exc.response["Error"]["Code"] == "BucketAlreadyOwnedByYou":
+                    logger.debug(
+                        "Bucket %s was created by a concurrent request",
+                        self._bucket,
+                    )
+                else:
+                    raise
 
     # ---- file operations -------------------------------------------------
 

@@ -1,13 +1,14 @@
-"""Tests for RerankingRetriever, CrossEncoderReranker, and factory dispatch."""
+"""Tests for RerankingRetriever, HttpRerankerClient, and factory dispatch."""
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 from langchain_core.documents import Document
 
 from cafetera_rag_service.config import RagServiceSettings
-from cafetera_rag_service.rag.reranker import CrossEncoderReranker, RerankingRetriever
+from cafetera_rag_service.rag.reranker import HttpRerankerClient, RerankingRetriever
 from cafetera_rag_service.rag.retriever import (
     AsyncQdrantRetriever,
     build_retriever,
@@ -22,67 +23,70 @@ def _make_qdrant_client_mock() -> MagicMock:
     return MagicMock(spec=AsyncQdrantClient)
 
 
-# -- CrossEncoderReranker --
+# -- HttpRerankerClient --
 
 
-async def test_cross_encoder_reranker_arerank_returns_top_n():
-    """arerank() calls TextCrossEncoder.rerank and returns reranked docs."""
+async def test_http_reranker_arerank_returns_top_n():
+    """arerank() calls /v1/rerank and returns reranked docs."""
     docs = [
         Document(page_content="low relevance"),
         Document(page_content="high relevance"),
         Document(page_content="medium relevance"),
     ]
 
-    mock_model = MagicMock()
-    # rerank returns scores in original document order
-    mock_model.rerank.return_value = [0.1, 0.95, 0.70]
+    mock_response = {
+        "results": [
+            {"index": 0, "relevance_score": 0.1},
+            {"index": 1, "relevance_score": 0.95},
+            {"index": 2, "relevance_score": 0.70},
+        ]
+    }
 
-    with patch(
-        "cafetera_rag_service.rag.reranker.TextCrossEncoder",
-        return_value=mock_model,
-    ):
-        reranker = CrossEncoderReranker(model_name="test-model", top_n=2)
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json=mock_response)
+    )
+    client = httpx.AsyncClient(
+        transport=transport, base_url="http://test:8082"
+    )
+    reranker = HttpRerankerClient(client=client, top_n=2)
 
     result = await reranker.arerank("query", docs)
 
     assert len(result) == 2
     assert result[0].page_content == "high relevance"
     assert result[1].page_content == "medium relevance"
-    mock_model.rerank.assert_called_once()
 
 
-async def test_cross_encoder_reranker_arerank_empty_docs():
+async def test_http_reranker_arerank_empty_docs():
     """arerank() returns empty list for empty input."""
-    with patch("cafetera_rag_service.rag.reranker.TextCrossEncoder"):
-        reranker = CrossEncoderReranker(
-            model_name="test-model", top_n=5
-        )
+    client = httpx.AsyncClient(base_url="http://test:8082")
+    reranker = HttpRerankerClient(client=client, top_n=5)
 
     result = await reranker.arerank("query", [])
     assert result == []
 
 
-async def test_cross_encoder_reranker_rerank_sync():
-    """rerank() synchronously reranks documents."""
+async def test_http_reranker_arerank_handles_http_error():
+    """arerank() gracefully degrades on HTTP error."""
     docs = [
         Document(page_content="a"),
         Document(page_content="b"),
+        Document(page_content="c"),
     ]
 
-    mock_model = MagicMock()
-    mock_model.rerank.return_value = [0.5, 0.9]
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(500, text="Internal Server Error")
+    )
+    client = httpx.AsyncClient(
+        transport=transport, base_url="http://test:8082"
+    )
+    reranker = HttpRerankerClient(client=client, top_n=2)
 
-    with patch(
-        "cafetera_rag_service.rag.reranker.TextCrossEncoder",
-        return_value=mock_model,
-    ):
-        reranker = CrossEncoderReranker(model_name="test-model", top_n=2)
-
-    result = reranker.rerank("query", docs)
-
+    result = await reranker.arerank("query", docs)
+    # Falls back to first top_n docs
     assert len(result) == 2
-    assert result[0].page_content == "b"
-    assert result[1].page_content == "a"
+    assert result[0].page_content == "a"
+    assert result[1].page_content == "b"
 
 
 # -- RerankingRetriever --
@@ -105,7 +109,7 @@ async def test_reranking_retriever_calls_base_then_reranker():
     mock_base = MagicMock(spec=BaseRetriever)
     mock_base.ainvoke = AsyncMock(return_value=base_docs)
 
-    mock_reranker = MagicMock(spec=CrossEncoderReranker)
+    mock_reranker = MagicMock(spec=HttpRerankerClient)
     mock_reranker.arerank = AsyncMock(return_value=reranked_docs)
 
     retriever = RerankingRetriever(

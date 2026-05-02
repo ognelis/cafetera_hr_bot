@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from langchain_core.runnables import Runnable
 
     from cafetera_rag_service.config import RagServiceSettings
-    from cafetera_rag_service.rag.reranker import CrossEncoderReranker
+    from cafetera_rag_service.rag.reranker import HttpRerankerClient
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +40,8 @@ def _format_docs_with_metadata(docs: list[Document]) -> str:
 
     Includes filename and page numbers when available.
     Section headings are omitted from the header because
-    ``page_content`` already contains them via
-    ``HybridChunker.contextualize()``.
+    ``page_content`` already contains them — the parser prepends
+    the heading hierarchy from chunk metadata.
     If no metadata is present, outputs plain text.
     """
     formatted_chunks: list[str] = []
@@ -166,7 +166,7 @@ def build_rag_chain(
     system_prompt: str | None,
     include_metadata: bool = False,
     category_hint: str | None = None,
-    reranker: CrossEncoderReranker | None = None,
+    reranker: HttpRerankerClient | None = None,
 ) -> Runnable:
     """Build a RAG chain: retrieve -> format context -> prompt -> LLM -> text."""
     prompt_template = system_prompt or ""

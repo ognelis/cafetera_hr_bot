@@ -1,6 +1,6 @@
 """Category file service — manages document templates for VK bot categories.
 
-This service coordinates between the SQLite category file repository and
+This service coordinates between the PostgreSQL category file repository and
 S3 storage for VK bot document templates. It handles upload, download,
 and deletion of files organized by category/subcategory/entity slots.
 """

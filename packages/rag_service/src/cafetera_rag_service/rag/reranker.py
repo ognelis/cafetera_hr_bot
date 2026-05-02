@@ -1,11 +1,11 @@
-"""Cross-encoder reranking module using FastEmbed TextCrossEncoder."""
+"""HTTP-based reranker client calling an external llama.cpp /v1/rerank endpoint."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 
-from fastembed.rerank.cross_encoder import TextCrossEncoder
+import httpx
 from langchain_core.callbacks import (
     AsyncCallbackManagerForRetrieverRun,
     CallbackManagerForRetrieverRun,
@@ -17,40 +17,53 @@ from pydantic import ConfigDict
 logger = logging.getLogger(__name__)
 
 
-class CrossEncoderReranker:
-    """Wraps FastEmbed TextCrossEncoder for document reranking."""
+class HttpRerankerClient:
+    """Calls an external reranker service via HTTP POST to /v1/rerank."""
 
-    def __init__(self, model_name: str, top_n: int) -> None:
-        self._model = TextCrossEncoder(model_name=model_name)
+    def __init__(self, client: httpx.AsyncClient, top_n: int) -> None:
+        self._client = client
         self._top_n = top_n
 
-    def rerank(
-        self, query: str, documents: list[Document]
-    ) -> list[Document]:
-        """Rerank documents synchronously and return top_n results."""
+    def rerank(self, query: str, documents: list[Document]) -> list[Document]:
+        """Rerank documents synchronously (delegates to async via thread)."""
         if not documents:
             return []
-        texts = [doc.page_content for doc in documents]
-        scores = list(self._model.rerank(query, texts))
-        scored = sorted(
-            enumerate(scores), key=lambda x: float(x[1]), reverse=True
-        )
-        return [documents[idx] for idx, _ in scored[: self._top_n]]
+        return asyncio.run(self.arerank(query, documents))
 
     async def arerank(
         self, query: str, documents: list[Document]
     ) -> list[Document]:
-        """Rerank documents asynchronously via thread pool."""
+        """Rerank documents by calling the external /v1/rerank endpoint."""
         if not documents:
             return []
+
         texts = [doc.page_content for doc in documents]
-        scores = await asyncio.to_thread(
-            lambda: list(self._model.rerank(query, texts))
-        )
+        payload = {
+            "query": query,
+            "documents": texts,
+            "top_n": self._top_n,
+        }
+
+        try:
+            response = await self._client.post("/v1/rerank", json=payload)
+            response.raise_for_status()
+        except httpx.HTTPError:
+            logger.exception("Reranker HTTP request failed")
+            return documents[: self._top_n]
+
+        data = response.json()
+        results = data.get("results", [])
+
         scored = sorted(
-            enumerate(scores), key=lambda x: float(x[1]), reverse=True
+            results, key=lambda r: r.get("relevance_score", 0.0), reverse=True
         )
-        return [documents[idx] for idx, _ in scored[: self._top_n]]
+        reranked: list[Document] = []
+        for item in scored[: self._top_n]:
+            idx = item.get("index")
+            if idx is not None and 0 <= idx < len(documents):
+                reranked.append(documents[idx])
+
+        return reranked
 
 
 class RerankingRetriever(BaseRetriever):
@@ -59,7 +72,7 @@ class RerankingRetriever(BaseRetriever):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     base_retriever: BaseRetriever
-    reranker: CrossEncoderReranker
+    reranker: HttpRerankerClient
 
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun

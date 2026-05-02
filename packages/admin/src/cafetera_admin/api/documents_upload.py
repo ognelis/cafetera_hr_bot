@@ -83,13 +83,6 @@ async def _index_document_from_s3(
                 status=DocumentStatus.failed,
                 error="Indexing failed",
             )
-        finally:
-            try:
-                await rag_client.invalidate_cache(document_id)
-            except Exception:
-                logger.warning(
-                    "Cache invalidation failed for %s", document_id, exc_info=True
-                )
 
 
 @router.post("/api/documents/upload")

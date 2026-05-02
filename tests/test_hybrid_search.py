@@ -90,6 +90,7 @@ def test_reranking_settings_defaults():
     """Default reranking settings are disabled with sensible defaults."""
     settings = RagServiceSettings(_env_file=None)
     assert settings.reranking_enabled is False
-    assert settings.reranker_model == "jinaai/jina-reranker-v2-base-multilingual"
+    assert settings.reranker_url == "http://localhost:8082"
     assert settings.reranker_prefetch_limit == 20
     assert settings.reranker_top_n == 5
+    assert settings.reranker_timeout == 30.0

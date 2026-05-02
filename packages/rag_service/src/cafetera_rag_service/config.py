@@ -64,9 +64,10 @@ class RagServiceSettings(BaseSettings):
 
     # Reranking
     reranking_enabled: bool = False
-    reranker_model: str = "jinaai/jina-reranker-v2-base-multilingual"
+    reranker_url: str = "http://localhost:8082"
     reranker_top_n: int = 5
     reranker_prefetch_limit: int = 20
+    reranker_timeout: float = 30.0
 
     # Chunking / parsing
     chunk_size: int = 512

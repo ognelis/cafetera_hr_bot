@@ -1,15 +1,14 @@
 """Domain QA service — wraps the RAG chain for use by transport handlers.
 
-The QAService class is initialized with chain, qdrant client, embeddings, llm,
-and settings. Handlers call service methods which always return a displayable
-string, even on error.
+The QAService class is initialized with qdrant client, embeddings, llm,
+and settings. Chains are built dynamically per query. Handlers call service
+methods which always return a displayable string, even on error.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from collections import OrderedDict
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -19,7 +18,7 @@ if TYPE_CHECKING:
     from qdrant_client import AsyncQdrantClient
 
     from cafetera_rag_service.config import RagServiceSettings
-    from cafetera_rag_service.rag.reranker import CrossEncoderReranker
+    from cafetera_rag_service.rag.reranker import HttpRerankerClient
 
 logger = logging.getLogger(__name__)
 
@@ -53,14 +52,13 @@ def _truncate(text: str, limit: int = VK_MSG_LIMIT) -> str:
 class QAService:
     """QA service that holds RAG chain and related resources.
 
-    Initialized with chain, qdrant client, embeddings, llm, and settings.
-    Provides methods to query the RAG chain and manage resources.
+    Initialized with qdrant client, embeddings, llm, and settings.
+    Builds RAG chains dynamically per query.
     """
 
     def __init__(
         self,
         *,
-        chain: Runnable | None = None,
         qdrant_client: AsyncQdrantClient | None = None,
         embeddings: Embeddings | None = None,
         llm: BaseChatModel | None = None,
@@ -68,9 +66,8 @@ class QAService:
         global_system_prompt: str | None = None,
         include_metadata: bool = False,
         sparse_embedding: object | None = None,
-        reranker: CrossEncoderReranker | None = None,
+        reranker: HttpRerankerClient | None = None,
     ) -> None:
-        self._chain = chain
         self._qdrant_client = qdrant_client
         self._embeddings = embeddings
         self._llm = llm
@@ -79,22 +76,12 @@ class QAService:
         self._include_metadata = include_metadata
         self._sparse_embedding = sparse_embedding
         self._reranker = reranker
-        self._document_chains_cache: OrderedDict[str, Runnable] = OrderedDict()
-        self._max_cache_size = 50
 
     def _build_document_chain(self, document_id: str) -> Runnable | None:
         """Build a RAG chain scoped to a specific document.
 
         Returns the chain if QA is initialized, or None otherwise.
-        Uses an LRU cache to avoid rebuilding chains for the same document.
         """
-        # Check cache first
-        if document_id in self._document_chains_cache:
-            # Move to end to mark as recently used
-            chain = self._document_chains_cache.pop(document_id)
-            self._document_chains_cache[document_id] = chain
-            return chain
-
         if (
             self._qdrant_client is None
             or self._settings is None
@@ -116,20 +103,13 @@ class QAService:
             k=self._settings.doc_query_k,
             sparse_embedding=self._sparse_embedding,
         )
-        chain = build_rag_chain(
+        return build_rag_chain(
             retriever,
             self._llm,
             system_prompt=DOCUMENT_EXPERTS_PROMPT,
             include_metadata=self._include_metadata,
             reranker=self._reranker,
         )
-
-        # Add to cache, evicting oldest if at capacity
-        if len(self._document_chains_cache) >= self._max_cache_size:
-            self._document_chains_cache.popitem(last=False)
-        self._document_chains_cache[document_id] = chain
-
-        return chain
 
     def _build_global_chain(self, k: int = 4, category: str | None = None) -> Runnable | None:
         """Build a global RAG chain with the specified k value.
@@ -346,24 +326,11 @@ class QAService:
             )
             yield ERR_DOCUMENT_UNAVAILABLE
 
-    def invalidate_document_chain_cache(self, document_id: str | None = None) -> None:
-        """Clear cached document chain(s).
-
-        If document_id is provided, only that document's chain is removed.
-        If document_id is None, the entire cache is cleared.
-        """
-        if document_id is None:
-            self._document_chains_cache.clear()
-        else:
-            self._document_chains_cache.pop(document_id, None)
-
     def close(self) -> None:
         """Release references held by the QA service."""
-        self._chain = None
         self._qdrant_client = None
         self._settings = None
         self._embeddings = None
         self._llm = None
         self._sparse_embedding = None
         self._reranker = None
-        self._document_chains_cache.clear()
