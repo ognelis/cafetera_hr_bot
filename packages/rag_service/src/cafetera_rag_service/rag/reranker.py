@@ -20,9 +20,10 @@ logger = logging.getLogger(__name__)
 class HttpRerankerClient:
     """Calls an external reranker service via HTTP POST to /v1/rerank."""
 
-    def __init__(self, client: httpx.AsyncClient, top_n: int) -> None:
+    def __init__(self, client: httpx.AsyncClient, top_n: int, model: str = "") -> None:
         self._client = client
         self._top_n = top_n
+        self._model = model
 
     def rerank(self, query: str, documents: list[Document]) -> list[Document]:
         """Rerank documents synchronously (delegates to async via thread)."""
@@ -38,7 +39,8 @@ class HttpRerankerClient:
             return []
 
         texts = [doc.page_content for doc in documents]
-        payload = {
+        payload: dict[str, object] = {
+            "model": self._model,
             "query": query,
             "documents": texts,
             "top_n": self._top_n,

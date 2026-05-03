@@ -17,6 +17,8 @@ _load_env_var RERANKER_CTX_SIZE
 _load_env_var RERANKER_N_GPU_LAYERS
 _load_env_var RERANKER_MODEL_PATH
 _load_env_var RERANKER_MODEL_URL
+_load_env_var RERANKER_BATCH_SIZE
+_load_env_var RERANKER_UBATCH_SIZE
 
 # ── GPU detection ─────────────────────────────────────────────────────────
 detect_gpu() {
@@ -41,12 +43,14 @@ case "$DETECTED_GPU" in
   *)          _DEFAULT_GPU_LAYERS=0  ;;
 esac
 
-RERANKER_MODEL_PATH="${RERANKER_MODEL_PATH:-./models/Qwen3-Reranker-0.6B-Q4_K_M.gguf}"
-RERANKER_MODEL_URL="${RERANKER_MODEL_URL:-https://huggingface.co/mradermacher/Qwen3-Reranker-0.6B-GGUF/resolve/main/Qwen3-Reranker-0.6B.Q4_K_M.gguf}"
+RERANKER_MODEL_PATH="${RERANKER_MODEL_PATH:-./models/Qwen3-Reranker-0.6B-f16.gguf}"
+RERANKER_MODEL_URL="${RERANKER_MODEL_URL:-https://huggingface.co/mradermacher/Qwen3-Reranker-0.6B-GGUF/resolve/main/Qwen3-Reranker-0.6B.f16.gguf}"
 RERANKER_HOST="${RERANKER_HOST:-127.0.0.1}"
 RERANKER_PORT="${RERANKER_PORT:-8082}"
 RERANKER_CTX_SIZE="${RERANKER_CTX_SIZE:-8192}"
 RERANKER_N_GPU_LAYERS="${RERANKER_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
+RERANKER_BATCH_SIZE="${RERANKER_BATCH_SIZE:-2048}"
+RERANKER_UBATCH_SIZE="${RERANKER_UBATCH_SIZE:-2048}"
 
 detect_cpu_count() {
   if command -v nproc >/dev/null 2>&1; then
@@ -103,6 +107,8 @@ echo "PORT=$RERANKER_PORT"
 echo "CTX_SIZE=$RERANKER_CTX_SIZE"
 echo "CPU_COUNT=$CPU_COUNT"
 echo "THREADS=$THREADS"
+echo "BATCH_SIZE=$RERANKER_BATCH_SIZE"
+echo "UBATCH_SIZE=$RERANKER_UBATCH_SIZE"
 echo "GPU: $DETECTED_GPU → offloading $RERANKER_N_GPU_LAYERS layers"
 
 exec llama-server \
@@ -110,7 +116,10 @@ exec llama-server \
   --host "$RERANKER_HOST" \
   --port "$RERANKER_PORT" \
   --ctx-size "$RERANKER_CTX_SIZE" \
+  --batch-size "$RERANKER_BATCH_SIZE" \
+  --ubatch-size "$RERANKER_UBATCH_SIZE" \
   --threads "$THREADS" \
   --n-gpu-layers "$RERANKER_N_GPU_LAYERS" \
+  --reranking \
   --embedding \
   --pooling rank

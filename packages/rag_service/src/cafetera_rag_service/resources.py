@@ -162,8 +162,9 @@ def build_reranker(
         return None, None
 
     logger.info(
-        "Initializing HTTP reranker (url=%s, top_n=%d, timeout=%.1fs)",
+        "Initializing HTTP reranker (url=%s, model=%s, top_n=%d, timeout=%.1fs)",
         settings.reranker_url,
+        settings.reranker_model,
         settings.reranker_top_n,
         settings.reranker_timeout,
     )
@@ -171,7 +172,9 @@ def build_reranker(
         base_url=settings.reranker_url,
         timeout=settings.reranker_timeout,
     )
-    reranker = HttpRerankerClient(client=client, top_n=settings.reranker_top_n)
+    reranker = HttpRerankerClient(
+        client=client, top_n=settings.reranker_top_n, model=settings.reranker_model,
+    )
     return reranker, client
 
 

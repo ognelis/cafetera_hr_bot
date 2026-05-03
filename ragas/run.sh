@@ -117,6 +117,7 @@ load_env_var EMBED_N_GPU_LAYERS
 load_env_var EMBED_UBATCH_SIZE
 load_env_var RERANKING_ENABLED
 load_env_var RERANKER_URL
+load_env_var RERANKER_MODEL
 
 # Set URL defaults after loading env
 QDRANT_URL="${QDRANT_URL:-http://localhost:6333}"
