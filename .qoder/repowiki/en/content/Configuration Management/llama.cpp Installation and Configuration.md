@@ -103,7 +103,7 @@ curl -L -o models/Qwen3-Embedding-4B-Q4_K_M.gguf \
   https://huggingface.co/Qwen/Qwen3-Embedding-4B-GGUF/resolve/main/Qwen3-Embedding-4B-Q4_K_M.gguf
 
 curl -L -o models/Qwen3-Reranker-0.6B-Q4_K_M.gguf \
-  https://huggingface.co/mradermacher/Qwen3-Reranker-0.6B-GGUF/resolve/main/Qwen3-Reranker-0.6B.f16.gguf
+  https://huggingface.co/mradermacher/Qwen3-Reranker-0.6B-GGUF/resolve/main/Qwen3-Reranker-0.6B.Q4_K_M.gguf
 ```
 
 **Section sources**
@@ -266,7 +266,7 @@ The reranker server uses specialized parameters optimized for ranking tasks:
 
 ```bash
 # Model path and URL
-RERANKER_MODEL_PATH=./models/Qwen3-Reranker-0.6B-f16.gguf
+RERANKER_MODEL_PATH=./models/Qwen3-Reranker-0.6B-Q4_K_M.gguf
 RERANKER_CTX_SIZE=8192
 
 # GPU acceleration (empty = auto-detect)

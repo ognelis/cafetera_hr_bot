@@ -24,7 +24,7 @@
 - [packages/rag_service/src/cafetera_rag_service/rag/reranker.py](file://packages/rag_service/src/cafetera_rag_service/rag/reranker.py)
 - [packages/rag_service/src/cafetera_rag_service/rag/text_processor.py](file://packages/rag_service/src/cafetera_rag_service/rag/text_processor.py)
 - [packages/rag_service/src/cafetera_rag_service/qa_service.py](file://packages/rag_service/src/cafetera_rag_service/qa_service.py)
-- [packages/rag_service/src/cafetera_rag_service/models.py](file://packages/packages/rag_service/src/cafetera_rag_service/config.py](file://packages/rag_service/src/cafetera_rag_service/config.py)
+- [packages/rag_service/src/cafetera_rag_service/config.py](file://packages/rag_service/src/cafetera_rag_service/config.py)
 - [packages/rag_service/src/cafetera_rag_service/resources.py](file://packages/rag_service/src/cafetera_rag_service/resources.py)
 - [packages/rag_service/src/cafetera_rag_service/parser.py](file://packages/rag_service/src/cafetera_rag_service/parser.py)
 - [packages/admin/src/cafetera_admin/config.py](file://packages/admin/src/cafetera_admin/config.py)
@@ -47,16 +47,17 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced Russian text preprocessing capabilities with pymorphy3 lemmatization and stop-word removal for BM25 sparse embeddings
-- Improved retriever with configurable lemmatization via bm25_lemmatize setting and enhanced fallback mechanisms
-- Enhanced configuration management with new settings for sparse embeddings, Russian lemmatization, and HTTP-based reranking
-- Added HTTP-based reranking via llama.cpp servers with dedicated scripts and Docker integration
-- Expanded LLM configuration system with provider-aware parameter handling and context window management
-- Enhanced streaming error handling with comprehensive asyncio.CancelledError support for graceful client disconnection handling
-- Added new ask_with_contexts method for evaluation purposes that returns both answers and retrieved contexts
-- Enhanced streaming architecture with robust error handling for SSE (Server-Sent Events) implementation
-- Improved streaming endpoints with proper client disconnection detection and cleanup
-- Added comprehensive testing for streaming error handling scenarios
+- **QAService Refactoring**: QAService now builds RAG chains dynamically per query, eliminating the document chains cache mechanism that previously stored up to 50 different chains
+- **API-Level QAService Caching**: Maintained caching of QAService instances at the API level based on prompt hash and include_metadata settings
+- **Enhanced Russian Text Preprocessing**: Continued support for pymorphy3 lemmatization and stop-word removal for BM25 sparse embeddings
+- **Improved Retriever Capabilities**: Enhanced with configurable lemmatization via bm25_lemmatize setting and intelligent fallback mechanisms
+- **Advanced Configuration Management**: New settings for sparse embeddings, Russian lemmatization, and HTTP-based reranking
+- **HTTP-based Reranking Integration**: llama.cpp servers with dedicated scripts and Docker integration
+- **Enhanced LLM Configuration System**: Provider-aware parameter handling and context window management
+- **Robust Streaming Error Handling**: Comprehensive asyncio.CancelledError support for graceful client disconnection handling
+- **Evaluation Framework Enhancement**: New ask_with_contexts method for evaluation purposes returning both answers and retrieved contexts
+- **SSE Streaming Architecture**: Robust error handling for Server-Sent Events implementation
+- **Comprehensive Testing Coverage**: Enhanced streaming error handling scenarios
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -234,6 +235,34 @@ LLAMACPP_RERANKER --> LLAMACPP_SERVERS
 - [docs/llamacpp.md:143-174](file://docs/llamacpp.md#L143-L174)
 
 ## Detailed Component Analysis
+
+### QAService Refactoring: Dynamic Chain Building Per Query
+The QAService has been refactored to build RAG chains dynamically per query, eliminating the previous document chains cache mechanism:
+
+```mermaid
+flowchart TD
+Start["QAService Method Called"] --> CheckResources{"Required Resources Available?"}
+CheckResources --> |No| ReturnError["Return Error Response"]
+CheckResources --> |Yes| BuildChain["Build Chain Dynamically"]
+BuildChain --> ExecuteQuery["Execute Query"]
+ExecuteQuery --> ReturnResult["Return Result"]
+ReturnError --> End["Operation Complete"]
+ReturnResult --> End
+```
+
+**Updated** QAService now builds RAG chains dynamically per query, eliminating the document chains cache mechanism that previously stored up to 50 different chains
+
+Key refactoring features:
+- **Dynamic Chain Building**: Chains are constructed on-demand using `_build_document_chain()` and `_build_global_chain()` methods
+- **Resource-Based Initialization**: QAService holds references to qdrant_client, embeddings, llm, and settings for dynamic chain construction
+- **Eliminated Document Cache**: Removed LRU cache for document chains (previously stored up to 50 different chains)
+- **API-Level Caching**: Maintained caching of QAService instances at the API level based on prompt hash and include_metadata settings
+- **Memory Efficiency**: Reduced memory footprint by not caching document-specific chains
+- **Consistent Performance**: Eliminated cache management overhead and potential cache invalidation issues
+
+**Section sources**
+- [packages/rag_service/src/cafetera_rag_service/qa_service.py:52-148](file://packages/rag_service/src/cafetera_rag_service/qa_service.py#L52-L148)
+- [packages/rag_service/src/cafetera_rag_service/qa_service.py:329-337](file://packages/rag_service/src/cafetera_rag_service/qa_service.py#L329-L337)
 
 ### Enhanced Russian Text Preprocessing with Lemmatization
 The RAG Service now includes sophisticated Russian language preprocessing capabilities for improved BM25 sparse embeddings:
@@ -981,38 +1010,42 @@ class RagResources {
 +s3_storage : S3Storage
 }
 class QAService {
-+_chain : Runnable
 +_qdrant_client : AsyncQdrantClient
 +_embeddings : Embeddings
 +_llm : BaseChatModel
 +_settings : RagServiceSettings
-+_document_chains_cache : OrderedDict
-+_max_cache_size : int
 +ask(question, category) str
 +stream_ask(question, category) AsyncGenerator
 +stream_about_document(question, document_id) AsyncGenerator
 +ask_with_contexts(question, category) tuple[str, list[str]]
-+invalidate_document_chain_cache(document_id)
 }
 class ResourceFactory {
 +build_rag_resources(settings) RagResources
 +close_rag_resources(res) None
 +build_qa_service(res, system_prompt, include_metadata) QAService
 }
+class APIServiceCache {
++qa_services : dict[(str, bool), QAService]
++max_cache_size : int = 32
++get_or_create_qa_service(prompt_hash, include_metadata) QAService
+}
 RagResources --> QAService : "provides"
 ResourceFactory --> RagResources : "creates"
 ResourceFactory --> QAService : "creates"
+APIServiceCache --> QAService : "caches"
 ```
 
 **Diagram sources**
 - [packages/rag_service/src/cafetera_rag_service/resources.py](file://packages/rag_service/src/cafetera_rag_service/resources.py)
 - [packages/rag_service/src/cafetera_rag_service/qa_service.py](file://packages/rag_service/src/cafetera_rag_service/qa_service.py)
+- [packages/rag_service/src/cafetera_rag_service/api/qa.py](file://packages/rag_service/src/cafetera_rag_service/api/qa.py)
 
-**Updated** Enhanced with new ask_with_contexts method for evaluation capabilities
+**Updated** Enhanced with new ask_with_contexts method for evaluation capabilities and maintained API-level QAService caching
 
 Key features:
 - **Resource Factory**: Centralized resource initialization and cleanup
-- **LRU Cache**: Document-specific chain caching with size limits
+- **API-Level QAService Cache**: QAService instances cached based on prompt hash and include_metadata (max 32 entries)
+- **Dynamic Chain Building**: QAService builds chains on-demand per query without internal document chain caching
 - **Graceful Degradation**: Optional components (sparse embeddings, reranker) with fallback
 - **Collection Management**: Automatic Qdrant collection creation and configuration
 - **Evaluation Support**: New method for comprehensive evaluation with context retrieval
@@ -1020,6 +1053,7 @@ Key features:
 **Section sources**
 - [packages/rag_service/src/cafetera_rag_service/resources.py](file://packages/rag_service/src/cafetera_rag_service/resources.py)
 - [packages/rag_service/src/cafetera_rag_service/qa_service.py](file://packages/rag_service/src/cafetera_rag_service/qa_service.py)
+- [packages/rag_service/src/cafetera_rag_service/api/qa.py:26-52](file://packages/rag_service/src/cafetera_rag_service/api/qa.py#L26-L52)
 
 ### Client Integration Patterns
 Both Admin Panel and VK Bot integrate with the RAG Service through the shared RAG Client:
@@ -1197,8 +1231,6 @@ Performance characteristics and optimization opportunities:
 - **Russian Text Processing Overhead**: Optional lemmatization adds preprocessing cost but improves BM25 matching quality
 - **Context Window Management**: Provider-specific context window handling optimizes memory usage and performance
 - **Model Provider Flexibility**: Support for multiple AI providers allows selection based on deployment constraints
-- **Caching Strategy**: Document content caching reduces repeated retrieval overhead
-- **Timeout Management**: Separate timeouts for regular operations vs. indexing accommodate different performance profiles
 - **Resource Pooling**: Shared embeddings and LLM instances reduce memory footprint
 - **Collection Optimization**: INT8 scalar quantization and payload indexing improve query performance
 - **Sampling Parameter Optimization**: Dynamic parameter forwarding reduces unnecessary parameter overhead
@@ -1210,6 +1242,8 @@ Performance characteristics and optimization opportunities:
 - **Russian Lemmatization Performance**: Optimized pymorphy3 processing for large document collections
 - **Configurable Fallbacks**: Intelligent fallback mechanisms prevent performance degradation
 - **Provider-Aware Optimization**: Enhanced parameter handling across different LLM providers
+- **Memory Efficiency**: Eliminated document chains cache reduces memory footprint by not storing up to 50 different chains
+- **API-Level Caching**: Maintained QAService caching at API level (max 32 entries) balances memory usage with performance
 
 Best practices:
 - Monitor Qdrant performance metrics and adjust collection configuration
@@ -1226,6 +1260,7 @@ Best practices:
 - **Evaluation Efficiency**: Use ask_with_contexts method for batch evaluation to minimize redundant retrievals
 - **llama.cpp Server Management**: Monitor reranker server performance and resource utilization
 - **HTTP-based Reranking**: Balance reranking quality vs. latency based on application requirements
+- **Memory Management**: Monitor memory usage with dynamic chain building and API-level caching
 
 ## Security Enhancements
 The RAG Service now includes enhanced security measures:
@@ -1276,6 +1311,7 @@ Common issues and resolution strategies:
 - Optimize chunk size and re-ranking parameters
 - Configure appropriate batch sizes for network efficiency
 - Enable sparse embeddings for better keyword matching
+- **Memory Optimization**: Monitor memory usage with dynamic chain building and API-level caching
 
 **Hybrid Search Issues**
 - Verify sparse embedding model installation and availability
@@ -1335,6 +1371,12 @@ Common issues and resolution strategies:
 - **Connection Limits**: Monitor streaming connection limits and proper cleanup
 - **Error Logging**: Ensure comprehensive logging for asyncio-related errors and cancellations
 
+**QAService Caching Issues**
+- **API-Level Cache**: Monitor QAService instance cache (max 32 entries) for proper eviction
+- **Prompt Hashing**: Verify prompt hash calculation and cache key generation
+- **Include Metadata Tracking**: Ensure include_metadata parameter affects cache separation
+- **Memory Usage**: Monitor memory usage with dynamic chain building and API-level caching
+
 **llama.cpp Server Issues**
 - **Reranker Server**: Verify llama.cpp reranker server is running and accessible
 - **Model Loading**: Check that reranker model loads successfully without GPU/CPU conflicts
@@ -1371,7 +1413,9 @@ The RAG Microservice Architecture provides a scalable, modular foundation for AI
 - **HTTP-based Reranking**: llama.cpp server integration for improved result ranking quality
 - **Configurable Fallbacks**: Intelligent fallback mechanisms prevent performance degradation
 - **Provider-Aware Optimization**: Enhanced parameter handling across different LLM providers
+- **Memory Efficiency**: QAService refactoring eliminates document chains cache (up to 50 chains), reducing memory footprint
+- **API-Level Caching**: Maintains QAService instance caching (max 32 entries) for performance while eliminating internal document chain caching
 
 The architecture supports both development and production deployments while maintaining extensibility for future enhancements such as additional AI providers, custom retrieval strategies, or expanded document formats. The enhanced indexing pipeline, hybrid search capabilities, complete ingestion workflow, sophisticated LLM configuration system with context window management, comprehensive Russian language preprocessing, robust streaming architecture with SSE implementation, comprehensive error handling with asyncio.CancelledError support, evaluation capabilities through the new ask_with_contexts method, and HTTP-based reranking via llama.cpp servers provide superior performance and accuracy for enterprise document retrieval systems.
 
-**Updated** Enhanced with comprehensive LLM configuration system featuring dynamic sampling parameter management, provider-aware parameter handling, context window management via llm_num_ctx, Russian text preprocessing capabilities for improved BM25 sparse embeddings, robust streaming architecture with SSE implementation enabling real-time token delivery with comprehensive error handling patterns including asyncio.CancelledError support, HTTP-based reranking via llama.cpp servers for improved result quality, and new ask_with_contexts method for evaluation purposes that returns both answers and retrieved contexts for comprehensive assessment.
+**Updated** Enhanced with comprehensive LLM configuration system featuring dynamic sampling parameter management, provider-aware parameter handling, context window management via llm_num_ctx, Russian text preprocessing capabilities for improved BM25 sparse embeddings, robust streaming architecture with SSE implementation enabling real-time token delivery with comprehensive error handling patterns including asyncio.CancelledError support, HTTP-based reranking via llama.cpp servers for improved result quality, new ask_with_contexts method for evaluation purposes that returns both answers and retrieved contexts for comprehensive assessment, QAService refactoring to build RAG chains dynamically per query eliminating the document chains cache mechanism that previously stored up to 50 different chains, and maintained API-level QAService caching for performance optimization.

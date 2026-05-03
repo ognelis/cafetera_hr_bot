@@ -106,7 +106,7 @@ def _build_langchain_docs(raw_points: list[dict[str, Any]]) -> list[LCDocument]:
 # the default max_tokens budget before producing valid structured JSON.  Raising
 # max_tokens gives the model room to finish, and lowering temperature reduces
 # degenerate repetitions.
-_LLM_MAX_TOKENS = 4096
+_LLM_MAX_TOKENS = 65536
 _LLM_TEMPERATURE = 0.2
 
 

@@ -23,12 +23,13 @@
 
 ## Update Summary
 **Changes Made**
-- Enhanced ParseResult dataclass with new document-level metadata fields: page_count, binary_hash, and extracted_title
-- Updated document parsing pipeline to populate rich metadata including page counts, binary hashes, and extracted titles
-- Modified ingest endpoint to return enhanced metadata in IngestResponse
-- Enhanced admin interface to display original filename preservation, extracted title display, and page count column in document tables
-- Updated test suites to validate new ParseResult fields and their usage
-- Enhanced document processing with comprehensive metadata enrichment for improved AI understanding and user experience
+- Enhanced PDF processing with PyPdfiumDocumentBackend for improved document parsing performance
+- Integrated Docling layout prediction models with ONNX backend for advanced document structure recognition
+- Updated document parsing pipeline to utilize enhanced backend architecture with improved metadata extraction
+- Modified ingest endpoint to propagate enhanced metadata including page counts, binary hashes, and extracted titles
+- Enhanced admin interface to display comprehensive document metadata including page counts and extracted titles
+- Updated test suites to validate new backend functionality and metadata extraction capabilities
+- Improved document processing with enhanced layout understanding and structure recognition
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -42,7 +43,7 @@
 9. [Conclusion](#conclusion)
 
 ## Introduction
-This document describes the RAG (Retrieval-Augmented Generation) Parser Enhancement for the Cafetera HR Bot. The enhancement represents a significant advancement in the RAG service's document processing capabilities, transforming it from a simple indexing service to a comprehensive document parsing and chunking engine. The system now includes sophisticated document parsing using Docling with HybridChunker, intelligent model caching with offline support, and comprehensive support for PDF, DOCX, and XLSX formats with native table extraction and layout analysis.
+This document describes the RAG (Retrieval-Augmented Generation) Parser Enhancement for the Cafetera HR Bot. The enhancement represents a significant advancement in the RAG service's document processing capabilities, transforming it from a simple indexing service to a comprehensive document parsing and chunking engine. The system now includes sophisticated document parsing using Docling with PyPdfiumDocumentBackend, intelligent model caching with offline support, and comprehensive support for PDF, DOCX, and XLSX formats with native table extraction and advanced layout analysis.
 
 **Updated** The RAG service now operates as a complete document processing pipeline that handles all aspects of document ingestion, parsing, chunking, and preparation for AI processing. The system maintains its distributed architecture while significantly enhancing the internal capabilities of the RAG microservice to provide robust document processing capabilities. The enhanced metadata extraction system now provides rich contextual information including page numbers, captions, headings, content type detection, page counts, binary hashes, and extracted titles for improved AI understanding and retrieval performance.
 
@@ -58,9 +59,9 @@ The RAG system has evolved into a comprehensive microservice with integrated doc
 ```mermaid
 graph TB
 subgraph "Enhanced RAG Microservice Architecture"
-RAG_PARSER["RAG Parser<br/>Docling Integration<br/>HybridChunker<br/>Model Caching"]
+RAG_PARSER["RAG Parser<br/>PyPdfiumDocumentBackend<br/>Docling Layout Models<br/>HybridChunker<br/>Model Caching"]
 PARSE_RESULT["ParseResult Dataclass<br/>Enhanced Metadata<br/>page_count<br/>binary_hash<br/>extracted_title"]
-DOC_PARSING["Document Parsing<br/>PDF/DOCX/XLSX<br/>Native Tables<br/>Layout Analysis"]
+DOC_PARSING["Document Parsing<br/>PDF/DOCX/XLSX<br/>Native Tables<br/>Advanced Layout Analysis"]
 METADATA_EXTRACTION["Enhanced Metadata Extraction<br/>Page Numbers<br/>Captions<br/>Content Types<br/>Headings"]
 CHUNKING["Intelligent Chunking<br/>HybridChunker<br/>ONNX Backend<br/>Offline Support"]
 PROCESSING["Processing Pipeline<br/>LangChain Documents<br/>Rich Metadata Enrichment<br/>Vector Preparation"]
@@ -120,14 +121,15 @@ This section outlines the enhanced components of the RAG system with comprehensi
   - **Structured Output**: Returns standardized ParseResult objects containing both chunked documents and document-level metadata
   - **Type Safety**: Strongly typed dataclass with proper type annotations for all fields
 
-- **Enhanced Document Parser with Docling Integration**
-  - **New Component**: Comprehensive document parsing using Docling with HybridChunker
+- **Enhanced Document Parser with PyPdfiumDocumentBackend Integration**
+  - **New Component**: Comprehensive document parsing using Docling with PyPdfiumDocumentBackend for improved PDF processing performance
+  - **Advanced Backend Architecture**: Utilizes PyPdfiumDocumentBackend for enhanced PDF parsing capabilities with better performance and accuracy
   - **Model Caching**: Automatic caching of tokenizer and Docling models with offline support
   - **Format Support**: Native support for PDF, DOCX, and XLSX formats with intelligent chunking
-  - **Layout Analysis**: Advanced layout understanding preserving document structure and hierarchy
+  - **Layout Analysis**: Advanced layout understanding preserving document structure and hierarchy using Docling layout prediction models
   - **Table Extraction**: Native table extraction with Markdown formatting preservation
   - **Column Detection**: Intelligent column header detection and preservation for spreadsheets
-  - **ONNX Backend**: Ensures consistent processing performance with offline model support
+  - **ONNX Backend**: Ensures consistent processing performance with offline model support and enhanced layout prediction
   - **LangChain Integration**: Returns standardized LangChain Document objects with metadata
   - **Error Handling**: Graceful handling of unsupported formats and processing failures
 
@@ -224,7 +226,7 @@ sequenceDiagram
 participant Admin as "Admin Service"
 participant Upload as "Upload Router"
 participant RAGService as "RAG Service<br/>Enhanced Parser"
-participant Parser as "Docling Parser<br/>Model Caching<br/>HybridChunker"
+participant Parser as "PyPdfiumDocumentBackend<br/>Docling Layout Models<br/>Model Caching<br/>HybridChunker"
 participant ParseResult as "ParseResult<br/>Enhanced Metadata<br/>page_count<br/>binary_hash<br/>extracted_title"
 participant Metadata as "Metadata Extraction<br/>Page Numbers<br/>Captions<br/>Content Types"
 participant RAGChain as "RAG Chain<br/>Enhanced Formatting"
@@ -236,7 +238,7 @@ RAGService->>Parser : ensure_models_cached()
 Parser->>Parser : Cache tokenizer & Docling models
 Parser-->>RAGService : Models cached (offline mode)
 RAGService->>Parser : load_document(path, settings, original_filename)
-Parser->>Parser : _load_with_docling()
+Parser->>Parser : _load_with_docling() with PyPdfiumDocumentBackend
 Parser->>Parser : HybridChunker + ONNX backend
 Parser->>Metadata : Extract page numbers, captions, content types
 Metadata-->>Parser : Rich metadata extraction
@@ -319,17 +321,18 @@ Document --> EnhancedMetadata : uses
 - [parser.py:20-28](file://packages/rag_service/src/cafetera_rag_service/parser.py#L20-L28)
 - [parser.py:167-175](file://packages/rag_service/src/cafetera_rag_service/parser.py#L167-L175)
 
-### Enhanced Document Parsing with Docling Integration
-The RAG service now includes comprehensive document parsing capabilities using Docling with HybridChunker, providing sophisticated document processing with model caching and offline support.
+### Enhanced Document Parsing with PyPdfiumDocumentBackend Integration
+The RAG service now includes comprehensive document parsing capabilities using Docling with PyPdfiumDocumentBackend, providing sophisticated document processing with model caching and offline support.
 
-**Updated** The document parsing system has been completely redesigned to handle multiple document formats with advanced processing capabilities, including native table extraction, layout analysis, and comprehensive metadata extraction with page numbers, captions, content type detection, page counts, binary hashes, and extracted titles.
+**Updated** The document parsing system has been completely redesigned to handle multiple document formats with advanced processing capabilities, including native table extraction, layout analysis, and comprehensive metadata extraction with page numbers, captions, content type detection, page counts, binary hashes, and extracted titles. The integration of PyPdfiumDocumentBackend provides enhanced PDF processing performance and accuracy.
 
 ```mermaid
 flowchart TD
 Start(["Document Upload"]) --> Validate["Validate File Extension<br/>.pdf, .docx, .xlsx"]
 Validate --> CacheModels["Cache Models<br/>ensure_models_cached()"]
-CacheModels --> LoadDocling["_load_with_docling()<br/>Docling Loader + HybridChunker"]
-LoadDocling --> HybridChunker["HybridChunker<br/>ONNX Backend<br/>Layout Analysis"]
+CacheModels --> LoadDocling["_load_with_docling()<br/>PyPdfiumDocumentBackend + HybridChunker"]
+LoadDocling --> PyPdfiumBackend["PyPdfiumDocumentBackend<br/>Enhanced PDF Processing<br/>Improved Performance"]
+PyPdfiumBackend --> HybridChunker["HybridChunker<br/>ONNX Backend<br/>Layout Analysis"]
 HybridChunker --> ExtractMetadata["Extract Rich Metadata<br/>- Page Numbers<br/>- Captions<br/>- Content Types<br/>- Headings<br/>- Section Paths"]
 ExtractMetadata --> ExtractDocumentInfo["Extract Document Info<br/>- Page Count<br/>- Binary Hash<br/>- Extracted Title<br/>- Original Filename Preservation"]
 ExtractDocumentInfo --> ProcessTables["Process Tables<br/>Native Extraction<br/>Markdown Format"]
@@ -518,7 +521,7 @@ The RAG service now handles the complete document processing pipeline from inges
 sequenceDiagram
 participant Service as "RAG Service"
 participant S3 as "S3 Storage"
-participant Parser as "Docling Parser"
+participant Parser as "PyPdfiumDocumentBackend Parser"
 participant ParseResult as "ParseResult<br/>Enhanced Metadata"
 participant Metadata as "Metadata Extraction"
 participant Embeddings as "Embedding Models"
@@ -528,7 +531,7 @@ participant Qdrant as "Qdrant Vector Store"
 Service->>S3 : Download document
 S3-->>Service : File data
 Service->>Parser : load_document()
-Parser->>Parser : Parse with HybridChunker
+Parser->>Parser : Parse with PyPdfiumDocumentBackend + HybridChunker
 Parser->>Metadata : Extract rich metadata
 Metadata-->>Parser : Page numbers, captions, content types
 Parser->>ParseResult : Create ParseResult with enhanced metadata
@@ -668,6 +671,8 @@ The RAG system now operates with enhanced dependencies that support comprehensiv
 ```mermaid
 graph TB
 RAG_SERVICE["RAG Service<br/>packages/rag_service"] --> DOCLING["Docling<br/>Document Parsing"]
+RAG_SERVICE --> PYPDFIUM["PyPdfiumDocumentBackend<br/>Enhanced PDF Processing"]
+RAG_SERVICE --> LAYOUT_MODELS["Docling Layout Models<br/>ONNX Backend"]
 RAG_SERVICE --> LANGCHAIN_DOCLING["langchain-docling<br/>Integration Layer"]
 RAG_SERVICE --> ONNX_MODELS["docling-onnx-models<br/>Layout Analysis"]
 RAG_SERVICE --> TRANSFORMERS["transformers<br/>Tokenizer Models"]
@@ -708,9 +713,10 @@ ADMIN_INTERFACE --> DOCUMENT_TABLE["Document Table<br/>Page Count Column<br/>Ext
 
 ## Performance Considerations
 - **Enhanced Processing Capabilities**
+  - **PyPdfiumDocumentBackend Performance**: Enhanced PDF processing with PyPdfiumDocumentBackend provides improved performance and accuracy for PDF document parsing
   - **Model Caching**: Startup caching eliminates repeated model downloads and improves processing speed
   - **Offline Processing**: Offline mode ensures consistent performance without network dependencies
-  - **ONNX Backend**: Optimized processing with consistent performance across different document types
+  - **ONNX Backend**: Optimized processing with consistent performance across different document types using layout prediction models
   - **Intelligent Chunking**: HybridChunker provides optimal chunk sizes while preserving document structure
   - **Metadata Extraction**: Rich metadata extraction adds minimal overhead while providing significant value
   - **ParseResult Optimization**: Enhanced dataclass provides efficient metadata storage and access
@@ -748,7 +754,7 @@ ADMIN_INTERFACE --> DOCUMENT_TABLE["Document Table<br/>Page Count Column<br/>Ext
   - **Metadata Serialization**: Efficient serialization of enhanced ParseResult metadata
 - **Monitoring and Observability**
   - **Model Caching Metrics**: Track model caching performance and effectiveness
-  - **Processing Performance**: Monitor document parsing and chunking performance
+  - **Processing Performance**: Monitor document parsing and chunking performance with PyPdfiumDocumentBackend
   - **Metadata Extraction Metrics**: Monitor metadata extraction efficiency and accuracy
   - **RAG Chain Formatting Metrics**: Track enhanced formatting performance and user experience improvements
   - **ParseResult Usage Metrics**: Monitor enhanced metadata usage and performance impact
@@ -759,6 +765,11 @@ ADMIN_INTERFACE --> DOCUMENT_TABLE["Document Table<br/>Page Count Column<br/>Ext
 ## Troubleshooting Guide
 Common issues and resolutions for the enhanced RAG system with comprehensive document processing capabilities and advanced metadata extraction:
 
+- **PyPdfiumDocumentBackend Issues**
+  - **Symptom**: PDF processing fails or produces poor quality output
+  - **Solution**: Verify PyPdfiumDocumentBackend installation and compatibility with system libraries
+  - **Debug**: Check PDF file integrity and ensure proper encoding
+  - **Recovery**: Reinstall PyPdfium backend or use alternative PDF processing approach
 - **Model Caching Issues**
   - **Symptom**: Model caching fails during startup
   - **Solution**: Verify internet connectivity during initial startup for model downloads
@@ -867,7 +878,7 @@ Common issues and resolutions for the enhanced RAG system with comprehensive doc
 - [document_row.html:73-75](file://templates/partials/document_row.html#L73-L75)
 
 ## Conclusion
-The RAG Parser Enhancement successfully transforms the RAG service from a simple indexing microservice to a comprehensive document processing pipeline with sophisticated capabilities. By integrating Docling with HybridChunker, implementing model caching with offline support, and adding support for PDF, DOCX, and XLSX formats with native table extraction and layout analysis, the system now provides enterprise-grade document processing capabilities.
+The RAG Parser Enhancement successfully transforms the RAG service from a simple indexing microservice to a comprehensive document processing pipeline with sophisticated capabilities. By integrating Docling with PyPdfiumDocumentBackend, implementing model caching with offline support, and adding support for PDF, DOCX, and XLSX formats with native table extraction and advanced layout analysis, the system now provides enterprise-grade document processing capabilities.
 
 **Updated** The enhanced RAG service maintains its distributed architecture while significantly expanding its internal capabilities to handle the complete document processing pipeline. The system now provides robust document parsing, intelligent chunking, comprehensive metadata extraction, and enhanced RAG chain formatting with rich contextual presentation while maintaining the benefits of distributed processing and service isolation. The new ParseResult dataclass with enhanced metadata fields including page_count, binary_hash, and extracted_title provides significant improvements in document understanding and retrieval performance.
 
@@ -875,7 +886,7 @@ The RAG Parser Enhancement successfully transforms the RAG service from a simple
 
 The ParseResult dataclass enhancement represents a major architectural improvement, providing a centralized container for document-level metadata that enhances the entire document processing pipeline. The addition of page_count enables better document navigation and user experience, binary_hash provides content identification and deduplication capabilities, and extracted_title improves document naming and organization. These enhancements maintain backward compatibility while providing substantial improvements in document processing capabilities.
 
-The model caching system ensures reliable performance without network dependencies, while the HybridChunker provides optimal document segmentation with layout preservation. The integration with langchain-docling enables seamless processing of multiple document formats with native table extraction and advanced layout analysis. The enhanced LLM configuration system provides sophisticated parameter routing and validation, supporting OpenAI, Ollama, and llama.cpp providers with provider-specific optimizations.
+The model caching system ensures reliable performance without network dependencies, while the HybridChunker provides optimal document segmentation with layout preservation. The integration with PyPdfiumDocumentBackend enables enhanced PDF processing performance and accuracy, while the integration with docling-onnx-models provides advanced layout prediction capabilities. The enhanced LLM configuration system provides sophisticated parameter routing and validation, supporting OpenAI, Ollama, and llama.cpp providers with provider-specific optimizations.
 
 The enhanced metadata extraction system provides rich contextual information including page numbers, captions, headings, content type detection, page counts, binary hashes, and extracted titles, significantly improving AI understanding and retrieval performance. The enhanced RAG chain formatting system presents retrieved documents with structured headers showing document names and page numbers, creating a more informative and navigable retrieval experience.
 
@@ -892,3 +903,7 @@ The ParseResult dataclass enhancement represents a foundational improvement that
 **Enhanced Testing Coverage** The comprehensive test suite validates all new functionality, including ParseResult metadata extraction, enhanced ingest response handling, and admin interface metadata display. The tests ensure backward compatibility while verifying the correctness of new features, providing confidence in the reliability and stability of the enhanced system.
 
 The system's enhanced capabilities position it for enterprise-scale document processing with superior retrieval and understanding capabilities, while the improved user interface ensures that document management becomes more intuitive and efficient for end users. The combination of technical excellence and user experience improvements makes this enhancement a significant step forward in the evolution of the Cafetera HR Bot's document processing capabilities.
+
+**Enhanced PDF Processing Performance** The integration of PyPdfiumDocumentBackend provides significant improvements in PDF processing performance and accuracy, enabling faster and more reliable document parsing for PDF documents. The enhanced backend architecture ensures better handling of complex PDF layouts and improved extraction of text and structural information.
+
+**Advanced Layout Prediction Models** The integration of Docling layout prediction models with ONNX backend provides enhanced document structure recognition capabilities, enabling better understanding of document hierarchies and improved metadata extraction. The ONNX backend ensures consistent performance and offline processing capabilities for layout prediction models.

@@ -42,15 +42,18 @@
 - [document_table.html](file://templates/partials/document_table.html)
 - [document_row.html](file://templates/partials/document_row.html)
 - [documents_helpers.py](file://packages/admin/src/cafetera_admin/api/documents_helpers.py)
+- [test_storage.py](file://tests/test_storage.py)
+- [test_api_documents.py](file://tests/test_api_documents.py)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Enhanced document metadata display with improved title extraction from original filenames
-- Added page count visualization in document tables with JSONB indexing configuration support
-- Implemented enhanced document table with improved metadata presentation and sorting capabilities
-- Updated document row template with conditional title display and page count rendering
-- Enhanced database schema with JSONB indexing_config column for structured metadata storage
+- Enhanced source type filtering with proper WHERE clause conditions for PDF and XLSX files
+- Added comprehensive source type filtering support including 'pdf' and 'xlsx' categories
+- Implemented precise file extension matching with proper exclusion logic for overlapping types
+- Enhanced document repository system with robust WHERE clause construction and parameter binding
+- Updated document table UI with source type filter dropdown supporting PDF and XLSX selections
+- Added extensive test coverage for source type filtering functionality
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -62,21 +65,22 @@
 7. [JSONB Indexing Configuration Management](#jsonb-indexing-configuration-management)
 8. [Enhanced Document Metadata Display](#enhanced-document-metadata-display)
 9. [Document Storage Layer Enhancements](#document-storage-layer-enhancements)
-10. [Database Migration and Compatibility](#database-migration-and-compatibility)
-11. [Enhanced Modal Window System](#enhanced-modal-window-system)
-12. [Streaming Question Answering](#streaming-question-answering)
-13. [Enhanced Docling Integration](#enhanced-docling-integration)
-14. [ONNX-Based Document Processing Pipeline](#onnx-based-document-processing-pipeline)
-15. [Enhanced Docker Deployment](#enhanced-docker-deployment)
-16. [Testing Coverage](#testing-coverage)
-17. [Performance Considerations](#performance-considerations)
-18. [Troubleshooting Guide](#troubleshooting-guide)
-19. [Conclusion](#conclusion)
+10. [Source Type Filtering System](#source-type-filtering-system)
+11. [Database Migration and Compatibility](#database-migration-and-compatibility)
+12. [Enhanced Modal Window System](#enhanced-modal-window-system)
+13. [Streaming Question Answering](#streaming-question-answering)
+14. [Enhanced Docling Integration](#enhanced-docling-integration)
+15. [ONNX-Based Document Processing Pipeline](#onnx-based-document-processing-pipeline)
+16. [Enhanced Docker Deployment](#enhanced-docker-deployment)
+17. [Testing Coverage](#testing-coverage)
+18. [Performance Considerations](#performance-considerations)
+19. [Troubleshooting Guide](#troubleshooting-guide)
+20. [Conclusion](#conclusion)
 
 ## Introduction
 This document describes the Document Management System built around a VKontakte (VK) bot integrated with a Retrieval-Augmented Generation (RAG) backend. The system manages HR-related documents and provides conversational access to policies, procedures, and templates through an intuitive chat interface. It leverages configurable settings for LLM providers, vector storage, and document chunking, while offering modular handlers for different HR workflows such as hiring, termination, vacation, payroll, and general questions.
 
-**Updated** The system now features enhanced document metadata display capabilities with improved title extraction from original filenames and page count visualization in document tables. These enhancements leverage the JSONB indexing_config column for structured metadata storage, providing users with better document insights and improved navigation through the document management interface.
+**Updated** The system now features enhanced source type filtering capabilities with proper WHERE clause conditions for PDF and XLSX files, providing users with granular control over document categorization and retrieval. The document repository system has been enhanced with robust filtering logic that ensures precise file type matching while preventing overlap between different document categories.
 
 ## Project Structure
 The project follows a monorepo workspace managed by uv, with three main packages:
@@ -186,6 +190,7 @@ DOCUMENTS_PAGE --> DOCUMENT_TABLE
 - **Updated** Enhanced PostgreSQL Database Schema: JSONB indexing_config column for structured document metadata storage and configuration persistence.
 - **Updated** Document Storage Layer: Repository pattern implementation with JSONB configuration handling and comprehensive CRUD operations.
 - **Updated** Enhanced Document Metadata Display: Improved title extraction from original filenames and page count visualization in document tables.
+- **Updated** Enhanced Source Type Filtering: Robust filtering system with proper WHERE clause conditions for PDF, XLSX, DOCX, DOC, and OTHER categories.
 - **Updated** Enhanced Modal System: Improved layout with fixed headers and footers, scrollable content areas, and automatic scrolling for streaming responses.
 - **Updated** Streaming QA Service: Real-time question answering with SSE streaming and automatic content updates.
 - **Updated** Enhanced Docling Integration: Advanced document processing with comprehensive metadata extraction including page numbers, headings, captions, content types, and structural paths.
@@ -228,12 +233,13 @@ DOCLET_PARSER["Enhanced Docling Parser<br/>parser.py"]
 METADATA_EXTRACTOR["Metadata Extraction<br/>page_numbers, headings, captions"]
 PAYLOAD_INDEX["Payload Index<br/>metadata.headings"]
 MODAL_SYS["Enhanced Modal System<br/>documents.html + components.js"]
-TESTS["Comprehensive Tests<br/>test_indexer.py + qa tests + test_parser.py"]
+TESTS["Comprehensive Tests<br/>test_indexer.py + qa tests + test_parser.py + test_storage.py"]
 DOCKER["Enhanced Docker<br/>docker-compose.yml + Dockerfiles"]
 DATABASE["Enhanced Database Schema<br/>JSONB indexing_config column"]
 STORAGE_LAYER["Document Storage Layer<br/>JSONB config handling"]
 DOCUMENT_TABLE["Enhanced Document Table<br/>document_table.html + document_row.html"]
 DOCUMENT_METADATA["Enhanced Metadata Display<br/>title extraction, page count"]
+SOURCE_TYPE_FILTERING["Enhanced Source Type Filtering<br/>PDF, XLSX, DOCX, DOC, OTHER"]
 USER --> BOT
 BOT --> LABELERS
 LABELERS --> STATE
@@ -251,7 +257,8 @@ PAYLOAD_INDEX --> QA_SERVICE
 QA_SERVICE --> MODAL_SYS
 MODAL_SYS --> DOCUMENT_TABLE
 DOCUMENT_TABLE --> DOCUMENT_METADATA
-DOCUMENT_METADATA --> TESTS
+DOCUMENT_METADATA --> SOURCE_TYPE_FILTERING
+SOURCE_TYPE_FILTERING --> TESTS
 DOCKER --> INDEXER
 DOCKER --> PARSER
 DOCKER --> DOCLET_PARSER
@@ -708,6 +715,117 @@ DeleteQuery --> ReturnBool["Return boolean result"]
 **Section sources**
 - [document_repo.py:69-329](file://packages/core/src/cafetera_core/storage/document_repo.py#L69-L329)
 - [schemas.py:13-31](file://packages/admin/src/cafetera_admin/api/schemas.py#L13-L31)
+
+## Source Type Filtering System
+
+### Enhanced WHERE Clause Construction
+The document repository now implements robust source type filtering with proper WHERE clause conditions for PDF and XLSX files, ensuring precise file type matching while preventing overlap between different document categories.
+
+```mermaid
+classDiagram
+class SourceTypeFiltering {
++source_type : str
++filename_ILIKE : "filename ILIKE '%.extension'"
++filename_NOT_ILIKE : "filename NOT ILIKE '%.extension'"
++docx_filter : "filename ILIKE '%.docx'"
++doc_filter : "filename ILIKE '%.doc' AND filename NOT ILIKE '%.docx'"
++pdf_filter : "filename ILIKE '%.pdf'"
++xlsx_filter : "filename ILIKE '%.xlsx'"
++other_filter : "filename NOT ILIKE '%.doc' AND filename NOT ILIKE '%.docx' AND filename NOT ILIKE '%.pdf' AND filename NOT ILIKE '%.xlsx'"
+}
+class WhereClauseBuilder {
++where_clauses : list[str]
++params : dict[str, object]
++build_where_conditions() str
++add_source_type_filter() void
+}
+SourceTypeFiltering --> WhereClauseBuilder : "implements"
+```
+
+**Diagram sources**
+- [document_repo.py:178-196](file://packages/core/src/cafetera_core/storage/document_repo.py#L178-L196)
+
+### Precise File Extension Matching Logic
+The system implements precise file extension matching with proper exclusion logic to prevent overlap between different document categories:
+
+- **DOCX Filter**: Matches only `.docx` files using `filename ILIKE '%.docx'`
+- **DOC Filter**: Matches only `.doc` files while excluding `.docx` using `(filename ILIKE '%.doc' AND filename NOT ILIKE '%.docx')`
+- **PDF Filter**: Matches only `.pdf` files using `filename ILIKE '%.pdf'`
+- **XLSX Filter**: Matches only `.xlsx` files using `filename ILIKE '%.xlsx'`
+- **OTHER Filter**: Excludes all known document types using `filename NOT ILIKE '%.doc' AND filename NOT ILIKE '%.docx' AND filename NOT ILIKE '%.pdf' AND filename NOT ILIKE '%.xlsx'`
+
+```mermaid
+flowchart TD
+FileType["File Type Detection"] --> CheckDOCX{"Ends with .docx?"}
+CheckDOCX --> |Yes| DOCXFilter["Apply filename ILIKE '%.docx'"]
+CheckDOCX --> |No| CheckDOC{"Ends with .doc?"}
+CheckDOC --> |Yes| DOCFilter["Apply (filename ILIKE '%.doc' AND filename NOT ILIKE '%.docx')"]
+CheckDOC --> |No| CheckPDF{"Ends with .pdf?"}
+CheckPDF --> |Yes| PDFFilter["Apply filename ILIKE '%.pdf'"]
+CheckPDF --> |No| CheckXLSX{"Ends with .xlsx?"}
+CheckXLSX --> |Yes| XLSXFilter["Apply filename ILIKE '%.xlsx'"]
+CheckXLSX --> |No| OtherFilter["Apply filename NOT ILIKE '%.doc%' AND filename NOT ILIKE '%.pdf%' AND filename NOT ILIKE '%.xlsx%'"]
+```
+
+**Diagram sources**
+- [document_repo.py:178-196](file://packages/core/src/cafetera_core/storage/document_repo.py#L178-L196)
+
+### Enhanced Document Table UI with Source Type Filters
+The document table UI now includes a comprehensive source type filter dropdown that allows users to filter documents by their file type:
+
+```mermaid
+classDiagram
+class SourceTypeFilterUI {
++filter_dropdown : "Dropdown with source type options"
++filter_options : "all, docx, pdf, xlsx, other"
++filter_chip : "Visual indicator showing current filter"
++filter_button : "Button with active filter text"
+}
+class FilterOptions {
++all : "All document types"
++docx : "Microsoft Word documents"
++pdf : "Portable Document Format"
++xlsx : "Microsoft Excel spreadsheets"
++other : "Other document types"
+}
+SourceTypeFilterUI --> FilterOptions : "displays"
+```
+
+**Diagram sources**
+- [documents.html:67-82](file://templates/documents.html#L67-L82)
+
+### Comprehensive Test Coverage for Source Type Filtering
+The system includes extensive test coverage validating source type filtering functionality across all supported document types:
+
+```mermaid
+classDiagram
+class SourceTypeTests {
++test_filter_source_type_docx : "Returns only .docx files"
++test_filter_source_type_doc : "Returns .doc but not .docx"
++test_filter_source_type_pdf : "Returns only .pdf files"
++test_filter_source_type_xlsx : "Returns only .xlsx files"
++test_filter_source_type_other : "Excludes .doc, .docx, .pdf, .xlsx"
++test_api_source_type_filter : "API endpoint validation"
+}
+class TestScenarios {
++DOCX_Filtering : "Single .docx file among mixed types"
++DOC_Filtering : "Single .doc file excluding .docx"
++PDF_Filtering : "Single .pdf file among mixed types"
++XLSX_Filtering : "Single .xlsx file among mixed types"
++OTHER_Filtering : "Only non-supported extensions"
+}
+SourceTypeTests --> TestScenarios : "validates"
+```
+
+**Diagram sources**
+- [test_storage.py:238-276](file://tests/test_storage.py#L238-L276)
+- [test_api_documents.py:401-414](file://tests/test_api_documents.py#L401-L414)
+
+**Section sources**
+- [document_repo.py:178-196](file://packages/core/src/cafetera_core/storage/document_repo.py#L178-L196)
+- [documents.html:67-82](file://templates/documents.html#L67-L82)
+- [test_storage.py:238-276](file://tests/test_storage.py#L238-L276)
+- [test_api_documents.py:401-414](file://tests/test_api_documents.py#L401-L414)
 
 ## Database Migration and Compatibility
 
@@ -1189,6 +1307,7 @@ DoclingTests["Enhanced Docling Tests"]
 DatabaseTests["Database Schema Tests"]
 JSONBTests["JSONB Configuration Tests"]
 DocumentMetadataTests["Enhanced Document Metadata Tests"]
+SourceTypeFilteringTests["Enhanced Source Type Filtering Tests"]
 TestSuite --> ParallelTests
 TestSuite --> BatchTests
 TestSuite --> RetryTests
@@ -1200,6 +1319,7 @@ TestSuite --> DoclingTests
 TestSuite --> DatabaseTests
 TestSuite --> JSONBTests
 TestSuite --> DocumentMetadataTests
+TestSuite --> SourceTypeFilteringTests
 ParallelTests --> DenseSparseColBERT["Dense + Sparse + ColBERT"]
 BatchTests --> BatchUpsert["Batched Upserts"]
 BatchTests --> DeferredIndexing["Deferred Indexing"]
@@ -1221,6 +1341,11 @@ JSONBTests --> ConfigSerialization["Configuration Serialization Tests"]
 JSONBTests --> ConfigDeserialization["Configuration Deserialization Tests"]
 DocumentMetadataTests --> TitleExtraction["Title Extraction Tests"]
 DocumentMetadataTests --> PageCountDisplay["Page Count Display Tests"]
+SourceTypeFilteringTests --> SourceTypeDOCX["DOCX Filtering Tests"]
+SourceTypeFilteringTests --> SourceTypeDOC["DOC Filtering Tests"]
+SourceTypeFilteringTests --> SourceTypePDF["PDF Filtering Tests"]
+SourceTypeFilteringTests --> SourceTypeXLSX["XLSX Filtering Tests"]
+SourceTypeFilteringTests --> SourceTypeOTHER["OTHER Filtering Tests"]
 ```
 
 **Diagram sources**
@@ -1229,6 +1354,8 @@ DocumentMetadataTests --> PageCountDisplay["Page Count Display Tests"]
 - [test_indexer.py:518-595](file://tests/test_indexer.py#L518-L595)
 - [test_indexer.py:304-368](file://tests/test_indexer.py#L304-L368)
 - [test_parser.py:22-120](file://tests/test_parser.py#L22-L120)
+- [test_storage.py:238-276](file://tests/test_storage.py#L238-L276)
+- [test_api_documents.py:401-414](file://tests/test_api_documents.py#L401-L414)
 
 ### Test Categories
 - **Parallel Embeddings**: Validates concurrent execution of dense, sparse, and ColBERT embeddings
@@ -1242,10 +1369,13 @@ DocumentMetadataTests --> PageCountDisplay["Page Count Display Tests"]
 - **Database Schema**: Tests PostgreSQL schema compatibility and JSONB column functionality
 - **JSONB Configuration**: Tests serialization, deserialization, and querying of indexing configurations
 - **Enhanced Document Metadata**: Tests title extraction from original filenames and page count visualization in document tables
+- **Enhanced Source Type Filtering**: Tests precise file extension matching for DOCX, DOC, PDF, XLSX, and OTHER categories with proper exclusion logic
 
 **Section sources**
 - [test_indexer.py:1-618](file://tests/test_indexer.py#L1-618)
 - [test_parser.py:1-120](file://tests/test_parser.py#L1-120)
+- [test_storage.py:238-276](file://tests/test_storage.py#L238-L276)
+- [test_api_documents.py:401-414](file://tests/test_api_documents.py#L401-L414)
 
 ## Performance Considerations
 - Concurrency: The maximum concurrent indexing is configurable to balance throughput and resource usage.
@@ -1269,6 +1399,8 @@ DocumentMetadataTests --> PageCountDisplay["Page Count Display Tests"]
 - **Updated** JSONB Configuration Performance: JSONB indexing_config column provides efficient storage and querying of structured indexing configurations with minimal overhead.
 - **Updated** Database Schema Optimization: Proper indexing and constraint enforcement ensure optimal query performance for document metadata operations.
 - **Updated** Enhanced Document Metadata Display: Improved title extraction and page count visualization provide better user experience with minimal performance impact.
+- **Updated** Source Type Filtering Performance: Precise WHERE clause conditions with proper parameter binding ensure efficient database queries for document filtering.
+- **Updated** Enhanced Source Type Filtering Logic: Robust file extension matching with exclusion logic prevents overlap between document categories and ensures accurate filtering results.
 
 ## Troubleshooting Guide
 - Logging: Configure global logging for consistent log formatting across the system.
@@ -1294,6 +1426,9 @@ DocumentMetadataTests --> PageCountDisplay["Page Count Display Tests"]
 - **Updated** JSONB Configuration Problems: Check that indexing_config data is properly serialized/deserialized and stored/retrieved from the database.
 - **Updated** Document Repository Issues: Verify that DocumentRepository methods properly handle JSONB configuration data during CRUD operations.
 - **Updated** Enhanced Document Metadata Display: Verify that title extraction logic properly compares extracted titles with stored titles and that page count column renders correctly.
+- **Updated** Source Type Filtering Issues: Verify that WHERE clause conditions are properly constructed and that file extension matching logic correctly excludes overlapping document types.
+- **Updated** Enhanced Source Type Filtering Logic: Check that source type filtering properly handles DOCX vs DOC exclusivity and that PDF/XLSX filters work independently without overlap.
+- **Updated** Document Table UI Issues: Verify that source type filter dropdown properly displays filter options and that filter chips show current filter state.
 
 **Section sources**
 - [config.py:7-12](file://packages/core/src/cafetera_core/config.py#L7-L12)
@@ -1316,6 +1451,8 @@ DocumentMetadataTests --> PageCountDisplay["Page Count Display Tests"]
 ## Conclusion
 The Document Management System provides a robust, extensible foundation for HR document access via a VK bot. Its modular design, centralized configuration, and structured handler routing enable efficient development and maintenance. **Updated** The system now features significant enhancements to the PostgreSQL database schema with JSONB indexing_config column for improved document metadata handling and structured storage capabilities. This enhancement enables sophisticated indexing configuration management, allowing for flexible document processing workflows with persistent configuration storage and efficient querying capabilities.
 
+The enhanced source type filtering system represents a major improvement in document organization and retrieval capabilities. The robust WHERE clause construction ensures precise file type matching for PDF and XLSX files while preventing overlap with other document categories. This enhancement provides users with granular control over document categorization and significantly improves the user experience when managing diverse document types.
+
 The enhanced document metadata display system provides users with improved visibility into document content through enhanced title extraction from original filenames and page count visualization in document tables. These improvements leverage the JSONB indexing_config column to store structured metadata, enabling better document management and user experience.
 
 The enhanced modal window system, including improved layout architecture, automatic scrolling functionality, and better user experience for document questions and global questions, provides a more responsive and engaging user interface. Combined with real-time streaming responses and SSE integration, the system delivers a modern, efficient user experience for HR document management.
@@ -1326,4 +1463,4 @@ The enhanced Docling integration provides comprehensive metadata extraction capa
 
 The comprehensive testing coverage ensures these new features function correctly under various conditions, making the system more robust and maintainable. The system's architecture supports future enhancements while maintaining backward compatibility and operational reliability. The enhanced database schema with JSONB indexing_config column provides a solid foundation for advanced document management capabilities and future scalability requirements.
 
-The enhanced document metadata display system, with its improved title extraction and page count visualization, represents a significant step forward in user experience and document management capabilities. Users can now easily identify documents by their extracted titles and understand document complexity through page count indicators, making the system more intuitive and efficient for HR document management workflows.
+The enhanced source type filtering system, with its precise WHERE clause conditions and robust exclusion logic, represents a significant step forward in document management capabilities. Users can now efficiently organize and retrieve documents by their file types, with proper separation between overlapping categories like DOC and DOCX. This enhancement, combined with the improved document metadata display and enhanced UI components, makes the system more intuitive and powerful for HR document management workflows.

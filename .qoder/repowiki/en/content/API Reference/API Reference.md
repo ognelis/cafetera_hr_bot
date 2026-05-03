@@ -8,8 +8,13 @@
 - [packages/admin/src/cafetera_admin/api/deps.py](file://packages/admin/src/cafetera_admin/api/deps.py)
 - [packages/admin/src/cafetera_admin/api/documents_qa.py](file://packages/admin/src/cafetera_admin/api/documents_qa.py)
 - [packages/admin/src/cafetera_admin/api/documents_upload.py](file://packages/admin/src/cafetera_admin/api/documents_upload.py)
+- [packages/admin/src/cafetera_admin/api/documents_bulk.py](file://packages/admin/src/cafetera_admin/api/documents_bulk.py)
+- [packages/admin/src/cafetera_admin/api/documents_helpers.py](file://packages/admin/src/cafetera_admin/api/documents_helpers.py)
 - [packages/admin/src/cafetera_admin/api/category_files.py](file://packages/admin/src/cafetera_admin/api/category_files.py)
 - [packages/admin/src/cafetera_admin/api/schemas.py](file://packages/admin/src/cafetera_admin/api/schemas.py)
+- [packages/admin/src/cafetera_admin/domain/document_service.py](file://packages/admin/src/cafetera_admin/domain/document_service.py)
+- [packages/admin/src/cafetera_admin/prompts.py](file://packages/admin/src/cafetera_admin/prompts.py)
+- [packages/admin/src/cafetera_admin/server.py](file://packages/admin/src/cafetera_admin/server.py)
 - [packages/core/src/cafetera_core/config.py](file://packages/core/src/cafetera_core/config.py)
 - [packages/core/src/cafetera_core/resources.py](file://packages/core/src/cafetera_core/resources.py)
 - [packages/core/src/cafetera_core/domain/qa_service.py](file://packages/core/src/cafetera_core/domain/qa_service.py)
@@ -31,11 +36,17 @@
 - [packages/rag_service/src/cafetera_rag_service/rag/retriever.py](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py)
 - [packages/rag_service/src/cafetera_rag_service/rag/prompts.py](file://packages/rag_service/src/cafetera_rag_service/rag/prompts.py)
 - [templates/documents.html](file://templates/documents.html)
+- [templates/partials/document_table.html](file://templates/partials/document_table.html)
+- [templates/partials/document_row.html](file://templates/partials/document_row.html)
+- [templates/partials/status_poller.html](file://templates/partials/status_poller.html)
+- [templates/category_files.html](file://templates/category_files.html)
+- [templates/partials/category_slot.html](file://templates/partials/category_slot.html)
+- [templates/login.html](file://templates/login.html)
 - [scripts/run_admin.sh](file://scripts/run_admin.sh)
 - [scripts/run_all.sh](file://scripts/run_all.sh)
 - [scripts/run_llama_llm.sh](file://scripts/run_llama_llm.sh)
 - [scripts/run_llama_embeddings.sh](file://scripts/run_llama_embeddings.sh)
-- [scripts/run_ollama_llm.sh](file://scripts/run_illum_embeddings.sh)
+- [scripts/run_ollama_llm.sh](file://scripts/run_ollama_llm.sh)
 - [scripts/run_ollama_embeddings.sh](file://scripts/run_ollama_embeddings.sh)
 - [static/js/components.js](file://static/js/components.js)
 - [static/js/upload.js](file://static/js/upload.js)
@@ -57,13 +68,13 @@
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive Russian text processing API documentation with BM25 lemmatization support
-- Enhanced QA service API with ask_with_contexts method for evaluation purposes
-- Updated configuration API with new settings for context window control (llm_num_ctx) and BM25 lemmatization (bm25_lemmatize)
-- Improved streaming capabilities with enhanced asyncio.CancelledError handling for proper cancellation
-- Added evaluation framework integration with RAGAS metrics collection
-- Enhanced SSE streaming with proper error propagation and client disconnection handling
-- Improved streaming response management with better token handling and completion signaling
+- Streamlined document management API endpoints by consolidating and simplifying administrative operations
+- Removed unnecessary imports and streamlined admin interface components for improved maintainability
+- Enhanced HTMX partial system with optimized batch status updates for better performance
+- Simplified admin authentication flow with improved redirect handling
+- Optimized document upload and indexing processes with streamlined background task management
+- Enhanced bulk operations with improved error handling and concurrent processing
+- Streamlined category file management with simplified validation and upload processes
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -92,13 +103,11 @@ Key features include:
 - Dual streaming capabilities for both document-specific and global QA
 - Background task management with semaphore-based concurrency control
 - Modular architecture supporting multiple deployment scenarios
-- **NEW** Enhanced QA service with ask_with_contexts method for evaluation purposes
-- **NEW** Comprehensive asyncio.CancelledError handling for proper streaming cancellation
-- **NEW** Russian language processing with BM25 lemmatization support
-- **NEW** LLM context window control through configurable llm_num_ctx parameter
-- **NEW** Adaptive k-value estimation for intelligent retrieval tuning
-- **NEW** Enhanced frontend streaming architecture with EventSource implementation
-- **NEW** Evaluation framework integration with RAGAS metrics collection
+- **NEW** Streamlined document management API endpoints with simplified operations
+- **NEW** Optimized HTMX partial system with batch status updates for improved performance
+- **NEW** Enhanced admin authentication flow with improved redirect handling
+- **NEW** Simplified category file management with streamlined validation processes
+- **NEW** Optimized bulk operations with enhanced error handling and concurrent processing
 
 ## Project Structure
 The project is now organized as a monorepo with four main packages:
@@ -112,7 +121,12 @@ ADMIN_DOCS["api/documents.py"]
 ADMIN_DEPS["api/deps.py"]
 ADMIN_QA["api/documents_qa.py"]
 ADMIN_UPLOAD["api/documents_upload.py"]
+ADMIN_BULK["api/documents_bulk.py"]
+ADMIN_HELPERS["api/documents_helpers.py"]
 ADMIN_CATEGORY["api/category_files.py"]
+ADMIN_DOMAIN["domain/document_service.py"]
+ADMIN_SCHEMAS["api/schemas.py"]
+ADMIN_PROMPTS["prompts.py"]
 end
 subgraph "Core Package (packages/core/)"
 CORE_CONFIG["config.py"]
@@ -141,6 +155,8 @@ ADMIN_MAIN --> CORE_RESOURCES
 ADMIN_DOCS --> ADMIN_DEPS
 ADMIN_QA --> RAG_QA
 ADMIN_UPLOAD --> CORE_RESOURCES
+ADMIN_BULK --> ADMIN_HELPERS
+ADMIN_CATEGORY --> ADMIN_SCHEMAS
 VK_BOT --> VK_HANDLERS
 RAG_QA --> RAG_TEXT_PROC
 RAG_QA --> RAG_CHAIN
@@ -152,6 +168,11 @@ RAG_QA --> RAG_RETRIEVER
 - [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
 - [packages/admin/src/cafetera_admin/api/documents.py:79-86](file://packages/admin/src/cafetera_admin/api/documents.py#L79-L86)
 - [packages/admin/src/cafetera_admin/api/deps.py:40-121](file://packages/admin/src/cafetera_admin/api/deps.py#L40-L121)
+- [packages/admin/src/cafetera_admin/api/documents_bulk.py:1-215](file://packages/admin/src/cafetera_admin/api/documents_bulk.py#L1-L215)
+- [packages/admin/src/cafetera_admin/api/documents_helpers.py:1-113](file://packages/admin/src/cafetera_admin/api/documents_helpers.py#L1-L113)
+- [packages/admin/src/cafetera_admin/api/category_files.py:1-349](file://packages/admin/src/cafetera_admin/api/category_files.py#L1-L349)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:1-318](file://packages/admin/src/cafetera_admin/domain/document_service.py#L1-L318)
+- [packages/admin/src/cafetera_admin/prompts.py:1-21](file://packages/admin/src/cafetera_admin/prompts.py#L1-L21)
 - [packages/core/src/cafetera_core/resources.py:218-423](file://packages/core/src/cafetera_core/resources.py#L218-L423)
 - [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
 - [packages/vk_bot/src/cafetera_vk_bot/bot.py:42-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L42-L56)
@@ -162,17 +183,17 @@ RAG_QA --> RAG_RETRIEVER
 - [packages/rag_service/src/cafetera_rag_service/rag/retriever.py:110-125](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py#L110-L125)
 
 **Section sources**
-- [packages/admin/src/cafetera_admin/main.py:1-88](file://packages/admin/src/cafetera_admin/main.py#L1-L88)
+- [packages/admin/src/cafetera_admin/main.py:1-109](file://packages/admin/src/cafetera_admin/main.py#L1-L109)
 - [packages/admin/src/cafetera_admin/config.py:1-20](file://packages/admin/src/cafetera_admin/config.py#L1-L20)
-- [packages/admin/src/cafetera_admin/api/documents.py:1-539](file://packages/admin/src/cafetera_admin/api/documents.py#L1-L539)
-- [packages/admin/src/cafetera_admin/api/deps.py:1-121](file://packages/admin/src/cafetera_admin/api/deps.py#L1-L121)
+- [packages/admin/src/cafetera_admin/api/documents.py:1-519](file://packages/admin/src/cafetera_admin/api/documents.py#L1-L519)
+- [packages/admin/src/cafetera_admin/api/deps.py:1-143](file://packages/admin/src/cafetera_admin/api/deps.py#L1-L143)
 - [packages/core/src/cafetera_core/resources.py:1-472](file://packages/core/src/cafetera_core/resources.py#L1-L472)
 - [packages/core/src/cafetera_core/config.py:1-71](file://packages/core/src/cafetera_core/config.py#L1-L71)
 - [packages/vk_bot/src/cafetera_vk_bot/bot.py:1-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L1-L56)
 - [packages/rag_service/src/cafetera_rag_service/config.py:1-79](file://packages/rag_service/src/cafetera_rag_service/config.py#L1-L79)
 
 ## Core Components
-This section documents the primary APIs exposed by the restructured cafetera_hr_bot monorepo with enhanced async support, dependency injection, and new streaming capabilities.
+This section documents the primary APIs exposed by the restructured cafetera_hr_bot monorepo with enhanced async support, dependency injection, and streamlined administrative operations.
 
 ### Admin Package APIs
 
@@ -217,17 +238,21 @@ This section documents the primary APIs exposed by the restructured cafetera_hr_
   - get_s3(request) -> S3Storage
   - get_qa_service(request) -> QAService
   - get_indexing_semaphore(request) -> asyncio.Semaphore
+  - get_rag_client(request) -> RAGClient
+  - get_system_prompt(request) -> str
+  - get_category_file_service(request) -> CategoryFileService
 - Types:
-  - AdminDep, SettingsDep, TemplatesDep, RepoDep, ServiceDep, S3Dep, QAServiceDep, IndexingSemaphoreDep
+  - AdminDep, SettingsDep, TemplatesDep, RepoDep, ServiceDep, S3Dep, QAServiceDep, IndexingSemaphoreDep, RAGClientDep, SystemPromptDep, CategoryFileServiceDep
 - Behavior:
   - Validates admin authentication via cookie comparison
   - Provides graceful degradation with 503 errors when services unavailable
   - Returns cached services from app.state during request lifecycle
+  - Supports both synchronous and asynchronous dependency resolution
 - Integration pattern:
   - Used as FastAPI Depends() parameters in endpoint functions
-  - Supports both synchronous and asynchronous dependency resolution
+  - Supports both browser and HTMX requests with appropriate redirect handling
 
-#### Document Administration API
+#### Streamlined Document Administration API
 - Purpose: Manage HR documents with comprehensive CRUD operations and question answering capabilities
 - Module: packages/admin/src/cafetera_admin/api/documents.py
 - Endpoints:
@@ -241,6 +266,7 @@ This section documents the primary APIs exposed by the restructured cafetera_hr_
   - GET /api/documents/{document_id}/download - Download document file
   - **NEW** GET /partials/document-table - HTMX partial for document table
   - **NEW** GET /partials/document-row/{document_id} - HTMX partial for single row
+  - **NEW** GET /partials/document-status/{document_id} - Individual status badge partial
   - **NEW** GET /partials/documents-status - Batch status updates for polling
 - Async operations:
   - All endpoints use async/await patterns for database operations
@@ -254,15 +280,15 @@ This section documents the primary APIs exposed by the restructured cafetera_hr_
   - 404 for non-existent documents
   - 400 for documents not ready for questions
   - Async error propagation with proper exception handling
-- **NEW** SSE streaming support for both document-specific and global queries with enhanced error handling
+- **NEW** Enhanced SSE streaming support for both document-specific and global queries with improved error handling
 - Integration pattern:
   - Requires admin authentication cookie
   - Uses QA service for question answering
   - **NEW** Supports both document-specific and global knowledge base queries
   - Returns truncated responses suitable for VK message limits
-  - **NEW** HTMX partials for dynamic UI updates
+  - **NEW** Optimized HTMX partials for dynamic UI updates with batch status polling
 
-#### Background Task Management with Semaphore Control
+#### Streamlined Background Task Management with Semaphore Control
 - Purpose: Manage concurrent document indexing operations with proper resource control
 - Module: packages/admin/src/cafetera_admin/api/documents_upload.py
 - Functions:
@@ -289,6 +315,95 @@ This section documents the primary APIs exposed by the restructured cafetera_hr_
   - Supports both initial indexing and reindexing
   - Invalidates QA chain cache after completion
   - Updates document status to processing during indexing
+
+#### Optimized Document Helper Functions
+- Purpose: Provide utility functions for document management operations
+- Module: packages/admin/src/cafetera_admin/api/documents_helpers.py
+- Functions:
+  - _validate_docx_bytes(data: bytes) -> bool - Validate DOCX file integrity
+  - _sanitize_filename(name: str) -> str - Sanitize user-provided filenames
+  - _get_mime_from_ext(filename: str) -> str | None - Get MIME type from extension
+  - _human_size(size_bytes: int) -> str - Format bytes as human-readable string
+  - _doc_to_dict(doc: DocumentRecord) -> dict - Convert DocumentRecord to JSON-safe dict
+  - _document_table_context(...) -> DocumentTableContext - Build template context for tables
+- Features:
+  - Comprehensive file validation with ZIP file integrity checking
+  - Path traversal prevention for filename sanitization
+  - MIME type resolution from file extensions
+  - Human-readable size formatting with appropriate units
+  - Structured data conversion for API responses
+  - Template context building for HTMX partials
+- Integration pattern:
+  - Used throughout admin API endpoints for data transformation
+  - Supports both JSON API responses and HTML template rendering
+
+#### Streamlined Bulk Operations API
+- Purpose: Provide bulk management operations for multiple documents with enhanced error handling
+- Module: packages/admin/src/cafetera_admin/api/documents_bulk.py
+- Endpoints:
+  - POST /api/documents/bulk/delete - Delete multiple documents by ID
+  - POST /api/documents/bulk/reindex - Reindex multiple documents by ID
+  - PATCH /api/documents/bulk/search - Toggle search participation for multiple documents
+- Features:
+  - Concurrent document fetching using asyncio.gather() for improved performance
+  - Batch processing with comprehensive error collection and logging
+  - HTMX partial refresh for immediate UI updates
+  - Semaphore-based concurrency control for background tasks
+  - Graceful error handling with detailed error messages
+- Integration pattern:
+  - Returns refreshed document table partial for HTMX integration
+  - Supports both individual and batch operations
+  - Provides rollback capabilities for failed operations
+
+#### Simplified Category File Management API
+- Purpose: Manage category-specific files for VK bot templates with streamlined validation
+- Module: packages/admin/src/cafetera_admin/api/category_files.py
+- Endpoints:
+  - GET /category-files - Main category files admin page
+  - GET /api/category-files/slots - List category slots and entities
+  - GET /api/category-files - List all uploaded category files
+  - POST /api/category-files/upload - Upload file for a specific slot
+  - GET /api/category-files/{file_id}/download - Download category file
+  - DELETE /api/category-files/{file_id} - Delete category file
+  - **NEW** GET /partials/category-slot/{category}/{subcategory}/{entity_id} - HTMX partial for single slot
+- Features:
+  - Streamlined file validation with simplified extension and size checking
+  - Category slot validation with predefined slot definitions
+  - Entity validation against legal entities registry
+  - MIME type resolution from file extensions
+  - HTMX partial system for dynamic slot updates
+  - RFC 5987 filename encoding for international character support
+- Integration pattern:
+  - Returns HTMX partials for immediate UI updates
+  - Supports category-specific file organization
+  - Provides slot availability visualization
+
+#### Enhanced Document Service Domain Layer
+- Purpose: Provide comprehensive document lifecycle management with streamlined operations
+- Module: packages/admin/src/cafetera_admin/domain/document_service.py
+- Classes:
+  - DocumentService - Central orchestration service for document operations
+- Methods:
+  - generate_unique_s3_key(base_key: str, s3: S3Storage) -> str - Generate unique S3 key
+  - create_document(filename: str, title: str, s3_key: str, mime_type: str, size_bytes: int) -> DocumentRecord
+  - index_document(document_id: str) -> DocumentRecord | None - Full document indexing process
+  - update_metadata(document_id: str, title: str | None = None) -> DocumentRecord | None
+  - toggle_search(document_id: str, enabled: bool) -> DocumentRecord | None
+  - reindex_document(document_id: str) -> DocumentRecord | None - Full document reindexing process
+  - get_active_and_recent_documents(recent_seconds: int = 10) -> tuple[list[DocumentRecord], list[DocumentRecord]]
+  - has_active_documents() -> bool - Check for pending or processing documents
+  - delete_document(document_id: str, file_deleter: Callable | None = None) -> bool
+- Features:
+  - Comprehensive document lifecycle management from creation to deletion
+  - Streamlined indexing and reindexing processes with proper status transitions
+  - RAG service integration for chunk management and search toggling
+  - Status polling optimization with recent document tracking
+  - File deletion coordination with optional S3 cleanup
+  - Error handling with proper status updates and logging
+- Integration pattern:
+  - Acts as central coordinator for document operations
+  - Provides transactional consistency across metadata, storage, and RAG layers
+  - Supports both direct API calls and background task processing
 
 ### Core Package APIs
 
@@ -605,8 +720,13 @@ This section documents the primary APIs exposed by the restructured cafetera_hr_
 **Section sources**
 - [packages/admin/src/cafetera_admin/config.py:6-20](file://packages/admin/src/cafetera_admin/config.py#L6-L20)
 - [packages/admin/src/cafetera_admin/main.py:59-88](file://packages/admin/src/cafetera_admin/main.py#L59-L88)
-- [packages/admin/src/cafetera_admin/api/deps.py:40-121](file://packages/admin/src/cafetera_admin/api/deps.py#L40-L121)
+- [packages/admin/src/cafetera_admin/api/deps.py:40-143](file://packages/admin/src/cafetera_admin/api/deps.py#L40-L143)
 - [packages/admin/src/cafetera_admin/api/documents.py:79-86](file://packages/admin/src/cafetera_admin/api/documents.py#L79-L86)
+- [packages/admin/src/cafetera_admin/api/documents_bulk.py:1-215](file://packages/admin/src/cafetera_admin/api/documents_bulk.py#L1-L215)
+- [packages/admin/src/cafetera_admin/api/documents_helpers.py:1-113](file://packages/admin/src/cafetera_admin/api/documents_helpers.py#L1-L113)
+- [packages/admin/src/cafetera_admin/api/category_files.py:1-349](file://packages/admin/src/cafetera_admin/api/category_files.py#L1-L349)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:1-318](file://packages/admin/src/cafetera_admin/domain/document_service.py#L1-L318)
+- [packages/admin/src/cafetera_admin/prompts.py:1-21](file://packages/admin/src/cafetera_admin/prompts.py#L1-L21)
 - [packages/core/src/cafetera_core/config.py:14-71](file://packages/core/src/cafetera_core/config.py#L14-L71)
 - [packages/core/src/cafetera_core/resources.py:193-423](file://packages/core/src/cafetera_core/resources.py#L193-L423)
 - [packages/core/src/cafetera_core/domain/qa_service.py:43-200](file://packages/core/src/cafetera_core/domain/qa_service.py#L43-L200)
@@ -633,6 +753,11 @@ The cafetera_hr_bot now follows a modular monorepo architecture with clear separ
 - Enhanced dependency injection system with FastAPI dependencies
 - Centralized resource management with AppResources container
 - Comprehensive async support throughout all packages
+- **NEW** Streamlined document management API endpoints with simplified operations
+- **NEW** Optimized HTMX partial system with batch status updates for improved performance
+- **NEW** Enhanced admin authentication flow with improved redirect handling
+- **NEW** Simplified category file management with streamlined validation processes
+- **NEW** Optimized bulk operations with enhanced error handling and concurrent processing
 - **NEW** Enhanced QA service with ask_with_contexts method for evaluation purposes
 - **NEW** Comprehensive asyncio.CancelledError handling for proper streaming cancellation
 - **NEW** Russian language processing with configurable BM25 lemmatization
@@ -1103,11 +1228,13 @@ External dependencies relevant to the restructured cafetera_hr_bot monorepo:
 - **NEW** langchain_openai for OpenAI-compatible LLM integration
 - **NEW** EventSource API for frontend streaming
 - **NEW** ragas for evaluation framework integration
+- **NEW** hypercorn for production-grade admin server
 
 ```mermaid
 graph LR
 P_ADMIN["packages/admin/pyproject.toml"] --> FA["fastapi>=0.104.0"]
 P_ADMIN --> ST["starlette>=0.27.0"]
+P_ADMIN --> HC["hypercorn>=0.14.0"]
 P_CORE["packages/core/pyproject.toml"] --> LC["langchain>=0.1.0"]
 P_CORE --> QC["qdrant-client>=1.7.0"]
 P_CORE --> DB["databases>=0.9.0"]
@@ -1173,6 +1300,15 @@ P_ALL --> AS["asyncio (built-in)"]
   - ask_with_contexts() method enables efficient batch evaluation
   - Context retrieval optimized for evaluation workflows
   - RAGAS metrics scoring with caching and batching
+- **NEW** Streamlined document management:
+  - Optimized HTMX partial system reduces server load and improves UI responsiveness
+  - Batch status updates eliminate N concurrent requests for polling
+  - Simplified authentication flow reduces redirect overhead
+  - Enhanced bulk operations use concurrent processing for better throughput
+- **NEW** Category file management optimization:
+  - Streamlined validation reduces processing overhead
+  - Simplified file handling improves upload performance
+  - Optimized slot rendering reduces template processing time
 - Background task management:
   - Semaphore-based concurrency control prevents resource exhaustion
   - Thread pool execution for CPU-intensive operations
@@ -1189,6 +1325,8 @@ P_ALL --> AS["asyncio (built-in)"]
   - **NEW** Enhanced streaming capabilities improve user experience
   - **NEW** Intelligent retrieval tuning optimizes search performance
   - **NEW** Evaluation framework integration enables comprehensive testing
+  - **NEW** Streamlined admin operations improve system responsiveness
+  - **NEW** Optimized HTMX partial system enhances UI performance
 
 ## Troubleshooting Guide
 - Configuration not loading:
@@ -1273,6 +1411,21 @@ P_ALL --> AS["asyncio (built-in)"]
   - Validate testset loading and processing
   - Ensure proper metrics scoring and reporting
   - Check that evaluation results are properly formatted and saved
+- **NEW** Streamlined document management issues:
+  - Verify HTMX partial endpoints return proper OOB-swapped HTML
+  - Check that batch status polling reduces server load effectively
+  - Validate simplified authentication flow with proper redirect handling
+  - Ensure optimized bulk operations handle errors gracefully
+- **NEW** Category file management problems:
+  - Verify file validation works with simplified extension checking
+  - Check that category slot validation uses predefined slot definitions
+  - Validate entity validation against legal entities registry
+  - Ensure proper MIME type resolution from file extensions
+- **NEW** Admin server startup issues:
+  - Verify ADMIN_API_KEY is properly configured in environment
+  - Check that BIND_HOST and port configuration is correct
+  - Validate Hypercorn configuration with HTTP/2 support
+  - Ensure all required dependencies are installed
 
 **Section sources**
 - [tests/test_config.py:6-27](file://tests/test_config.py#L6-L27)
@@ -1285,6 +1438,7 @@ P_ALL --> AS["asyncio (built-in)"]
 - [tests/test_text_processor.py:1-128](file://tests/test_text_processor.py#L1-L128)
 - [tests/test_rag_block6.py:344-367](file://tests/test_rag_block6.py#L344-L367)
 - [ragas/evaluate.py:142-176](file://ragas/evaluate.py#L142-L176)
+- [packages/admin/src/cafetera_admin/server.py:1-66](file://packages/admin/src/cafetera_admin/server.py#L1-L66)
 
 ## Conclusion
 The cafetera_hr_bot monorepo structure provides a clean, modular API with enhanced document administration, centralized resource management, and real-time streaming capabilities:
@@ -1301,6 +1455,11 @@ The cafetera_hr_bot monorepo structure provides a clean, modular API with enhanc
 - Type-safe configuration management with shared CoreSettings
 - Graceful degradation for optional services
 - Efficient resource sharing across packages
+- **NEW** Streamlined document management API endpoints with simplified operations
+- **NEW** Optimized HTMX partial system with batch status updates for improved performance
+- **NEW** Enhanced admin authentication flow with improved redirect handling
+- **NEW** Simplified category file management with streamlined validation processes
+- **NEW** Optimized bulk operations with enhanced error handling and concurrent processing
 - **NEW** Enhanced QA service with ask_with_contexts method for evaluation purposes
 - **NEW** Comprehensive asyncio.CancelledError handling for proper streaming cancellation
 - **NEW** Russian language processing with configurable BM25 lemmatization
@@ -1311,8 +1470,11 @@ The cafetera_hr_bot monorepo structure provides a clean, modular API with enhanc
 - **NEW** Evaluation framework integration with RAGAS metrics collection
 - **NEW** Intelligent retrieval optimization based on question complexity
 - **NEW** Efficient evaluation workflows with context retrieval capabilities
+- **NEW** Streamlined admin operations improve system responsiveness
+- **NEW** Optimized HTMX partial system enhances UI performance
+- **NEW** Production-grade admin server with Hypercorn and HTTP/2 support
 
-Adhering to the documented patterns ensures reliable operation and maintainable extensions with robust async support, graceful degradation across the entire monorepo structure, enhanced streaming capabilities for improved user experience, and comprehensive evaluation frameworks for quality assurance.
+Adhering to the documented patterns ensures reliable operation and maintainable extensions with robust async support, graceful degradation across the entire monorepo structure, enhanced streaming capabilities for improved user experience, comprehensive evaluation frameworks for quality assurance, and streamlined administrative operations for better system performance.
 
 ## Appendices
 
@@ -1339,6 +1501,12 @@ Adhering to the documented patterns ensures reliable operation and maintainable 
 - **NEW** Frontend streaming architecture with EventSource is newly introduced
 - **NEW** Evaluation framework integration with RAGAS metrics is newly introduced
 - **NEW** ask_with_contexts method for evaluation purposes is newly introduced
+- **NEW** Streamlined document management API endpoints are newly introduced
+- **NEW** Optimized HTMX partial system is newly introduced
+- **NEW** Enhanced admin authentication flow is newly introduced
+- **NEW** Simplified category file management is newly introduced
+- **NEW** Optimized bulk operations are newly introduced
+- **NEW** Production-grade admin server with Hypercorn is newly introduced
 - Backward compatibility:
   - CoreSettings provides backward compatibility alias
   - VKSettings and AdminSettings extend CoreSettings for shared configuration
@@ -1356,6 +1524,11 @@ Adhering to the documented patterns ensures reliable operation and maintainable 
   - **NEW** EventSource implementation maintains compatibility with modern browsers
   - **NEW** ask_with_contexts method maintains backward compatibility with existing QA workflows
   - **NEW** Evaluation framework integration maintains compatibility with existing RAGAS workflows
+  - **NEW** Streamlined API endpoints maintain compatibility with existing client integrations
+  - **NEW** Optimized HTMX partial system maintains compatibility with existing frontend implementations
+  - **NEW** Simplified authentication flow maintains compatibility with existing redirect patterns
+  - **NEW** Optimized bulk operations maintain compatibility with existing batch processing workflows
+  - **NEW** Hypercorn-based admin server maintains compatibility with existing deployment patterns
 
 **Section sources**
 - [packages/admin/pyproject.toml:1-56](file://packages/admin/pyproject.toml#L1-L56)
@@ -1370,6 +1543,10 @@ Adhering to the documented patterns ensures reliable operation and maintainable 
 - [packages/admin/src/cafetera_admin/api/documents.py:791-853](file://packages/admin/src/cafetera_admin/api/documents.py#L791-L853)
 - [packages/admin/src/cafetera_admin/api/documents_qa.py:26-91](file://packages/admin/src/cafetera_admin/api/documents_qa.py#L26-L91)
 - [packages/admin/src/cafetera_admin/api/documents_upload.py:119-167](file://packages/admin/src/cafetera_admin/api/documents_upload.py#L119-L167)
+- [packages/admin/src/cafetera_admin/api/documents_bulk.py:1-215](file://packages/admin/src/cafetera_admin/api/documents_bulk.py#L1-L215)
+- [packages/admin/src/cafetera_admin/api/category_files.py:1-349](file://packages/admin/src/cafetera_admin/api/category_files.py#L1-L349)
+- [packages/admin/src/cafetera_admin/domain/document_service.py:1-318](file://packages/admin/src/cafetera_admin/domain/document_service.py#L1-L318)
+- [packages/admin/src/cafetera_admin/server.py:1-66](file://packages/admin/src/cafetera_admin/server.py#L1-L66)
 - [packages/core/src/cafetera_core/domain/qa_service.py:167-218](file://packages/core/src/cafetera_core/domain/qa_service.py#L167-L218)
 - [packages/core/src/cafetera_core/resources.py:129-315](file://packages/core/src/cafetera_core/resources.py#L129-L315)
 - [packages/rag_service/src/cafetera_rag_service/config.py:53-56](file://packages/rag_service/src/cafetera_rag_service/config.py#L53-L56)

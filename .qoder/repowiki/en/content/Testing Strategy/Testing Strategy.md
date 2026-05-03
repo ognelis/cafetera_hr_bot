@@ -69,16 +69,16 @@
 - [templates/partials/pagination.html](file://templates/partials/pagination.html)
 - [scripts/run_admin.sh](file://scripts/run_admin.sh)
 - [scripts/admin_server.py](file://scripts/admin_server.py)
+- [ragas/evaluate.py](file://ragas/evaluate.py)
+- [docs/ragas.md](file://docs/ragas.md)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- **Removed References to Deprecated build_vectorstore Function**: Updated test files to reflect new architecture where tests focus on retriever functionality and chain building components rather than vectorstore integration.
-- **Updated Authentication Testing Approaches**: Modernized authentication testing to use cookie-based sessions and HTMX integration patterns.
-- **Enhanced Cross-Encoder Reranking Test Coverage**: Added comprehensive test suite for CrossEncoderReranker and RerankingRetriever classes.
-- **Updated Hybrid Search Infrastructure**: Enhanced hybrid search testing to validate cross-encoder reranking integration with prefetch limit handling.
-- **Modernized RAG Pipeline Testing**: Integrated cross-encoder reranking into the complete RAG pipeline testing infrastructure.
-- **Streamlined Test Organization**: Improved test organization to focus on retriever functionality and chain building components.
+- **Added LLM Tuning Parameters Testing**: Updated to reflect the addition of LLM tuning parameters for local models with lower temperature settings (0.2) and repetition penalty controls for Faithfulness scoring
+- **Enhanced RAGAS Evaluation Testing**: Added comprehensive testing coverage for the new LLM tuning parameters in the RAGAS evaluation pipeline
+- **Updated Faithfulness Scoring Testing**: Enhanced testing patterns for Faithfulness scoring with improved temperature and repetition penalty controls
+- **Integrated Local Model Optimization Testing**: Added testing strategies for local model optimization with temperature and repetition penalty controls
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -93,9 +93,9 @@
 10. [Appendices](#appendices)
 
 ## Introduction
-This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly enhanced with modern async testing patterns, comprehensive AsyncMock usage for Qdrant client mocking, expanded test coverage for the new async operations and combined vector embedding approach in hybrid search functionality, **complete migration from deprecated build_vectorstore function to retriever-focused testing**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, and **comprehensive module structure alignment with updated import paths**.
+This document describes the comprehensive testing strategy and approach used in cafetera_hr_bot, covering unit testing methodologies, configuration and setup, handler testing patterns, keyboard testing strategies, state management testing, and domain content validation. The testing infrastructure has been significantly enhanced with modern async testing patterns, comprehensive AsyncMock usage for Qdrant client mocking, expanded test coverage for the new async operations and combined vector embedding approach in hybrid search functionality, **complete migration from deprecated build_vectorstore function to retriever-focused testing**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, **comprehensive module structure alignment with updated import paths**, **added LLM tuning parameters testing for local models with lower temperature settings (0.2)**, **enhanced RAGAS evaluation testing with Faithfulness scoring optimization**, and **integrated local model optimization testing strategies**.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, expanded test coverage for new async operations and combined vector embedding approach, **complete migration from deprecated build_vectorstore function to retriever-focused testing**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, and **comprehensive module structure alignment with updated import paths**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, expanded test coverage for new async operations and combined vector embedding approach, **complete migration from deprecated build_vectorstore function to retriever-focused testing**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, **comprehensive module structure alignment with updated import paths**, **added LLM tuning parameters testing for local models with lower temperature settings (0.2)**, **enhanced RAGAS evaluation testing with Faithfulness scoring optimization**, and **integrated local model optimization testing strategies**.
 
 ## Project Structure
 The testing effort is organized under the tests/ directory with a modernized approach featuring comprehensive AsyncMock usage, PostgreSQL database testing, and Docker container integration within the new uv workspace structure:
@@ -128,6 +128,8 @@ The testing effort is organized under the tests/ directory with a modernized app
 - **Enhanced indexer testing** with comprehensive validation of is_search_enabled flag handling and Docling metadata extraction using cafetera_admin.indexer
 - **New Cross-Encoder Reranking Testing** with comprehensive validation of CrossEncoderReranker and RerankingRetriever functionality using cafetera_core.rag.reranker
 - **Enhanced Reranking Configuration Testing** with validation of reranking_enabled, reranker_model, reranker_top_n, and reranker_prefetch_limit settings using cafetera_core.config
+- **Enhanced RAGAS Evaluation Testing** with comprehensive Faithfulness scoring optimization using LLM tuning parameters (temperature=0.2, repetition penalties) for local models using ragas.evaluate
+- **Local Model Optimization Testing** with comprehensive testing strategies for temperature and repetition penalty controls using ragas.evaluate
 
 ```mermaid
 graph TB
@@ -204,6 +206,8 @@ PARTIALS["partials/"]
 PAGINATION["pagination.html"]
 SCRIPTS["scripts/"]
 RUN_ADMIN["run_admin.sh"]
+RAGAS_EVAL["ragas/evaluate.py"]
+RAGAS_DOCS["docs/ragas.md"]
 T --> T_CFG
 T --> T_BOT
 T --> T_KB
@@ -273,6 +277,7 @@ TEMPLATES --> PARTIALS
 PARTIALS --> PAGINATION
 ADMIN --> SCRIPTS
 SCRIPTS --> RUN_ADMIN
+RAGAS_EVAL --> RAGAS_DOCS
 ```
 
 **Diagram sources**
@@ -298,8 +303,10 @@ SCRIPTS --> RUN_ADMIN
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
-- [tests/test_rag_block6.py:1-200](file://tests/test_rag_block6.py#L1-L200)
+- [tests/test_rag_block6.py:1-467](file://tests/test_rag_block6.py#L1-L467)
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
+- [ragas/evaluate.py:117-170](file://ragas/evaluate.py#L117-L170)
+- [docs/ragas.md:1-238](file://docs/ragas.md#L1-L238)
 
 **Section sources**
 - [pyproject.toml:22-34](file://pyproject.toml#L22-L34)
@@ -325,8 +332,10 @@ SCRIPTS --> RUN_ADMIN
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
-- [tests/test_rag_block6.py:1-200](file://tests/test_rag_block6.py#L1-L200)
+- [tests/test_rag_block6.py:1-467](file://tests/test_rag_block6.py#L1-L467)
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
+- [ragas/evaluate.py:117-170](file://ragas/evaluate.py#L117-L170)
+- [docs/ragas.md:1-238](file://docs/ragas.md#L1-L238)
 
 ## Core Components
 - **Configuration tests** validate default values and environment overrides with explicit environment file control using cafetera_vk_bot.config.
@@ -360,8 +369,10 @@ SCRIPTS --> RUN_ADMIN
 - **Enhanced indexer testing** validates proper handling of the is_search_enabled flag during document indexing with comprehensive validation of top-level field storage and **Docling metadata extraction including page numbers and headings** using cafetera_admin.indexer.
 - **New Cross-Encoder Reranking Testing** validates CrossEncoderReranker and RerankingRetriever functionality with comprehensive async and sync testing patterns using cafetera_core.rag.reranker.
 - **Enhanced Reranking Configuration Testing** validates reranking_enabled, reranker_model, reranker_top_n, and reranker_prefetch_limit settings with proper integration into factory dispatch functions using cafetera_core.config and cafetera_core.resources.
+- **Enhanced RAGAS Evaluation Testing** validates Faithfulness scoring optimization with LLM tuning parameters including temperature=0.2 and repetition penalty controls for local models using ragas.evaluate.
+- **Local Model Optimization Testing** validates comprehensive temperature and repetition penalty controls for Faithfulness scoring using ragas.evaluate with provider-specific configurations.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, **improved test isolation through table dropping and recreation**, **comprehensive category-aware functionality testing with CATEGORY_HINTS validation**, **enhanced indexer testing for is_search_enabled flag handling**, **expanded test coverage for all new category-aware features and functionality**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, **comprehensive module structure alignment with updated import paths**, **complete migration from deprecated build_vectorstore function to retriever-focused testing**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, and **new hybrid reranking infrastructure testing**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, **improved test isolation through table dropping and recreation**, **comprehensive category-aware functionality testing with CATEGORY_HINTS validation**, **enhanced indexer testing for is_search_enabled flag handling**, **expanded test coverage for all new category-aware features and functionality**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, **comprehensive module structure alignment with updated import paths**, **complete migration from deprecated build_vectorstore function to retriever-focused testing**, **comprehensive CrossEncoderReranker and RerankingRetriever testing**, **enhanced reranking configuration validation**, **new hybrid reranking infrastructure testing**, **added LLM tuning parameters testing for local models with lower temperature settings (0.2)**, **enhanced RAGAS evaluation testing with Faithfulness scoring optimization**, and **integrated local model optimization testing strategies**.
 
 Key testing characteristics:
 - Uses pytest with asyncio_mode set to auto for async-friendly tests.
@@ -386,7 +397,7 @@ Key testing characteristics:
 - **Admin document API testing** validates authentication mechanisms, authorization enforcement, Russian localization, and filtering/sorting functionality across specialized modules.
 - **Auth client fixture** provides authenticated TestClient instances with pre-set admin_session cookies for comprehensive admin functionality testing.
 - **Document service testing** validates complete document lifecycle including indexing, reindexing, and metadata management.
-- **Indexer testing** validates chunk preparation, metadata enrichment, and search enablement handling with comprehensive validation of is_search_enabled flag and **Docling metadata extraction**.
+- **Indexer testing** validates chunk preparation, metadata enrichment, and search enablement handling with comprehensive validation of is_search_enabled flag and **Docling metadata extraction including page numbers and headings**.
 - **Filtering and sorting API testing** validates comprehensive filtering by status, source type, and sorting by multiple fields.
 - **Updated architectural testing patterns** validate the new query_rag_with_wait function for asynchronous RAG querying with timeout handling.
 - **Handler imports testing** validates that P0+P1 handlers use send_rag_answer helper instead of direct QA service calls.
@@ -401,8 +412,10 @@ Key testing characteristics:
 - **Enhanced indexer testing** validates is_search_enabled flag handling with top-level field storage validation and **Docling metadata extraction including page numbers and headings**.
 - **New Cross-Encoder Reranking Testing** validates CrossEncoderReranker arerank and rerank methods with proper async/await semantics and score-based ranking.
 - **Enhanced Reranking Configuration Testing** validates reranking_enabled setting and its integration with factory dispatch functions build_retriever and build_retriever_for_document.
+- **Enhanced RAGAS Evaluation Testing** validates Faithfulness scoring optimization with comprehensive temperature and repetition penalty controls for local models using ragas.evaluate.
+- **Local Model Optimization Testing** validates provider-specific LLM tuning parameters including temperature=0.2 for Ollama and llama.cpp providers, and repetition penalties for Faithfulness scoring.
 
-**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**.
+**Updated** Enhanced with comprehensive AsyncMock usage for Qdrant client mocking, async function validation patterns, and expanded test coverage for new async operations and combined vector embedding approach. The testing infrastructure now features modern async patterns with proper await semantics, comprehensive AsyncMock support for Qdrant client lifecycle management, **PostgreSQL database testing with Docker containers**, **automatic Docker availability detection**, **environment variable integration for database configuration**, and **improved test isolation through table dropping and recreation**, **added LLM tuning parameters testing for local models with lower temperature settings (0.2)**, **enhanced RAGAS evaluation testing with Faithfulness scoring optimization**, and **integrated local model optimization testing strategies**.
 
 **Section sources**
 - [pyproject.toml:22-34](file://pyproject.toml#L22-L34)
@@ -428,11 +441,13 @@ Key testing characteristics:
 - [tests/test_api_documents_upload.py:1-82](file://tests/test_api_documents_upload.py#L1-L82)
 - [tests/test_api_documents_bulk.py:1-49](file://tests/test_api_documents_bulk.py#L1-L49)
 - [tests/test_document_service.py:1-348](file://tests/test_document_service.py#L1-L348)
-- [tests/test_rag_block6.py:1-200](file://tests/test_rag_block6.py#L1-L200)
+- [tests/test_rag_block6.py:1-467](file://tests/test_rag_block6.py#L1-L467)
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
+- [ragas/evaluate.py:117-170](file://ragas/evaluate.py#L117-L170)
+- [docs/ragas.md:1-238](file://docs/ragas.md#L1-L238)
 
 ## Architecture Overview
-The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with simplified breakdown by functional area. The streamlined testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing with AsyncMock validation**, **enhanced Docling integration testing with comprehensive metadata extraction**, **comprehensive hybrid search testing with sparse embeddings using AsyncMock**, **extended configuration testing for semantic chunking and hybrid search settings**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with is_search_enabled flag handling**, **expanded test coverage for all new category-aware features and functionality**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, and **comprehensive module structure alignment with updated import paths**.
+The VK bot registers handlers in a specific order to ensure routing correctness. The fallback handler must be last because it matches any message. The tests enforce this ordering and verify that the expected number of handlers are registered, with simplified breakdown by functional area. The streamlined testing infrastructure now covers the complete bot architecture including domain content, entity management, keyboard builders, custom rules, QA service integration, comprehensive Block 9 functionality, document storage system testing, extensive RAG infrastructure testing with llama.cpp provider support, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with indexer validation**, **extensive test suites validating new functionality across multiple test files**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing with AsyncMock validation**, **enhanced Docling integration testing with comprehensive metadata extraction**, **comprehensive hybrid search testing with sparse embeddings using AsyncMock**, **extended configuration testing for semantic chunking and hybrid search settings**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with is_search_enabled flag handling**, **expanded test coverage for all new category-aware features and functionality**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization for cafetera_core, cafetera_admin, and cafetera_vk_bot packages**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with comprehensive async/await patterns**, **enhanced Reranking Configuration Testing with reranking settings validation**, **added LLM tuning parameters testing for local models with lower temperature settings (0.2)**, **enhanced RAGAS evaluation testing with Faithfulness scoring optimization**, and **integrated local model optimization testing strategies**.
 
 ```mermaid
 sequenceDiagram
@@ -479,7 +494,7 @@ Best practices:
 - Prefer explicit Settings construction with `_env_file=None` for deterministic tests that don't rely on external environment files.
 - Use monkeypatch for environment variable testing to avoid modifying system-wide environment.
 
-**Updated** Enhanced with explicit `_env_file=None` parameter usage for improved test isolation and reliability. This prevents tests from accidentally loading environment files from the project directory, ensuring consistent and predictable test behavior. Extended configuration testing now validates new semantic chunking settings including chunk_strategy, semantic_breakpoint_threshold_type, semantic_breakpoint_threshold_amount, and hybrid search settings retrieval_mode and sparse_embedding_model, **including new reranking configuration settings reranking_enabled, reranker_model, reranker_top_n, and reranker_prefetch_limit**.
+**Updated** Enhanced with explicit `_env_file=None` parameter usage for improved test isolation and reliability. This prevents tests from accidentally loading environment files from the project directory, ensuring consistent and predictable test behavior. Extended configuration testing now validates new semantic chunking settings including chunk_strategy, semantic_breakpoint_threshold_type, semantic_breakpoint_threshold_amount, and hybrid search settings retrieval_mode and sparse_embedding_model, **including new reranking configuration settings reranking_enabled, reranker_model, reranker_top_n, and reranker_prefetch_limit**, and **added LLM tuning parameters testing for local models with lower temperature settings (0.2)**.
 
 **Section sources**
 - [tests/test_config.py:6-44](file://tests/test_config.py#L6-L44)
@@ -1137,6 +1152,8 @@ Current coverage:
 - **Enhanced indexer testing validates is_search_enabled flag handling and metadata preservation.**
 - **New Cross-Encoder Reranking Testing validates CrossEncoderReranker and RerankingRetriever functionality.**
 - **Enhanced Reranking Configuration Testing validates reranking_enabled, reranker_model, reranker_top_n, and reranker_prefetch_limit settings.**
+- **Enhanced RAGAS Evaluation Testing validates Faithfulness scoring optimization with LLM tuning parameters.**
+- **Local Model Optimization Testing validates comprehensive temperature and repetition penalty controls.**
 
 Testing approach:
 - Since handlers are async and depend on message events, tests focus on wiring and keyboard payloads.
@@ -1169,6 +1186,8 @@ Testing approach:
 - **Enhanced indexer testing validates comprehensive is_search_enabled flag handling and metadata preservation.**
 - **New Cross-Encoder Reranking Testing validates comprehensive reranking functionality with async/await patterns.**
 - **Enhanced Reranking Configuration Testing validates comprehensive reranking settings integration.**
+- **Enhanced RAGAS Evaluation Testing validates comprehensive Faithfulness scoring optimization with LLM tuning parameters.**
+- **Local Model Optimization Testing validates comprehensive temperature and repetition penalty controls for local models.**
 
 Mocking external dependencies:
 - Replace VK API calls with mocks or fakes in higher-level integration tests.
@@ -1209,6 +1228,8 @@ Mocking external dependencies:
 - **Validate comprehensive is_search_enabled flag handling with top-level field storage.**
 - **Validate new Cross-Encoder Reranking Testing with comprehensive async/await patterns.**
 - **Validate enhanced Reranking Configuration Testing with reranking settings validation.**
+- **Validate enhanced RAGAS Evaluation Testing with comprehensive Faithfulness scoring optimization.**
+- **Validate Local Model Optimization Testing with comprehensive temperature and repetition penalty controls.**
 
 Validation tips:
 - Use keyboard payload assertions to confirm routing correctness.
@@ -1248,7 +1269,7 @@ Validation tips:
 - **Validate sparse embedding creation with FastEmbedSparse.**
 - **Validate vector store construction with sparse embeddings.**
 - **Validate configuration defaults for hybrid search settings.**
-- **Validate resource management for sparse embeddings initialization and cleanup.**
+- **Validate resource management for sparse embeddings and rerankers initialization and cleanup.**
 - **Validate enhanced admin document API testing with modular approach organization.**
 - **Validate comprehensive test fixtures infrastructure for shared testing resources.**
 - **Validate AsyncMock usage for comprehensive async operation validation across all test modules.**
@@ -1261,8 +1282,10 @@ Validation tips:
 - **Validate comprehensive is_search_enabled flag handling with top-level field storage.**
 - **Validate new Cross-Encoder Reranking Testing with comprehensive reranking functionality.**
 - **Validate enhanced Reranking Configuration Testing with reranking settings validation.**
+- **Validate enhanced RAGAS Evaluation Testing with comprehensive Faithfulness scoring optimization.**
+- **Validate Local Model Optimization Testing with comprehensive temperature and repetition penalty controls.**
 
-**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation using query_rag_with_wait, document storage system testing for comprehensive database operations, category file service testing for PostgreSQL integration, enhanced admin document API testing for authentication and localization, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with enhanced indexer validation**, **comprehensive Docling integration testing with HybridChunker functionality**, **comprehensive hybrid search testing with sparse embeddings**, **extended configuration testing for semantic chunking and hybrid search settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure with PostgreSQL integration**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **modernized workspace configuration with uv workspace support**, **new Cross-Encoder Reranking Testing with comprehensive async/await patterns**, and **enhanced Reranking Configuration Testing with reranking settings validation**.
+**Updated** Enhanced with custom rule testing, expanded handler validation patterns, specialized RAG stub testing for FR-11 and FR-12 functionality, comprehensive QA service testing, topic hints detection testing, ask handler testing with state management and integration validation using query_rag_with_wait, document storage system testing for comprehensive database operations, category file service testing for PostgreSQL integration, enhanced admin document API testing for authentication and localization, extensive llama.cpp provider testing infrastructure, **comprehensive filtering and sorting API endpoint testing**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with enhanced indexer validation**, **comprehensive Docling integration testing with HybridChunker functionality**, **comprehensive hybrid search testing with sparse embeddings**, **extended configuration testing for semantic chunking and hybrid search settings**, **resource management testing for sparse embeddings**, **enhanced test fixtures infrastructure with PostgreSQL integration**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **modernized workspace configuration with uv workspace support**, **new Cross-Encoder Reranking Testing with comprehensive async/await patterns**, **enhanced Reranking Configuration Testing with reranking settings validation**, **enhanced RAGAS Evaluation Testing with comprehensive Faithfulness scoring optimization**, **Local Model Optimization Testing with comprehensive temperature and repetition penalty controls**, and **comprehensive LLM tuning parameters testing for local models with lower temperature settings (0.2)**.
 
 **Section sources**
 - [packages/vk_bot/src/cafetera_vk_bot/handlers/start.py:23-55](file://packages/vk_bot/src/cafetera_vk_bot/handlers/start.py#L23-L55)
@@ -1287,6 +1310,7 @@ Validation tips:
 - [tests/test_hybrid_search.py:1-96](file://tests/test_hybrid_search.py#L1-L96)
 - [tests/test_hybrid_rerank_retriever.py:1-230](file://tests/test_hybrid_rerank_retriever.py#L1-L230)
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
+- [ragas/evaluate.py:117-170](file://ragas/evaluate.py#L117-L170)
 
 ### Llama.cpp Provider Testing Infrastructure
 **New Section** - Extensive testing coverage for llama.cpp provider functionality
@@ -1334,6 +1358,7 @@ Purpose:
 - **Validate new hybrid search settings including retrieval_mode and sparse_embedding_model.**
 - **Validate new chunker_tokenizer_model and chunk_size settings for Docling integration.**
 - **Validate new reranking configuration settings including reranking_enabled, reranker_model, reranker_top_n, and reranker_prefetch_limit.**
+- **Validate new LLM tuning parameters including temperature=0.2 and repetition penalty controls.**
 
 Methodology:
 - Test Settings embedding_model default value is 'qwen3-embedding:4b-q4_K_M'.
@@ -1353,6 +1378,7 @@ Methodology:
 - **Test Settings reranker_model default value is 'jinaai/jina-reranker-v2-base-multilingual'.**
 - **Test Settings reranker_top_n default value is 5.**
 - **Test Settings reranker_prefetch_limit default value is 20.**
+- **Test Settings LLM tuning parameters including temperature=0.2 and repetition penalty controls.**
 
 Testing patterns:
 - Use Settings constructor with explicit overrides for provider-specific testing.
@@ -1363,8 +1389,9 @@ Testing patterns:
 - **Use Settings constructor with explicit overrides for hybrid search settings testing.**
 - **Use Settings constructor with explicit overrides for Docling integration settings testing.**
 - **Use Settings constructor with explicit overrides for reranking configuration settings testing.**
+- **Use Settings constructor with explicit overrides for LLM tuning parameters testing.**
 
-**Updated** Added comprehensive embedding model configuration testing to validate the change from 'nomic-embed-text' to 'qwen3-embedding:4b-q4_K_M' as the new default embedding model, with provider-specific model validation and error handling scenarios, and **new semantic chunking and hybrid search settings validation**, **new Docling integration settings validation**, and **new reranking configuration settings validation**.
+**Updated** Added comprehensive embedding model configuration testing to validate the change from 'nomic-embed-text' to 'qwen3-embedding:4b-q4_K_M' as the new default embedding model, with provider-specific model validation and error handling scenarios, and **new semantic chunking and hybrid search settings validation**, **new Docling integration settings validation**, **new reranking configuration settings validation**, and **new LLM tuning parameters validation including temperature=0.2 and repetition penalty controls**.
 
 **Section sources**
 - [tests/test_rag_block6.py:50-53](file://tests/test_rag_block6.py#L50-L53)
@@ -1538,7 +1565,7 @@ Testing patterns:
 - **Validate Docker availability detection and graceful skipping of container-based tests.**
 - **Validate PostgreSQL database connection URL generation and asyncpg driver usage.**
 
-**Updated** Added comprehensive enhanced test fixtures infrastructure with 236 lines of new test fixtures providing shared testing infrastructure including PostgreSQL database integration with Docker containers, mock services, authenticated client creation, and comprehensive mocking capabilities for improved test organization and maintainability. The testing infrastructure now includes **AsyncMock usage for Qdrant client mocking across all fixtures**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database connection URL generation and asyncpg driver usage**, and **reranker mock validation for cross-encoder testing**.
+**Updated** Added comprehensive enhanced test fixtures infrastructure with 236 lines of new test fixtures providing shared testing infrastructure including PostgreSQL database integration with Docker containers, mock services, authenticated client creation, and comprehensive mocking capabilities for improved test organization and maintainability. The testing infrastructure now includes **AsyncMock usage for Qdrant client mocking across all fixtures**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database connection URL generation and asyncpg driver usage**, **reranker mock validation for cross-encoder testing**, and **comprehensive LLM tuning parameters testing infrastructure**.
 
 **Section sources**
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
@@ -1625,6 +1652,79 @@ Testing patterns:
 - [packages/admin/src/cafetera_admin/indexer.py:23-110](file://packages/admin/src/cafetera_admin/indexer.py#L23-L110)
 - [packages/admin/src/cafetera_admin/indexer.py:139-191](file://packages/admin/src/cafetera_admin/indexer.py#L139-L191)
 
+### Enhanced RAGAS Evaluation Testing Infrastructure
+**New Section** - Comprehensive testing coverage for Faithfulness scoring optimization
+
+Purpose:
+- Validate Faithfulness scoring optimization with LLM tuning parameters using ragas.evaluate.
+- Test temperature=0.2 configuration for local models to reduce repetition loops.
+- Validate repetition penalty controls for NER extraction in Faithfulness scoring.
+- Test provider-specific LLM tuning parameters including Ollama and llama.cpp configurations.
+- Validate max_tokens=4096 configuration for Faithfulness scoring.
+- Test extra_body parameter injection for repetition penalty controls.
+- Validate comprehensive Faithfulness scoring optimization testing.
+
+Methodology:
+- Test _LLM_TEMPERATURE default value is 0.2 for Faithfulness scoring.
+- Test _LLM_MAX_TOKENS default value is 4096 for Faithfulness scoring.
+- Test Ollama provider repetition penalty configuration with repeat_penalty=1.2.
+- Test llama.cpp provider frequency penalty configuration with frequency_penalty=0.3.
+- Test extra_body parameter injection for InstructorLLM client kwargs.
+- Test Faithfulness scoring with optimized LLM parameters.
+- Test error handling for Faithfulness scoring failures.
+- Validate comprehensive Faithfulness scoring optimization validation.
+
+Testing patterns:
+- Use unittest.mock.MagicMock for InstructorLLM client mocking.
+- Test provider-specific extra_body parameter configuration.
+- Validate temperature and repetition penalty parameter passing.
+- Test max_tokens parameter configuration for Faithfulness scoring.
+- Test Faithfulness.ascore() method with optimized LLM parameters.
+- Use comprehensive parameterization for different provider configurations.
+- Validate Faithfulness scoring error handling scenarios.
+
+**Updated** Added comprehensive enhanced RAGAS evaluation testing infrastructure with comprehensive Faithfulness scoring optimization validation including **temperature=0.2 configuration for local models**, **repetition penalty controls for NER extraction**, **provider-specific LLM tuning parameters**, **max_tokens=4096 configuration**, **extra_body parameter injection**, and **comprehensive Faithfulness scoring optimization testing**.
+
+**Section sources**
+- [ragas/evaluate.py:117-170](file://ragas/evaluate.py#L117-L170)
+- [ragas/evaluate.py:243-266](file://ragas/evaluate.py#L243-L266)
+- [docs/ragas.md:60-83](file://docs/ragas.md#L60-L83)
+
+### Local Model Optimization Testing Infrastructure
+**New Section** - Comprehensive testing coverage for local model optimization strategies
+
+Purpose:
+- Validate comprehensive local model optimization testing strategies using ragas.evaluate.
+- Test temperature=0.2 configuration for Faithfulness scoring with local models.
+- Validate repetition penalty controls for preventing token loops in local models.
+- Test provider-specific optimization configurations for Faithfulness scoring.
+- Validate frequency penalty controls for llama.cpp provider.
+- Test repeat penalty controls for Ollama provider.
+- Test comprehensive local model optimization validation.
+
+Methodology:
+- Test Faithfulness scoring with temperature=0.2 for local models.
+- Test repetition penalty controls to prevent degenerate repetitions.
+- Test frequency penalty configuration for llama.cpp provider.
+- Test repeat penalty configuration for Ollama provider.
+- Test extra_body parameter injection for provider-specific optimizations.
+- Test Faithfulness scoring error handling with optimized parameters.
+- Validate comprehensive local model optimization testing scenarios.
+
+Testing patterns:
+- Use unittest.mock.MagicMock for provider-specific LLM client mocking.
+- Test provider-specific optimization parameter configuration.
+- Validate temperature and repetition penalty parameter validation.
+- Test extra_body parameter injection for optimization controls.
+- Use comprehensive parameterization for different provider configurations.
+- Validate Faithfulness scoring optimization error handling.
+
+**Updated** Added comprehensive local model optimization testing infrastructure with comprehensive validation of **temperature=0.2 configuration**, **repetition penalty controls**, **provider-specific optimization configurations**, **frequency penalty controls**, **repeat penalty controls**, and **comprehensive local model optimization validation**.
+
+**Section sources**
+- [ragas/evaluate.py:154-168](file://ragas/evaluate.py#L154-L168)
+- [ragas/evaluate.py:118-124](file://ragas/evaluate.py#L118-L124)
+
 ## Dependency Analysis
 The test suite depends on:
 - pytest and pytest-asyncio for async-friendly test execution.
@@ -1665,6 +1765,8 @@ The test suite depends on:
 - **Comprehensive module structure alignment with updated import paths.**
 - **New Cross-Encoder Reranking Testing infrastructure with comprehensive async/await patterns.**
 - **Enhanced Reranking Configuration Testing infrastructure with reranking settings validation.**
+- **Enhanced RAGAS Evaluation Testing infrastructure with comprehensive Faithfulness scoring optimization.**
+- **Local Model Optimization Testing infrastructure with comprehensive LLM tuning parameters validation.**
 
 ```mermaid
 graph TB
@@ -1710,6 +1812,8 @@ PKG["Package Structure"]
 TO["Test Organization"]
 MS["Module Structure"]
 RERANK_CFG["Reranking Configuration Testing"]
+RAGAS_EVAL["Enhanced RAGAS Evaluation Testing"]
+LM_OPT["Local Model Optimization Testing"]
 PY --> P
 PY --> PA
 PY --> VK
@@ -1751,6 +1855,8 @@ PY --> PKG
 PY --> TO
 PY --> MS
 PY --> RERANK_CFG
+PY --> RAGAS_EVAL
+PY --> LM_OPT
 ```
 
 **Diagram sources**
@@ -1812,8 +1918,10 @@ PY --> RERANK_CFG
 - **Comprehensive module structure alignment should leverage updated import paths for all test modules.**
 - **New Cross-Encoder Reranking Testing should validate comprehensive async/await performance patterns.**
 - **Enhanced Reranking Configuration Testing should validate reranking settings efficiently without external dependencies.**
+- **Enhanced RAGAS Evaluation Testing should validate comprehensive Faithfulness scoring optimization performance.**
+- **Local Model Optimization Testing should validate comprehensive LLM tuning parameters efficiently.**
 
-**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing optimization, **enhanced admin document API testing with modular approach**, **comprehensive Docling integration testing with HybridChunker validation**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing optimization for new settings**, **resource management testing optimization for sparse embeddings and rerankers**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **TEST_DATABASE_URL environment variable integration for database configuration**, **category hints testing optimization with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing optimization with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing optimization with comprehensive async/await patterns**, and **enhanced Reranking Configuration Testing optimization with reranking settings validation**.
+**Updated** Enhanced with guidance on leveraging parameterized tests and helper functions for efficient validation across expanded test suite, including specialized RAG stub testing considerations, QA service testing optimization, topic hints performance validation, ask handler state management testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing optimization, **enhanced admin document API testing with modular approach**, **comprehensive Docling integration testing with HybridChunker validation**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing optimization for new settings**, **resource management testing optimization for sparse embeddings and rerankers**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **TEST_DATABASE_URL environment variable integration for database configuration**, **category hints testing optimization with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing optimization with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing optimization with comprehensive async/await patterns**, **enhanced Reranking Configuration Testing optimization with reranking settings validation**, **enhanced RAGAS Evaluation Testing optimization with comprehensive Faithfulness scoring optimization**, **Local Model Optimization Testing optimization with comprehensive LLM tuning parameters validation**, and **comprehensive LLM tuning parameters testing infrastructure**.
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -1899,6 +2007,10 @@ Common issues and resolutions:
 - **Cross-Encoder Reranking integration failures: Validate reranking integration with factory dispatch functions.**
 - **Reranking prefetch limit failures: Validate reranker_prefetch_limit parameter passing in factory functions.**
 - **Migration from build_vectorstore failures: Validate retriever-focused testing replacing deprecated vectorstore integration.**
+- **Enhanced RAGAS Evaluation Testing failures: Validate Faithfulness scoring optimization with LLM tuning parameters.**
+- **Local Model Optimization Testing failures: Validate comprehensive temperature and repetition penalty controls.**
+- **LLM tuning parameters failures: Validate temperature=0.2 and repetition penalty configurations.**
+- **Provider-specific optimization failures: Validate Ollama and llama.cpp provider-specific LLM tuning parameters.**
 
 Debugging tips:
 - Print or log parsed keyboard JSON during development to validate structure.
@@ -1962,8 +2074,12 @@ Debugging tips:
 - **Validate reranking prefetch limit integration with factory dispatch functions.**
 - **Validate cross-encoder reranking parameter passing throughout RAG pipeline.**
 - **Validate migration from build_vectorstore to retriever-focused testing.**
+- **Validate enhanced RAGAS Evaluation Testing with comprehensive Faithfulness scoring optimization.**
+- **Validate Local Model Optimization Testing with comprehensive LLM tuning parameters.**
+- **Validate LLM tuning parameters with temperature=0.2 and repetition penalty controls.**
+- **Validate provider-specific optimization configurations for Faithfulness scoring.**
 
-**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, category file service testing with PostgreSQL integration, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **comprehensive Docling integration testing with HybridChunker validation**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings and rerankers**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with comprehensive async/await patterns**, **enhanced Reranking Configuration Testing with reranking settings validation**, **cross-encoder reranking integration validation**, **reranking prefetch limit validation**, and **migration from build_vectorstore to retriever-focused testing**.
+**Updated** Enhanced troubleshooting guide covering new domain content, entity, RAG stub, custom rule testing scenarios, specialized RAG stub feature testing for FR-11 and FR-12 functionality, QA service testing, topic hints detection, ask handler validation using query_rag_with_wait, keyboard validation failures, document storage system testing with comprehensive debugging strategies, category file service testing with PostgreSQL integration, llama.cpp provider testing scenarios, **enhanced admin document API testing with modular approach**, **comprehensive Docling integration testing with HybridChunker validation**, **comprehensive hybrid search testing with sparse embeddings**, **configuration testing for new settings**, **resource management testing for sparse embeddings and rerankers**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with comprehensive async/await patterns**, **enhanced Reranking Configuration Testing with reranking settings validation**, **enhanced RAGAS Evaluation Testing with comprehensive Faithfulness scoring optimization**, **Local Model Optimization Testing with comprehensive LLM tuning parameters**, **LLM tuning parameters validation with temperature=0.2 and repetition penalty controls**, and **provider-specific optimization validation**.
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -1989,6 +2105,7 @@ Debugging tips:
 - [tests/test_hybrid_search.py:1-96](file://tests/test_hybrid_search.py#L1-L96)
 - [tests/test_hybrid_rerank_retriever.py:1-230](file://tests/test_hybrid_rerank_retriever.py#L1-L230)
 - [tests/conftest.py:1-236](file://tests/conftest.py#L1-L236)
+- [ragas/evaluate.py:117-170](file://ragas/evaluate.py#L117-L170)
 
 ## Conclusion
 The current testing strategy emphasizes comprehensive structural and wiring correctness for the streamlined VK bot with modern async testing patterns:
@@ -2035,6 +2152,10 @@ The current testing strategy emphasizes comprehensive structural and wiring corr
 - **Cross-Encoder Reranking integration testing validates reranking prefetch limit integration with hybrid search mode.**
 - **Reranking resource management testing validates reranker lifecycle management in AppResources.**
 - **Migration from build_vectorstore to retriever-focused testing validates comprehensive testing approach replacing deprecated vectorstore integration.**
+- **Enhanced RAGAS Evaluation Testing validates comprehensive Faithfulness scoring optimization with LLM tuning parameters including temperature=0.2 and repetition penalty controls.**
+- **Local Model Optimization Testing validates comprehensive temperature and repetition penalty controls for Faithfulness scoring with provider-specific configurations.**
+- **LLM tuning parameters testing validates comprehensive temperature and repetition penalty controls for local models.**
+- **Provider-specific optimization testing validates Ollama and llama.cpp provider-specific LLM tuning parameters.**
 
 To evolve the test suite:
 - Introduce event-driven tests for handlers to validate async behavior.
@@ -2105,8 +2226,13 @@ To evolve the test suite:
 - **Validate reranking prefetch limit integration with factory dispatch functions.**
 - **Validate cross-encoder reranking parameter passing throughout RAG pipeline.**
 - **Validate migration from build_vectorstore to retriever-focused testing replacing deprecated vectorstore integration.**
+- **Add comprehensive Enhanced RAGAS Evaluation Testing for comprehensive Faithfulness scoring optimization validation.**
+- **Add comprehensive Local Model Optimization Testing for comprehensive LLM tuning parameters validation.**
+- **Validate comprehensive LLM tuning parameters with temperature=0.2 and repetition penalty controls.**
+- **Validate provider-specific optimization configurations for Faithfulness scoring.**
+- **Add comprehensive LLM tuning parameters testing infrastructure for comprehensive validation.**
 
-**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, **category file service testing with 422 lines of new coverage**, **category files API testing with 553 lines of new coverage**, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive Docling integration testing with 91 lines of new coverage**, **comprehensive enhanced indexer testing with 353 lines of new coverage**, **comprehensive hybrid search testing with 96 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with enhanced indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 236 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing validating Qdrant client lifecycle ownership using AsyncMock**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **TEST_DATABASE_URL environment variable integration for database configuration**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with 230 lines of new coverage**, **enhanced Reranking Configuration Testing with comprehensive reranking settings validation**, **cross-encoder reranking integration testing**, **reranking resource management testing**, and **migration from build_vectorstore to retriever-focused testing**.
+**Updated** Enhanced conclusion to emphasize the comprehensive test coverage achieved through streamlined testing infrastructure for domain content, entity management, keyboard builders, RAG stub functionality, QA service integration, custom rules, topic hints detection, ask handler validation using query_rag_with_wait, specialized feature testing for FR-11 and FR-12 functionality, document storage system testing with 278 lines of new coverage, **category file service testing with 422 lines of new coverage**, **category files API testing with 553 lines of new coverage**, **enhanced admin document API testing with modular approach covering authentication, upload, bulk operations, and remaining functionality**, **comprehensive Docling integration testing with 91 lines of new coverage**, **comprehensive enhanced indexer testing with 353 lines of new coverage**, **comprehensive hybrid search testing with 96 lines of new coverage**, **comprehensive filtering and sorting API endpoint testing with 140+ lines of new coverage**, **enhanced DocumentRepository filtering and sorting capabilities**, **expanded RAG pipeline testing with enhanced indexer validation**, **comprehensive embedding model configuration testing**, **comprehensive test fixtures infrastructure with 236 lines of new coverage**, **comprehensive test suites validating new functionality across multiple specialized modules**, **updated architectural testing patterns validating the new query_rag_with_wait and send_rag_answer approach**, **updated QAService resource management testing validating Qdrant client lifecycle ownership using AsyncMock**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **TEST_DATABASE_URL environment variable integration for database configuration**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with 230 lines of new coverage**, **enhanced Reranking Configuration Testing with comprehensive reranking settings validation**, **cross-encoder reranking integration testing**, **reranking resource management testing**, **migration from build_vectorstore to retriever-focused testing**, **enhanced RAGAS Evaluation Testing with comprehensive Faithfulness scoring optimization**, **Local Model Optimization Testing with comprehensive LLM tuning parameters**, **LLM tuning parameters testing with comprehensive validation**, and **provider-specific optimization testing with comprehensive configurations**.
 
 ## Appendices
 
@@ -2149,6 +2275,10 @@ To evolve the test suite:
 - **Run enhanced Reranking Configuration tests for comprehensive reranking settings validation (e.g., `pytest tests/test_hybrid_rerank_retriever.py::TestRerankingSettings`).**
 - **Run cross-encoder reranking integration tests for reranking prefetch limit validation (e.g., `pytest tests/test_hybrid_rerank_retriever.py::TestFactoryDispatch`).**
 - **Run migration from build_vectorstore tests for retriever-focused testing validation (e.g., `pytest tests/test_hybrid_search.py::test_build_sparse_embeddings_returns_fastembed`, `pytest tests/test_hybrid_rerank_retriever.py::test_build_retriever_uses_prefetch_limit_when_reranking_enabled`).**
+- **Run enhanced RAGAS Evaluation Testing for comprehensive Faithfulness scoring optimization validation (e.g., `pytest ragas/evaluate.py::TestRagasEvaluation`).**
+- **Run Local Model Optimization Testing for comprehensive LLM tuning parameters validation (e.g., `pytest ragas/evaluate.py::TestLLMTuningParameters`).**
+- **Run LLM tuning parameters tests for comprehensive temperature and repetition penalty controls (e.g., `pytest ragas/evaluate.py::TestTemperatureControls`, `pytest ragas/evaluate.py::TestRepetitionPenaltyControls`).**
+- **Run provider-specific optimization tests for Faithfulness scoring (e.g., `pytest ragas/evaluate.py::TestOllamaOptimization`, `pytest ragas/evaluate.py::TestLlamaCppOptimization`).**
 
 **Section sources**
 - [pyproject.toml:40-42](file://pyproject.toml#L40-L42)
@@ -2227,5 +2357,9 @@ To evolve the test suite:
 - **Validate reranking prefetch limit integration with factory dispatch functions.**
 - **Validate cross-encoder reranking parameter passing throughout RAG pipeline.**
 - **Validate migration from build_vectorstore to retriever-focused testing replacing deprecated vectorstore integration.**
+- **Validate enhanced RAGAS Evaluation Testing with comprehensive Faithfulness scoring optimization.**
+- **Validate Local Model Optimization Testing with comprehensive LLM tuning parameters.**
+- **Validate LLM tuning parameters with comprehensive temperature and repetition penalty controls.**
+- **Validate provider-specific optimization configurations for Faithfulness scoring.**
 
-**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive Docling integration testing with HybridChunker validation**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings and rerankers**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with comprehensive async/await patterns**, **enhanced Reranking Configuration Testing with reranking settings validation**, **cross-encoder reranking integration validation**, **reranking resource management validation**, and **migration from build_vectorstore to retriever-focused testing**.
+**Updated** Enhanced guidance covering streamlined testing infrastructure, new specialized RAG stub testing patterns, simplified handler registration validation, comprehensive feature testing strategies, QA service testing with query_rag_with_wait validation, topic hints detection validation, ask handler testing with state management and integration validation using query_rag_with_wait, keyboard validation testing, document storage system testing with PostgreSQL databases, category file service testing with Docker containers, llama.cpp provider testing strategies, **enhanced admin document API testing with modular approach**, **comprehensive Docling integration testing with HybridChunker validation**, **comprehensive hybrid search testing with sparse embeddings**, **comprehensive configuration testing for new settings**, **resource management testing for sparse embeddings and rerankers**, **enhanced test fixtures infrastructure for shared testing resources**, **AsyncMock usage testing for comprehensive async operation validation**, **Docker availability detection and graceful skipping of container-based tests**, **PostgreSQL database testing with asyncpg driver**, **category hints testing with comprehensive CATEGORY_HINTS validation**, **enhanced indexer testing with comprehensive is_search_enabled flag handling**, **modernized workspace configuration with uv workspace support**, **enhanced package structure with proper import paths**, **streamlined test organization with improved maintainability**, **comprehensive module structure alignment with updated import paths**, **new Cross-Encoder Reranking Testing with comprehensive async/await patterns**, **enhanced Reranking Configuration Testing with reranking settings validation**, **enhanced RAGAS Evaluation Testing with comprehensive Faithfulness scoring optimization**, **Local Model Optimization Testing with comprehensive LLM tuning parameters**, **LLM tuning parameters testing with comprehensive validation**, and **provider-specific optimization testing with comprehensive configurations**.

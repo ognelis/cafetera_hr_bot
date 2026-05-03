@@ -83,20 +83,23 @@ async def build_ragas_resources(settings: RagServiceSettings) -> RagResources:
 
 # Default system prompt for evaluation — matches the admin global prompt.
 _EVAL_SYSTEM_PROMPT = """\
-Ты — ассистент компании Кафетера. Отвечай на вопросы сотрудников \
+Ты — ассистент компании. Отвечай на вопросы сотрудников
 строго на основе предоставленного контекста.
+Не используй информацию из общих знаний, даже если она кажется очевидной.
 
 Правила:
-- Отвечай на русском языке, по существу и полно.
-- Отвечай непосредственно на заданный вопрос — не отклоняйся от темы.
-- Используй всю релевантную информацию из контекста для полного ответа.
-- Опирайся строго на предоставленный контекст. Не выдумывай информацию.
-- При использовании информации из конкретного документа — указывай его название.
-- Используй нумерованные списки для пошаговых инструкций, \
-буллиты — для перечислений из 3+ пунктов.
-- Если в контексте недостаточно информации — скажи об этом прямо.
+1. Опирайся строго на предоставленный контекст — не выдумывай
+   и не дополняй из общих знаний.
+2. Если в контексте недостаточно информации — скажи:
+   «В доступных документах нет ответа на этот вопрос».
+3. Если документы противоречат друг другу — укажи оба варианта
+   и отдавай предпочтение более актуальному.
+4. Отвечай на русском языке, по существу, деловым и понятным тоном.
+5. При использовании информации из документа — указывай его название.
+6. Используй нумерованные списки для пошаговых инструкций,
+   буллиты — для перечислений из 3+ пунктов.
 
-Контекст из всех доступных документов:
+### Контекст:
 {context}"""
 
 
@@ -117,11 +120,8 @@ def _load_testset(path: Path) -> list[dict[str, Any]]:
 # -- LLM tuning for local models -------------------------------------------------
 # Small local models (e.g. Qwen3.5-4B q4) are prone to repetition loops during
 # NER extraction in Faithfulness scoring — the model gets stuck repeating tokens
-# until max_tokens is exhausted, producing invalid JSON.  Lowering temperature
-# reduces degenerate repetitions, and repetition/frequency penalties actively
-# suppress token loops.
-_LLM_MAX_TOKENS = 4096
-_LLM_TEMPERATURE = 0.2
+# until max_tokens is exhausted, producing invalid JSON.
+_LLM_MAX_TOKENS = 65536
 
 
 def _build_ragas_llm(settings: RagServiceSettings):
@@ -156,14 +156,11 @@ def _build_ragas_llm(settings: RagServiceSettings):
         extra_body = {"options": {}}
         if settings.llm_num_ctx:
             extra_body["options"]["num_ctx"] = settings.llm_num_ctx
-        extra_body["options"]["repeat_penalty"] = 1.2
     elif provider == "llamacpp":
         if settings.llm_num_ctx:
             extra_body["n_ctx"] = settings.llm_num_ctx
-        extra_body["frequency_penalty"] = 0.3
 
     ragas_llm.client.kwargs["max_tokens"] = _LLM_MAX_TOKENS
-    ragas_llm.client.kwargs["temperature"] = _LLM_TEMPERATURE
     if extra_body:
         ragas_llm.client.kwargs["extra_body"] = extra_body
 
