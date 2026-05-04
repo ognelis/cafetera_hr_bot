@@ -25,7 +25,6 @@ import numpy as np
 import pandas as pd
 from langchain_core.documents import Document
 from qdrant_client import AsyncQdrantClient, models
-from rapidfuzz import fuzz
 
 from cafetera_rag_service.config import RagServiceSettings
 from cafetera_rag_service.rag.retriever import (
@@ -166,7 +165,6 @@ def _to_list(value: object) -> list:
 async def _index_contexts(
     unique_contexts: list[str],
     qdrant_url: str,
-    settings: RagServiceSettings,
     embeddings: object,
     sparse_embedding: object,
 ) -> None:
@@ -223,7 +221,10 @@ async def _index_contexts(
                     models.PointStruct(
                         id=batch_start + i,
                         vector={"dense": dense_vec, "bm25": sparse_vec},
-                        payload={"page_content": text},
+                        payload={
+                            "page_content": text,
+                            "metadata": {"doc_id": batch_start + i},
+                        },
                     )
                 )
 
@@ -252,20 +253,9 @@ async def _retrieve_all(
 ) -> list[list[Document]]:
     """Retrieve top-k documents for every question.
     
-    When reranking is enabled, pulls ``settings.reranker_prefetch_limit``
-    candidates so the downstream reranker receives the full pool configured
-    via ``RERANKER_PREFETCH_LIMIT``.
     Returns a list parallel to samples, each element is a list[Document].
     Uses semaphore-bounded asyncio.gather for parallel retrieval.
     """
-
-    effective_k = (
-        settings.reranker_prefetch_limit
-        if settings.reranking_enabled
-        else k
-    )
-    # Keep RRF per-branch prefetch >= final k so fusion has enough material.
-    prefetch_limit = max(effective_k, 20)
 
     client = AsyncQdrantClient(url=qdrant_url, timeout=60.0)
     try:
@@ -275,8 +265,7 @@ async def _retrieve_all(
             embeddings=embeddings,
             sparse_embedding=sparse_embedding,
             lemmatize=settings.bm25_lemmatize,
-            k=effective_k,
-            prefetch_limit=prefetch_limit,
+            k=k,
             score_threshold=settings.dense_score_threshold or None,
             filter=None,
         )
@@ -351,11 +340,9 @@ async def _apply_reranking(
 # 5. Relevance matching
 # ---------------------------------------------------------------------------
 
-def _is_relevant(retrieved_text: str, gold_context: str) -> bool:
-    """Check if retrieved doc matches the gold context."""
-    if retrieved_text == gold_context:
-        return True
-    return fuzz.ratio(retrieved_text, gold_context) >= 85
+def _is_relevant(doc: Document, gold_id: int) -> bool:
+    """Exact match against the gold context's point id."""
+    return doc.metadata.get("doc_id") == gold_id
 
 
 # ---------------------------------------------------------------------------
@@ -412,28 +399,37 @@ def _save_csv(
     samples: list[dict[str, str]],
     all_results: list[list[Document]],
     settings: RagServiceSettings,
+    k: int,
 ) -> pd.DataFrame:
     """Compute metrics per query and save to CSV. Returns the DataFrame."""
     embedding_model = settings.embedding_model
     sparse_model = settings.sparse_embedding_model
     reranker_model = settings.reranker_model if settings.reranking_enabled else ""
 
+    mrr_col = f"mrr@{k}"
+    ndcg_col = f"ndcg@{k}"
+    hit_col = f"hit@{k}"
+    recall_col = f"recall@{k}"
+    precision_col = f"precision@{k}"
+
     rows: list[dict[str, object]] = []
     for sample, docs in zip(samples, all_results, strict=True):
+        gold_id = sample["gold_id"]
         gold_context = sample["context"]
-        flags = [_is_relevant(doc.page_content, gold_context) for doc in docs]
+        flags = [_is_relevant(doc, gold_id) for doc in docs]
 
         rows.append({
             "embedding_model": embedding_model,
             "sparse_model": sparse_model,
             "reranker_model": reranker_model,
+            "k": k,
             "question": sample["question"],
             "gold_context_preview": gold_context[:80],
-            "mrr": mrr_at_k(flags),
-            "ndcg": ndcg_at_k(flags),
-            "hit": hit_rate(flags),
-            "recall": recall_at_k(flags, 1),  # SberQuAD has 1 gold context per question
-            "precision": precision_at_k(flags),
+            mrr_col: mrr_at_k(flags),
+            ndcg_col: ndcg_at_k(flags),
+            hit_col: hit_rate(flags),
+            recall_col: recall_at_k(flags, 1),  # SberQuAD has 1 gold context per question
+            precision_col: precision_at_k(flags),
         })
 
     df = pd.DataFrame(rows)
@@ -443,13 +439,14 @@ def _save_csv(
         "embedding_model": embedding_model,
         "sparse_model": sparse_model,
         "reranker_model": reranker_model,
+        "k": k,
         "question": "AVERAGE",
         "gold_context_preview": "",
-        "mrr": df["mrr"].mean(),
-        "ndcg": df["ndcg"].mean(),
-        "hit": df["hit"].mean(),
-        "recall": df["recall"].mean(),
-        "precision": df["precision"].mean(),
+        mrr_col: df[mrr_col].mean(),
+        ndcg_col: df[ndcg_col].mean(),
+        hit_col: df[hit_col].mean(),
+        recall_col: df[recall_col].mean(),
+        precision_col: df[precision_col].mean(),
     }
     df = pd.concat([df, pd.DataFrame([avg_row])], ignore_index=True)
 
@@ -463,7 +460,7 @@ def _save_csv(
 # 8. Summary
 # ---------------------------------------------------------------------------
 
-def _print_summary(df: pd.DataFrame, n_questions: int) -> None:
+def _print_summary(df: pd.DataFrame, n_questions: int, k: int) -> None:
     """Print a nicely formatted summary to stdout."""
     avg = df.iloc[-1]
 
@@ -475,11 +472,14 @@ def _print_summary(df: pd.DataFrame, n_questions: int) -> None:
     reranker_model = avg["reranker_model"]
     print(f"  Reranker model  : {reranker_model if reranker_model else '(disabled)'}")
     print(f"  Questions       : {n_questions}")
+    print(f"  Top-k           : {k}")
     print("-" * 64)
     print(f"  {'Metric':<15s}  {'Value':>8s}")
     print("-" * 64)
     for metric in ("mrr", "ndcg", "hit", "recall", "precision"):
-        print(f"  {metric.upper():<15s}  {avg[metric]:>8.4f}")
+        col = f"{metric}@{k}"
+        label = f"{metric.upper()}@{k}"
+        print(f"  {label:<15s}  {avg[col]:>8.4f}")
     print("=" * 64)
 
     output_path = Path(__file__).parent / "retrieval_scores.csv"
@@ -503,7 +503,7 @@ def _parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--size", type=int, default=500,
+        "--size", type=int, default=0,
         help="Number of SberQuAD questions (0=all, default: 500)",
     )
     parser.add_argument(
@@ -548,6 +548,10 @@ async def evaluate_retrieval(
             "%d unique contexts from %d samples", len(unique_contexts), len(samples),
         )
 
+        # Attach gold point id to each sample for exact relevance matching
+        for s in samples:
+            s["gold_id"] = context_set[s["context"]]
+
         # Build embeddings (shared across indexing and retrieval)
         embeddings = build_embeddings(settings)
         sparse_embedding = build_sparse_embeddings(settings)
@@ -555,18 +559,12 @@ async def evaluate_retrieval(
         # 3. Index contexts
         logger.info("Indexing contexts into temp Qdrant...")
         await _index_contexts(
-            unique_contexts, qdrant_url, settings, embeddings, sparse_embedding,
+            unique_contexts, qdrant_url, embeddings, sparse_embedding,
         )
 
-        # 4. Retrieve for each question
-        effective_k = (
-            settings.reranker_prefetch_limit
-            if settings.reranking_enabled
-            else k
-        )
         logger.info(
-            "Retrieving for %d questions (effective_k=%d, reranking=%s)...",
-            len(samples), effective_k, settings.reranking_enabled,
+            "Retrieving for %d questions (k=%d, reranking=%s)...",
+            len(samples), k, settings.reranking_enabled,
         )
         all_results = await _retrieve_all(
             samples, qdrant_url, settings, embeddings, sparse_embedding, k,
@@ -579,10 +577,10 @@ async def evaluate_retrieval(
         )
 
         # 5-7. Compute metrics and save CSV
-        df = _save_csv(samples, all_results, settings)
+        df = _save_csv(samples, all_results, settings, k)
 
         # 8. Print summary
-        _print_summary(df, len(samples))
+        _print_summary(df, len(samples), k)
 
     finally:
         _stop_qdrant_container(container_id)

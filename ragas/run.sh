@@ -4,6 +4,17 @@
 # 1. A running LLM provider (Ollama, OpenAI, or llama.cpp)
 # 2. Qdrant is started via docker compose (default: http://localhost:6333)
 # 3. Documents must already be indexed in Qdrant (run admin ingestion first)
+#
+# Usage:
+#   Interactive mode:
+#     ./ragas/run.sh
+#
+#   CLI mode:
+#     ./ragas/run.sh generate
+#     ./ragas/run.sh evaluate
+#     ./ragas/run.sh all
+#     ./ragas/run.sh retrieval
+#     ./ragas/run.sh retrieval --k 5 --size 200
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -74,6 +85,9 @@ check_prerequisites_no_uv
 
 # ─── Mode selection ──────────────────────────────────────────────────────────
 
+RETRIEVAL_K=""
+RETRIEVAL_SIZE=""
+
 if [ $# -eq 0 ]; then
   echo
   log "Select mode:"
@@ -92,11 +106,41 @@ if [ $# -eq 0 ]; then
   esac
 else
   ACTION="$1"
+  # Parse optional retrieval parameters
+  shift
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --k)
+        RETRIEVAL_K="$2"
+        shift 2
+        ;;
+      --size)
+        RETRIEVAL_SIZE="$2"
+        shift 2
+        ;;
+      *)
+        log "ERROR: Unknown option '$1'. Use: --k <number> --size <number>"
+        exit 1
+        ;;
+    esac
+  done
 fi
 
 if [[ "$ACTION" != "generate" && "$ACTION" != "evaluate" && "$ACTION" != "all" && "$ACTION" != "retrieval" ]]; then
   log "ERROR: Unknown action '$ACTION'. Use: generate | evaluate | all | retrieval"
   exit 1
+fi
+
+# ─── Retrieval parameters (interactive if not provided via CLI) ──────────────
+
+if [[ "$ACTION" == "retrieval" && -z "$RETRIEVAL_K" ]]; then
+  read -r -p "[ragas] Retrieval top-k [default=10]: " input_k
+  RETRIEVAL_K="${input_k:-10}"
+fi
+
+if [[ "$ACTION" == "retrieval" && -z "$RETRIEVAL_SIZE" ]]; then
+  read -r -p "[ragas] SberQuAD sample size [default=0=all]: " input_size
+  RETRIEVAL_SIZE="${input_size:-0}"
 fi
 
 # ─── Interactive provider selection ──────────────────────────────────────────
@@ -185,5 +229,21 @@ fi
 
 if [ "$ACTION" = "retrieval" ]; then
   echo "=== Running offline retrieval metrics (SberQuAD) ==="
-  uv run python ragas/evaluate_retrieval.py
+  log "Retrieval top-k: ${RETRIEVAL_K:-10}"
+  log "SberQuAD sample size: ${RETRIEVAL_SIZE:-0}"
+  echo
+  
+  RETRIEVAL_CMD="uv run python ragas/evaluate_retrieval.py"
+  
+  # Append --k if specified
+  if [[ -n "$RETRIEVAL_K" ]]; then
+    RETRIEVAL_CMD="$RETRIEVAL_CMD --k $RETRIEVAL_K"
+  fi
+  
+  # Append --size if specified
+  if [[ -n "$RETRIEVAL_SIZE" ]]; then
+    RETRIEVAL_CMD="$RETRIEVAL_CMD --size $RETRIEVAL_SIZE"
+  fi
+  
+  eval "$RETRIEVAL_CMD"
 fi
