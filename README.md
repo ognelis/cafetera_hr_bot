@@ -454,6 +454,7 @@ bash ragas/run.sh
 
 | Файл | О чём |
 |---|---|
+| [docs/architecture.md](docs/architecture.md) | Архитектура ML-составляющей: RAG-пайплайн, микросервисы, потоки данных, провайдеры моделей. |
 | [docs/providers.md](docs/providers.md) | Выбор ИИ-провайдера (Ollama / OpenAI / llama.cpp) и его `.env`-переменные. |
 | [docs/llamacpp.md](docs/llamacpp.md) | Установка `llama-server`, `.gguf`-файлы, GPU-ускорение, ручной запуск серверов. |
 | [docs/ragas.md](docs/ragas.md) | RAGAS-метрики простым языком: что измеряется и как читать результат. |
