@@ -184,7 +184,7 @@ RERANKER_PREFETCH_LIMIT=20 # сколько кандидатов брать из
 RERANKER_TIMEOUT=30.0
 
 # Настройки для scripts/run_llama_reranker.sh
-RERANKER_MODEL_PATH=./models/Qwen3-Reranker-0.6B-f16.gguf
+RERANKER_MODEL_PATH=./models/Qwen3-Reranker-0.6B-Q4_K_M.gguf
 RERANKER_CTX_SIZE=8192
 RERANKER_N_GPU_LAYERS=     # пусто = автоопределение (Metal/CUDA/CPU)
 ```

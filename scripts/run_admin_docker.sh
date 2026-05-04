@@ -46,6 +46,8 @@ load_env_var LLM_NUM_CTX
 load_env_var LLM_DISABLE_THINKING
 load_env_var EMBED_CTX_SIZE
 load_env_var EMBED_UBATCH_SIZE
+load_env_var RERANKING_ENABLED
+load_env_var RERANKER_URL
 # NOTE: Do NOT load DATABASE_URL, QDRANT_URL, S3_ENDPOINT_URL from .env
 # These will be overridden with Docker service names below
 
@@ -119,6 +121,9 @@ if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
   log "Embedding provider: OpenAI (remote, no local server needed)"
 fi
 
+# Reranker — start if enabled and URL is local (docker mode: RAG service runs in container)
+start_reranker_if_needed "$PROJECT_DIR" "${RERANKING_ENABLED:-false}" "${RERANKER_URL:-http://localhost:8082}" "true"
+
 # Start RAG service via docker compose (must be healthy before admin)
 log "Building and starting RAG service..."
 docker compose up -d --build rag-service
@@ -158,6 +163,9 @@ log "MinIO:       $(mask_credentials "$MINIO_URL") (host) / $(mask_credentials "
 log "PostgreSQL:  $(mask_credentials "$DATABASE_CONTAINER_URL")"
 log "LLM:         $LLM_PROVIDER ($LLM_MODEL)"
 log "Embedding:   $EMBEDDING_PROVIDER ($EMBEDDING_MODEL)"
+if [[ "${RERANKING_ENABLED:-false}" == "true" ]]; then
+  log "Reranker:    ${RERANKER_URL:-http://localhost:8082} (host) / $DOCKER_RERANKER_BASE_URL (container)"
+fi
 if [[ "$LLM_PROVIDER" == "ollama" || "$EMBEDDING_PROVIDER" == "ollama" ]]; then
   log "Ollama:      $OLLAMA_URL"
 fi

@@ -173,7 +173,9 @@ def build_reranker(
         timeout=settings.reranker_timeout,
     )
     reranker = HttpRerankerClient(
-        client=client, top_n=settings.reranker_top_n, model=settings.reranker_model,
+        client=client,
+        top_n=settings.reranker_top_n,
+        model=settings.reranker_model,
     )
     return reranker, client
 

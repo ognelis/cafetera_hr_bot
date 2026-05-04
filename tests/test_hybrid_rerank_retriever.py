@@ -8,7 +8,10 @@ import httpx
 from langchain_core.documents import Document
 
 from cafetera_rag_service.config import RagServiceSettings
-from cafetera_rag_service.rag.reranker import HttpRerankerClient, RerankingRetriever
+from cafetera_rag_service.rag.reranker import (
+    HttpRerankerClient,
+    RerankingRetriever,
+)
 from cafetera_rag_service.rag.retriever import (
     AsyncQdrantRetriever,
     build_retriever,

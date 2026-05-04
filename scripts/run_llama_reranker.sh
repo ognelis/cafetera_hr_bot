@@ -43,8 +43,8 @@ case "$DETECTED_GPU" in
   *)          _DEFAULT_GPU_LAYERS=0  ;;
 esac
 
-RERANKER_MODEL_PATH="${RERANKER_MODEL_PATH:-./models/Qwen3-Reranker-0.6B-f16.gguf}"
-RERANKER_MODEL_URL="${RERANKER_MODEL_URL:-https://huggingface.co/mradermacher/Qwen3-Reranker-0.6B-GGUF/resolve/main/Qwen3-Reranker-0.6B.f16.gguf}"
+RERANKER_MODEL_PATH="${RERANKER_MODEL_PATH:-./models/Qwen3-Reranker-0.6B-Q4_K_M.gguf}"
+RERANKER_MODEL_URL="${RERANKER_MODEL_URL:-https://huggingface.co/Voodisss/Qwen3-Reranker-0.6B-GGUF-llama_cpp/resolve/main/Qwen3-Reranker-0.6B-Q4_K_M.gguf}"
 RERANKER_HOST="${RERANKER_HOST:-127.0.0.1}"
 RERANKER_PORT="${RERANKER_PORT:-8082}"
 RERANKER_CTX_SIZE="${RERANKER_CTX_SIZE:-8192}"

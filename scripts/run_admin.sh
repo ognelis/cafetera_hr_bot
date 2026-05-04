@@ -50,6 +50,8 @@ load_env_var LLM_NUM_CTX
 load_env_var LLM_DISABLE_THINKING
 load_env_var EMBED_CTX_SIZE
 load_env_var EMBED_UBATCH_SIZE
+load_env_var RERANKING_ENABLED
+load_env_var RERANKER_URL
 
 log "Loaded .env overrides (if any)"
 
@@ -133,6 +135,9 @@ if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
   log "Embedding provider: OpenAI (remote, no local server needed)"
 fi
 
+# Reranker — start if enabled and URL is local (local mode: RAG service runs on host)
+start_reranker_if_needed "$PROJECT_DIR" "${RERANKING_ENABLED:-false}" "${RERANKER_URL:-http://localhost:8082}" "false"
+
 # Start RAG service in background
 log "Starting RAG service..."
 uv run python scripts/rag_server.py > /tmp/rag_server.log 2>&1 &
@@ -159,6 +164,9 @@ log "MinIO:       $MINIO_URL"
 log "PostgreSQL:  $(mask_credentials "${DATABASE_URL:-postgresql://localhost:5432/cafetera}")"
 log "LLM:         $LLM_PROVIDER ($LLM_MODEL)"
 log "Embedding:   $EMBEDDING_PROVIDER ($EMBEDDING_MODEL)"
+if [[ "${RERANKING_ENABLED:-false}" == "true" ]]; then
+  log "Reranker:    ${RERANKER_URL:-http://localhost:8082}"
+fi
 if [[ "$LLM_PROVIDER" == "ollama" || "$EMBEDDING_PROVIDER" == "ollama" ]]; then
   log "Ollama:      $OLLAMA_URL"
 fi
