@@ -1,0 +1,598 @@
+"""Evaluate retrieval quality using SberQuAD benchmark.
+
+Starts a temporary Qdrant container, indexes SberQuAD contexts,
+retrieves for each question, and computes offline retrieval metrics
+(MRR, NDCG, Hit Rate, Recall, Precision).
+
+Usage:
+    uv run python ragas/evaluate_retrieval.py
+    uv run python ragas/evaluate_retrieval.py --k 5 --size 200
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import atexit
+import logging
+import re
+import subprocess
+import time
+from pathlib import Path
+
+import httpx
+import numpy as np
+import pandas as pd
+from langchain_core.documents import Document
+from qdrant_client import AsyncQdrantClient, models
+from rapidfuzz import fuzz
+
+from cafetera_rag_service.config import RagServiceSettings
+from cafetera_rag_service.rag.retriever import (
+    AsyncQdrantRetriever,
+    build_embeddings,
+    build_sparse_embeddings,
+)
+from cafetera_rag_service.resources import build_reranker
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+COLLECTION_NAME = "sberquad_eval"
+BATCH_SIZE = 64
+HEALTHZ_RETRIES = 30
+HEALTHZ_INTERVAL = 1.0
+
+
+# ---------------------------------------------------------------------------
+# 1. Temporary Qdrant container helpers
+# ---------------------------------------------------------------------------
+
+def _start_qdrant_container() -> tuple[str, str]:
+    """Start a temporary Qdrant container with a random host port.
+
+    Returns (container_id, qdrant_url).
+    """
+    result = subprocess.run(
+        ["docker", "run", "-d", "--rm", "-p", "0:6333", "qdrant/qdrant:latest"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    container_id = result.stdout.strip()
+    logger.info("Started Qdrant container %s", container_id[:12])
+
+    # Discover assigned host port
+    port_result = subprocess.run(
+        ["docker", "port", container_id, "6333"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    # Output like "0.0.0.0:55123" or "0.0.0.0:55123\n:::55123"
+    port_line = port_result.stdout.strip().splitlines()[0]
+    match = re.search(r":(\d+)$", port_line)
+    if not match:
+        raise RuntimeError(f"Cannot parse port from: {port_line}")
+    host_port = match.group(1)
+    qdrant_url = f"http://localhost:{host_port}"
+    logger.info("Qdrant available at %s", qdrant_url)
+
+    # Register cleanup
+    def _cleanup() -> None:
+        try:
+            result = subprocess.run(
+                ["docker", "stop", container_id],
+                capture_output=True,
+                timeout=15,
+            )
+            if result.returncode == 0:
+                logger.info("Stopped Qdrant container %s", container_id[:12])
+        except Exception:
+            pass
+
+    atexit.register(_cleanup)
+
+    # Wait for Qdrant to become healthy
+    _wait_for_healthy(qdrant_url)
+
+    return container_id, qdrant_url
+
+
+def _wait_for_healthy(qdrant_url: str) -> None:
+    """Poll Qdrant /healthz until ready."""
+    for attempt in range(HEALTHZ_RETRIES):
+        try:
+            resp = httpx.get(f"{qdrant_url}/healthz", timeout=2.0)
+            if resp.status_code == 200:
+                logger.info("Qdrant is healthy (attempt %d)", attempt + 1)
+                return
+        except httpx.HTTPError:
+            pass
+        time.sleep(HEALTHZ_INTERVAL)
+    raise RuntimeError(f"Qdrant not healthy after {HEALTHZ_RETRIES} attempts")
+
+
+def _stop_qdrant_container(container_id: str) -> None:
+    """Stop the Qdrant container (idempotent)."""
+    try:
+        result = subprocess.run(
+            ["docker", "stop", container_id],
+            capture_output=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            logger.info("Stopped Qdrant container %s", container_id[:12])
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# 2. SberQuAD loading
+# ---------------------------------------------------------------------------
+
+def _load_sberquad(size: int) -> list[dict[str, str]]:
+    """Load SberQuAD validation split and return list of {question, context}.
+
+    When size > 0, take only the first `size` samples.
+    """
+    from datasets import load_dataset
+
+    ds = load_dataset("kuznetsoffandrey/sberquad", split="validation")
+    samples: list[dict[str, str]] = []
+    for row in ds:
+        samples.append({
+            "question": row["question"],
+            "context": row["context"],
+        })
+    if size > 0:
+        samples = samples[:size]
+    logger.info("Loaded %d SberQuAD samples", len(samples))
+    return samples
+
+
+# ---------------------------------------------------------------------------
+# 3. Index contexts into temp Qdrant
+# ---------------------------------------------------------------------------
+
+def _to_list(value: object) -> list:
+    """Convert numpy array or passthrough plain list to Python list."""
+    return value.tolist() if hasattr(value, "tolist") else value  # type: ignore[union-attr]
+
+
+async def _index_contexts(
+    unique_contexts: list[str],
+    qdrant_url: str,
+    settings: RagServiceSettings,
+    embeddings: object,
+    sparse_embedding: object,
+) -> None:
+    """Embed and upsert unique contexts into the temp Qdrant collection."""
+    client = AsyncQdrantClient(url=qdrant_url, timeout=120.0)
+
+    try:
+        # Determine dense vector size from a test embed
+        test_vec = await embeddings.aembed_documents(["test"])  # type: ignore[union-attr]
+        vector_size = len(test_vec[0])
+        logger.info("Dense vector size: %d", vector_size)
+
+        # Create collection with named vectors
+        await client.create_collection(
+            collection_name=COLLECTION_NAME,
+            vectors_config={
+                "dense": models.VectorParams(
+                    size=vector_size,
+                    distance=models.Distance.COSINE,
+                ),
+            },
+            sparse_vectors_config={
+                "bm25": models.SparseVectorParams(
+                    modifier=models.Modifier.IDF,
+                    index=models.SparseIndexParams(on_disk=False),
+                ),
+            },
+        )
+        logger.info("Created collection '%s'", COLLECTION_NAME)
+
+        # Embed and upsert in batches
+        total = len(unique_contexts)
+        for batch_start in range(0, total, BATCH_SIZE):
+            batch_end = min(batch_start + BATCH_SIZE, total)
+            batch_texts = unique_contexts[batch_start:batch_end]
+
+            # Dense + sparse embeddings concurrently
+            dense_vecs, sparse_results = await asyncio.gather(
+                embeddings.aembed_documents(batch_texts),  # type: ignore[union-attr]
+                asyncio.get_running_loop().run_in_executor(
+                    None, sparse_embedding.embed_documents, batch_texts,  # type: ignore[union-attr]
+                ),
+            )
+
+            points: list[models.PointStruct] = []
+            for i, text in enumerate(batch_texts):
+                dense_vec = _to_list(dense_vecs[i])
+                sr = sparse_results[i]
+                sparse_vec = models.SparseVector(
+                    indices=_to_list(sr.indices),
+                    values=_to_list(sr.values),
+                )
+                points.append(
+                    models.PointStruct(
+                        id=batch_start + i,
+                        vector={"dense": dense_vec, "bm25": sparse_vec},
+                        payload={"page_content": text},
+                    )
+                )
+
+            await client.upsert(collection_name=COLLECTION_NAME, points=points)
+            logger.info(
+                "Indexed batch %d-%d / %d", batch_start + 1, batch_end, total,
+            )
+    finally:
+        await client.close()
+
+    logger.info("Indexing complete: %d unique contexts", total)
+
+
+# ---------------------------------------------------------------------------
+# 4. Retrieval
+# ---------------------------------------------------------------------------
+
+async def _retrieve_all(
+    samples: list[dict[str, str]],
+    qdrant_url: str,
+    settings: RagServiceSettings,
+    embeddings: object,
+    sparse_embedding: object,
+    k: int,
+    concurrency: int = 20,
+) -> list[list[Document]]:
+    """Retrieve top-k documents for every question.
+    
+    When reranking is enabled, pulls ``settings.reranker_prefetch_limit``
+    candidates so the downstream reranker receives the full pool configured
+    via ``RERANKER_PREFETCH_LIMIT``.
+    Returns a list parallel to samples, each element is a list[Document].
+    Uses semaphore-bounded asyncio.gather for parallel retrieval.
+    """
+
+    effective_k = (
+        settings.reranker_prefetch_limit
+        if settings.reranking_enabled
+        else k
+    )
+    # Keep RRF per-branch prefetch >= final k so fusion has enough material.
+    prefetch_limit = max(effective_k, 20)
+
+    client = AsyncQdrantClient(url=qdrant_url, timeout=60.0)
+    try:
+        retriever = AsyncQdrantRetriever(
+            client=client,
+            collection_name=COLLECTION_NAME,
+            embeddings=embeddings,
+            sparse_embedding=sparse_embedding,
+            lemmatize=settings.bm25_lemmatize,
+            k=effective_k,
+            prefetch_limit=prefetch_limit,
+            score_threshold=settings.dense_score_threshold or None,
+            filter=None,
+        )
+
+        total = len(samples)
+        sem = asyncio.Semaphore(concurrency)
+        done = [0]  # mutable counter
+
+        async def _retrieve_one(query: str) -> list[Document]:
+            async with sem:
+                docs = await retriever.ainvoke(query)
+            done[0] += 1
+            if done[0] % 50 == 0 or done[0] == total:
+                logger.info("Retrieved %d / %d", done[0], total)
+            return docs
+
+        tasks = [
+            _retrieve_one(sample["question"])
+            for sample in samples
+        ]
+        all_results = await asyncio.gather(*tasks)
+        return list(all_results)
+    finally:
+        await client.close()
+
+
+async def _apply_reranking(
+    samples: list[dict[str, str]],
+    results: list[list[Document]],
+    settings: RagServiceSettings,
+    concurrency: int = 10,
+) -> list[list[Document]]:
+    """Apply reranker to retrieved results if reranking is enabled.
+
+    Uses semaphore-bounded asyncio.gather for parallel reranking.
+    """
+    if not settings.reranking_enabled:
+        return results
+
+    reranker, http_client = build_reranker(settings)
+    if reranker is None:
+        return results
+
+    logger.info("Applying reranking (%s)...", settings.reranker_model)
+    try:
+        total = len(samples)
+        sem = asyncio.Semaphore(concurrency)
+        done = [0]  # mutable counter
+
+        async def _rerank_one(
+            query: str, docs: list[Document],
+        ) -> list[Document]:
+            async with sem:
+                reranked_docs = await reranker.arerank(query, docs)
+            done[0] += 1
+            if done[0] % 50 == 0 or done[0] == total:
+                logger.info("Reranked %d / %d", done[0], total)
+            return reranked_docs
+
+        tasks = [
+            _rerank_one(sample["question"], docs)
+            for sample, docs in zip(samples, results, strict=True)
+        ]
+        all_reranked = await asyncio.gather(*tasks)
+        return list(all_reranked)
+    finally:
+        if http_client is not None:
+            await http_client.aclose()
+
+
+# ---------------------------------------------------------------------------
+# 5. Relevance matching
+# ---------------------------------------------------------------------------
+
+def _is_relevant(retrieved_text: str, gold_context: str) -> bool:
+    """Check if retrieved doc matches the gold context."""
+    if retrieved_text == gold_context:
+        return True
+    return fuzz.ratio(retrieved_text, gold_context) >= 85
+
+
+# ---------------------------------------------------------------------------
+# 6. Metric functions
+# ---------------------------------------------------------------------------
+
+def mrr_at_k(relevant_flags: list[bool]) -> float:
+    """Mean Reciprocal Rank: 1/rank of first relevant doc, or 0."""
+    arr = np.array(relevant_flags)
+    indices = np.where(arr)[0]
+    if len(indices) == 0:
+        return 0.0
+    return 1.0 / (indices[0] + 1)
+
+
+def ndcg_at_k(relevant_flags: list[bool]) -> float:
+    """NDCG with binary relevance."""
+    arr = np.array(relevant_flags, dtype=np.float64)
+    if arr.sum() == 0:
+        return 0.0
+    positions = np.arange(len(arr)) + 2  # log2(i+2) for i starting from 0
+    dcg = float(np.sum(arr / np.log2(positions)))
+    # Ideal: all relevant docs at top positions
+    n_relevant = int(arr.sum())
+    ideal_positions = np.arange(n_relevant) + 2
+    idcg = float(np.sum(1.0 / np.log2(ideal_positions)))
+    return dcg / idcg
+
+
+def hit_rate(relevant_flags: list[bool]) -> float:
+    """1.0 if any relevant doc found, 0.0 otherwise."""
+    return 1.0 if np.any(relevant_flags) else 0.0
+
+
+def recall_at_k(relevant_flags: list[bool], n_total_relevant: int) -> float:
+    """Fraction of total relevant docs found in top-k."""
+    if n_total_relevant == 0:
+        return 0.0
+    return float(np.sum(relevant_flags)) / n_total_relevant
+
+
+def precision_at_k(relevant_flags: list[bool]) -> float:
+    """Fraction of top-k results that are relevant."""
+    if not relevant_flags:
+        return 0.0
+    return float(np.mean(relevant_flags))
+
+
+# ---------------------------------------------------------------------------
+# 7. CSV output
+# ---------------------------------------------------------------------------
+
+def _save_csv(
+    samples: list[dict[str, str]],
+    all_results: list[list[Document]],
+    settings: RagServiceSettings,
+) -> pd.DataFrame:
+    """Compute metrics per query and save to CSV. Returns the DataFrame."""
+    embedding_model = settings.embedding_model
+    sparse_model = settings.sparse_embedding_model
+    reranker_model = settings.reranker_model if settings.reranking_enabled else ""
+
+    rows: list[dict[str, object]] = []
+    for sample, docs in zip(samples, all_results, strict=True):
+        gold_context = sample["context"]
+        flags = [_is_relevant(doc.page_content, gold_context) for doc in docs]
+
+        rows.append({
+            "embedding_model": embedding_model,
+            "sparse_model": sparse_model,
+            "reranker_model": reranker_model,
+            "question": sample["question"],
+            "gold_context_preview": gold_context[:80],
+            "mrr": mrr_at_k(flags),
+            "ndcg": ndcg_at_k(flags),
+            "hit": hit_rate(flags),
+            "recall": recall_at_k(flags, 1),  # SberQuAD has 1 gold context per question
+            "precision": precision_at_k(flags),
+        })
+
+    df = pd.DataFrame(rows)
+
+    # Add AVERAGE row
+    avg_row = {
+        "embedding_model": embedding_model,
+        "sparse_model": sparse_model,
+        "reranker_model": reranker_model,
+        "question": "AVERAGE",
+        "gold_context_preview": "",
+        "mrr": df["mrr"].mean(),
+        "ndcg": df["ndcg"].mean(),
+        "hit": df["hit"].mean(),
+        "recall": df["recall"].mean(),
+        "precision": df["precision"].mean(),
+    }
+    df = pd.concat([df, pd.DataFrame([avg_row])], ignore_index=True)
+
+    output_path = Path(__file__).parent / "retrieval_scores.csv"
+    df.to_csv(output_path, index=False)
+    logger.info("Saved results to %s", output_path)
+    return df
+
+
+# ---------------------------------------------------------------------------
+# 8. Summary
+# ---------------------------------------------------------------------------
+
+def _print_summary(df: pd.DataFrame, n_questions: int) -> None:
+    """Print a nicely formatted summary to stdout."""
+    avg = df.iloc[-1]
+
+    print("\n" + "=" * 64)
+    print("  Retrieval Evaluation Summary (SberQuAD)")
+    print("=" * 64)
+    print(f"  Embedding model : {avg['embedding_model']}")
+    print(f"  Sparse model    : {avg['sparse_model']}")
+    reranker_model = avg["reranker_model"]
+    print(f"  Reranker model  : {reranker_model if reranker_model else '(disabled)'}")
+    print(f"  Questions       : {n_questions}")
+    print("-" * 64)
+    print(f"  {'Metric':<15s}  {'Value':>8s}")
+    print("-" * 64)
+    for metric in ("mrr", "ndcg", "hit", "recall", "precision"):
+        print(f"  {metric.upper():<15s}  {avg[metric]:>8.4f}")
+    print("=" * 64)
+
+    output_path = Path(__file__).parent / "retrieval_scores.csv"
+    print(f"  Results saved to: {output_path}")
+    print()
+
+
+# ---------------------------------------------------------------------------
+# 9. CLI
+# ---------------------------------------------------------------------------
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Evaluate retrieval quality on SberQuAD benchmark",
+    )
+    parser.add_argument(
+        "--k", type=int, default=10,
+        help=(
+            "Retrieval top-k (ignored when RERANKING_ENABLED=true; "
+            "RERANKER_PREFETCH_LIMIT is used instead)"
+        ),
+    )
+    parser.add_argument(
+        "--size", type=int, default=500,
+        help="Number of SberQuAD questions (0=all, default: 500)",
+    )
+    parser.add_argument(
+        "--retrieval-concurrency", type=int, default=10,
+        help="Max concurrent retrieval queries (default: 10)",
+    )
+    parser.add_argument(
+        "--rerank-concurrency", type=int, default=2,
+        help="Max concurrent reranking requests (default: 2)",
+    )
+    return parser.parse_args()
+
+
+# ---------------------------------------------------------------------------
+# 10. Main async pipeline
+# ---------------------------------------------------------------------------
+
+async def evaluate_retrieval(
+    k: int,
+    size: int,
+    retrieval_concurrency: int = 20,
+    rerank_concurrency: int = 10,
+) -> None:
+    """End-to-end retrieval evaluation pipeline."""
+    settings = RagServiceSettings()
+
+    # 1. Start temp Qdrant
+    container_id, qdrant_url = _start_qdrant_container()
+
+    try:
+        # 2. Load SberQuAD
+        samples = _load_sberquad(size)
+
+        # Deduplicate contexts for indexing
+        context_set: dict[str, int] = {}
+        for s in samples:
+            ctx = s["context"]
+            if ctx not in context_set:
+                context_set[ctx] = len(context_set)
+        unique_contexts = list(context_set.keys())
+        logger.info(
+            "%d unique contexts from %d samples", len(unique_contexts), len(samples),
+        )
+
+        # Build embeddings (shared across indexing and retrieval)
+        embeddings = build_embeddings(settings)
+        sparse_embedding = build_sparse_embeddings(settings)
+
+        # 3. Index contexts
+        logger.info("Indexing contexts into temp Qdrant...")
+        await _index_contexts(
+            unique_contexts, qdrant_url, settings, embeddings, sparse_embedding,
+        )
+
+        # 4. Retrieve for each question
+        effective_k = (
+            settings.reranker_prefetch_limit
+            if settings.reranking_enabled
+            else k
+        )
+        logger.info(
+            "Retrieving for %d questions (effective_k=%d, reranking=%s)...",
+            len(samples), effective_k, settings.reranking_enabled,
+        )
+        all_results = await _retrieve_all(
+            samples, qdrant_url, settings, embeddings, sparse_embedding, k,
+            concurrency=retrieval_concurrency,
+        )
+
+        # Apply reranking if enabled
+        all_results = await _apply_reranking(
+            samples, all_results, settings, concurrency=rerank_concurrency,
+        )
+
+        # 5-7. Compute metrics and save CSV
+        df = _save_csv(samples, all_results, settings)
+
+        # 8. Print summary
+        _print_summary(df, len(samples))
+
+    finally:
+        _stop_qdrant_container(container_id)
+
+
+if __name__ == "__main__":
+    args = _parse_args()
+    asyncio.run(evaluate_retrieval(
+        k=args.k,
+        size=args.size,
+        retrieval_concurrency=args.retrieval_concurrency,
+        rerank_concurrency=args.rerank_concurrency,
+    ))

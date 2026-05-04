@@ -86,6 +86,27 @@ EMBED_N_GPU_LAYERS=99
 
 ---
 
+## 3.5. Retrieval Evaluation (оценка поиска)
+
+Для оценки качества поиска на SberQuAD нужен **только Embedding-сервер** (порт 8090). LLM-сервер (порт 8080) **не требуется**.
+
+```bash
+# Запустить Embedding-сервер (если не запущен)
+bash scripts/run_llama_embeddings.sh
+
+# Запустить оценку поиска
+bash ragas/run.sh retrieval
+```
+
+Файл модели: `models/Qwen3-Embedding-4B-Q4_K_M.gguf` (скачается автоматически при первом запуске). Опциональные переопределения:
+
+```bash
+EMBED_MODEL_PATH=./models/my-embed.gguf bash scripts/run_llama_embeddings.sh
+EMBED_N_GPU_LAYERS=0 bash scripts/run_llama_embeddings.sh  # принудительно CPU
+```
+
+---
+
 ## 4. Запуск серверов вручную
 
 Скрипты `run_admin.sh` и `run_all.sh` запускают `llama-server` автоматически. Если нужно поднять серверы отдельно (например, в отдельном окне терминала):

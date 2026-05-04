@@ -53,6 +53,14 @@ class RagServiceSettings(BaseSettings):
     embedding_base_url: str = "http://localhost:11434"
     embedding_api_key: str = ""
 
+    # Asymmetric query-side instruction (Qwen3 / E5-instruct family).
+    # Leave empty to disable (e.g. for BGE-M3 or symmetric models).
+    # Format applied to queries only: "Instruct: {task}\nQuery: {text}"
+    embedding_query_instruction: str = (
+        "Given a web search query, retrieve relevant passages that answer the query"
+    )
+    embedding_use_query_instruction: bool = True
+
     # Hybrid search (sparse BM25 embeddings)
     sparse_embedding_model: str = "Qdrant/bm25"
     bm25_lemmatize: bool = True
@@ -60,7 +68,7 @@ class RagServiceSettings(BaseSettings):
     # Retrieval k defaults
     doc_query_k: int = 15
     global_max_k: int = 10
-    dense_score_threshold: float = 0.5
+    dense_score_threshold: float = 0.0
 
     # Reranking
     reranking_enabled: bool = False

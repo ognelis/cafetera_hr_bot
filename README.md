@@ -434,9 +434,16 @@ docker compose up -d --build qdrant minio postgres rag-service vk_bot
 
 ## 10. Оценка качества ответов (RAGAS)
 
-Чтобы проверить, насколько хорошо бот отвечает на вопросы по загруженным документам, в проекте есть автоматическая оценка на базе [RAGAS](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/).
+В проекте есть автоматическая оценка качества на базе [RAGAS](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/). Доступно 4 режима:
 
-Быстрый запуск:
+| Режим | Что делает |
+|---|---|
+| `generate` | Генерирует тестовые вопросы из загруженных документов |
+| `evaluate` | Прогоняет готовый тестсет через RAG и считает метрики |
+| `all` (по умолчанию) | Генерация + оценка одной командой |
+| `retrieval` | Оценка качества поиска на публичном бенчмарке SberQuAD |
+
+### Стандартная оценка (generate + evaluate)
 
 ```bash
 bash ragas/run.sh
@@ -444,7 +451,17 @@ bash ragas/run.sh
 
 Скрипт спросит провайдера LLM/Embedding, сгенерирует тестовые вопросы по уже загруженным документам и прогонит их через RAG-конвейер. Результаты сохраняются в `ragas/scores.json`.
 
-Подробное описание метрик простым языком (что измеряется, как считается, как читать результат) — см. **[docs/ragas.md](docs/ragas.md)**.
+### Оценка качества поиска (retrieval)
+
+Оценивает поисковую подсистему **независимо от LLM** на публичном бенчмарке [SberQuAD](https://huggingface.co/datasets/kuznetsoffandrey/sberquad). Не требует предварительной загрузки документов — использует готовый набор вопросов и контекстов.
+
+```bash
+bash ragas/run.sh retrieval
+```
+
+Метрики: MRR@10, NDCG@10, Hit Rate@10, Recall@10, Precision@10. Результаты — `ragas/retrieval_scores.csv`.
+
+Подробное описание всех метрик простым языком — см. **[docs/ragas.md](docs/ragas.md)**.
 
 ---
 

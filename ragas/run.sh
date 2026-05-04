@@ -60,6 +60,7 @@ load_env_var EMBED_UBATCH_SIZE
 load_env_var RERANKING_ENABLED
 load_env_var RERANKER_URL
 load_env_var RERANKER_MODEL
+load_env_var BM25_LEMMATIZE
 # NOTE: LLM_PROVIDER and EMBEDDING_PROVIDER are NOT loaded from .env
 # They are selected interactively below
 
@@ -71,10 +72,6 @@ OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 
 check_prerequisites_no_uv
 
-# ─── Interactive provider selection ──────────────────────────────────────────
-select_llm_provider "ragas"
-select_embedding_provider "ragas"
-
 # ─── Mode selection ──────────────────────────────────────────────────────────
 
 if [ $# -eq 0 ]; then
@@ -83,54 +80,64 @@ if [ $# -eq 0 ]; then
   echo "  1) generate  — generate synthetic testset only"
   echo "  2) evaluate  — run RAGAS evaluation only"
   echo "  3) all       — generate + evaluate (default)"
-  read -r -p "[ragas] Enter choice [1-3, Enter=3]: " mode_choice
+  echo "  4) retrieval — offline retrieval metrics (SberQuAD, temp Qdrant)"
+  read -r -p "[ragas] Enter choice [1-4, Enter=3]: " mode_choice
 
   case "${mode_choice:-3}" in
-    1|generate)  ACTION="generate" ;;
-    2|evaluate)  ACTION="evaluate" ;;
-    3|all|"")    ACTION="all" ;;
-    *) log "ERROR: Invalid choice '$mode_choice'. Use 1, 2, or 3."; exit 1 ;;
+    1|generate)   ACTION="generate" ;;
+    2|evaluate)   ACTION="evaluate" ;;
+    3|all|"")     ACTION="all" ;;
+    4|retrieval)  ACTION="retrieval" ;;
+    *) log "ERROR: Invalid choice '$mode_choice'. Use 1, 2, 3, or 4."; exit 1 ;;
   esac
 else
   ACTION="$1"
 fi
 
-if [[ "$ACTION" != "generate" && "$ACTION" != "evaluate" && "$ACTION" != "all" ]]; then
-  log "ERROR: Unknown action '$ACTION'. Use: generate | evaluate | all"
+if [[ "$ACTION" != "generate" && "$ACTION" != "evaluate" && "$ACTION" != "all" && "$ACTION" != "retrieval" ]]; then
+  log "ERROR: Unknown action '$ACTION'. Use: generate | evaluate | all | retrieval"
   exit 1
 fi
 
+# ─── Interactive provider selection ──────────────────────────────────────────
+if [[ "$ACTION" != "retrieval" ]]; then
+  select_llm_provider "ragas"
+fi
+select_embedding_provider "ragas"
+
 # ─── Start Qdrant via docker compose ─────────────────────────────────────────
 
-log "Starting Qdrant via docker compose..."
-docker compose up -d qdrant
+if [[ "$ACTION" != "retrieval" ]]; then
+  log "Starting Qdrant via docker compose..."
+  docker compose up -d qdrant
 
-if ! wait_for_service "Qdrant" "${QDRANT_URL}/healthz"; then
-  log "ERROR: Qdrant failed to start at ${QDRANT_URL}"
-  log "FIX:   Check docker logs: docker compose logs qdrant"
-  log "       Make sure port 6333 is not in use: lsof -i :6333"
-  exit 1
+  if ! wait_for_service "Qdrant" "${QDRANT_URL}/healthz"; then
+    log "ERROR: Qdrant failed to start at ${QDRANT_URL}"
+    log "FIX:   Check docker logs: docker compose logs qdrant"
+    log "       Make sure port 6333 is not in use: lsof -i :6333"
+    exit 1
+  fi
 fi
 
 # ─── Start providers ─────────────────────────────────────────────────────────
 
 # Ollama — only if needed
-if [[ "${LLM_PROVIDER}" == "ollama" || "${EMBEDDING_PROVIDER}" == "ollama" ]]; then
-  start_ollama_providers "$OLLAMA_URL" "$LLM_PROVIDER" "$LLM_MODEL" "$EMBEDDING_PROVIDER" "$EMBEDDING_MODEL"
+if [[ "${LLM_PROVIDER:-}" == "ollama" || "${EMBEDDING_PROVIDER}" == "ollama" ]]; then
+  start_ollama_providers "$OLLAMA_URL" "${LLM_PROVIDER:-}" "${LLM_MODEL:-}" "$EMBEDDING_PROVIDER" "$EMBEDDING_MODEL"
 fi
 
 # OpenAI — validation only
-if [[ "${LLM_PROVIDER}" == "openai" || "${EMBEDDING_PROVIDER}" == "openai" ]]; then
-  validate_openai_providers "$LLM_PROVIDER" "$LLM_API_KEY" "$LLM_MODEL" "$EMBEDDING_PROVIDER" "$EMBEDDING_API_KEY" "$EMBEDDING_MODEL"
+if [[ "${LLM_PROVIDER:-}" == "openai" || "${EMBEDDING_PROVIDER}" == "openai" ]]; then
+  validate_openai_providers "${LLM_PROVIDER:-}" "${LLM_API_KEY:-}" "${LLM_MODEL:-}" "$EMBEDDING_PROVIDER" "$EMBEDDING_API_KEY" "$EMBEDDING_MODEL"
 fi
 
 # llama.cpp — only if needed and URL is local
-if [[ "${LLM_PROVIDER}" == "llamacpp" || "${EMBEDDING_PROVIDER}" == "llamacpp" ]]; then
-  start_llamacpp_providers "$SCRIPT_DIR/../scripts" "$LLM_PROVIDER" "$LLM_BASE_URL" "$EMBEDDING_PROVIDER" "$EMBEDDING_BASE_URL"
+if [[ "${LLM_PROVIDER:-}" == "llamacpp" || "${EMBEDDING_PROVIDER}" == "llamacpp" ]]; then
+  start_llamacpp_providers "$SCRIPT_DIR/../scripts" "${LLM_PROVIDER:-}" "${LLM_BASE_URL:-}" "$EMBEDDING_PROVIDER" "$EMBEDDING_BASE_URL"
 fi
 
 # OpenAI — just log, no local server needed
-if [[ "$LLM_PROVIDER" == "openai" ]]; then
+if [[ "${LLM_PROVIDER:-}" == "openai" ]]; then
   log "LLM provider: OpenAI (remote, no local server needed)"
 fi
 if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
@@ -148,13 +155,19 @@ uv sync
 
 # ─── Export provider vars and run ────────────────────────────────────────────
 
-export LLM_PROVIDER LLM_MODEL LLM_BASE_URL LLM_API_KEY
+if [[ "$ACTION" != "retrieval" ]]; then
+  export LLM_PROVIDER LLM_MODEL LLM_BASE_URL LLM_API_KEY
+fi
 export EMBEDDING_PROVIDER EMBEDDING_MODEL EMBEDDING_BASE_URL EMBEDDING_API_KEY
+export BM25_LEMMATIZE
 
 echo
-log "✓ Qdrant ready at ${QDRANT_URL}"
-log "LLM:         ${LLM_PROVIDER} (${LLM_MODEL})"
+if [[ "$ACTION" != "retrieval" ]]; then
+  log "✓ Qdrant ready at ${QDRANT_URL}"
+  log "LLM:         ${LLM_PROVIDER} (${LLM_MODEL})"
+fi
 log "Embedding:   ${EMBEDDING_PROVIDER} (${EMBEDDING_MODEL})"
+log "BM25 lemmatize: ${BM25_LEMMATIZE:-true}"
 if [[ "${RERANKING_ENABLED:-false}" == "true" ]]; then
   log "Reranker:    ${RERANKER_URL}"
 fi
@@ -168,4 +181,9 @@ fi
 if [ "$ACTION" = "evaluate" ] || [ "$ACTION" = "all" ]; then
   echo "=== Running RAGAS evaluation ==="
   uv run python ragas/evaluate.py
+fi
+
+if [ "$ACTION" = "retrieval" ]; then
+  echo "=== Running offline retrieval metrics (SberQuAD) ==="
+  uv run python ragas/evaluate_retrieval.py
 fi

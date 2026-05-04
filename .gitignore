@@ -135,3 +135,4 @@ docker-compose.override.yml
 .qoder/agents
 ragas/testset.json
 ragas/scores.json
+ragas/retrieval_scores.csv

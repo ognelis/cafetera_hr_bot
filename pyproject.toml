@@ -21,6 +21,8 @@ dev = [
     "ragas>=0.4.0",
     "openai>=1.0.0",
     "rapidfuzz",
+    "datasets>=3.0.0",
+    "pandas>=3.0.2",
 ]
 
 [[tool.uv.index]]
@@ -43,23 +45,29 @@ cafetera-core = { workspace = true }
 cafetera-admin = { workspace = true }
 cafetera-vk-bot = { workspace = true }
 cafetera-rag-service = { workspace = true }
-torch = [
-    { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
-]
-torchvision = [
-    { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
-]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = ["requires_docker: tests that need Docker (Testcontainers)"]
-pythonpath = ["packages/core/src", "packages/admin/src", "packages/vk_bot/src", "packages/rag_service/src"]
+pythonpath = [
+    "packages/core/src",
+    "packages/admin/src",
+    "packages/vk_bot/src",
+    "packages/rag_service/src",
+]
 
 [tool.ruff]
 line-length = 100
 target-version = "py313"
-src = ["packages/core/src", "packages/admin/src", "packages/vk_bot/src", "packages/rag_service/src"]
+src = [
+    "packages/core/src",
+    "packages/admin/src",
+    "packages/vk_bot/src",
+    "packages/rag_service/src",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

@@ -160,3 +160,52 @@ bash scripts/run_all.sh
 Docker Compose читает `.env` файл, но переменные из секции `environment` в `docker-compose.yml` имеют приоритет над `env_file`. Если в `.env` указан `LLM_PROVIDER=llamacpp`, но в `docker-compose.yml` стоит `LLM_PROVIDER: "${LLM_PROVIDER:-ollama}"`, а переменная `LLM_PROVIDER` не экспортирована в оболочке — будет использовано значение по умолчанию (`ollama`).
 
 **Решение:** Запускайте систему через стартовые скрипты, которые экспортируют переменные перед вызовом `docker compose up`.
+
+---
+
+### «ERROR: Can't connect to Docker daemon» при запуске retrieval evaluation
+
+Retrieval evaluation поднимает временный контейнер Qdrant через `docker run --rm`. Убедитесь, что Docker запущен:
+
+```bash
+docker ps
+```
+
+Если Docker не установлен — см. раздел «Установить Docker» в [README.md](../README.md).
+
+---
+
+### «ERROR: Qdrant is not healthy» при retrieval evaluation
+
+Возможные причины:
+
+1. Порт 6333 занят другим процессом:
+
+   ```bash
+   lsof -i :6333
+   ```
+
+2. Недостаточно памяти для контейнера Qdrant.
+3. Проблемы с Docker-сетью — попробуйте `docker network prune`.
+
+---
+
+### «ConnectionError» при скачивании SberQuAD
+
+Датасет SberQuAD загружается с HuggingFace при первом запуске. Проверьте:
+
+- Есть ли доступ в интернет.
+- Достаточно ли места на диске.
+- Если кэш повреждён — очистите его: `rm -rf ~/.cache/huggingface/datasets/kuznetsoffandrey___sberquad`.
+
+---
+
+### Retrieval evaluation выдаёт все нули или единицы
+
+Вероятно, неправильно настроен Embedding-провайдер или модель. Проверьте на маленьком наборе:
+
+```bash
+uv run python ragas/evaluate_retrieval.py --size 10
+```
+
+Если результаты аномальные — попробуйте другой Embedding-провайдер или модель.

@@ -192,13 +192,12 @@ def build_embeddings(settings: RagServiceSettings) -> Embeddings:
                 "Install the 'openai_compatible' extra: "
                 "uv sync --extra openai_compatible"
             ) from exc
-        return OpenAIEmbeddings(
+        base: Embeddings = OpenAIEmbeddings(
             model=settings.embedding_model,
             api_key=settings.embedding_api_key,  # type: ignore[arg-type]
             base_url=settings.embedding_base_url or None,
         )
-
-    if settings.embedding_provider == "llamacpp":
+    elif settings.embedding_provider == "llamacpp":
         try:
             from langchain_openai import OpenAIEmbeddings
         except ImportError as exc:
@@ -206,23 +205,36 @@ def build_embeddings(settings: RagServiceSettings) -> Embeddings:
                 "Install the 'openai_compatible' extra: "
                 "uv sync --extra openai_compatible"
             ) from exc
-        return OpenAIEmbeddings(
+        base = OpenAIEmbeddings(
             model=settings.embedding_model,
             api_key=settings.embedding_api_key or "no-key",  # type: ignore[arg-type]
             base_url=settings.embedding_base_url or "http://localhost:8080/v1",
         )
+    else:
+        # Default: Ollama
+        try:
+            from langchain_ollama import OllamaEmbeddings
+        except ImportError as exc:
+            raise ImportError(
+                "Install the 'ollama' extra: uv sync --extra ollama"
+            ) from exc
+        base = OllamaEmbeddings(
+            model=settings.embedding_model,
+            base_url=settings.embedding_base_url,
+        )
 
-    # Default: Ollama
-    try:
-        from langchain_ollama import OllamaEmbeddings
-    except ImportError as exc:
-        raise ImportError(
-            "Install the 'ollama' extra: uv sync --extra ollama"
-        ) from exc
-    return OllamaEmbeddings(
-        model=settings.embedding_model,
-        base_url=settings.embedding_base_url,
-    )
+    if (
+        settings.embedding_use_query_instruction
+        and settings.embedding_query_instruction.strip()
+    ):
+        from cafetera_rag_service.rag.instructed_embeddings import (
+            InstructedQueryEmbeddings,
+        )
+        return InstructedQueryEmbeddings(
+            inner=base,
+            instruction=settings.embedding_query_instruction,
+        )
+    return base
 
 
 def build_sparse_embeddings(settings: RagServiceSettings):
