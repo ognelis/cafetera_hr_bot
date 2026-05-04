@@ -7,140 +7,18 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
+# Source common utilities
+source "$SCRIPT_DIR/common.sh"
+
 # Configuration
 ADMIN_HOST="${ADMIN_HOST:-127.0.0.1}"
 ADMIN_PORT="${ADMIN_PORT:-8000}"
-
-HEALTH_RETRIES=30
-HEALTH_INTERVAL=2
-
-log() {
-  echo "[run-all] $*"
-}
-
-command_exists() {
-  command -v "$1" >/dev/null 2>&1
-}
-
-mask_credentials() {
-  # Strip userinfo (user:password@) from URLs for safe logging
-  echo "$1" | sed -E 's|://[^@]+@|://***@|'
-}
-
-wait_for_postgres() {
-  local retries="${1:-$HEALTH_RETRIES}"
-  local interval="${2:-$HEALTH_INTERVAL}"
-
-  log "Waiting for PostgreSQL..."
-
-  for i in $(seq 1 "$retries"); do
-    if docker compose exec -T postgres pg_isready -U cafetera >/dev/null 2>&1; then
-      log "PostgreSQL is ready"
-      return 0
-    fi
-    if [[ $i -lt $retries ]]; then
-      sleep "$interval"
-    fi
-  done
-
-  log "ERROR: PostgreSQL did not become ready after $retries attempts"
-  return 1
-}
-
-wait_for_healthy() {
-  local service="$1"
-  local retries="${2:-$HEALTH_RETRIES}"
-  local interval="${3:-$HEALTH_INTERVAL}"
-
-  log "Waiting for $service to be healthy..."
-
-  for i in $(seq 1 "$retries"); do
-    # Try JSON format first
-    local health_status
-    health_status=$(docker compose ps --format json "$service" 2>/dev/null | jq -r '.Health' 2>/dev/null || echo "")
-    
-    # Fallback to table format if jq failed
-    if [[ -z "$health_status" ]]; then
-      # Extract health status from "Up X minutes (health: starting)" or "healthy"
-      health_status=$(docker compose ps "$service" 2>/dev/null | tail -n +2 | grep -oP 'health: \K[a-z]+' || echo "")
-    fi
-    
-    if [[ "$health_status" == "healthy" ]]; then
-      log "$service is healthy"
-      return 0
-    fi
-    
-    if [[ $i -lt $retries ]]; then
-      sleep "$interval"
-    fi
-  done
-
-  log "ERROR: $service did not become healthy after $retries attempts"
-  log "FIX:   Check docker logs: docker compose logs $service"
-  return 1
-}
-
-wait_for_service() {
-  local name="$1"
-  local url="$2"
-  local retries="${3:-$HEALTH_RETRIES}"
-  local interval="${4:-$HEALTH_INTERVAL}"
-
-  log "Waiting for $name at $url..."
-
-  for i in $(seq 1 "$retries"); do
-    if curl -sf "$url" >/dev/null 2>&1; then
-      log "$name is ready"
-      return 0
-    fi
-    if [[ $i -lt $retries ]]; then
-      sleep "$interval"
-    fi
-  done
-
-  log "ERROR: $name did not become ready after $retries attempts"
-  return 1
-}
-
-# PIDs of background processes to kill on exit
-BG_PIDS=()
-
-cleanup() {
-  log "Shutting down..."
-  
-  log "Stopping docker compose services..."
-  docker compose down 2>/dev/null || true
-  
-  # Kill background processes
-  for pid in ${BG_PIDS[@]+"${BG_PIDS[@]}"}; do
-    if kill -0 "$pid" 2>/dev/null; then
-      log "Stopping background process (PID=$pid)"
-      kill "$pid" 2>/dev/null || true
-      wait "$pid" 2>/dev/null || true
-    fi
-  done
-  
-  log "All services stopped"
-}
 
 # Set trap for cleanup on exit
 trap cleanup EXIT INT TERM
 
 # Check prerequisites
-log "Checking prerequisites..."
-
-if ! command_exists docker; then
-  log "ERROR: docker is not installed or not in PATH"
-  log "FIX:   Install Docker Desktop: https://docs.docker.com/get-docker/"
-  exit 1
-fi
-
-if [[ ! -f ".env" ]]; then
-  log "ERROR: .env file not found in project root ($PROJECT_DIR)"
-  log "FIX:   Copy the example and fill in your values:"
-  log "       cp .env.example .env && nano .env"
-  exit 1
-fi
+check_prerequisites
 
 if ! grep -q 'ADMIN_API_KEY=.' .env 2>/dev/null; then
   log "WARNING: ADMIN_API_KEY is not set in .env"
@@ -168,23 +46,10 @@ fi
 
 log "Prerequisites OK"
 
-# Load configuration from .env (lower priority than environment variables)
-load_env_var() {
-  local var_name="$1"
-  if [[ -z "${!var_name:-}" ]] && grep -qE "^${var_name}=" .env 2>/dev/null; then
-    local val
-    val=$(grep -E "^${var_name}=" .env | head -1 | cut -d= -f2- | sed 's/^["'\''"]*//;s/["'\''"]*$//')
-    if [[ -n "$val" ]]; then
-      export "$var_name=$val"
-    fi
-  fi
-}
-
-load_env_var LLM_PROVIDER
+# Load ONLY model names and URLs from .env (provider will be selected interactively)
 load_env_var LLM_MODEL
 load_env_var LLM_BASE_URL
 load_env_var LLM_API_KEY
-load_env_var EMBEDDING_PROVIDER
 load_env_var EMBEDDING_MODEL
 load_env_var EMBEDDING_BASE_URL
 load_env_var EMBEDDING_API_KEY
@@ -214,20 +79,36 @@ OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 # Use container URLs for the Docker environment
 DATABASE_URL="${DATABASE_CONTAINER_URL}"
 
-# Interactive provider selection
+# Interactive provider selection (uses .env values as defaults if available)
 select_llm_provider() {
   echo
-  log "Select LLM provider:"
-  echo "  1) ollama (default)"
-  echo "  2) openai"
-  echo "  3) llamacpp"
-  read -r -p "[run-all] Enter choice [1-3, Enter=1]: " llm_choice
+  # Try to get current provider from .env, fallback to ollama
+  local current_provider="${LLM_PROVIDER:-ollama}"
+  local current_model="${LLM_MODEL:-qwen3.5:4b-q4_K_M}"
+  local current_url="${LLM_BASE_URL:-}"
+  
+  # If URLs are set in .env, infer the provider
+  if [[ -z "${LLM_PROVIDER:-}" && -n "${LLM_BASE_URL:-}" ]]; then
+    case "$LLM_BASE_URL" in
+      *localhost:11434*|*127.0.0.1:11434*) current_provider="ollama" ;;
+      *localhost:8080*|*127.0.0.1:8080*) current_provider="llamacpp" ;;
+      *api.openai.com*) current_provider="openai" ;;
+    esac
+  fi
+  
+  log "LLM Provider Configuration:"
+  log "  Default: $current_provider ($current_model)"
+  log "  Options:"
+  echo "    1) ollama"
+  echo "    2) openai"
+  echo "    3) llamacpp"
+  read -r -p "[run-all] Select LLM provider [1-3, Enter=$current_provider]: " llm_choice
 
-  case "${llm_choice:-1}" in
+  case "${llm_choice:-$(provider_to_number $current_provider)}" in
     1|ollama)
       LLM_PROVIDER="ollama"
       LLM_MODEL="${LLM_MODEL:-qwen3.5:4b-q4_K_M}"
-      LLM_BASE_URL="http://host.docker.internal:11434"
+      LLM_BASE_URL="http://localhost:11434"
       LLM_API_KEY=""
       ;;
     2|openai)
@@ -240,36 +121,60 @@ select_llm_provider() {
     3|llamacpp)
       LLM_PROVIDER="llamacpp"
       LLM_MODEL="${LLM_MODEL:-local-model}"
-      LLM_BASE_URL="http://host.docker.internal:8080"
+      LLM_BASE_URL="http://localhost:8080"
       LLM_API_KEY=""
       ;;
     *)
-      log "Invalid choice, using ollama"
-      LLM_PROVIDER="ollama"
-      LLM_MODEL="${LLM_MODEL:-qwen3.5:4b-q4_K_M}"
-      LLM_BASE_URL="http://host.docker.internal:11434"
-      LLM_API_KEY=""
+      log "Invalid choice, keeping current: $current_provider"
+      # Keep existing values from .env
+      LLM_PROVIDER="$current_provider"
+      LLM_MODEL="$current_model"
+      LLM_BASE_URL="${LLM_BASE_URL:-http://localhost:11434}"
       ;;
   esac
 
   export LLM_PROVIDER LLM_MODEL LLM_BASE_URL LLM_API_KEY
-  export DOCKER_LLM_BASE_URL="$LLM_BASE_URL"
-  log "Selected LLM provider: $LLM_PROVIDER"
+  log "LLM provider: $LLM_PROVIDER ($LLM_MODEL)"
+}
+
+provider_to_number() {
+  case "$1" in
+    ollama) echo "1" ;;
+    openai) echo "2" ;;
+    llamacpp) echo "3" ;;
+    *) echo "1" ;;
+  esac
 }
 
 select_embedding_provider() {
   echo
-  log "Select Embedding provider:"
-  echo "  1) ollama (default)"
-  echo "  2) openai"
-  echo "  3) llamacpp"
-  read -r -p "[run-all] Enter choice [1-3, Enter=1]: " embed_choice
+  # Try to get current provider from .env, fallback to ollama
+  local current_provider="${EMBEDDING_PROVIDER:-ollama}"
+  local current_model="${EMBEDDING_MODEL:-qwen3-embedding:0.6b-fp16}"
+  local current_url="${EMBEDDING_BASE_URL:-}"
+  
+  # If URLs are set in .env, infer the provider
+  if [[ -z "${EMBEDDING_PROVIDER:-}" && -n "${EMBEDDING_BASE_URL:-}" ]]; then
+    case "$EMBEDDING_BASE_URL" in
+      *localhost:11434*|*127.0.0.1:11434*) current_provider="ollama" ;;
+      *localhost:8090*|*127.0.0.1:8090*) current_provider="llamacpp" ;;
+      *api.openai.com*) current_provider="openai" ;;
+    esac
+  fi
+  
+  log "Embedding Provider Configuration:"
+  log "  Default: $current_provider ($current_model)"
+  log "  Options:"
+  echo "    1) ollama"
+  echo "    2) openai"
+  echo "    3) llamacpp"
+  read -r -p "[run-all] Select Embedding provider [1-3, Enter=$current_provider]: " embed_choice
 
-  case "${embed_choice:-1}" in
+  case "${embed_choice:-$(provider_to_number $current_provider)}" in
     1|ollama)
       EMBEDDING_PROVIDER="ollama"
-      EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding:4b-q4_K_M}"
-      EMBEDDING_BASE_URL="http://host.docker.internal:11434"
+      EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding:0.6b-fp16}"
+      EMBEDDING_BASE_URL="http://localhost:11434"
       EMBEDDING_API_KEY=""
       ;;
     2|openai)
@@ -282,28 +187,31 @@ select_embedding_provider() {
     3|llamacpp)
       EMBEDDING_PROVIDER="llamacpp"
       EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding}"
-      EMBEDDING_BASE_URL="http://host.docker.internal:8090/v1"
+      EMBEDDING_BASE_URL="http://localhost:8090/v1"
       EMBEDDING_API_KEY=""
       ;;
     *)
-      log "Invalid choice, using ollama"
-      EMBEDDING_PROVIDER="ollama"
-      EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding:4b-q4_K_M}"
-      EMBEDDING_BASE_URL="http://host.docker.internal:11434"
-      EMBEDDING_API_KEY=""
+      log "Invalid choice, keeping current: $current_provider"
+      # Keep existing values from .env
+      EMBEDDING_PROVIDER="$current_provider"
+      EMBEDDING_MODEL="$current_model"
+      EMBEDDING_BASE_URL="${EMBEDDING_BASE_URL:-http://localhost:11434}"
       ;;
   esac
 
   export EMBEDDING_PROVIDER EMBEDDING_MODEL EMBEDDING_BASE_URL EMBEDDING_API_KEY
-  export DOCKER_EMBEDDING_BASE_URL="$EMBEDDING_BASE_URL"
-  log "Selected Embedding provider: $EMBEDDING_PROVIDER"
+  log "Embedding provider: $EMBEDDING_PROVIDER ($EMBEDDING_MODEL)"
 }
 
 select_llm_provider
 select_embedding_provider
 
+# Configure Docker URLs BEFORE starting containers
+configure_docker_urls "$LLM_PROVIDER" "$LLM_BASE_URL" "$EMBEDDING_PROVIDER" "$EMBEDDING_BASE_URL" "${RERANKER_URL:-http://localhost:8082}"
+
 # Start infrastructure
 log "Starting infrastructure via docker compose..."
+docker compose down 2>/dev/null
 docker compose up -d
 
 # Note: Docker services use CPU-only PyTorch (configured via [tool.uv.sources])
@@ -338,74 +246,16 @@ if ! wait_for_healthy "rag-service" 60 3; then
 fi
 
 # Start local LLM and embedding providers if needed
-start_ollama_providers() {
-  log "Checking Ollama at $OLLAMA_URL..."
-  if ! curl -sf "$OLLAMA_URL" >/dev/null 2>&1; then
-    if ! command_exists ollama; then
-      log "ERROR: Ollama is not installed and not running at $OLLAMA_URL"
-      log "FIX:   Install Ollama: https://ollama.com/download"
-      log "       Then re-run this script."
-      exit 1
-    fi
-    log "Ollama is not running. Starting Ollama server..."
-    OLLAMA_HOST="${OLLAMA_HOST:-127.0.0.1:11434}" ollama serve >/tmp/ollama.log 2>&1 &
-    BG_PIDS+=("$!")
-    if ! wait_for_service "Ollama" "$OLLAMA_URL" 30 1; then
-      log "ERROR: Ollama failed to start. Check /tmp/ollama.log"
-      exit 1
-    fi
-  else
-    log "Ollama is already running"
-  fi
-
-  # Pull LLM model if ollama is used for LLM
-  if [[ "$LLM_PROVIDER" == "ollama" ]]; then
-    log "Ensuring LLM model '$LLM_MODEL' is available..."
-    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$LLM_MODEL"; then
-      log "Pulling LLM model '$LLM_MODEL'..."
-      if ! ollama pull "$LLM_MODEL"; then
-        log "ERROR: Failed to pull LLM model '$LLM_MODEL'"
-        log "FIX:   Check model name is correct: ollama list"
-        log "       Available models: https://ollama.com/library"
-        exit 1
-      fi
-    fi
-    # Verify model is usable
-    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$LLM_MODEL"; then
-      log "ERROR: LLM model '$LLM_MODEL' not found in Ollama after pull"
-      log "FIX:   Check model name spelling (must include quantization suffix)"
-      log "       Run: ollama list  — to see available models"
-      exit 1
-    fi
-    log "LLM model '$LLM_MODEL' is ready"
-  fi
-
-  # Pull embedding model if ollama is used for embeddings
-  if [[ "$EMBEDDING_PROVIDER" == "ollama" ]]; then
-    log "Ensuring embedding model '$EMBEDDING_MODEL' is available..."
-    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$EMBEDDING_MODEL"; then
-      log "Pulling embedding model '$EMBEDDING_MODEL'..."
-      if ! ollama pull "$EMBEDDING_MODEL"; then
-        log "ERROR: Failed to pull embedding model '$EMBEDDING_MODEL'"
-        log "FIX:   Check model name is correct: ollama list"
-        log "       Available models: https://ollama.com/library"
-        exit 1
-      fi
-    fi
-    # Verify model is usable
-    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$EMBEDDING_MODEL"; then
-      log "ERROR: Embedding model '$EMBEDDING_MODEL' not found in Ollama after pull"
-      log "FIX:   Check model name spelling (must include quantization suffix)"
-      log "       Run: ollama list  — to see available models"
-      exit 1
-    fi
-    log "Embedding model '$EMBEDDING_MODEL' is ready"
-  fi
-}
-
-# Launch providers based on selection
 if [[ "$LLM_PROVIDER" == "ollama" || "$EMBEDDING_PROVIDER" == "ollama" ]]; then
-  start_ollama_providers
+  start_ollama_providers "$OLLAMA_URL" "$LLM_PROVIDER" "$LLM_MODEL" "$EMBEDDING_PROVIDER" "$EMBEDDING_MODEL"
+fi
+
+if [[ "$LLM_PROVIDER" == "openai" || "$EMBEDDING_PROVIDER" == "openai" ]]; then
+  validate_openai_providers "$LLM_PROVIDER" "$LLM_API_KEY" "$LLM_MODEL" "$EMBEDDING_PROVIDER" "$EMBEDDING_API_KEY" "$EMBEDDING_MODEL"
+fi
+
+if [[ "$LLM_PROVIDER" == "llamacpp" || "$EMBEDDING_PROVIDER" == "llamacpp" ]]; then
+  start_llamacpp_providers "$SCRIPT_DIR" "$LLM_PROVIDER" "$LLM_BASE_URL" "$EMBEDDING_PROVIDER" "$EMBEDDING_BASE_URL"
 fi
 
 if [[ "$LLM_PROVIDER" == "openai" ]]; then
@@ -415,28 +265,8 @@ if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
   log "Embedding provider: OpenAI (remote, no local server needed)"
 fi
 
-# Reranker — start if enabled
-if [[ "${RERANKING_ENABLED:-false}" == "true" ]]; then
-  RERANKER_URL="${RERANKER_URL:-http://localhost:8082}"
-  log "Checking reranker at ${RERANKER_URL}..."
-  if ! curl -sf "${RERANKER_URL}/health" >/dev/null 2>&1; then
-    if ! command_exists llama-server; then
-      log "ERROR: llama-server not found and reranker not running at ${RERANKER_URL}"
-      log "FIX:   Install llama.cpp or start reranker manually: scripts/run_llama_reranker.sh"
-      exit 1
-    fi
-    log "Starting reranker server in background..."
-    "$PROJECT_DIR/scripts/run_llama_reranker.sh" >/tmp/llama_reranker.log 2>&1 &
-    BG_PIDS+=("$!")
-    if ! wait_for_service "Reranker" "${RERANKER_URL}/health" 60 2; then
-      log "ERROR: Reranker failed to start. Check /tmp/llama_reranker.log"
-      exit 1
-    fi
-  else
-    log "Reranker is already running at ${RERANKER_URL}"
-  fi
-  export RERANKER_URL="http://host.docker.internal:8082"
-fi
+# Reranker — start if enabled and URL is local
+start_reranker_if_needed "$PROJECT_DIR" "${RERANKING_ENABLED:-false}" "${RERANKER_URL:-}"
 
 # docker-compose.yml handles env_file and service URLs directly
 
@@ -449,6 +279,12 @@ log "Admin UI:     http://${ADMIN_HOST}:${ADMIN_PORT}/documents"
 log "API docs:     http://${ADMIN_HOST}:${ADMIN_PORT}/docs"
 log "VK Bot:       Polling mode (no webhook needed)"
 log "RAG Service:  http://localhost:8001"
+log
+echo
+log "Docker Services Configuration:"
+log "  LLM:        $DOCKER_LLM_BASE_URL"
+log "  Embedding:  $DOCKER_EMBEDDING_BASE_URL"
+log "  Reranker:   $DOCKER_RERANKER_BASE_URL"
 log ""
 log "Infrastructure:"
 log "  Qdrant:      $(mask_credentials "$QDRANT_URL") (host) / $(mask_credentials "$QDRANT_CONTAINER_URL") (container)"
@@ -463,6 +299,9 @@ if [[ "${RERANKING_ENABLED:-false}" == "true" ]]; then
 fi
 if [[ "$LLM_PROVIDER" == "ollama" || "$EMBEDDING_PROVIDER" == "ollama" ]]; then
   log "  Ollama:      $OLLAMA_URL"
+fi
+if [[ "$LLM_PROVIDER" == "llamacpp" || "$EMBEDDING_PROVIDER" == "llamacpp" ]]; then
+  log "  llama.cpp:   LLM=$LLM_BASE_URL, Embed=$EMBEDDING_BASE_URL"
 fi
 log "=========================================="
 echo

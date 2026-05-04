@@ -1,0 +1,485 @@
+#!/usr/bin/env bash
+# ─── Common Shell Utilities ──────────────────────────────────────────────────
+# Shared helper functions for all orchestration scripts.
+# Source this file: source "$(dirname "$0")/common.sh"
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ─── Logging ─────────────────────────────────────────────────────────────────
+
+log() {
+  echo "[$(basename "$0" .sh)] $*"
+}
+
+mask_credentials() {
+  # Strip userinfo (user:password@) from URLs for safe logging
+  echo "$1" | sed -E 's|://[^@]+@|://***@|'
+}
+
+# ─── Prerequisite Checks ─────────────────────────────────────────────────────
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+check_docker() {
+  if ! command_exists docker; then
+    log "ERROR: docker is not installed or not in PATH"
+    log "FIX:   Install Docker Desktop: https://docs.docker.com/get-docker/"
+    exit 1
+  fi
+}
+
+check_uv() {
+  if ! command_exists uv; then
+    log "ERROR: uv is not installed or not in PATH"
+    log "FIX:   Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    exit 1
+  fi
+}
+
+check_env_file() {
+  if [[ ! -f ".env" ]]; then
+    log "ERROR: .env file not found in project root ($(pwd))"
+    log "FIX:   Copy the example and fill in your values:"
+    log "       cp .env.example .env && nano .env"
+    exit 1
+  fi
+}
+
+# Check all common prerequisites at once
+check_prerequisites() {
+  log "Checking prerequisites..."
+  check_docker
+  check_uv
+  check_env_file
+}
+
+# Check prerequisites for scripts that don't need uv (e.g., ragas/run.sh)
+check_prerequisites_no_uv() {
+  log "Checking prerequisites..."
+  check_docker
+  check_env_file
+}
+
+# Validate that required environment variables are set
+check_required_env_vars() {
+  local missing=0
+  for var in "$@"; do
+    if [[ -z "${!var:-}" ]]; then
+      log "ERROR: Required environment variable $var is not set"
+      missing=1
+    fi
+  done
+  if [[ $missing -eq 1 ]]; then
+    log "FIX:   Check your .env file or set the missing variables"
+    exit 1
+  fi
+}
+
+# ─── Environment Variable Loading ────────────────────────────────────────────
+
+load_env_var() {
+  local var_name="$1"
+  if [[ -z "${!var_name:-}" ]] && grep -qE "^${var_name}=" .env 2>/dev/null; then
+    local val
+    val=$(grep -E "^${var_name}=" .env | head -1 | cut -d= -f2- | sed 's/^["'\''"]*//;s/["'\''"]*$//')
+    if [[ -n "$val" ]]; then
+      export "$var_name=$val"
+    fi
+  fi
+}
+
+# ─── Service Health Checks ───────────────────────────────────────────────────
+
+HEALTH_RETRIES="${HEALTH_RETRIES:-30}"
+HEALTH_INTERVAL="${HEALTH_INTERVAL:-2}"
+
+wait_for_service() {
+  local name="$1"
+  local url="$2"
+  local retries="${3:-$HEALTH_RETRIES}"
+  local interval="${4:-$HEALTH_INTERVAL}"
+
+  log "Waiting for $name at $url..."
+
+  for i in $(seq 1 "$retries"); do
+    if curl -sf "$url" >/dev/null 2>&1; then
+      log "$name is ready"
+      return 0
+    fi
+    if [[ $i -lt $retries ]]; then
+      sleep "$interval"
+    fi
+  done
+
+  log "ERROR: $name did not become ready after $retries attempts"
+  return 1
+}
+
+wait_for_postgres() {
+  local retries="${1:-$HEALTH_RETRIES}"
+  local interval="${2:-$HEALTH_INTERVAL}"
+
+  log "Waiting for PostgreSQL..."
+
+  for i in $(seq 1 "$retries"); do
+    if docker compose exec -T postgres pg_isready -U cafetera >/dev/null 2>&1; then
+      log "PostgreSQL is ready"
+      return 0
+    fi
+    if [[ $i -lt $retries ]]; then
+      sleep "$interval"
+    fi
+  done
+
+  log "ERROR: PostgreSQL did not become ready after $retries attempts"
+  return 1
+}
+
+wait_for_healthy() {
+  local service="$1"
+  local retries="${2:-$HEALTH_RETRIES}"
+  local interval="${3:-$HEALTH_INTERVAL}"
+
+  log "Waiting for $service to be healthy..."
+
+  for i in $(seq 1 "$retries"); do
+    # Try JSON format first
+    local health_status
+    health_status=$(docker compose ps --format json "$service" 2>/dev/null | jq -r '.Health' 2>/dev/null || echo "")
+    
+    # Fallback to table format if jq failed
+    if [[ -z "$health_status" ]]; then
+      # Extract health status from "Up X minutes (health: starting)" or "healthy"
+      health_status=$(docker compose ps "$service" 2>/dev/null | tail -n +2 | grep -oP 'health: \K[a-z]+' || echo "")
+    fi
+    
+    if [[ "$health_status" == "healthy" ]]; then
+      log "$service is healthy"
+      return 0
+    fi
+    
+    if [[ $i -lt $retries ]]; then
+      sleep "$interval"
+    fi
+  done
+
+  log "ERROR: $service did not become healthy after $retries attempts"
+  log "FIX:   Check docker logs: docker compose logs $service"
+  return 1
+}
+
+# ─── Host Detection (Local vs Remote) ────────────────────────────────────────
+
+# Check if URL points to localhost (should be started locally)
+# Returns 0 if local, 1 if remote/docker-internal
+is_local_host() {
+  local url="$1"
+  # Extract host from URL (remove protocol, path, and port)
+  local host
+  host=$(echo "$url" | sed -E 's|https?://||' | sed -E 's|/.*||' | sed -E 's|:[0-9]+$||')
+  # Check if it's localhost, 127.0.0.1, or 0.0.0.0
+  if [[ "$host" == "localhost" || "$host" == "127.0.0.1" || "$host" == "0.0.0.0" ]]; then
+    return 0  # true, is local
+  fi
+  return 1  # false, is remote or docker-internal
+}
+
+# ─── Docker URL Configuration ───────────────────────────────────────────────
+
+# Automatically set Docker-accessible URLs based on provider configuration
+# This eliminates the need to manually configure DOCKER_*_BASE_URL in .env
+configure_docker_urls() {
+  local llm_provider="$1"
+  local llm_base_url="${2:-http://localhost:8080}"
+  local embedding_provider="$3"
+  local embedding_base_url="${4:-http://localhost:8090/v1}"
+  local reranker_url="${5:-http://localhost:8082}"
+
+  # Helper: convert localhost URL to host.docker.internal URL
+  local_to_docker_url() {
+    local url="$1"
+    if is_local_host "$url"; then
+      # Replace localhost or 127.0.0.1 with host.docker.internal
+      echo "$url" | sed 's|localhost|host.docker.internal|g; s|127\.0\.0\.1|host.docker.internal|g'
+    else
+      echo "$url"
+    fi
+  }
+
+  # Configure LLM URL for Docker
+  if [[ "$llm_provider" == "openai" ]]; then
+    # OpenAI URLs are already accessible from Docker
+    export DOCKER_LLM_BASE_URL="$llm_base_url"
+  else
+    # Convert localhost to host.docker.internal for local providers
+    export DOCKER_LLM_BASE_URL="$(local_to_docker_url "$llm_base_url")"
+  fi
+
+  # Export provider names for Docker Compose
+  export LLM_PROVIDER="$llm_provider"
+  export EMBEDDING_PROVIDER="$embedding_provider"
+
+  # Configure Embedding URL for Docker
+  if [[ "$embedding_provider" == "openai" ]]; then
+    # OpenAI URLs are already accessible from Docker
+    export DOCKER_EMBEDDING_BASE_URL="$embedding_base_url"
+  else
+    # Convert localhost to host.docker.internal for local providers
+    export DOCKER_EMBEDDING_BASE_URL="$(local_to_docker_url "$embedding_base_url")"
+  fi
+
+  # Configure Reranker URL for Docker
+  export DOCKER_RERANKER_BASE_URL="$(local_to_docker_url "$reranker_url")"
+
+  log "Docker URLs configured:"
+  log "  LLM:        $DOCKER_LLM_BASE_URL"
+  log "  Embedding:  $DOCKER_EMBEDDING_BASE_URL"
+  log "  Reranker:   $DOCKER_RERANKER_BASE_URL"
+}
+
+# ─── Cleanup Management ──────────────────────────────────────────────────────
+
+# Array to track background process PIDs
+BG_PIDS=()
+
+cleanup() {
+  log "Shutting down..."
+  for pid in ${BG_PIDS[@]+"${BG_PIDS[@]}"}; do
+    if kill -0 "$pid" 2>/dev/null; then
+      log "Stopping background process (PID=$pid)"
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+    fi
+  done
+  log "Stopping docker services..."
+  docker compose down 2>/dev/null || true
+}
+
+# ─── Ollama Provider Management ──────────────────────────────────────────────
+
+start_ollama_providers() {
+  local ollama_url="${1:-http://localhost:11434}"
+  local llm_provider="$2"
+  local llm_model="${3:-qwen3.5:4b-q4_K_M}"
+  local embedding_provider="$4"
+  local embedding_model="${5:-qwen3-embedding:0.6b-fp16}"
+
+  log "Checking Ollama at $ollama_url..."
+  if ! curl -sf "$ollama_url" >/dev/null 2>&1; then
+    if ! command_exists ollama; then
+      log "ERROR: Ollama is not installed and not running at $ollama_url"
+      log "FIX:   Install Ollama: https://ollama.com/download"
+      log "       Then re-run this script."
+      exit 1
+    fi
+    log "Ollama is not running. Starting Ollama server..."
+    OLLAMA_HOST="${OLLAMA_HOST:-127.0.0.1:11434}" ollama serve >/tmp/ollama.log 2>&1 &
+    BG_PIDS+=("$!")
+    if ! wait_for_service "Ollama" "$ollama_url" 30 1; then
+      log "ERROR: Ollama failed to start. Check /tmp/ollama.log"
+      exit 1
+    fi
+  else
+    log "Ollama is already running"
+  fi
+
+  # Pull LLM model if ollama is used for LLM
+  if [[ "$llm_provider" == "ollama" ]]; then
+    log "Ensuring LLM model '$llm_model' is available..."
+    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$llm_model"; then
+      log "Pulling LLM model '$llm_model'..."
+      if ! ollama pull "$llm_model"; then
+        log "ERROR: Failed to pull LLM model '$llm_model'"
+        log "FIX:   Check model name is correct: ollama list"
+        log "       Available models: https://ollama.com/library"
+        exit 1
+      fi
+    fi
+    # Verify model is usable
+    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$llm_model"; then
+      log "ERROR: LLM model '$llm_model' not found in Ollama after pull"
+      log "FIX:   Check model name spelling (must include quantization suffix)"
+      log "       Run: ollama list  — to see available models"
+      exit 1
+    fi
+    log "LLM model '$llm_model' is ready"
+  fi
+
+  # Pull embedding model if ollama is used for embeddings
+  if [[ "$embedding_provider" == "ollama" ]]; then
+    log "Ensuring embedding model '$embedding_model' is available..."
+    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$embedding_model"; then
+      log "Pulling embedding model '$embedding_model'..."
+      if ! ollama pull "$embedding_model"; then
+        log "ERROR: Failed to pull embedding model '$embedding_model'"
+        log "FIX:   Check model name is correct: ollama list"
+        log "       Available models: https://ollama.com/library"
+        exit 1
+      fi
+    fi
+    # Verify model is usable
+    if ! ollama list 2>/dev/null | awk '{print $1}' | grep -Fxq "$embedding_model"; then
+      log "ERROR: Embedding model '$embedding_model' not found in Ollama after pull"
+      log "FIX:   Check model name spelling (must include quantization suffix)"
+      log "       Run: ollama list  — to see available models"
+      exit 1
+    fi
+    log "Embedding model '$embedding_model' is ready"
+  fi
+}
+
+# ─── OpenAI Provider Management ──────────────────────────────────────────────
+
+validate_openai_providers() {
+  local llm_provider="$1"
+  local llm_api_key="$2"
+  local llm_model="${3:-gpt-4o-mini}"
+  local embedding_provider="$4"
+  local embedding_api_key="$5"
+  local embedding_model="${6:-text-embedding-3-small}"
+
+  # Validate LLM API key if OpenAI is used for LLM
+  if [[ "$llm_provider" == "openai" ]]; then
+    if [[ -z "$llm_api_key" ]]; then
+      log "ERROR: OpenAI API key is required for LLM provider"
+      log "FIX:   Set OPENAI_API_KEY in your .env file"
+      exit 1
+    fi
+    log "OpenAI LLM configured: $llm_model"
+  fi
+
+  # Validate embedding API key if OpenAI is used for embeddings
+  if [[ "$embedding_provider" == "openai" ]]; then
+    if [[ -z "$embedding_api_key" ]]; then
+      log "ERROR: OpenAI API key is required for Embedding provider"
+      log "FIX:   Set OPENAI_API_KEY in your .env file"
+      exit 1
+    fi
+    log "OpenAI Embedding configured: $embedding_model"
+  fi
+
+  if [[ "$llm_provider" == "openai" || "$embedding_provider" == "openai" ]]; then
+    log "OpenAI provider validation passed"
+  fi
+}
+
+# ─── llama.cpp Provider Management ───────────────────────────────────────────
+
+start_llamacpp_providers() {
+  local script_dir="$1"
+  local llm_provider="$2"
+  local llm_base_url="${3:-http://localhost:8080}"
+  local embedding_provider="$4"
+  local embedding_base_url="${5:-http://localhost:8090/v1}"
+
+  if ! command_exists llama-server; then
+    log "ERROR: llama-server not found in PATH"
+    log "FIX:   Install llama.cpp: https://github.com/ggerganov/llama.cpp"
+    exit 1
+  fi
+
+  # Default URLs for local llama.cpp servers
+  local llamacpp_llm_url="http://localhost:8080"
+  local llamacpp_embed_url="http://localhost:8090"
+
+  # Start LLM server if not running and URL is local
+  if [[ "$llm_provider" == "llamacpp" ]]; then
+    if is_local_host "$llm_base_url"; then
+      log "Checking llamacpp LLM server at $llamacpp_llm_url..."
+      if ! curl -sf "$llamacpp_llm_url" >/dev/null 2>&1; then
+        log "Starting llamacpp LLM server in background..."
+        "$script_dir/run_llama_llm.sh" >/tmp/llama_llm.log 2>&1 &
+        BG_PIDS+=("$!")
+        if ! wait_for_service "llamacpp LLM" "$llamacpp_llm_url" 30 2; then
+          log "ERROR: llamacpp LLM server failed to start. Check /tmp/llama_llm.log"
+          exit 1
+        fi
+      else
+        log "llamacpp LLM server is already running"
+      fi
+      # Verify LLM server loaded model and responds
+      log "Verifying llamacpp LLM server has a loaded model..."
+      if ! curl -sf "${llamacpp_llm_url}/v1/models" >/dev/null 2>&1; then
+        log "WARNING: Could not verify model on llamacpp LLM server"
+        log "FIX:    Check /tmp/llama_llm.log for errors"
+        log "        Ensure model file exists in models/"
+      else
+        log "llamacpp LLM server model verified"
+      fi
+    else
+      log "LLM base URL ($llm_base_url) is not localhost — skipping local llamacpp LLM start"
+    fi
+  fi
+
+  # Start embedding server if not running and URL is local
+  if [[ "$embedding_provider" == "llamacpp" ]]; then
+    if is_local_host "$embedding_base_url"; then
+      log "Checking llamacpp embedding server at $llamacpp_embed_url..."
+      if ! curl -sf "$llamacpp_embed_url" >/dev/null 2>&1; then
+        log "Starting llamacpp embedding server in background..."
+        "$script_dir/run_llama_embeddings.sh" >/tmp/llama_embed.log 2>&1 &
+        BG_PIDS+=("$!")
+        if ! wait_for_service "llamacpp Embedding" "$llamacpp_embed_url" 30 2; then
+          log "ERROR: llamacpp embedding server failed to start. Check /tmp/llama_embed.log"
+          exit 1
+        fi
+      else
+        log "llamacpp embedding server is already running"
+      fi
+      # Verify embedding server loaded model and responds
+      log "Verifying llamacpp embedding server has a loaded model..."
+      if ! curl -sf "${llamacpp_embed_url}/v1/models" >/dev/null 2>&1; then
+        log "WARNING: Could not verify model on llamacpp embedding server"
+        log "FIX:    Check /tmp/llama_embed.log for errors"
+        log "        Ensure embedding model file exists in models/"
+      else
+        log "llamacpp embedding server model verified"
+      fi
+    else
+      log "Embedding base URL ($embedding_base_url) is not localhost — skipping local llamacpp embedding start"
+    fi
+  fi
+}
+
+# ─── Reranker Management ─────────────────────────────────────────────────────
+
+start_reranker_if_needed() {
+  local project_dir="$1"
+  local reranking_enabled="${2:-false}"
+  local reranker_url="${3:-http://localhost:8082}"
+  local docker_mode="${4:-true}"  # true=Docker (host.docker.internal), false=local (localhost)
+
+  # Early exit if reranking is not enabled
+  if [[ "$reranking_enabled" != "true" ]]; then
+    return 0
+  fi
+
+  if is_local_host "$reranker_url"; then
+    log "Checking reranker at ${reranker_url}..."
+    if ! curl -sf "${reranker_url}/health" >/dev/null 2>&1; then
+      if ! command_exists llama-server; then
+        log "ERROR: llama-server not found and reranker not running at ${reranker_url}"
+        log "FIX:   Install llama.cpp or start reranker manually: scripts/run_llama_reranker.sh"
+        exit 1
+      fi
+      log "Starting reranker server in background..."
+      "$project_dir/scripts/run_llama_reranker.sh" >/tmp/llama_reranker.log 2>&1 &
+      BG_PIDS+=("$!")
+      if ! wait_for_service "Reranker" "${reranker_url}/health" 60 2; then
+        log "ERROR: Reranker failed to start. Check /tmp/llama_reranker.log"
+        exit 1
+      fi
+    else
+      log "Reranker is already running at ${reranker_url}"
+    fi
+    # Export URL appropriate for the runtime context
+    if [[ "$docker_mode" == "true" ]]; then
+      export RERANKER_URL="http://host.docker.internal:8082"
+    else
+      export RERANKER_URL="http://localhost:8082"
+    fi
+  else
+    log "Reranker URL ($reranker_url) is not localhost — skipping local reranker start"
+  fi
+}

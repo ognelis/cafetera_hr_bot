@@ -12,64 +12,20 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
-# ─── Helpers ─────────────────────────────────────────────────────────────────
+# Source common utilities
+source "$PROJECT_DIR/scripts/common.sh"
 
-HEALTH_RETRIES=30
-HEALTH_INTERVAL=2
-
+# Override log prefix for ragas
 log() {
   echo "[ragas] $*"
 }
 
-command_exists() {
-  command -v "$1" >/dev/null 2>&1
-}
-
-wait_for_service() {
-  local name="$1"
-  local url="$2"
-  local retries="${3:-$HEALTH_RETRIES}"
-  local interval="${4:-$HEALTH_INTERVAL}"
-
-  log "Waiting for $name at $url..."
-
-  for i in $(seq 1 "$retries"); do
-    if curl -sf "$url" >/dev/null 2>&1; then
-      log "$name is ready"
-      return 0
-    fi
-    if [[ $i -lt $retries ]]; then
-      sleep "$interval"
-    fi
-  done
-
-  log "ERROR: $name did not become ready after $retries attempts"
-  return 1
-}
-
 # ─── Cleanup trap ────────────────────────────────────────────────────────────
-
-BG_PIDS=()
-INTERRUPTED=0
-
-cleanup() {
-  log "Shutting down..."
-  for pid in ${BG_PIDS[@]+"${BG_PIDS[@]}"}; do
-    if kill -0 "$pid" 2>/dev/null; then
-      log "Stopping background process (PID=$pid)"
-      kill "$pid" 2>/dev/null || true
-      wait "$pid" 2>/dev/null || true
-    fi
-  done
-  log "Stopping docker services (qdrant)..."
-  docker compose down qdrant 2>/dev/null || true
-}
 
 on_interrupt() {
   INTERRUPTED=1
   echo
   log "Interrupted by user (Ctrl+C). Cleaning up..."
-  # Exit with 130 (standard code for SIGINT); EXIT trap will run cleanup.
   exit 130
 }
 
@@ -80,30 +36,16 @@ on_terminate() {
   exit 143
 }
 
-trap cleanup EXIT
-trap on_interrupt INT
-trap on_terminate TERM
+trap cleanup EXIT INT TERM
 
 # ─── Load environment ────────────────────────────────────────────────────────
 
-load_env_var() {
-  local var_name="$1"
-  if [[ -z "${!var_name:-}" ]] && grep -qE "^${var_name}=" .env 2>/dev/null; then
-    local val
-    val=$(grep -E "^${var_name}=" .env | head -1 | cut -d= -f2- | sed 's/^["'\'']*//;s/["'\'']*$//')
-    if [[ -n "$val" ]]; then
-      export "$var_name=$val"
-    fi
-  fi
-}
-
-load_env_var LLM_PROVIDER
+# Load model names and URLs from .env (provider will be selected interactively)
 load_env_var LLM_MODEL
 load_env_var LLM_MODEL_PATH
 load_env_var LLM_MODEL_URL
 load_env_var LLM_BASE_URL
 load_env_var LLM_API_KEY
-load_env_var EMBEDDING_PROVIDER
 load_env_var EMBEDDING_MODEL
 load_env_var EMBEDDING_BASE_URL
 load_env_var EMBEDDING_API_KEY
@@ -118,6 +60,8 @@ load_env_var EMBED_UBATCH_SIZE
 load_env_var RERANKING_ENABLED
 load_env_var RERANKER_URL
 load_env_var RERANKER_MODEL
+# NOTE: LLM_PROVIDER and EMBEDDING_PROVIDER are NOT loaded from .env
+# They are selected interactively below
 
 # Set URL defaults after loading env
 QDRANT_URL="${QDRANT_URL:-http://localhost:6333}"
@@ -125,17 +69,7 @@ OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 
 # ─── Check prerequisites ─────────────────────────────────────────────────────
 
-if ! command_exists docker; then
-  log "ERROR: docker is not installed or not in PATH"
-  log "FIX:   Install Docker Desktop: https://docs.docker.com/get-docker/"
-  exit 1
-fi
-
-if ! command_exists uv; then
-  log "ERROR: uv is not installed or not in PATH"
-  log "FIX:   Install uv: curl -LsSf https://astral.sh/uv/install.sh | sh"
-  exit 1
-fi
+check_prerequisites_no_uv
 
 # ─── Interactive provider selection ──────────────────────────────────────────
 
@@ -265,83 +199,17 @@ fi
 
 # Ollama — only if needed
 if [[ "${LLM_PROVIDER}" == "ollama" || "${EMBEDDING_PROVIDER}" == "ollama" ]]; then
-  log "Checking Ollama at ${OLLAMA_URL}..."
-  if ! curl -sf "${OLLAMA_URL}/api/tags" >/dev/null 2>&1; then
-    if command_exists ollama; then
-      log "Ollama is not running. Starting Ollama server..."
-      OLLAMA_HOST="${OLLAMA_HOST:-127.0.0.1:11434}" ollama serve >/tmp/ollama.log 2>&1 &
-      BG_PIDS+=("$!")
-      if ! wait_for_service "Ollama" "${OLLAMA_URL}/api/tags" 30 1; then
-        log "ERROR: Ollama failed to start. Check /tmp/ollama.log"
-        exit 1
-      fi
-    else
-      log "ERROR: Ollama is not reachable at ${OLLAMA_URL} and 'ollama' command not found"
-      log "FIX:   Install Ollama: https://ollama.com/download"
-      log "       Then start it with: ollama serve"
-      exit 1
-    fi
-  else
-    log "Ollama is already running at ${OLLAMA_URL}"
-  fi
+  start_ollama_providers "$OLLAMA_URL" "$LLM_PROVIDER" "$LLM_MODEL" "$EMBEDDING_PROVIDER" "$EMBEDDING_MODEL"
 fi
 
-# llama.cpp — only if needed
+# OpenAI — validation only
+if [[ "${LLM_PROVIDER}" == "openai" || "${EMBEDDING_PROVIDER}" == "openai" ]]; then
+  validate_openai_providers "$LLM_PROVIDER" "$LLM_API_KEY" "$LLM_MODEL" "$EMBEDDING_PROVIDER" "$EMBEDDING_API_KEY" "$EMBEDDING_MODEL"
+fi
+
+# llama.cpp — only if needed and URL is local
 if [[ "${LLM_PROVIDER}" == "llamacpp" || "${EMBEDDING_PROVIDER}" == "llamacpp" ]]; then
-  if ! command_exists llama-server; then
-    log "ERROR: llama-server not found in PATH"
-    log "FIX:   Install llama.cpp: https://github.com/ggerganov/llama.cpp"
-    exit 1
-  fi
-
-  LLAMACPP_LLM_URL="http://localhost:8080"
-  LLAMACPP_EMBED_URL="http://localhost:8090"
-
-  # Start LLM server if not running
-  if [[ "$LLM_PROVIDER" == "llamacpp" ]]; then
-    log "Checking llamacpp LLM server at $LLAMACPP_LLM_URL..."
-    if ! curl -sf "$LLAMACPP_LLM_URL" >/dev/null 2>&1; then
-      log "Starting llamacpp LLM server in background..."
-      "$SCRIPT_DIR/../scripts/run_llama_llm.sh" >/tmp/llama_llm.log 2>&1 &
-      BG_PIDS+=("$!")
-      if ! wait_for_service "llamacpp LLM" "$LLAMACPP_LLM_URL" 30 2; then
-        log "ERROR: llamacpp LLM server failed to start. Check /tmp/llama_llm.log"
-        exit 1
-      fi
-    else
-      log "llamacpp LLM server is already running"
-    fi
-    log "Verifying llamacpp LLM server has a loaded model..."
-    if ! curl -sf "${LLAMACPP_LLM_URL}/v1/models" >/dev/null 2>&1; then
-      log "WARNING: Could not verify model on llamacpp LLM server"
-      log "FIX:    Check /tmp/llama_llm.log for errors"
-    else
-      log "llamacpp LLM server model verified"
-    fi
-  fi
-
-  # Start embedding server if not running
-  if [[ "$EMBEDDING_PROVIDER" == "llamacpp" ]]; then
-    log "Checking llamacpp embedding server at $LLAMACPP_EMBED_URL..."
-    if ! curl -sf "$LLAMACPP_EMBED_URL" >/dev/null 2>&1; then
-      log "Starting llamacpp embedding server in background..."
-      "$SCRIPT_DIR/../scripts/run_llama_embeddings.sh" >/tmp/llama_embed.log 2>&1 &
-      BG_PIDS+=("$!")
-      if ! wait_for_service "llamacpp Embedding" "$LLAMACPP_EMBED_URL" 30 2; then
-        log "ERROR: llamacpp embedding server failed to start. Check /tmp/llama_embed.log"
-        exit 1
-      fi
-    else
-      log "llamacpp embedding server is already running"
-    fi
-    log "Verifying llamacpp embedding server has a loaded model..."
-    if ! curl -sf "${LLAMACPP_EMBED_URL}/v1/models" >/dev/null 2>&1; then
-      log "WARNING: Could not verify model on llamacpp embedding server"
-      log "FIX:    Check /tmp/llama_embed.log for errors"
-    else
-      log "llamacpp embedding server model verified"
-    fi
-  fi
+  start_llamacpp_providers "$SCRIPT_DIR/../scripts" "$LLM_PROVIDER" "$LLM_BASE_URL" "$EMBEDDING_PROVIDER" "$EMBEDDING_BASE_URL"
 fi
 
 # OpenAI — just log, no local server needed
@@ -352,28 +220,9 @@ if [[ "$EMBEDDING_PROVIDER" == "openai" ]]; then
   log "Embedding provider: OpenAI (remote, no local server needed)"
 fi
 
-# Reranker — start if enabled
-if [[ "${RERANKING_ENABLED:-false}" == "true" ]]; then
-  RERANKER_URL="${RERANKER_URL:-http://localhost:8082}"
-  log "Checking reranker at ${RERANKER_URL}..."
-  if ! curl -sf "${RERANKER_URL}/health" >/dev/null 2>&1; then
-    if command_exists llama-server; then
-      log "Starting reranker server in background..."
-      "$SCRIPT_DIR/../scripts/run_llama_reranker.sh" >/tmp/llama_reranker.log 2>&1 &
-      BG_PIDS+=("$!")
-      if ! wait_for_service "Reranker" "${RERANKER_URL}/health" 60 2; then
-        log "ERROR: Reranker failed to start. Check /tmp/llama_reranker.log"
-        exit 1
-      fi
-    else
-      log "ERROR: llama-server not found and reranker not running at ${RERANKER_URL}"
-      log "FIX:   Install llama.cpp or start reranker manually"
-      exit 1
-    fi
-  else
-    log "Reranker is already running at ${RERANKER_URL}"
-  fi
-fi
+# Reranker — start if enabled and URL is local
+# docker_mode=false: ragas runs locally (not in Docker), use localhost URLs
+start_reranker_if_needed "$PROJECT_DIR" "${RERANKING_ENABLED:-false}" "${RERANKER_URL:-}" "false"
 
 # ─── Sync dependencies ───────────────────────────────────────────────────────
 
