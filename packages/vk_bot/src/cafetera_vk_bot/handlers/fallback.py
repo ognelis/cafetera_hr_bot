@@ -7,7 +7,7 @@ from cafetera_vk_bot.keyboards import main_menu_kb
 bl = BotLabeler()
 
 FALLBACK_TEXT = (
-    "Я пока не понимаю произвольный текст.\n"
+    "В доступных документах нет ответа на этот вопрос.\n"
     "Воспользуйтесь кнопками меню ниже 👇"
 )
 

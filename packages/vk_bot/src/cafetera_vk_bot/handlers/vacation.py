@@ -6,6 +6,7 @@ Flow: CMD_VACATION → vacation menu → entity selection → disclaimer + templ
 from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
+from vkbottle.tools import Formatter, bold
 
 from cafetera_vk_bot.attachments import send_category_document
 from cafetera_vk_bot.domain.content import vacation_template_text
@@ -36,7 +37,7 @@ bl = BotLabeler()
 @bl.message(payload=CMD_VACATION)
 async def on_vacation(message: Message) -> None:
     await message.answer(
-        "🏖 Отпуск\n\nВыберите действие:",
+        "🏖 " + bold("Отпуск") + "\n\nВыберите действие:",
         keyboard=vacation_menu_kb().get_json(),
     )
 
@@ -47,7 +48,7 @@ async def on_vacation(message: Message) -> None:
 @bl.message(payload=CMD_VACATION_SELECT)
 async def on_vacation_select(message: Message) -> None:
     await message.answer(
-        "📄 Заявление на отпуск\n\nВыберите тип отпуска:",
+        "📄 " + bold("Заявление на отпуск") + "\n\nВыберите тип отпуска:",
         keyboard=vacation_type_kb().get_json(),
     )
 
@@ -64,7 +65,9 @@ async def on_vacation_type(message: Message, payload_data: dict) -> None:
         else "Оплачиваемый"
     )
     await message.answer(
-        f"📄 Заявление на отпуск — {vtype_label}\n\nВыберите юридическое лицо:",
+        Formatter("📄 {title:bold} — {vtype}\n\nВыберите юридическое лицо:").format(
+            title="Заявление на отпуск", vtype=vtype_label,
+        ),
         keyboard=entity_select_kb(
             CMD_VACATION_TEMPLATE,
             back_payload=CMD_VACATION_SELECT,
@@ -95,9 +98,9 @@ async def on_vacation_template(message: Message, payload_data: dict) -> None:
     subcategory = "vacation_unpaid" if vtype == "unpaid" else "vacation_paid"
 
     # Try to send document attachment first, fall back to text
-    caption = (
-        f"📄 Шаблон заявления на отпуск — {entity.full_name}\n"
-        f"Тип: {vtype_label}\n\n"
+    caption = Formatter("📄 {title:bold}\nТип: {vtype}\n\n").format(
+        title=f"Шаблон заявления на отпуск — {entity.full_name}",
+        vtype=vtype_label,
     )
     sent = await send_category_document(
         message,

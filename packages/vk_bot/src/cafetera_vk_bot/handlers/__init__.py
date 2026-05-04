@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from vkbottle import BuiltinStateDispenser
 from vkbottle.bot import Message
+from vkbottle.tools import Format
 
 from cafetera_core.domain.category_file_service import CategoryFileService
 from cafetera_core.rag_client import RAGClient
@@ -169,9 +170,9 @@ async def send_document_or_fallback(
     category: str,
     subcategory: str,
     entity_id: int,
-    fallback_text: str,
+    fallback_text: str | Format,
     back_payload: dict[str, str],
-    caption: str | None = None,
+    caption: str | Format | None = None,
 ) -> None:
     """Try to send a category document; fall back to *fallback_text* with a back button."""
     from cafetera_vk_bot.attachments import send_category_document

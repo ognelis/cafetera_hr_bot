@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 
 from vkbottle.bot import BotLabeler, Message
+from vkbottle.tools import bold
 
 from cafetera_vk_bot.domain.topic_hints import detect_topic_hint
 from cafetera_vk_bot.handlers import get_state_dispenser, query_rag_with_wait
@@ -39,7 +40,7 @@ bl = BotLabeler()
 async def on_ask(message: Message) -> None:
     await get_state_dispenser().set(message.peer_id, BotStates.ASK_QUESTION)
     await message.answer(
-        "❓ Задать вопрос\n\n"
+        "❓ " + bold("Задать вопрос") + "\n\n"
         "Напишите ваш вопрос — я постараюсь найти ответ в базе знаний.",
         keyboard=ask_input_kb().get_json(),
     )
@@ -81,9 +82,9 @@ async def on_ask_text(message: Message) -> None:
 
     # Prepend user's question context at the top (truncated if very long)
     question_display = question if len(question) <= 100 else question[:100] + "…"
-    answer = f"❓ {question_display}\n\n{answer}"
+    display = "❓ " + bold(question_display) + f"\n\n{answer}"
 
     await message.answer(
-        answer,
+        display,
         keyboard=ask_result_kb(scenario_id=hint.scenario_id).get_json(),
     )

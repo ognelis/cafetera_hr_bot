@@ -6,6 +6,7 @@ Flow: CMD_HIRE → entity selection → action menu → content.
 from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
+from vkbottle.tools import Formatter, bold
 
 from cafetera_vk_bot.domain.content import (
     hire_checklist,
@@ -39,7 +40,7 @@ HIRE_ENTITY_CMD = "hire_entity"
 @bl.message(payload=CMD_HIRE)
 async def on_hire(message: Message) -> None:
     await message.answer(
-        "👤 Приём сотрудника\n\nВыберите юридическое лицо:",
+        "👤 " + bold("Приём сотрудника") + "\n\nВыберите юридическое лицо:",
         keyboard=entity_select_kb(HIRE_ENTITY_CMD, back_payload=CMD_HOME).get_json(),
     )
 
@@ -53,7 +54,9 @@ async def on_hire_entity(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
     entity = await require_entity(message, entity_id, back_payload=CMD_HOME)
     await message.answer(
-        f"👤 Приём сотрудника — {entity.full_name}\n\nВыберите действие:",
+        Formatter("👤 {title:bold} — {entity}\n\nВыберите действие:").format(
+            title="Приём сотрудника", entity=entity.full_name,
+        ),
         keyboard=hire_actions_kb(entity_id).get_json(),
     )
 
@@ -86,7 +89,7 @@ async def on_hire_contract(message: Message, payload_data: dict) -> None:
     entity_id: int = payload_data.get("entity", 0)
     entity = await require_entity(message, entity_id, back_payload=CMD_HIRE)
 
-    caption = f"📄 Шаблон трудового договора — {entity.full_name}\n"
+    caption = "📄 " + bold(f"Шаблон трудового договора — {entity.full_name}") + "\n"
     await send_document_or_fallback(
         message,
         category="hire",

@@ -6,6 +6,7 @@ Flow: CMD_FIRE → fire menu → checklist / bypass sheet / resignation template
 from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
+from vkbottle.tools import bold
 
 from cafetera_vk_bot.attachments import send_category_document
 from cafetera_vk_bot.handlers import (
@@ -33,7 +34,7 @@ bl = BotLabeler()
 @bl.message(payload=CMD_FIRE)
 async def on_fire(message: Message) -> None:
     await message.answer(
-        "🚪 Увольнение\n\nВыберите действие:",
+        "🚪 " + bold("Увольнение") + "\n\nВыберите действие:",
         keyboard=fire_menu_kb().get_json(),
     )
 
@@ -44,7 +45,7 @@ async def on_fire(message: Message) -> None:
 @bl.message(payload=CMD_FIRE_RESIGNATION)
 async def on_fire_resignation(message: Message) -> None:
     await message.answer(
-        "🚪 Увольнение по собственному\n\nВыберите юридическое лицо:",
+        "🚪 " + bold("Увольнение по собственному") + "\n\nВыберите юридическое лицо:",
         keyboard=entity_select_kb(FIRE_RESIGNATION_ENTITY_CMD, back_payload=CMD_FIRE).get_json(),
     )
 
@@ -55,7 +56,7 @@ async def on_fire_resignation_entity(message: Message, payload_data: dict) -> No
     entity_id: int = payload_data.get("entity", 0)
     entity = await require_entity(message, entity_id, back_payload=CMD_FIRE)
 
-    caption = f"📄 Заявление об увольнении — {entity.full_name}\n"
+    caption = "📄 " + bold(f"Заявление об увольнении — {entity.full_name}") + "\n"
     await send_category_document(
         message,
         get_category_file_service(),

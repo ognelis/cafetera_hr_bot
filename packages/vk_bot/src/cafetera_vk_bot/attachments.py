@@ -10,6 +10,7 @@ from io import BytesIO
 
 import httpx
 from vkbottle.bot import Message
+from vkbottle.tools import Format
 
 from cafetera_core.domain.category_file_service import CategoryFileService
 
@@ -22,7 +23,7 @@ async def send_category_document(
     category: str,
     subcategory: str,
     entity_id: int,
-    caption: str | None = None,
+    caption: str | Format | None = None,
 ) -> bool:
     """
     Send a category file as a VK document attachment.

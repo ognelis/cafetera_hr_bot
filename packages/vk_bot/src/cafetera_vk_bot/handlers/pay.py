@@ -6,6 +6,7 @@ Flow: CMD_PAY -> pay menu -> overtime RAG / bonus RAG.
 from __future__ import annotations
 
 from vkbottle.bot import BotLabeler, Message
+from vkbottle.tools import bold
 
 from cafetera_vk_bot.handlers import send_rag_answer
 from cafetera_vk_bot.keyboards import (
@@ -24,7 +25,7 @@ bl = BotLabeler()
 @bl.message(payload=CMD_PAY)
 async def on_pay(message: Message) -> None:
     await message.answer(
-        "💰 Оплата и премии\n\nВыберите тему:",
+        "💰 " + bold("Оплата и премии") + "\n\nВыберите тему:",
         keyboard=pay_menu_kb().get_json(),
     )
 

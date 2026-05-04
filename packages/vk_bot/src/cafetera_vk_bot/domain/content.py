@@ -6,6 +6,8 @@ VK-specific content — shared error constants moved to cafetera_core.domain.err
 
 from __future__ import annotations
 
+from vkbottle.tools import Format, bold
+
 from cafetera_vk_bot.domain.entities import LegalEntity
 
 # ── FR-17 disclaimer (shown before any document template) ─────────
@@ -20,8 +22,7 @@ TEMPLATE_FILE_STUB = (
 
 # ── 👤 Hire: document checklists (FR-2, FR-3) ────────────────────
 
-_HIRE_CHECKLIST_COMMON = (
-    "✅ Чек-лист документов для оформления:\n\n"
+_HIRE_CHECKLIST_ITEMS = (
     "1. Паспорт РФ (оригинал + копия)\n"
     "2. СНИЛС\n"
     "3. ИНН\n"
@@ -34,15 +35,18 @@ _HIRE_CHECKLIST_COMMON = (
 )
 
 
-def hire_checklist(entity: LegalEntity) -> str:
+def hire_checklist(entity: LegalEntity) -> Format:
     """Return document checklist text for the given entity."""
-    return f"📋 Оформление в {entity.full_name}\n\n{_HIRE_CHECKLIST_COMMON}"
+    return (
+        "📋 " + bold(f"Оформление в {entity.full_name}")
+        + "\n\n✅ " + bold("Чек-лист документов для оформления:")
+        + "\n\n" + _HIRE_CHECKLIST_ITEMS
+    )
 
 
 # ── 👤 Hire: onboarding checklist (FR-14) ─────────────────────────
 
-_ONBOARDING_CHECKLIST = (
-    "🗒️ Онбординг-чек-лист нового сотрудника:\n\n"
+_ONBOARDING_ITEMS = (
     "1. Подписание трудового договора и приказа о приёме\n"
     "2. Ознакомление с правилами внутреннего трудового распорядка\n"
     "3. Инструктаж по охране труда и пожарной безопасности\n"
@@ -54,25 +58,30 @@ _ONBOARDING_CHECKLIST = (
 )
 
 
-def onboarding_checklist(entity: LegalEntity) -> str:
-    return f"🗒️ Онбординг в {entity.full_name}\n\n{_ONBOARDING_CHECKLIST}"
+def onboarding_checklist(entity: LegalEntity) -> Format:
+    """Return onboarding checklist text for the given entity."""
+    return (
+        "🗒️ " + bold(f"Онбординг в {entity.full_name}")
+        + "\n\n🗒️ " + bold("Онбординг-чек-лист нового сотрудника:")
+        + "\n\n" + _ONBOARDING_ITEMS
+    )
 
 
 # ── 👤 Hire: contract template (FR-4) ─────────────────────────────
 
 
-def hire_contract_text(entity: LegalEntity) -> str:
+def hire_contract_text(entity: LegalEntity) -> Format:
     """Return contract template text. Fallback when no category file is uploaded."""
     return (
-        f"📄 Шаблон трудового договора — {entity.full_name}\n\n"
-        f"{TEMPLATE_FILE_STUB}"
+        "📄 " + bold(f"Шаблон трудового договора — {entity.full_name}")
+        + "\n\n" + TEMPLATE_FILE_STUB
     )
 
 
 # ── 🏖 Vacation: leave application template (FR-8) ────────────────
 
 
-def vacation_template_text(entity: LegalEntity, vtype: str = "paid") -> str:
+def vacation_template_text(entity: LegalEntity, vtype: str = "paid") -> Format:
     """Return vacation application template text. Fallback when no category file is uploaded."""
     vtype_label = (
         "За свой счет"
@@ -80,9 +89,9 @@ def vacation_template_text(entity: LegalEntity, vtype: str = "paid") -> str:
         else "Оплачиваемый"
     )
     return (
-        f"📄 Шаблон заявления на отпуск — {entity.full_name}\n"
-        f"Тип: {vtype_label}\n\n"
-        f"{TEMPLATE_FILE_STUB}"
+        "📄 " + bold(f"Шаблон заявления на отпуск — {entity.full_name}")
+        + f"\nТип: {vtype_label}\n\n"
+        + TEMPLATE_FILE_STUB
     )
 
 
