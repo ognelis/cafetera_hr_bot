@@ -148,7 +148,16 @@ RERANKER_N_GPU_LAYERS=0 bash scripts/run_llama_reranker.sh
 
 ```
 RERANKING_ENABLED=true
-RERANKER_URL=http://localhost:8082
+```
+
+> **Примечание:** URL реранкера (`RERANKER_URL`) настраивается автоматически:
+> - При запуске через Docker-скрипты (`run_all.sh`, `run_admin_docker.sh`) — `http://host.docker.internal:8082`
+> - При локальном запуске (`run_admin.sh`, `ragas/run.sh`) — `http://localhost:8082`
+> - Явно указанный `RERANKER_URL` в `.env` используется только для проверки доступности при старте
+
+Дополнительные настройки реранкера в `.env`:
+
+```
 RERANKER_TOP_N=5           # сколько документов оставить после переранжирования
 RERANKER_PREFETCH_LIMIT=20 # сколько кандидатов брать из Qdrant на вход реранкеру
 RERANKER_TIMEOUT=30.0

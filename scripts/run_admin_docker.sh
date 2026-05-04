@@ -65,93 +65,10 @@ OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 # Use container URLs for the Docker environment
 DATABASE_URL="${DATABASE_CONTAINER_URL}"
 
-# Interactive provider selection
-select_llm_provider() {
-  echo
-  log "Select LLM provider:"
-  echo "  1) ollama (default)"
-  echo "  2) openai"
-  echo "  3) llamacpp"
-  read -r -p "[admin-docker] Enter choice [1-3, Enter=1]: " llm_choice
-
-  case "${llm_choice:-1}" in
-    1|ollama)
-      LLM_PROVIDER="ollama"
-      LLM_MODEL="${LLM_MODEL:-qwen3.5:4b-q4_K_M}"
-      LLM_BASE_URL="http://host.docker.internal:11434"
-      LLM_API_KEY=""
-      ;;
-    2|openai)
-      LLM_PROVIDER="openai"
-      LLM_MODEL="${LLM_MODEL:-gpt-4o-mini}"
-      LLM_BASE_URL="https://api.openai.com/v1"
-      read -rs -p "[admin-docker] Enter OpenAI API key: " LLM_API_KEY
-      echo
-      ;;
-    3|llamacpp)
-      LLM_PROVIDER="llamacpp"
-      LLM_MODEL="${LLM_MODEL:-local-model}"
-      LLM_BASE_URL="http://host.docker.internal:8080"
-      LLM_API_KEY=""
-      ;;
-    *)
-      log "Invalid choice, using ollama"
-      LLM_PROVIDER="ollama"
-      LLM_MODEL="${LLM_MODEL:-qwen3.5:4b-q4_K_M}"
-      LLM_BASE_URL="http://host.docker.internal:11434"
-      LLM_API_KEY=""
-      ;;
-  esac
-
-  export LLM_PROVIDER LLM_MODEL LLM_BASE_URL LLM_API_KEY
-  export DOCKER_LLM_BASE_URL="$LLM_BASE_URL"
-  log "Selected LLM provider: $LLM_PROVIDER"
-}
-
-select_embedding_provider() {
-  echo
-  log "Select Embedding provider:"
-  echo "  1) ollama (default)"
-  echo "  2) openai"
-  echo "  3) llamacpp"
-  read -r -p "[admin-docker] Enter choice [1-3, Enter=1]: " embed_choice
-
-  case "${embed_choice:-1}" in
-    1|ollama)
-      EMBEDDING_PROVIDER="ollama"
-      EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding:4b-q4_K_M}"
-      EMBEDDING_BASE_URL="http://host.docker.internal:11434"
-      EMBEDDING_API_KEY=""
-      ;;
-    2|openai)
-      EMBEDDING_PROVIDER="openai"
-      EMBEDDING_MODEL="${EMBEDDING_MODEL:-text-embedding-3-small}"
-      EMBEDDING_BASE_URL="https://api.openai.com/v1"
-      read -rs -p "[admin-docker] Enter OpenAI API key: " EMBEDDING_API_KEY
-      echo
-      ;;
-    3|llamacpp)
-      EMBEDDING_PROVIDER="llamacpp"
-      EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding}"
-      EMBEDDING_BASE_URL="http://host.docker.internal:8090/v1"
-      EMBEDDING_API_KEY=""
-      ;;
-    *)
-      log "Invalid choice, using ollama"
-      EMBEDDING_PROVIDER="ollama"
-      EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding:4b-q4_K_M}"
-      EMBEDDING_BASE_URL="http://host.docker.internal:11434"
-      EMBEDDING_API_KEY=""
-      ;;
-  esac
-
-  export EMBEDDING_PROVIDER EMBEDDING_MODEL EMBEDDING_BASE_URL EMBEDDING_API_KEY
-  export DOCKER_EMBEDDING_BASE_URL="$EMBEDDING_BASE_URL"
-  log "Selected Embedding provider: $EMBEDDING_PROVIDER"
-}
-
-select_llm_provider
-select_embedding_provider
+# Interactive provider selection (functions from common.sh)
+# URLs are always localhost. configure_docker_urls() converts for Docker.
+select_llm_provider "admin-docker"
+select_embedding_provider "admin-docker"
 
 # Configure Docker URLs BEFORE starting containers
 configure_docker_urls "$LLM_PROVIDER" "$LLM_BASE_URL" "$EMBEDDING_PROVIDER" "$EMBEDDING_BASE_URL" "${RERANKER_URL:-http://localhost:8082}"

@@ -185,6 +185,179 @@ is_local_host() {
   return 1  # false, is remote or docker-internal
 }
 
+# ─── Interactive Provider Selection ─────────────────────────────────────────
+
+# Convert provider name to menu number
+provider_to_number() {
+  case "$1" in
+    ollama) echo "1" ;;
+    openai) echo "2" ;;
+    llamacpp) echo "3" ;;
+    custom) echo "4" ;;
+    *) echo "1" ;;
+  esac
+}
+
+# Infer provider name from URL pattern
+infer_provider_from_url() {
+  local url="$1"
+  case "$url" in
+    *localhost:11434*|*127.0.0.1:11434*) echo "ollama" ;;
+    *localhost:8080*|*127.0.0.1:8080*) echo "llamacpp" ;;
+    *localhost:8090*|*127.0.0.1:8090*) echo "llamacpp" ;;
+    *api.openai.com*) echo "openai" ;;
+    *) echo "" ;;
+  esac
+}
+
+# Select LLM provider interactively
+# Args: $1=log_prefix
+# Always sets localhost URLs. configure_docker_urls() converts them for Docker.
+select_llm_provider() {
+  local prefix="${1:-run}"
+
+  echo
+  # Determine current provider from .env or infer from URL
+  local current_provider="${LLM_PROVIDER:-}"
+  local current_model="${LLM_MODEL:-qwen3.5:4b-q4_K_M}"
+
+  if [[ -z "$current_provider" && -n "${LLM_BASE_URL:-}" ]]; then
+    current_provider=$(infer_provider_from_url "${LLM_BASE_URL}")
+  fi
+  current_provider="${current_provider:-ollama}"
+
+  log "$prefix: LLM Provider Configuration:"
+  log "$prefix:   Default: $current_provider ($current_model)"
+  log "$prefix:   Options:"
+  echo "    1) ollama"
+  echo "    2) openai"
+  echo "    3) llamacpp"
+  echo "    4) custom URL"
+  read -r -p "[$prefix] Select LLM provider [1-4, Enter=$current_provider]: " llm_choice
+
+  case "${llm_choice:-$(provider_to_number "$current_provider")}" in
+    1|ollama)
+      LLM_PROVIDER="ollama"
+      LLM_MODEL="${LLM_MODEL:-qwen3.5:4b-q4_K_M}"
+      LLM_BASE_URL="http://localhost:11434"
+      LLM_API_KEY=""
+      ;;
+    2|openai)
+      LLM_PROVIDER="openai"
+      LLM_MODEL="${LLM_MODEL:-gpt-4o-mini}"
+      LLM_BASE_URL="https://api.openai.com/v1"
+      read -rs -p "[$prefix] Enter OpenAI API key: " LLM_API_KEY
+      echo
+      ;;
+    3|llamacpp)
+      LLM_PROVIDER="llamacpp"
+      LLM_MODEL="${LLM_MODEL:-local-model}"
+      LLM_BASE_URL="http://localhost:8080"
+      LLM_API_KEY=""
+      ;;
+    4|custom)
+      log "$prefix: Custom URL — select API format:"
+      echo "    1) openai-compatible (vLLM, Together, Fireworks, etc.)"
+      echo "    2) ollama (native Ollama API)"
+      echo "    3) llamacpp (OpenAI-compatible via llama-server)"
+      read -r -p "[$prefix] Select API format [1-3, Enter=1]: " api_choice
+      case "${api_choice:-1}" in
+        1) LLM_PROVIDER="openai" ;;
+        2) LLM_PROVIDER="ollama" ;;
+        3) LLM_PROVIDER="llamacpp" ;;
+        *) LLM_PROVIDER="openai" ;;
+      esac
+      LLM_MODEL="${LLM_MODEL:-gpt-4o-mini}"
+      read -r -p "[$prefix] Enter LLM base URL (e.g. https://api.example.com/v1): " LLM_BASE_URL
+      read -rs -p "[$prefix] Enter API key (or press Enter for none): " LLM_API_KEY
+      echo
+      ;;
+    *)
+      log "Invalid choice, using: $current_provider"
+      LLM_PROVIDER="$current_provider"
+      LLM_MODEL="$current_model"
+      LLM_BASE_URL="${LLM_BASE_URL:-http://localhost:11434}"
+      ;;
+  esac
+
+  export LLM_PROVIDER LLM_MODEL LLM_BASE_URL LLM_API_KEY
+  log "$prefix: LLM provider: $LLM_PROVIDER ($LLM_MODEL)"
+}
+
+# Select Embedding provider interactively
+# Args: $1=log_prefix
+# Always sets localhost URLs. configure_docker_urls() converts them for Docker.
+select_embedding_provider() {
+  local prefix="${1:-run}"
+
+  echo
+  # Determine current provider from .env or infer from URL
+  local current_provider="${EMBEDDING_PROVIDER:-}"
+  local current_model="${EMBEDDING_MODEL:-qwen3-embedding:0.6b-fp16}"
+
+  if [[ -z "$current_provider" && -n "${EMBEDDING_BASE_URL:-}" ]]; then
+    current_provider=$(infer_provider_from_url "${EMBEDDING_BASE_URL}")
+  fi
+  current_provider="${current_provider:-ollama}"
+
+  log "$prefix: Embedding Provider Configuration:"
+  log "$prefix:   Default: $current_provider ($current_model)"
+  log "$prefix:   Options:"
+  echo "    1) ollama"
+  echo "    2) openai"
+  echo "    3) llamacpp"
+  echo "    4) custom URL"
+  read -r -p "[$prefix] Select Embedding provider [1-4, Enter=$current_provider]: " embed_choice
+
+  case "${embed_choice:-$(provider_to_number "$current_provider")}" in
+    1|ollama)
+      EMBEDDING_PROVIDER="ollama"
+      EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding:0.6b-fp16}"
+      EMBEDDING_BASE_URL="http://localhost:11434"
+      EMBEDDING_API_KEY=""
+      ;;
+    2|openai)
+      EMBEDDING_PROVIDER="openai"
+      EMBEDDING_MODEL="${EMBEDDING_MODEL:-text-embedding-3-small}"
+      EMBEDDING_BASE_URL="https://api.openai.com/v1"
+      read -rs -p "[$prefix] Enter OpenAI API key: " EMBEDDING_API_KEY
+      echo
+      ;;
+    3|llamacpp)
+      EMBEDDING_PROVIDER="llamacpp"
+      EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding}"
+      EMBEDDING_BASE_URL="http://localhost:8090/v1"
+      EMBEDDING_API_KEY=""
+      ;;
+    4|custom)
+      log "$prefix: Custom URL — select API format:"
+      echo "    1) openai-compatible (vLLM, Together, Fireworks, etc.)"
+      echo "    2) ollama (native Ollama API)"
+      echo "    3) llamacpp (OpenAI-compatible via llama-server)"
+      read -r -p "[$prefix] Select API format [1-3, Enter=1]: " api_choice
+      case "${api_choice:-1}" in
+        1) EMBEDDING_PROVIDER="openai" ;;
+        2) EMBEDDING_PROVIDER="ollama" ;;
+        3) EMBEDDING_PROVIDER="llamacpp" ;;
+        *) EMBEDDING_PROVIDER="openai" ;;
+      esac
+      EMBEDDING_MODEL="${EMBEDDING_MODEL:-text-embedding-3-small}"
+      read -r -p "[$prefix] Enter Embedding base URL (e.g. https://api.example.com/v1): " EMBEDDING_BASE_URL
+      read -rs -p "[$prefix] Enter API key (or press Enter for none): " EMBEDDING_API_KEY
+      echo
+      ;;
+    *)
+      log "Invalid choice, using: $current_provider"
+      EMBEDDING_PROVIDER="$current_provider"
+      EMBEDDING_MODEL="$current_model"
+      EMBEDDING_BASE_URL="${EMBEDDING_BASE_URL:-http://localhost:11434}"
+      ;;
+  esac
+
+  export EMBEDDING_PROVIDER EMBEDDING_MODEL EMBEDDING_BASE_URL EMBEDDING_API_KEY
+  log "$prefix: Embedding provider: $EMBEDDING_PROVIDER ($EMBEDDING_MODEL)"
+}
+
 # ─── Docker URL Configuration ───────────────────────────────────────────────
 
 # Automatically set Docker-accessible URLs based on provider configuration

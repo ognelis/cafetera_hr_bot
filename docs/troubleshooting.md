@@ -114,3 +114,49 @@ RAG_SERVICE_URL=http://localhost:9001
 4. Если сервер упал — посмотрите логи: `/tmp/llama_llm.log` и `/tmp/llama_embed.log`.
 
 Подробнее про llama.cpp — в [docs/llamacpp.md](llamacpp.md).
+
+---
+
+### «404 page not found» в RAG-сервисе (несовпадение провайдера и URL)
+
+Если в логах RAG-сервиса видите `openai.NotFoundError: 404 page not found`, это значит, что провайдер и URL не соответствуют друг другу. Например:
+
+- `LLM_PROVIDER=llamacpp` (использует OpenAI-совместимый клиент, обращается к `/chat/completions`) но `LLM_BASE_URL` указывает на Ollama (порт 11434), которая не поддерживает этот эндпоинт.
+- `EMBEDDING_PROVIDER=llamacpp` но `EMBEDDING_BASE_URL` указывает на Ollama.
+
+**Как проверить:**
+
+```bash
+docker exec rag-bot-rag-service env | grep -E "^(LLM|EMBEDDING)_"
+```
+
+Должно быть:
+- При выборе `llamacpp`: `LLM_BASE_URL=http://host.docker.internal:8080`, `EMBEDDING_BASE_URL=http://host.docker.internal:8090/v1`
+- При выборе `ollama`: `LLM_BASE_URL=http://host.docker.internal:11434`, `EMBEDDING_BASE_URL=http://host.docker.internal:11434`
+
+**Причина:** Контейнеры запускаются с URL по умолчанию (порт 11434), если стартовый скрипт не экспортировал переменные до запуска `docker compose up`.
+
+**Решение:** Всегда запускайте систему через стартовые скрипты (`bash scripts/run_all.sh` или `bash scripts/run_admin_docker.sh`), а не напрямую через `docker compose up`. Скрипты автоматически настраивают правильные URL для выбранного провайдера.
+
+Если контейнеры уже запущены с неверными настройками — пересоздайте их:
+
+```bash
+docker compose down
+bash scripts/run_all.sh
+```
+
+---
+
+### «host.docker.internal» не резолвится при локальном запуске
+
+Если при запуске `ragas/run.sh` видите ошибку `nodename nor servname provided, or not known` с адресом `host.docker.internal`, значит скрипт использует Docker-адрес вместо локального.
+
+**Решение:** Это произошло из-за того, что `RERANKER_URL` был установлен как `http://host.docker.internal:8082`. Для локальных скриптов (`ragas/run.sh`, `run_admin.sh`) всегда должен использоваться `localhost`. Скрипты автоматически определяют правильный адрес — просто запустите их заново.
+
+---
+
+### Переменные из .env не применяются в Docker-контейнерах
+
+Docker Compose читает `.env` файл, но переменные из секции `environment` в `docker-compose.yml` имеют приоритет над `env_file`. Если в `.env` указан `LLM_PROVIDER=llamacpp`, но в `docker-compose.yml` стоит `LLM_PROVIDER: "${LLM_PROVIDER:-ollama}"`, а переменная `LLM_PROVIDER` не экспортирована в оболочке — будет использовано значение по умолчанию (`ollama`).
+
+**Решение:** Запускайте систему через стартовые скрипты, которые экспортируют переменные перед вызовом `docker compose up`.
