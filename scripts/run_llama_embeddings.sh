@@ -18,6 +18,7 @@ _load_env_var EMBED_MODEL_URL
 _load_env_var EMBED_CTX_SIZE
 _load_env_var EMBED_N_GPU_LAYERS
 _load_env_var EMBED_UBATCH_SIZE
+_load_env_var EMBED_POOLING
 
 # ── GPU detection ─────────────────────────────────────────────────────────
 detect_gpu() {
@@ -46,9 +47,10 @@ EMBED_MODEL_PATH="${EMBED_MODEL_PATH:-./models/Qwen3-Embedding-0.6B-f16.gguf}"
 EMBED_MODEL_URL="${EMBED_MODEL_URL:-https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-f16.gguf}"
 EMBED_HOST="${EMBED_HOST:-127.0.0.1}"
 EMBED_PORT="${EMBED_PORT:-8090}"
-EMBED_CTX_SIZE="${EMBED_CTX_SIZE:-2048}"
+EMBED_CTX_SIZE="${EMBED_CTX_SIZE:-8192}"
 EMBED_N_GPU_LAYERS="${EMBED_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
 EMBED_UBATCH_SIZE="${EMBED_UBATCH_SIZE:-2048}"
+EMBED_POOLING="${EMBED_POOLING:-last}"
 
 detect_cpu_count() {
   if command -v nproc >/dev/null 2>&1; then
@@ -106,6 +108,7 @@ echo "CTX_SIZE=$EMBED_CTX_SIZE"
 echo "UBATCH_SIZE=$EMBED_UBATCH_SIZE"
 echo "CPU_COUNT=$CPU_COUNT"
 echo "THREADS=$THREADS"
+echo "POOLING=$EMBED_POOLING"
 echo "GPU: $DETECTED_GPU → offloading $EMBED_N_GPU_LAYERS layers"
 
 exec llama-server \
@@ -117,4 +120,4 @@ exec llama-server \
   --threads "$THREADS" \
   --n-gpu-layers "$EMBED_N_GPU_LAYERS" \
   --embedding \
-  --pooling mean
+  --pooling "$EMBED_POOLING"

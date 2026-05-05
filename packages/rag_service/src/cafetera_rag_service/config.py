@@ -52,6 +52,7 @@ class RagServiceSettings(BaseSettings):
     embedding_model: str = "qwen3-embedding:4b-q4_K_M"
     embedding_base_url: str = "http://localhost:11434"
     embedding_api_key: str = ""
+    embedding_chunk_size: int = 16
 
     # Asymmetric query-side instruction (Qwen3 / E5-instruct family).
     # Leave empty to disable (e.g. for BGE-M3 or symmetric models).

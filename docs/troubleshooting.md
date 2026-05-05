@@ -200,12 +200,57 @@ docker ps
 
 ---
 
-### Retrieval evaluation выдаёт все нули или единицы
+### Retrieval evaluation выдаёт MRR близкий к нулю (0.03–0.05) с llamacpp
 
-Вероятно, неправильно настроен Embedding-провайдер или модель. Проверьте на маленьком наборе:
+**Симптом:** MRR@10 около 0.03–0.05 при `EMBEDDING_PROVIDER=llamacpp`, при этом тот же модель через Ollama даёт MRR около 0.82.
+
+**Причина 1 — неправильный EMBED_POOLING:**
+
+Kaждая embedding-модель обучена «смотреть» на определённую часть текста при сжатии в вектор. Если режим pooling не совпадает с тем, на чём модель обучена — результат бессмысленный (модель «смотрит» не на тот кусочек текста).
+
+- Qwen3-Embedding требует `EMBED_POOLING=last`
+- Проверьте значение в `.env` и в логах запуска `scripts/run_llama_embeddings.sh`
+
+**Причина 2 — LangChain отправлял неправильные токены (историческая):**
+
+LangChain `OpenAIEmbeddings` по умолчанию разбивает текст токенайзером GPT-4 (tiktoken) и отправляет серверу номера токенов вместо текста. Но llama-server использует токенайзер Qwen3 — номера не совпадают, и сервер получает мусор на входе. Это исправлено в коде проекта (параметр `check_embedding_ctx_length=False`). Убедитесь, что у вас актуальная версия кода.
+
+**Быстрая диагностика** — сравните векторы напрямую:
 
 ```bash
-uv run python ragas/evaluate_retrieval.py --size 10
+# llamacpp (порт 8090)
+curl -s http://localhost:8090/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{"input": "Тестовый текст", "model": "qwen3-embedding"}' | python -c "
+import json, sys; d = json.load(sys.stdin)
+v = d['data'][0]['embedding'][:5]
+print(f'llamacpp: {v}')
+"
+
+# ollama (порт 11434)
+curl -s http://localhost:11434/api/embed \
+  -d '{"model": "qwen3-embedding", "input": "Тестовый текст"}' | python -c "
+import json, sys; d = json.load(sys.stdin)
+v = d['embeddings'][0][:5]
+print(f'ollama:   {v}')
+"
 ```
 
-Если результаты аномальные — попробуйте другой Embedding-провайдер или модель.
+Если числа сильно отличаются — проблема в настройках llamacpp-сервера (см. `EMBED_POOLING` выше).
+
+---
+
+### «SIGTRAP» или «failed to find a memory slot» при batch embedding
+
+**Симптом:** Embedding-сервер падает при индексации документов с ошибкой SIGTRAP или «failed to find a KV cache slot».
+
+**Причина:** серверу не хватает «рабочей памяти» (KV-кэша), чтобы обработать все тексты в пачке одновременно. Нужно: `EMBED_CTX_SIZE >= EMBEDDING_CHUNK_SIZE × 512`.
+
+**Решение (любое из двух):**
+
+- Увеличить память: `EMBED_CTX_SIZE=16384` в `.env`
+- Уменьшить размер пачки: `EMBEDDING_CHUNK_SIZE=8` в `.env`
+
+После изменения перезапустите embedding-сервер: `bash scripts/run_llama_embeddings.sh`
+
+Подробнее о формуле и значениях по умолчанию — [docs/llamacpp.md, раздел 3.6](llamacpp.md#36-настройки-embedding-сервера-важно).

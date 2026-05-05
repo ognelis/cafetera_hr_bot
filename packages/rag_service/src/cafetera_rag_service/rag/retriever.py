@@ -232,6 +232,7 @@ def build_embeddings(settings: RagServiceSettings) -> Embeddings:
             model=settings.embedding_model,
             api_key=settings.embedding_api_key,  # type: ignore[arg-type]
             base_url=settings.embedding_base_url or None,
+            chunk_size=settings.embedding_chunk_size,
         )
     elif settings.embedding_provider == "llamacpp":
         try:
@@ -245,6 +246,8 @@ def build_embeddings(settings: RagServiceSettings) -> Embeddings:
             model=settings.embedding_model,
             api_key=settings.embedding_api_key or "no-key",  # type: ignore[arg-type]
             base_url=settings.embedding_base_url or "http://localhost:8080/v1",
+            chunk_size=settings.embedding_chunk_size,
+            check_embedding_ctx_length=False,
         )
     else:
         # Default: Ollama
