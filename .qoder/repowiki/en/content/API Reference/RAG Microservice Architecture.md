@@ -23,6 +23,7 @@
 - [packages/rag_service/src/cafetera_rag_service/rag/retriever.py](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py)
 - [packages/rag_service/src/cafetera_rag_service/rag/reranker.py](file://packages/rag_service/src/cafetera_rag_service/rag/reranker.py)
 - [packages/rag_service/src/cafetera_rag_service/rag/text_processor.py](file://packages/rag_service/src/cafetera_rag_service/rag/text_processor.py)
+- [packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py](file://packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py)
 - [packages/rag_service/src/cafetera_rag_service/qa_service.py](file://packages/rag_service/src/cafetera_rag_service/qa_service.py)
 - [packages/rag_service/src/cafetera_rag_service/config.py](file://packages/rag_service/src/cafetera_rag_service/config.py)
 - [packages/rag_service/src/cafetera_rag_service/resources.py](file://packages/rag_service/src/cafetera_rag_service/resources.py)
@@ -39,6 +40,8 @@
 - [static/js/components.js](file://static/js/components.js)
 - [tests/test_qa_streaming_errors.py](file://tests/test_qa_streaming_errors.py)
 - [ragas/evaluate.py](file://ragas/evaluate.py)
+- [ragas/evaluate_retrieval.py](file://ragas/evaluate_retrieval.py)
+- [ragas/generate_testset.py](file://ragas/generate_testset.py)
 - [docs/llamacpp.md](file://docs/llamacpp.md)
 - [scripts/run_llama_reranker.sh](file://scripts/run_llama_reranker.sh)
 - [scripts/run_llama_embeddings.sh](file://scripts/run_llama_embeddings.sh)
@@ -47,17 +50,14 @@
 
 ## Update Summary
 **Changes Made**
-- **QAService Refactoring**: QAService now builds RAG chains dynamically per query, eliminating the document chains cache mechanism that previously stored up to 50 different chains
-- **API-Level QAService Caching**: Maintained caching of QAService instances at the API level based on prompt hash and include_metadata settings
-- **Enhanced Russian Text Preprocessing**: Continued support for pymorphy3 lemmatization and stop-word removal for BM25 sparse embeddings
-- **Improved Retriever Capabilities**: Enhanced with configurable lemmatization via bm25_lemmatize setting and intelligent fallback mechanisms
-- **Advanced Configuration Management**: New settings for sparse embeddings, Russian lemmatization, and HTTP-based reranking
-- **HTTP-based Reranking Integration**: llama.cpp servers with dedicated scripts and Docker integration
-- **Enhanced LLM Configuration System**: Provider-aware parameter handling and context window management
-- **Robust Streaming Error Handling**: Comprehensive asyncio.CancelledError support for graceful client disconnection handling
-- **Evaluation Framework Enhancement**: New ask_with_contexts method for evaluation purposes returning both answers and retrieved contexts
-- **SSE Streaming Architecture**: Robust error handling for Server-Sent Events implementation
-- **Comprehensive Testing Coverage**: Enhanced streaming error handling scenarios
+- **Instructed Embeddings Support**: Added asymmetric query-side instruction formatting for models like Qwen3-Embedding and E5-instruct
+- **Enhanced Retrieval Evaluation**: Implemented comprehensive evaluation framework with ask_with_contexts method for RAGAS integration
+- **Improved RAG Pipeline Documentation**: Enhanced documentation covering instructed embeddings implementation and retrieval evaluation system
+- **New Configuration Settings**: Added embedding_use_query_instruction and embedding_query_instruction for asymmetric embedding support
+- **Advanced Evaluation Capabilities**: Integrated RAGAS evaluation framework with comprehensive metrics scoring
+- **Synthetic Testset Generation**: Added automated testset generation from Qdrant document chunks
+- **Enhanced Streaming Architecture**: Maintained robust SSE streaming with comprehensive error handling patterns
+- **HTTP-based Reranking Integration**: Continued llama.cpp server integration for improved result ranking
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -77,7 +77,7 @@ This document describes the RAG (Retrieval-Augmented Generation) microservice ar
 - VK Bot: A chatbot responding to employee questions in VKontakte groups
 - RAG Service: Internal microservice handling AI queries and knowledge base operations
 
-The RAG Service operates on port 8001 and communicates with the Admin Panel and VK Bot via HTTP. It integrates with Qdrant for vector similarity search, supports multiple AI providers (Ollama, OpenAI, llama.cpp), and manages document ingestion and retrieval workflows with enhanced hybrid search capabilities. The service now includes complete document ingestion pipelines with S3 integration, comprehensive error handling, advanced search control mechanisms, sophisticated Russian language preprocessing for improved BM25 sparse embeddings, robust streaming architecture with SSE implementation, enhanced evaluation capabilities through the new ask_with_contexts method, and HTTP-based reranking via llama.cpp servers.
+The RAG Service operates on port 8001 and communicates with the Admin Panel and VK Bot via HTTP. It integrates with Qdrant for vector similarity search, supports multiple AI providers (Ollama, OpenAI, llama.cpp), and manages document ingestion and retrieval workflows with enhanced hybrid search capabilities. The service now includes complete document ingestion pipelines with S3 integration, comprehensive error handling, advanced search control mechanisms, sophisticated Russian language preprocessing for improved BM25 sparse embeddings, robust streaming architecture with SSE implementation, enhanced evaluation capabilities through the new ask_with_contexts method, HTTP-based reranking via llama.cpp servers, and **NEW** instructed embeddings support for asymmetric query-side instructions.
 
 ## Project Structure
 The project follows a monorepo workspace structure with four main packages:
@@ -93,6 +93,8 @@ CORE["packages/core<br/>Shared utilities"]
 ADMIN["packages/admin<br/>Admin UI"]
 VKBOT["packages/vk_bot<br/>VK Bot"]
 RAG["packages/rag_service<br/>RAG Microservice"]
+EVAL_FRAMEWORK["Evaluation Framework<br/>RAGAS Integration"]
+INSTRUCTED_EMBEDDINGS["Instructed Embeddings<br/>Asymmetric Query Instructions"]
 ENDPOINT_EVAL["Evaluation Endpoint<br/>ask_with_contexts"]
 end
 subgraph "Infrastructure"
@@ -114,6 +116,8 @@ RAG --> LLAMACPP_LLM
 CORE -. shared .-> ADMIN
 CORE -. shared .-> VKBOT
 CORE -. shared .-> RAG
+EVAL_FRAMEWORK --> RAG
+INSTRUCTED_EMBEDDINGS --> RAG
 ```
 
 **Diagram sources**
@@ -181,6 +185,13 @@ LLAMACPP_RERANKER["llama.cpp Reranker Server"]
 RERANKING_ENABLED["RERANKING_ENABLED Flag"]
 RERANKER_PREFETCH["RERANKER_PREFETCH_LIMIT"]
 RERANKER_TOPN["RERANKER_TOP_N"]
+INSTRUCTED_EMBEDDINGS["InstructedQueryEmbeddings"]
+ASYMMETRIC_INSTRUCTIONS["Asymmetric Query Instructions"]
+EVAL_FRAMEWORK["RAGAS Evaluation Framework"]
+TESTSET_GENERATION["Synthetic Testset Generation"]
+METRICS_SCORING["Comprehensive Metrics Scoring"]
+ENDPOINT_EVAL["Evaluation Pipeline"]
+ENDPOINT_EVAL_TOOL["Evaluation Tool Integration"]
 end
 subgraph "Infrastructure"
 QDRANT["Qdrant<br/>Vector DB"]
@@ -222,6 +233,10 @@ RERANKER --> RERANKING_ENABLED
 RERANKING_ENABLED --> RERANKER_PREFETCH
 RERANKER_PREFETCH --> RERANKER_TOPN
 LLAMACPP_RERANKER --> LLAMACPP_SERVERS
+INSTRUCTED_EMBEDDINGS --> ASYMMETRIC_INSTRUCTIONS
+EVAL_FRAMEWORK --> TESTSET_GENERATION
+TESTSET_GENERATION --> METRICS_SCORING
+METRICS_SCORING --> ENDPOINT_EVAL_TOOL
 ```
 
 **Diagram sources**
@@ -230,84 +245,97 @@ LLAMACPP_RERANKER --> LLAMACPP_SERVERS
 - [packages/rag_service/src/cafetera_rag_service/rag/chain.py](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py)
 - [packages/rag_service/src/cafetera_rag_service/rag/retriever.py](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py)
 - [packages/rag_service/src/cafetera_rag_service/rag/reranker.py](file://packages/rag_service/src/cafetera_rag_service/rag/reranker.py)
+- [packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py](file://packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py)
 - [packages/rag_service/src/cafetera_rag_service/resources.py](file://packages/rag_service/src/cafetera_rag_service/resources.py)
 - [packages/rag_service/src/cafetera_rag_service/parser.py](file://packages/rag_service/src/cafetera_rag_service/parser.py)
 - [docs/llamacpp.md:143-174](file://docs/llamacpp.md#L143-L174)
 
 ## Detailed Component Analysis
 
-### QAService Refactoring: Dynamic Chain Building Per Query
-The QAService has been refactored to build RAG chains dynamically per query, eliminating the previous document chains cache mechanism:
+### Instructed Embeddings Support for Asymmetric Query Instructions
+The RAG Service now supports instructed embeddings for asymmetric query-side instructions, enabling better performance with models like Qwen3-Embedding and E5-instruct that require specific formatting on the query side while keeping passage embeddings unchanged.
 
 ```mermaid
 flowchart TD
-Start["QAService Method Called"] --> CheckResources{"Required Resources Available?"}
-CheckResources --> |No| ReturnError["Return Error Response"]
-CheckResources --> |Yes| BuildChain["Build Chain Dynamically"]
-BuildChain --> ExecuteQuery["Execute Query"]
-ExecuteQuery --> ReturnResult["Return Result"]
-ReturnError --> End["Operation Complete"]
-ReturnResult --> End
+Start["Embedding Request"] --> CheckInstruction{"Use Query Instruction?"}
+CheckInstruction --> |No| DirectEmbed["Direct Embedding Call"]
+CheckInstruction --> |Yes| WrapEmbeddings["InstructedQueryEmbeddings Wrapper"]
+WrapEmbeddings --> FormatQuery["Format Query: 'Instruct: {task}\\nQuery: {text}'"]
+FormatQuery --> QueryEmbed["Embed Query with Instruction"]
+DirectEmbed --> DocumentEmbed["Embed Documents Without Instruction"]
+QueryEmbed --> ReturnResult["Return Query Embeddings"]
+DocumentEmbed --> ReturnResult
+ReturnResult --> End["Embedding Complete"]
 ```
 
-**Updated** QAService now builds RAG chains dynamically per query, eliminating the document chains cache mechanism that previously stored up to 50 different chains
+**Updated** Added comprehensive instructed embeddings support with asymmetric query-side instruction formatting
 
-Key refactoring features:
-- **Dynamic Chain Building**: Chains are constructed on-demand using `_build_document_chain()` and `_build_global_chain()` methods
-- **Resource-Based Initialization**: QAService holds references to qdrant_client, embeddings, llm, and settings for dynamic chain construction
-- **Eliminated Document Cache**: Removed LRU cache for document chains (previously stored up to 50 different chains)
-- **API-Level Caching**: Maintained caching of QAService instances at the API level based on prompt hash and include_metadata settings
-- **Memory Efficiency**: Reduced memory footprint by not caching document-specific chains
-- **Consistent Performance**: Eliminated cache management overhead and potential cache invalidation issues
+Key instructed embeddings features:
+- **Asymmetric Instruction Format**: Applies "Instruct: {task}\nQuery: {text}" formatting only to queries
+- **Passage Preservation**: Keeps document embeddings unchanged for optimal passage retrieval
+- **Configurable Instructions**: Controlled via embedding_use_query_instruction and embedding_query_instruction settings
+- **Model Compatibility**: Supports Qwen3-Embedding, E5-instruct, and similar asymmetric embedding models
+- **Automatic Integration**: Seamlessly integrated into the embedding pipeline during resource initialization
+- **Backward Compatibility**: Disabled by default for symmetric models like BGE-M3
 
 **Section sources**
-- [packages/rag_service/src/cafetera_rag_service/qa_service.py:52-148](file://packages/rag_service/src/cafetera_rag_service/qa_service.py#L52-L148)
-- [packages/rag_service/src/cafetera_rag_service/qa_service.py:329-337](file://packages/rag_service/src/cafetera_rag_service/qa_service.py#L329-L337)
+- [packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py:1-38](file://packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py#L1-L38)
+- [packages/rag_service/src/cafetera_rag_service/config.py:56-62](file://packages/rag_service/src/cafetera_rag_service/config.py#L56-L62)
+- [packages/rag_service/src/cafetera_rag_service/rag/retriever.py:226-237](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py#L226-L237)
 
-### Enhanced Russian Text Preprocessing with Lemmatization
-The RAG Service now includes sophisticated Russian language preprocessing capabilities for improved BM25 sparse embeddings:
+### Enhanced Retrieval Evaluation Framework with RAGAS Integration
+The system now provides comprehensive evaluation capabilities through integration with the RAGAS framework, enabling automated assessment of retrieval quality and answer accuracy.
 
 ```mermaid
-flowchart TD
-Input["Raw Russian Text Input"] --> Lowercase["Lowercase Transformation"]
-Lowercase --> RemovePunctuation["Remove Punctuation & Special Characters"]
-RemovePunctuation --> Tokenize["Tokenize by Whitespace"]
-Tokenize --> Lemmatize["Apply pymorphy3 Lemmatization"]
-Lemmatize --> FilterStopWords["Filter Russian Stop Words"]
-FilterStopWords --> Output["Processed Tokens for BM25"]
-StopWords["Official Qdrant Stop Words List"] --> FilterStopWords
-Pymorphy3["Morphological Analyzer"] --> Lemmatize
+sequenceDiagram
+participant EvalTool as "Evaluation Tool"
+participant RAGAS as "RAGAS Framework"
+participant QAService as "QA Service"
+participant Qdrant as "Qdrant Vector DB"
+EvalTool->>RAGAS : Initialize evaluation
+RAGAS->>QAService : Call ask_with_contexts(question)
+QAService->>Qdrant : Retrieve documents with contexts
+Qdrant-->>QAService : Retrieved documents
+QAService->>QAService : Generate answer
+QAService-->>RAGAS : Return (answer, contexts)
+RAGAS->>RAGAS : Score with Faithfulness
+RAGAS->>RAGAS : Score with ContextPrecision
+RAGAS->>RAGAS : Score with AnswerRelevancy
+RAGAS->>RAGAS : Score with ContextRecall (if reference)
+RAGAS-->>EvalTool : Return comprehensive metrics
 ```
 
-**Diagram sources**
-- [packages/rag_service/src/cafetera_rag_service/rag/text_processor.py:42-65](file://packages/rag_service/src/cafetera_rag_service/rag/text_processor.py#L42-L65)
+**Updated** Enhanced with comprehensive RAGAS evaluation framework integration
 
-**Updated** Enhanced with comprehensive Russian text preprocessing capabilities using pymorphy3 lemmatization and official Qdrant stop words
-
-Key preprocessing features:
-- **Morphological Analysis**: Uses pymorphy3 for accurate Russian word normalization
-- **Stop Word Filtering**: Removes 80+ common Russian stop words from Qdrant's official list
-- **Consistent Processing**: Same preprocessing applied at both index and query time
-- **Performance Optimization**: Efficient vectorized operations for large document collections
-- **Language-Specific**: Tailored for Russian morphology and vocabulary patterns
-- **Configurable**: Controlled via bm25_lemmatize setting in RagServiceSettings
+Evaluation framework improvements:
+- **Comprehensive Metrics**: Faithfulness, ContextPrecision, AnswerRelevancy, and ContextRecall scoring
+- **Context Retrieval**: ask_with_contexts method enables evaluation with both answers and retrieved contexts
+- **Automated Testsets**: Synthetic testset generation from Qdrant document chunks
+- **Multi-metric Assessment**: Single evaluation run produces detailed performance metrics
+- **Reference-based Scoring**: Optional ContextRecall scoring when reference answers are available
+- **Performance Analytics**: Average scores and statistical summaries for model comparison
 
 **Section sources**
-- [packages/rag_service/src/cafetera_rag_service/rag/text_processor.py:1-65](file://packages/rag_service/src/cafetera_rag_service/rag/text_processor.py#L1-L65)
-- [packages/rag_service/src/cafetera_rag_service/config.py:56-58](file://packages/rag_service/src/cafetera_rag_service/config.py#L56-L58)
+- [packages/rag_service/src/cafetera_rag_service/qa_service.py:207-258](file://packages/rag_service/src/cafetera_rag_service/qa_service.py#L207-L258)
+- [ragas/evaluate.py:192-226](file://ragas/evaluate.py#L192-L226)
+- [ragas/evaluate.py:228-309](file://ragas/evaluate.py#L228-L309)
+- [ragas/generate_testset.py:220-315](file://ragas/generate_testset.py#L220-L315)
 
 ### Improved Retriever with Configurable Lemmatization and Fallback Mechanisms
-The retriever now supports enhanced Russian text preprocessing with intelligent fallback mechanisms:
+The retriever now supports enhanced Russian text preprocessing with intelligent fallback mechanisms and instructed embeddings integration:
 
 ```mermaid
 sequenceDiagram
 participant Query as "User Query"
 participant Retriever as "AsyncQdrantRetriever"
 participant TextProcessor as "preprocess_russian"
+participant InstructedEmbeddings as "InstructedQueryEmbeddings"
 participant Qdrant as "Qdrant Vector DB"
 Query->>Retriever : "Search(query)"
 Retriever->>TextProcessor : "preprocess_russian(query) if bm25_lemmatize=True"
 TextProcessor-->>Retriever : "Processed query tokens"
+Retriever->>InstructedEmbeddings : "embed_query(processed_query)"
+InstructedEmbeddings-->>Retriever : "Query embeddings with instruction"
 Retriever->>Qdrant : "Hybrid search : dense + BM25 prefetch"
 Qdrant-->>Retriever : "Initial results"
 Retriever->>Retriever : "Apply RRF fusion"
@@ -320,10 +348,12 @@ Retriever-->>Query : "Final ranked documents"
 
 **Diagram sources**
 - [packages/rag_service/src/cafetera_rag_service/rag/retriever.py:52-138](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py#L52-L138)
+- [packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py:22-37](file://packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py#L22-L37)
 
-**Updated** Enhanced with configurable Russian lemmatization and intelligent fallback mechanisms
+**Updated** Enhanced with instructed embeddings integration and configurable Russian lemmatization
 
 Retriever improvements:
+- **Instructed Embeddings Integration**: Automatic query instruction formatting for compatible embedding models
 - **Configurable Lemmatization**: Controlled by bm25_lemmatize setting in RagServiceSettings
 - **Intelligent Fallback**: Automatic fallback from hybrid to dense-only search when needed
 - **Threshold Management**: Graceful degradation when all results fall below score threshold
@@ -336,7 +366,7 @@ Retriever improvements:
 - [packages/rag_service/src/cafetera_rag_service/config.py:56-58](file://packages/rag_service/src/cafetera_rag_service/config.py#L56-L58)
 
 ### Enhanced Configuration Management with New Settings
-The configuration system now includes comprehensive settings for Russian preprocessing, sparse embeddings, and HTTP-based reranking:
+The configuration system now includes comprehensive settings for instructed embeddings, Russian preprocessing, sparse embeddings, and HTTP-based reranking:
 
 ```mermaid
 classDiagram
@@ -360,6 +390,8 @@ class RagServiceSettings {
 +embedding_model : str = "qwen3-embedding : 4b-q4_K_M"
 +embedding_base_url : str = "http : //localhost : 11434"
 +embedding_api_key : str = ""
++embedding_query_instruction : str = "Given a web search query, retrieve relevant passages that answer the query"
++embedding_use_query_instruction : bool = True
 +sparse_embedding_model : str = "Qdrant/bm25"
 +bm25_lemmatize : bool = True
 +doc_query_k : int = 15
@@ -381,11 +413,12 @@ class RagServiceSettings {
 ```
 
 **Diagram sources**
-- [packages/rag_service/src/cafetera_rag_service/config.py:8-84](file://packages/rag_service/src/cafetera_rag_service/config.py#L8-L84)
+- [packages/rag_service/src/cafetera_rag_service/config.py:8-93](file://packages/rag_service/src/cafetera_rag_service/config.py#L8-L93)
 
-**Updated** Enhanced with comprehensive configuration management for Russian preprocessing, sparse embeddings, and HTTP-based reranking
+**Updated** Enhanced with instructed embeddings configuration and comprehensive evaluation settings
 
 New configuration features:
+- **Instructed Embeddings**: embedding_use_query_instruction and embedding_query_instruction for asymmetric query formatting
 - **Russian Lemmatization**: bm25_lemmatize setting controls morphological preprocessing
 - **HTTP-based Reranking**: Complete configuration for llama.cpp reranker integration
 - **Provider-Aware Parameters**: Enhanced LLM parameter handling across different providers
@@ -393,9 +426,10 @@ New configuration features:
 - **Thinking Mode Control**: llm_disable_thinking setting for reasoning mode management
 - **Sparse Embedding Control**: Fine-tuned configuration for BM25 sparse embeddings
 - **Batch Processing**: Configurable qdrant_upsert_batch_size for efficient indexing
+- **Evaluation Integration**: Settings for comprehensive RAGAS evaluation framework
 
 **Section sources**
-- [packages/rag_service/src/cafetera_rag_service/config.py:8-84](file://packages/rag_service/src/cafetera_rag_service/config.py#L8-L84)
+- [packages/rag_service/src/cafetera_rag_service/config.py:8-93](file://packages/rag_service/src/cafetera_rag_service/config.py#L8-L93)
 
 ### HTTP-based Reranking via llama.cpp Servers
 The system now supports HTTP-based reranking through dedicated llama.cpp servers with comprehensive integration:
@@ -797,7 +831,7 @@ Key endpoint categories:
 - [packages/rag_service/src/cafetera_rag_service/api/ingest.py](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py)
 
 ### Complete Document Ingestion Pipeline
-The ingestion pipeline now provides a complete end-to-end workflow from S3 storage to vector indexing with enhanced Russian text preprocessing:
+The ingestion pipeline now provides a complete end-to-end workflow from S3 storage to vector indexing with enhanced Russian text preprocessing and instructed embeddings support:
 
 ```mermaid
 flowchart TD
@@ -814,7 +848,8 @@ SparseCheck --> |Yes| Sparse["Generate Sparse Vectors (BM25)"]
 SparseCheck --> |No| SkipSparse["Skip Sparse Vectors"]
 Sparse --> RussianPreprocess["Apply Russian Lemmatization (if enabled)"]
 SkipSparse --> RussianPreprocess
-RussianPreprocess --> BuildPoints["Build PointStruct Objects"]
+RussianPreprocess --> InstructedEmbeddings["Apply Instructed Embeddings (if configured)"]
+InstructedEmbeddings --> BuildPoints["Build PointStruct Objects"]
 BuildPoints --> UUIDGen["Generate UUID for Each Point"]
 UUIDGen --> BatchSize{"Batch Size Reached?"}
 BatchSize --> |No| Continue["Continue Building Points"]
@@ -831,7 +866,7 @@ Log --> End(["Ready for Retrieval"])
 **Diagram sources**
 - [packages/rag_service/src/cafetera_rag_service/api/ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
 
-**Updated** Enhanced with Russian text lemmatization for BM25 sparse embeddings
+**Updated** Enhanced with Russian text lemmatization and instructed embeddings support
 
 Key enhancements:
 - **End-to-End Pipeline**: Complete workflow from S3 download to vector indexing
@@ -839,6 +874,7 @@ Key enhancements:
 - **Docling Parsing**: Advanced document parsing with layout preservation
 - **Hybrid Vector Support**: Automatic detection and handling of both dense and sparse vectors
 - **Russian Text Processing**: Optional lemmatization and stop-word removal for improved BM25 matching
+- **Instructed Embeddings**: Automatic query instruction formatting for compatible embedding models
 - **Batch Processing**: Configurable batch size (`qdrant_upsert_batch_size`) for efficient vector upsert operations
 - **UUID Generation**: Each indexed point receives a unique UUID for reliable identification
 - **Metadata Enrichment**: Comprehensive metadata extraction and enrichment
@@ -847,10 +883,10 @@ Key enhancements:
 **Section sources**
 - [packages/rag_service/src/cafetera_rag_service/api/ingest.py:64-188](file://packages/rag_service/src/cafetera_rag_service/api/ingest.py#L64-L188)
 - [packages/rag_service/src/cafetera_rag_service/parser.py:48-111](file://packages/rag_service/src/cafetera_rag_service/parser.py#L48-L111)
-- [packages/rag_service/src/cafetera_rag_service/config.py:54-58](file://packages/rag_service/src/cafetera_rag_service/config.py#L54-L58)
+- [packages/rag_service/src/cafetera_rag_service/config.py:54-62](file://packages/rag_service/src/cafetera_rag_service/config.py#L54-L62)
 
 ### Enhanced Indexing Pipeline
-The indexing pipeline now supports batch processing with configurable batch sizes and generates unique UUIDs for each indexed point with enhanced Russian text preprocessing:
+The indexing pipeline now supports batch processing with configurable batch sizes, generates unique UUIDs for each indexed point, and integrates instructed embeddings for improved query performance:
 
 ```mermaid
 flowchart TD
@@ -862,7 +898,8 @@ SparseCheck --> |Yes| Sparse["Generate Sparse Vectors (BM25)"]
 SparseCheck --> |No| SkipSparse["Skip Sparse Vectors"]
 Sparse --> RussianPreprocess["Apply Russian Lemmatization (if enabled)"]
 SkipSparse --> RussianPreprocess
-RussianPreprocess --> BuildPoints["Build PointStruct Objects"]
+RussianPreprocess --> InstructedEmbeddings["Apply Instructed Embeddings (if configured)"]
+InstructedEmbeddings --> BuildPoints["Build PointStruct Objects"]
 BuildPoints --> UUIDGen["Generate UUID for Each Point"]
 UUIDGen --> BatchSize{"Batch Size Reached?"}
 BatchSize --> |No| Continue["Continue Building Points"]
@@ -878,7 +915,7 @@ UpdateDB --> End(["Ready for Retrieval"])
 **Diagram sources**
 - [packages/rag_service/src/cafetera_rag_service/api/indexing.py:26-110](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L26-L110)
 
-**Updated** Enhanced with Russian text lemmatization for BM25 sparse embeddings
+**Updated** Enhanced with instructed embeddings support for improved query performance
 
 Key enhancements:
 - **Batch Processing**: Configurable batch size (`qdrant_upsert_batch_size`) for efficient vector upsert operations
@@ -886,6 +923,7 @@ Key enhancements:
 - **PointStruct Construction**: Proper payload formatting with `page_content` and `metadata` fields
 - **Hybrid Vector Support**: Automatic detection and handling of both dense and sparse vectors
 - **Russian Text Processing**: Optional lemmatization and stop-word removal for improved BM25 matching
+- **Instructed Embeddings**: Automatic query instruction formatting for compatible embedding models
 
 **Section sources**
 - [packages/rag_service/src/cafetera_rag_service/api/indexing.py:26-110](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L26-L110)
@@ -920,13 +958,14 @@ Key features:
 - [packages/rag_service/src/cafetera_rag_service/api/indexing.py:150-199](file://packages/rag_service/src/cafetera_rag_service/api/indexing.py#L150-L199)
 
 ### Hybrid Search Implementation
-The retriever now supports hybrid search combining dense and sparse embeddings with enhanced Russian text preprocessing:
+The retriever now supports hybrid search combining dense and sparse embeddings with enhanced Russian text preprocessing and instructed embeddings integration:
 
 ```mermaid
 flowchart TD
 Query["Incoming Query"] --> DenseVec["Generate Dense Vector"]
 DenseVec --> RussianPreprocess["Apply Russian Lemmatization (if enabled)"]
-RussianPreprocess --> HybridCheck{"Sparse Embeddings Enabled?"}
+RussianPreprocess --> InstructedEmbeddings["Apply Instructed Embeddings (if configured)"]
+InstructedEmbeddings --> HybridCheck{"Sparse Embeddings Enabled?"}
 HybridCheck --> |Yes| SparseVec["Generate Sparse Vector (BM25)"]
 HybridCheck --> |No| DenseOnly["Dense-Only Search"]
 SparseVec --> HybridSearch["Hybrid Search: Dense + BM25 Prefetch"]
@@ -942,11 +981,12 @@ Docs --> End(["Retrieved Documents"])
 **Diagram sources**
 - [packages/rag_service/src/cafetera_rag_service/rag/retriever.py:48-93](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py#L48-L93)
 
-**Updated** Enhanced with Russian text lemmatization for improved BM25 sparse embeddings
+**Updated** Enhanced with instructed embeddings support and Russian text lemmatization for improved BM25 sparse embeddings
 
 Core hybrid search features:
 - **Dense + Sparse Prefetch**: Combines semantic similarity with lexical matching
 - **Russian Text Processing**: Optional lemmatization and stop-word removal for improved BM25 matching
+- **Instructed Embeddings**: Automatic query instruction formatting for compatible embedding models
 - **RRF Fusion**: Reciprocal Rank Fusion combines results from both search modes
 - **Adaptive k-values**: Different retrieval depths based on question complexity
 - **Graceful Degradation**: Falls back to dense-only search if sparse embeddings unavailable
@@ -973,7 +1013,6 @@ Stream --> |Yes| StreamTokens["Stream Token by Token with Cancellation Support"]
 Stream --> |No| ReturnAnswer["Return Complete Answer"]
 GenerateDefault --> ReturnAnswer
 StreamTokens --> End(["Response Complete"])
-ReturnAnswer --> End
 ```
 
 **Diagram sources**
@@ -981,7 +1020,7 @@ ReturnAnswer --> End
 - [packages/rag_service/src/cafetera_rag_service/rag/retriever.py](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py)
 - [packages/rag_service/src/cafetera_rag_service/rag/reranker.py](file://packages/rag_service/src/cafetera_rag_service/rag/reranker.py)
 
-**Updated** Enhanced with comprehensive streaming error handling including asyncio.CancelledError support
+**Updated** Enhanced with comprehensive streaming error handling including asyncio.CancelledError support and instructed embeddings integration
 
 Core pipeline components:
 - Vector retriever: Uses Qdrant for semantic similarity search with hybrid capabilities
@@ -989,6 +1028,7 @@ Core pipeline components:
 - Context builder: Assembles relevant document segments
 - **Enhanced Streaming**: Provides real-time response tokens with proper cancellation handling
 - **Evaluation Support**: New ask_with_contexts method for comprehensive evaluation
+- **Instructed Embeddings**: Automatic query instruction formatting for compatible embedding models
 
 **Section sources**
 - [packages/rag_service/src/cafetera_rag_service/rag/chain.py](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py)
@@ -1029,18 +1069,28 @@ class APIServiceCache {
 +max_cache_size : int = 32
 +get_or_create_qa_service(prompt_hash, include_metadata) QAService
 }
+class InstructedQueryEmbeddings {
++inner : Embeddings
++instruction : str
++embed_documents(texts) list[list[float]]
++aembed_documents(texts) list[list[float]]
++embed_query(text) list[float]
++aembed_query(text) list[float]
+}
 RagResources --> QAService : "provides"
 ResourceFactory --> RagResources : "creates"
 ResourceFactory --> QAService : "creates"
 APIServiceCache --> QAService : "caches"
+InstructedQueryEmbeddings --> QAService : "wraps embeddings"
 ```
 
 **Diagram sources**
 - [packages/rag_service/src/cafetera_rag_service/resources.py](file://packages/rag_service/src/cafetera_rag_service/resources.py)
 - [packages/rag_service/src/cafetera_rag_service/qa_service.py](file://packages/rag_service/src/cafetera_rag_service/qa_service.py)
 - [packages/rag_service/src/cafetera_rag_service/api/qa.py](file://packages/rag_service/src/cafetera_rag_service/api/qa.py)
+- [packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py](file://packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py)
 
-**Updated** Enhanced with new ask_with_contexts method for evaluation capabilities and maintained API-level QAService caching
+**Updated** Enhanced with new ask_with_contexts method for evaluation capabilities, instructed embeddings support, and maintained API-level QAService caching
 
 Key features:
 - **Resource Factory**: Centralized resource initialization and cleanup
@@ -1049,6 +1099,7 @@ Key features:
 - **Graceful Degradation**: Optional components (sparse embeddings, reranker) with fallback
 - **Collection Management**: Automatic Qdrant collection creation and configuration
 - **Evaluation Support**: New method for comprehensive evaluation with context retrieval
+- **Instructed Embeddings**: Automatic query instruction formatting for compatible embedding models
 
 **Section sources**
 - [packages/rag_service/src/cafetera_rag_service/resources.py](file://packages/rag_service/src/cafetera_rag_service/resources.py)
@@ -1092,7 +1143,7 @@ EvaluationTool --> RAGClient : "ask_with_contexts()"
 **Diagram sources**
 - [packages/core/src/cafetera_core/rag_client.py:15-151](file://packages/core/src/cafetera_core/rag_client.py#L15-L151)
 
-**Updated** Enhanced with new ask_with_contexts method for evaluation tool integration
+**Updated** Enhanced with new ask_with_contexts method for evaluation tool integration and instructed embeddings support
 
 Integration patterns:
 - Authentication via API key header with constant-time comparison
@@ -1100,6 +1151,7 @@ Integration patterns:
 - Support for both synchronous answers, streaming responses, and evaluation contexts
 - Document lifecycle management (index, delete, cache invalidation)
 - **New Evaluation Integration**: Seamless integration with RAGAS evaluation framework
+- **Instructed Embeddings**: Automatic query instruction formatting for compatible embedding models
 
 **Section sources**
 - [packages/core/src/cafetera_core/rag_client.py:15-151](file://packages/core/src/cafetera_core/rag_client.py#L15-L151)
@@ -1144,6 +1196,7 @@ Infrastructure characteristics:
 - **Evaluation Tool Integration**: Support for external evaluation tool access
 - **llama.cpp Integration**: Dedicated servers for LLM, embeddings, and reranking
 - **HTTP-based Reranking**: Configurable reranking via external llama.cpp server
+- **Instructed Embeddings**: Support for asymmetric query-side instruction formatting
 
 **Section sources**
 - [docker-compose.yml:1-139](file://docker-compose.yml#L1-L139)
@@ -1178,6 +1231,8 @@ FASTEMBED["fastembed"]
 PYMORPHY3["pymorphy3"]
 ASYNCIO["asyncio"]
 LLAMACPP["llama.cpp servers"]
+INSTRUCTED_EMBEDDINGS["InstructedQueryEmbeddings"]
+RAGAS["RAGAS Framework"]
 END
 ADMIN --> FASTAPI
 ADMIN --> PYDANTIC
@@ -1193,6 +1248,7 @@ RAG --> ASYNCIO
 CORE --> HTTPX
 CORE --> PYDANTIC
 EVAL --> ASYNCIO
+EVAL --> RAGAS
 ```
 
 **Diagram sources**
@@ -1200,17 +1256,19 @@ EVAL --> ASYNCIO
 - [packages/rag_service/pyproject.toml:6-16](file://packages/rag_service/pyproject.toml#L6-L16)
 - [packages/core/pyproject.toml:6-12](file://packages/core/pyproject.toml#L6-L12)
 
-**Updated** Enhanced with Russian language processing dependencies and asyncio integration
+**Updated** Enhanced with instructed embeddings dependencies and RAGAS evaluation framework integration
 
 Key dependency patterns:
 - Core package provides shared utilities and storage abstractions
 - Admin and VK Bot depend on Core for configuration and HTTP client
 - RAG Service depends on Core plus AI/ML libraries (LangChain, Qdrant, Docling, FastEmbed)
-- **New Evaluation Tool**: External evaluation tool integration with asyncio support
+- **New Evaluation Tool**: External evaluation tool integration with asyncio support and RAGAS framework
 - **Enhanced Async Support**: Comprehensive asyncio integration for streaming and cancellation
 - **New Russian Language Support**: pymorphy3 dependency for morphological lemmatization
 - **llama.cpp Integration**: Dedicated server dependencies for HTTP-based reranking
 - **HTTP-based Reranking**: httpx dependency for external reranker communication
+- **Instructed Embeddings**: New InstructedQueryEmbeddings class for asymmetric query formatting
+- **RAGAS Framework**: Integration with RAGAS evaluation framework for comprehensive metrics scoring
 - Security enhancements rely on Python standard library `secrets` module
 - Workspace configuration ensures consistent Python version and tooling
 
@@ -1244,6 +1302,9 @@ Performance characteristics and optimization opportunities:
 - **Provider-Aware Optimization**: Enhanced parameter handling across different LLM providers
 - **Memory Efficiency**: Eliminated document chains cache reduces memory footprint by not storing up to 50 different chains
 - **API-Level Caching**: Maintained QAService caching at API level (max 32 entries) balances memory usage with performance
+- **Instructed Embeddings Optimization**: Query instruction formatting adds minimal overhead while improving retrieval quality
+- **Evaluation Framework Performance**: RAGAS integration provides comprehensive metrics with minimal performance impact
+- **Synthetic Testset Generation**: Automated testset creation reduces manual effort and improves evaluation efficiency
 
 Best practices:
 - Monitor Qdrant performance metrics and adjust collection configuration
@@ -1261,6 +1322,8 @@ Best practices:
 - **llama.cpp Server Management**: Monitor reranker server performance and resource utilization
 - **HTTP-based Reranking**: Balance reranking quality vs. latency based on application requirements
 - **Memory Management**: Monitor memory usage with dynamic chain building and API-level caching
+- **Instructed Embeddings Configuration**: Enable embedding_use_query_instruction for compatible models to improve query performance
+- **Evaluation Workflow**: Use synthetic testset generation to automate evaluation processes and improve consistency
 
 ## Security Enhancements
 The RAG Service now includes enhanced security measures:
@@ -1274,6 +1337,7 @@ The RAG Service now includes enhanced security measures:
 - **Streaming Security**: Proper SSE event escaping prevents XSS vulnerabilities
 - **Connection Management**: Secure handling of streaming connections with proper cleanup and cancellation support
 - **Asyncio Security**: Proper handling of asyncio.CancelledError prevents resource leaks and ensures clean shutdown
+- **Evaluation Security**: RAGAS evaluation framework runs in isolated environment with proper resource management
 
 Security features:
 - API key verification with constant-time comparison prevents timing attacks
@@ -1284,6 +1348,7 @@ Security features:
 - **SSE Security**: Proper JSON escaping prevents XSS in streaming responses
 - **Connection Cleanup**: Proper resource deallocation on stream termination with cancellation support
 - **Async Cancellation**: Proper handling of asyncio.CancelledError prevents resource leaks
+- **Evaluation Isolation**: RAGAS evaluation runs in separate process with proper resource cleanup
 
 **Section sources**
 - [packages/rag_service/src/cafetera_rag_service/api/deps.py:13-31](file://packages/rag_service/src/cafetera_rag_service/api/deps.py#L13-L31)
@@ -1312,6 +1377,7 @@ Common issues and resolution strategies:
 - Configure appropriate batch sizes for network efficiency
 - Enable sparse embeddings for better keyword matching
 - **Memory Optimization**: Monitor memory usage with dynamic chain building and API-level caching
+- **Instructed Embeddings Performance**: Monitor query instruction formatting overhead for large-scale deployments
 
 **Hybrid Search Issues**
 - Verify sparse embedding model installation and availability
@@ -1364,6 +1430,8 @@ Common issues and resolution strategies:
 - **Context Retrieval**: Check that evaluation tool can access both answers and contexts
 - **Batch Processing**: Monitor performance of evaluation batches with proper error handling
 - **Resource Management**: Ensure evaluation tool cleans up resources properly
+- **RAGAS Framework Issues**: Verify RAGAS installation and model availability for evaluation
+- **Testset Generation**: Check synthetic testset generation from Qdrant document chunks
 
 **Asyncio and Cancellation Issues**
 - **Cancellation Detection**: Verify proper asyncio.CancelledError handling in streaming methods
@@ -1383,6 +1451,20 @@ Common issues and resolution strategies:
 - **HTTP Communication**: Monitor HTTP communication between RAG service and reranker server
 - **Performance Tuning**: Adjust reranker parameters based on document collection size and query patterns
 - **Resource Allocation**: Monitor GPU/CPU usage and memory consumption of llama.cpp servers
+
+**Instructed Embeddings Issues**
+- **Model Compatibility**: Verify embedding models support asymmetric query formatting
+- **Instruction Configuration**: Check embedding_use_query_instruction and embedding_query_instruction settings
+- **Query Formatting**: Monitor query instruction formatting for proper "Instruct: {task}\nQuery: {text}" format
+- **Performance Impact**: Evaluate query instruction formatting overhead on retrieval performance
+- **Fallback Handling**: Ensure proper fallback when instructed embeddings are not supported
+
+**RAGAS Evaluation Framework Issues**
+- **Metrics Calculation**: Verify RAGAS metrics scoring for Faithfulness, ContextPrecision, AnswerRelevancy, and ContextRecall
+- **Testset Integration**: Check synthetic testset generation and evaluation pipeline integration
+- **Reference Handling**: Monitor reference-based ContextRecall scoring when reference answers are available
+- **Performance Metrics**: Evaluate comprehensive evaluation performance and resource usage
+- **Error Handling**: Ensure proper error handling during evaluation with detailed logging
 
 **Section sources**
 - [packages/core/src/cafetera_core/config.py:34-36](file://packages/core/src/cafetera_core/config.py#L34-L36)
@@ -1415,7 +1497,12 @@ The RAG Microservice Architecture provides a scalable, modular foundation for AI
 - **Provider-Aware Optimization**: Enhanced parameter handling across different LLM providers
 - **Memory Efficiency**: QAService refactoring eliminates document chains cache (up to 50 chains), reducing memory footprint
 - **API-Level Caching**: Maintains QAService instance caching (max 32 entries) for performance while eliminating internal document chain caching
+- **NEW Instructed Embeddings**: Asymmetric query-side instruction formatting for improved performance with models like Qwen3-Embedding and E5-instruct
+- **NEW Evaluation Framework**: Comprehensive RAGAS integration with synthetic testset generation and multi-metric assessment
+- **NEW Configuration Support**: embedding_use_query_instruction and embedding_query_instruction settings for instructed embeddings
+- **NEW Evaluation Capabilities**: ask_with_contexts method for detailed evaluation with both answers and retrieved contexts
+- **NEW Performance Monitoring**: Comprehensive metrics scoring including Faithfulness, ContextPrecision, AnswerRelevancy, and ContextRecall
 
-The architecture supports both development and production deployments while maintaining extensibility for future enhancements such as additional AI providers, custom retrieval strategies, or expanded document formats. The enhanced indexing pipeline, hybrid search capabilities, complete ingestion workflow, sophisticated LLM configuration system with context window management, comprehensive Russian language preprocessing, robust streaming architecture with SSE implementation, comprehensive error handling with asyncio.CancelledError support, evaluation capabilities through the new ask_with_contexts method, and HTTP-based reranking via llama.cpp servers provide superior performance and accuracy for enterprise document retrieval systems.
+The architecture supports both development and production deployments while maintaining extensibility for future enhancements such as additional AI providers, custom retrieval strategies, or expanded document formats. The enhanced indexing pipeline, hybrid search capabilities, complete ingestion workflow, sophisticated LLM configuration system with context window management, comprehensive Russian language preprocessing, robust streaming architecture with SSE implementation, comprehensive error handling with asyncio.CancelledError support, evaluation capabilities through the new ask_with_contexts method, HTTP-based reranking via llama.cpp servers, **NEW instructed embeddings support for asymmetric query-side instructions**, **NEW comprehensive RAGAS evaluation framework integration**, and **NEW synthetic testset generation capabilities** provide superior performance and accuracy for enterprise document retrieval systems.
 
-**Updated** Enhanced with comprehensive LLM configuration system featuring dynamic sampling parameter management, provider-aware parameter handling, context window management via llm_num_ctx, Russian text preprocessing capabilities for improved BM25 sparse embeddings, robust streaming architecture with SSE implementation enabling real-time token delivery with comprehensive error handling patterns including asyncio.CancelledError support, HTTP-based reranking via llama.cpp servers for improved result quality, new ask_with_contexts method for evaluation purposes that returns both answers and retrieved contexts for comprehensive assessment, QAService refactoring to build RAG chains dynamically per query eliminating the document chains cache mechanism that previously stored up to 50 different chains, and maintained API-level QAService caching for performance optimization.
+**Updated** Enhanced with comprehensive LLM configuration system featuring dynamic sampling parameter management, provider-aware parameter handling, context window management via llm_num_ctx, Russian text preprocessing capabilities for improved BM25 sparse embeddings, robust streaming architecture with SSE implementation enabling real-time token delivery with comprehensive error handling patterns including asyncio.CancelledError support, HTTP-based reranking via llama.cpp servers for improved result quality, new ask_with_contexts method for evaluation purposes that returns both answers and retrieved contexts for comprehensive assessment, QAService refactoring to build RAG chains dynamically per query eliminating the document chains cache mechanism that previously stored up to 50 different chains, maintained API-level QAService caching for performance optimization, **NEW instructed embeddings support for asymmetric query-side instructions with automatic query formatting**, **NEW comprehensive RAGAS evaluation framework integration with synthetic testset generation**, **NEW configuration settings for instructed embeddings control**, **NEW evaluation capabilities with multi-metric assessment**, and **NEW performance monitoring through comprehensive metrics scoring**.

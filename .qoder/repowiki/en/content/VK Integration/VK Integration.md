@@ -9,8 +9,8 @@
 - [fire.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py)
 - [pay.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/pay.py)
 - [vacation.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py)
-- [fallback.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py)
 - [hire.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py)
+- [fallback.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fallback.py)
 - [keyboards.py](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py)
 - [states.py](file://packages/vk_bot/src/cafetera_vk_bot/states.py)
 - [handlers/__init__.py](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py)
@@ -18,6 +18,7 @@
 - [config.py](file://packages/vk_bot/src/cafetera_vk_bot/config.py)
 - [polling.py](file://packages/vk_bot/src/cafetera_vk_bot/polling.py)
 - [prompts.py](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py)
+- [content.py](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py)
 - [resources.py](file://packages/core/src/cafetera_core/resources.py)
 - [config.py](file://packages/core/src/cafetera_core/config.py)
 - [errors.py](file://packages/core/src/cafetera_core/domain/errors.py)
@@ -37,7 +38,6 @@
 - [category_slot.html](file://templates/partials/category_slot.html)
 - [attachments.py](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py)
 - [entities.py](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py)
-- [content.py](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py)
 - [topic_hints.py](file://packages/vk_bot/src/cafetera_vk_bot/domain/topic_hints.py)
 - [parser.py](file://packages/admin/src/cafetera_admin/parser.py)
 - [admin_server.py](file://scripts/admin_server.py)
@@ -48,10 +48,11 @@
 
 ## Update Summary
 **Changes Made**
-- Updated to reflect Applied Changes: Added httpx>=0.28.1 dependency to maintain consistent HTTP client capabilities across packages and ensure VK bot functionality remains aligned with core package standards
-- Enhanced HTTP client integration documentation for document attachment system
-- Updated dependency management and containerization considerations for httpx version alignment
-- Added HTTP client timeout configuration documentation for VK document uploads
+- Updated to reflect enhanced content formatting with bold text styling and improved prompt engineering with clearer response formatting guidelines and character limits
+- Enhanced document formatting with structured presentation of document checklists and vacation applications using vkbottle's bold formatting and Formatter classes
+- Improved prompt engineering with clearer response formatting guidelines including character limits and structured content presentation
+- Enhanced static content management with bold text styling for better visual hierarchy and readability
+- Updated handler implementations to utilize bold formatting for improved user experience
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -83,11 +84,9 @@
 ## Introduction
 This document explains the VKontakte integration system built with the vkbottle framework, featuring a comprehensive QA service integration for Retrieval-Augmented Generation (RAG) processing across all HR-related handlers. The system implements a bot factory pattern with centralized state dispenser sharing, advanced handler registration and ordering, payload-based navigation, and sophisticated VK API integration patterns.
 
-**Updated** The system now features a new architecture where the VK bot creates its own QA service using shared resources with package-specific prompts, eliminating the separate vk_qa_service initialization from core resources. The VK bot now uses a dedicated SYSTEM_PROMPT from the prompts.py module, providing HR-specific context and guidelines for employee interactions. This represents a significant architectural improvement that enhances modularity and allows for package-specific customization while maintaining shared resource efficiency.
+**Updated** The system now features enhanced content formatting with bold text styling and improved prompt engineering with clearer response formatting guidelines and character limits. The VK bot improvements include structured presentation of document checklists and vacation applications using vkbottle's bold formatting capabilities and Formatter classes. The enhanced prompt engineering provides clearer guidelines for response formatting, including character limits and structured content presentation for better user experience.
 
-The VK integration now resides under the `packages/vk_bot/src/cafetera_vk_bot/` namespace, providing better separation of concerns and integration with the shared `cafetera_core` package that manages domain services, RAG processing, and resource management. The system has been restructured to move shared domain functionality from the core package to the VK bot package, creating a more modular and maintainable architecture.
-
-**Updated** The system now includes enhanced HTTP client capabilities through the httpx>=0.28.1 dependency, which provides improved async HTTP client functionality for document attachment operations and ensures consistent HTTP client capabilities across all packages. This dependency is critical for the document attachment system that uploads files to VK's document API using HTTP requests.
+The system now includes comprehensive formatting enhancements that improve visual hierarchy and readability of HR-related content. The static content management system now utilizes bold text styling for better emphasis on important information, while the handler implementations leverage vkbottle's bold formatting and Formatter classes for consistent content presentation.
 
 ## Project Structure
 The VK integration now resides under `packages/vk_bot/src/cafetera_vk_bot/` and includes:
@@ -98,9 +97,9 @@ The VK integration now resides under `packages/vk_bot/src/cafetera_vk_bot/` and 
 - A domain-level QA service that provides RAG processing capabilities with async Qdrant client integration and category-aware filtering
 - Enhanced fire handler with entity-based resignation flow and document template delivery
 - A new document attachment system for delivering company-specific templates using httpx>=0.28.1 for reliable HTTP client operations
-- **New** Package-specific SYSTEM_PROMPT for HR-focused QA responses
+- **New** Package-specific SYSTEM_PROMPT for HR-focused QA responses with enhanced formatting guidelines
 - **New** Enhanced resource management with build_qa_service() method for package-specific QA initialization
-- **New** Static content management system with shared error constants moved to core package
+- **New** Static content management system with bold text styling for improved visual hierarchy
 - **New** Legal entity definitions module with comprehensive company information
 - **New** Administrative API integration with updated parser location
 - **New** HTTP client integration with httpx>=0.28.1 for reliable document upload operations
@@ -125,8 +124,8 @@ UTILS["handlers/__init__.py<br/>Centralized state & QA access"]
 RULES["rules.py<br/>Custom payload rules"]
 CONFIG["config.py<br/>VK-specific settings"]
 POLLING["polling.py<br/>Long poll runner with async resources"]
-PROMPTS["prompts.py<br/>Package-specific SYSTEM_PROMPT"]
-DOMAIN_CONTENT["domain/content.py<br/>Static content management"]
+PROMPTS["prompts.py<br/>Package-specific SYSTEM_PROMPT with formatting guidelines"]
+DOMAIN_CONTENT["domain/content.py<br/>Enhanced static content with bold formatting"]
 DOMAIN_ENTITIES["domain/entities.py<br/>Legal entity definitions"]
 DOMAIN_TOPIC["domain/topic_hints.py<br/>Scenario detection"]
 end
@@ -170,6 +169,7 @@ PROMPTS --> POLLING
 PROMPTS --> QA_SERVICE
 DOMAIN_CONTENT --> HIRE
 DOMAIN_CONTENT --> VACATION
+DOMAIN_CONTENT --> PAY
 DOMAIN_ENTITIES --> HIRE
 DOMAIN_ENTITIES --> FIRE
 DOMAIN_ENTITIES --> VACATION
@@ -226,7 +226,7 @@ TESTS["tests/<br/>Enhanced integration tests"]
 - States: Define multi-step dialog states for complex HR workflows using centralized state dispenser
 - Local runner: Initializes Settings and starts the bot in Long Poll mode with proper resource management
 - Resource management: Handles graceful initialization and cleanup of RAG resources and enhanced service components
-- **New** Package-specific SYSTEM_PROMPT: HR-focused system prompt for VK bot QA service with specific guidelines for employee interactions
+- **New** Package-specific SYSTEM_PROMPT: HR-focused system prompt for VK bot QA service with specific guidelines for employee interactions and enhanced formatting rules
 - **New** Enhanced resource management: Implements proper async resource initialization and cleanup with build_qa_service() method for package-specific QA initialization
 - **New** Category-aware RAG processing: Enables targeted content delivery based on scenario detection and category parameter specification
 - **New** Scenario ID detection: Automatically identifies user intent and provides navigation shortcuts to relevant HR sections
@@ -236,11 +236,13 @@ TESTS["tests/<br/>Enhanced integration tests"]
 - **New** Hybrid search capabilities: Supports both dense and sparse embedding retrieval for enhanced document search
 - **New** Intelligent timeout handling: Automatically manages slow RAG responses with "please wait" notifications
 - **New** Automatic question context prepending: Ensures user questions remain visible in conversation history
-- **New** Static content management: Provides centralized management of long-form content with fallback mechanisms
+- **New** Static content management: Provides centralized management of long-form content with bold text styling for improved visual hierarchy
 - **New** Legal entity definitions: Comprehensive company information for accurate HR content generation
 - **New** Shared error constants: Centralized error response messages for consistent user experience
 - **New** Administrative API integration: Updated parser location for document processing and chunking
 - **New** HTTP client integration: Enhanced HTTP client capabilities through httpx>=0.28.1 for reliable document upload operations
+- **New** Enhanced formatting system: Utilizes vkbottle's bold formatting and Formatter classes for structured content presentation
+- **New** Character limits: Implemented 4000 character limit for QA responses to ensure optimal user experience
 
 Key implementation references:
 - Factory and handler loading order with centralized state sharing: [bot.py:49-52](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L49-L52)
@@ -269,11 +271,13 @@ Key implementation references:
 - **New** Hybrid search capabilities: [retriever.py:135-151](file://packages/core/src/cafetera_core/rag/retriever.py#L135-L151), [resources.py:191-202](file://packages/core/src/cafetera_core/resources.py#L191-L202)
 - **New** Intelligent timeout handling: [handlers/__init__.py:58-88](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L58-88)
 - **New** Automatic question context prepending: [handlers/__init__.py:90-99](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L90-99)
-- **New** Static content management: [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
+- **New** Static content management with bold formatting: [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
 - **New** Legal entity definitions: [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
 - **New** Shared error constants: [errors.py:1-20](file://packages/core/src/cafetera_core/domain/errors.py#L1-L20)
 - **New** Administrative API integration: [parser.py:1-649](file://packages/admin/src/cafetera_admin/parser.py#L1-L649), [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
 - **New** HTTP client integration with httpx>=0.28.1: [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
+- **New** Enhanced formatting system: [hire.py:92](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L92), [vacation.py:40](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L40), [vacation.py:51](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L51)
+- **New** Character limits implementation: [prompts.py:22](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L22)
 
 **Section sources**
 - [bot.py:24-56](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L24-L56)
@@ -313,7 +317,7 @@ The VK bot follows a modular architecture with integrated RAG capabilities and c
 - Optional state groups enable multi-step dialogs with sophisticated HR workflows
 - Enhanced fire handler implements entity-based resignation flow with document template attachment and improved error handling
 - Resource management handles graceful initialization and cleanup of RAG components and enhanced service components
-- **New** Package-specific SYSTEM_PROMPT provides HR-focused context for QA responses
+- **New** Package-specific SYSTEM_PROMPT provides HR-focused context for QA responses with enhanced formatting guidelines and character limits
 - **New** Enhanced resource management with build_qa_service() method enables package-specific QA initialization using shared resources
 - **New** Package structure with `cafetera_vk_bot` namespace provides better separation of concerns
 - **New** Integration with shared `cafetera_core` package for domain services and resource management
@@ -326,11 +330,13 @@ The VK bot follows a modular architecture with integrated RAG capabilities and c
 - **New** Hybrid search capabilities support both dense and sparse embedding retrieval for enhanced document search
 - **New** Intelligent timeout handling prevents blocking operations and improves perceived performance
 - **New** Automatic question context prepending reduces user confusion and improves conversation clarity
-- **New** Static content management system centralizes long-form content with fallback mechanisms
+- **New** Static content management system centralizes long-form content with bold text styling for improved visual hierarchy
 - **New** Legal entity definitions provide comprehensive company information for accurate content generation
 - **New** Shared error constants ensure consistent error messaging across the system
 - **New** Administrative API integration reflects updated parser location for document processing
 - **New** HTTP client integration with httpx>=0.28.1 ensures reliable document upload operations with proper timeout configuration
+- **New** Enhanced formatting system utilizes vkbottle's bold formatting and Formatter classes for structured content presentation
+- **New** Character limits implementation ensures optimal user experience with 4000 character response limits
 
 ```mermaid
 sequenceDiagram
@@ -346,7 +352,7 @@ participant QA as "QA Service"
 participant Attachments as "attachments.send_category_document()"
 participant Qdrant as "AsyncQdrantClient"
 participant TopicHints as "detect_topic_hint()"
-participant Prompts as "SYSTEM_PROMPT"
+participant Prompts as "SYSTEM_PROMPT with formatting guidelines"
 participant Errors as "shared errors"
 participant VK as "VK API"
 participant HTTPX as "httpx>=0.28.1"
@@ -368,7 +374,7 @@ Utils->>Qdrant : Connect async client
 Labelers->>TopicHints : detect_topic_hint(question)
 TopicHints-->>Labelers : scenario_id, disclaimer
 Labelers->>Utils : get_qa_service().ask(question, category=scenario_id)
-Utils->>Prompts : Use SYSTEM_PROMPT for HR-focused responses
+Utils->>Prompts : Use SYSTEM_PROMPT with formatting guidelines and 4000 char limit
 Utils->>QA : Query RAG with category hint
 Labelers->>Attachments : send_category_document()
 Attachments->>HTTPX : AsyncClient(timeout=60.0)
@@ -380,7 +386,7 @@ Script->>Bot : run_forever()
 Bot->>VK : Poll for updates
 VK-->>Bot : Incoming message
 Bot->>Labelers : Match handler (top to bottom)
-Labelers-->>Bot : Respond with text and keyboard
+Labelers-->>Bot : Respond with formatted text and keyboard
 Bot-->>VK : Send response
 ```
 
@@ -628,8 +634,10 @@ Send --> End(["Complete"])
 - **Graceful Degradation**: Continues processing even when RAG responses are delayed
 - **Category Parameter Support**: Enables targeted content delivery based on scenario detection
 - **Shared Error Integration**: Uses centralized error constants for consistent error messaging
+- **Character Limits**: Implements 4000 character limit for optimal user experience
+- **Enhanced Formatting**: Utilizes bold text styling and structured content presentation
 
-**Updated** The new timeout handling system provides a seamless user experience by automatically managing slow RAG responses, while the automatic question context prepending ensures users always have clear reference to their original questions. All RAG-enabled handlers now use the enhanced `send_rag_answer()` function for consistent user experience. The integration with SharedErrors ensures consistent error messaging across all handlers.
+**Updated** The new timeout handling system provides a seamless user experience by automatically managing slow RAG responses, while the automatic question context prepending ensures users always have clear reference to their original questions. All RAG-enabled handlers now use the enhanced `send_rag_answer()` function for consistent user experience. The integration with SharedErrors ensures consistent error messaging across all handlers. The implementation of character limits (4000 characters) ensures optimal user experience and prevents API errors.
 
 **Section sources**
 - [handlers/__init__.py:46-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L46-L86)
@@ -703,8 +711,9 @@ Answer --> End(["Send to User"])
 - **Targeted Content Delivery**: Enables HR-specific responses for different scenarios (hire, fire, vacation, pay, sick, probation)
 - **Enhanced User Experience**: Provides more relevant and precise answers based on user intent
 - **Navigation Integration**: Links scenario detections to relevant HR section navigation
+- **Formatting Guidelines**: Systematic formatting rules for structured content presentation
 
-**Updated** The category-aware RAG processing system represents a significant enhancement to the HR bot's intelligence. By detecting scenario IDs from user questions and passing them as category parameters to the QA service, the system can inject scenario-specific context into RAG system prompts, resulting in more focused and relevant responses. The CATEGORY_HINTS dictionary provides scenario-specific guidance for different HR domains. The integration with SharedErrors ensures consistent error messaging when category-aware processing fails.
+**Updated** The category-aware RAG processing system represents a significant enhancement to the HR bot's intelligence. By detecting scenario IDs from user questions and passing them as category parameters to the QA service, the system can inject scenario-specific context into RAG system prompts, resulting in more focused and relevant responses. The CATEGORY_HINTS dictionary provides scenario-specific guidance for different HR domains. The integration with SharedErrors ensures consistent error messaging when category-aware processing fails. The enhanced formatting guidelines provide systematic rules for structured content presentation.
 
 **Section sources**
 - [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
@@ -774,8 +783,9 @@ Send --> End(["Complete"])
 - **Disclaimer Support**: Provides additional context for sensitive HR topics
 - **Backward Compatibility**: Maintains existing functionality while adding new capabilities
 - **Extensible Design**: Easy to add new scenarios and keywords
+- **Formatting Consistency**: Systematic formatting rules ensure consistent presentation
 
-**Updated** The scenario ID detection system provides intelligent navigation by automatically analyzing user questions for HR scenario keywords. When detected, the system passes the scenario ID as a category parameter to RAG queries and generates scenario-specific navigation buttons. This creates a more intuitive user experience by connecting questions to relevant HR sections. The integration with SharedErrors ensures consistent error messaging when scenario detection fails.
+**Updated** The scenario ID detection system provides intelligent navigation by automatically analyzing user questions for HR scenario keywords. When detected, the system passes the scenario ID as a category parameter to RAG queries and generates scenario-specific navigation buttons. This creates a more intuitive user experience by connecting questions to relevant HR sections. The integration with SharedErrors ensures consistent error messaging when scenario detection fails. The enhanced formatting guidelines provide systematic rules for consistent content presentation.
 
 **Section sources**
 - [topic_hints.py:14-26](file://packages/core/src/cafetera_core/domain/topic_hints.py#L14-L26)
@@ -858,8 +868,10 @@ Fallback --> End
 - **Upload Server Integration**: Proper VK API integration for document upload and saving
 - **Shared Error Integration**: Uses centralized error constants for consistent error messaging
 - **HTTP Client Reliability**: Enhanced HTTP client operations with proper timeout configuration for reliable document uploads
+- **Bold Formatting**: Utilizes vkbottle's bold formatting for improved visual hierarchy in document captions
+- **Structured Presentation**: Systematic formatting rules ensure consistent document presentation
 
-**Updated** The enhanced fire handler now provides company-specific resignation templates through the document attachment system, with automatic fallback to RAG responses when templates are unavailable. The system now uses httpx>=0.28.1 for reliable HTTP client operations during document uploads, ensuring consistent and dependable document attachment functionality. This demonstrates the system's commitment to providing accurate, company-specific HR documentation while maintaining backward compatibility with RAG-based fallback responses.
+**Updated** The enhanced fire handler now provides company-specific resignation templates through the document attachment system, with automatic fallback to RAG responses when templates are unavailable. The system now uses httpx>=0.28.1 for reliable HTTP client operations during document uploads, ensuring consistent and dependable document attachment functionality. This demonstrates the system's commitment to providing accurate, company-specific HR documentation while maintaining backward compatibility with RAG-based fallback responses. The enhanced formatting system utilizes vkbottle's bold formatting capabilities for improved visual hierarchy in document captions.
 
 **Section sources**
 - [fire.py:1-76](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L1-L76)
@@ -868,15 +880,15 @@ Fallback --> End
 ## Static Content Management System
 
 ### Centralized Static Content Management
-The new static content management system provides centralized management of long-form content with fallback mechanisms:
+The new static content management system provides centralized management of long-form content with bold text styling and enhanced formatting:
 
 ```mermaid
 classDiagram
 class StaticContentManager {
-+hire_checklist(entity) str
-+onboarding_checklist(entity) str
-+hire_contract_text(entity) str
-+vacation_template_text(entity, vtype) str
++hire_checklist(entity) Format
++onboarding_checklist(entity) Format
++hire_contract_text(entity) Format
++vacation_template_text(entity, vtype) Format
 +rag_stub(topic) str
 +TEMPLATE_FILE_STUB : str
 }
@@ -898,8 +910,8 @@ ContentModule --> LegalEntity : defines
 - [content.py:37-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L37-L102)
 - [entities.py:8-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L8-L23)
 
-### Static Content Categories
-The static content system manages various types of HR-related content:
+### Enhanced Content Formatting with Bold Text Styling
+The static content system now utilizes vkbottle's bold formatting capabilities for improved visual hierarchy:
 
 ```mermaid
 flowchart TD
@@ -911,11 +923,12 @@ Hire --> Contract["Contract Template"]
 Hire --> Onboarding["Onboarding Checklist"]
 Vacation --> Template["Leave Application Template"]
 RAGStub --> Placeholder["Knowledge Base Placeholder"]
-Checklist --> Entity["Entity-Specific Content"]
-Contract --> Entity
-Onboarding --> Entity
-Template --> Entity
-Entity --> LegalEntity["Legal Entity Information"]
+Checklist --> BoldFormatting["Bold Formatting for Emphasis"]
+Contract --> BoldFormatting
+Onboarding --> BoldFormatting
+Template --> BoldFormatting
+BoldFormatting --> EntitySpecific["Entity-Specific Content"]
+EntitySpecific --> LegalEntity["Legal Entity Information"]
 LegalEntity --> FullLegalName["Full Legal Name"]
 LegalEntity --> ShortName["Short Name"]
 ```
@@ -924,16 +937,19 @@ LegalEntity --> ShortName["Short Name"]
 - [content.py:23-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L23-L102)
 - [entities.py:16-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L16-L23)
 
-### Key Features of Static Content Management
+### Key Features of Enhanced Static Content Management
 - **Centralized Content Storage**: All long-form content stored in a single module for maintainability
 - **Entity-Specific Content Generation**: Dynamic content generation based on legal entity selection
+- **Bold Text Styling**: Utilizes vkbottle's bold formatting for improved visual hierarchy and emphasis
 - **Fallback Mechanisms**: Automatic fallback to static content when templates are unavailable
 - **Template File Stub**: Consistent messaging when document templates are not available
 - **Comprehensive HR Coverage**: Covers hiring, vacation, and RAG stub content
 - **Legal Entity Integration**: Seamless integration with legal entity definitions
 - **Maintainable Structure**: Organized content sections with clear categorization
+- **Enhanced Formatting Guidelines**: Systematic formatting rules for consistent content presentation
+- **Character Limits**: Implementation of 4000 character response limits for optimal user experience
 
-**Updated** The static content management system provides centralized management of long-form HR content with comprehensive fallback mechanisms. The system generates entity-specific content dynamically and provides consistent fallback messaging when document templates are unavailable. The integration with LegalEntity definitions ensures accurate company-specific content generation.
+**Updated** The static content management system provides centralized management of long-form HR content with comprehensive fallback mechanisms and enhanced formatting capabilities. The system generates entity-specific content dynamically and provides consistent fallback messaging when document templates are unavailable. The integration with LegalEntity definitions ensures accurate company-specific content generation. The utilization of vkbottle's bold formatting capabilities provides improved visual hierarchy and emphasis on important information. The enhanced formatting guidelines ensure systematic content presentation across all HR-related workflows.
 
 **Section sources**
 - [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
@@ -1001,8 +1017,9 @@ Entity4 --> Full4["Full: ООО «СМАРТ ПИТАНИЕ»"]
 - **Full Legal Names**: Full legal names displayed in user interfaces for transparency
 - **Extensible Design**: Easy to add new legal entities as the company grows
 - **Integration Ready**: Seamlessly integrates with all HR-related workflows
+- **Bold Formatting Support**: Compatible with vkbottle's bold formatting for enhanced presentation
 
-**Updated** The legal entity definitions module provides comprehensive company information with structured data models and efficient lookup mechanisms. The system includes four major companies with their full legal names, enabling accurate company-specific HR content generation across all workflows. The integration with static content management ensures consistent entity-specific messaging.
+**Updated** The legal entity definitions module provides comprehensive company information with structured data models and efficient lookup mechanisms. The system includes four major companies with their full legal names, enabling accurate company-specific HR content generation across all workflows. The integration with static content management ensures consistent entity-specific messaging. The enhanced formatting system is fully compatible with vkbottle's bold formatting capabilities for improved visual presentation.
 
 **Section sources**
 - [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
@@ -1080,8 +1097,9 @@ Indexer --> Ready["Ready for RAG"]
 - **Table Processing**: Special handling for table content with Markdown formatting
 - **Admin Server Wrapper**: Thin wrapper for easy server execution
 - **Async Integration**: Compatible with async processing patterns
+- **Enhanced Formatting**: Compatible with vkbottle's bold formatting and structured content presentation
 
-**Updated** The administrative API integration reflects the updated parser location and improved document processing capabilities. The parser now supports multiple document formats with advanced chunking strategies and metadata preservation. The admin server wrapper provides streamlined execution for the document processing pipeline.
+**Updated** The administrative API integration reflects the updated parser location and improved document processing capabilities. The parser now supports multiple document formats with advanced chunking strategies and metadata preservation. The admin server wrapper provides streamlined execution for the document processing pipeline. The enhanced formatting system is fully compatible with vkbottle's bold formatting capabilities for improved content presentation.
 
 **Section sources**
 - [parser.py:1-649](file://packages/admin/src/cafetera_admin/parser.py#L1-L649)
@@ -1158,7 +1176,7 @@ DocUnavailable --> End
 ### Handler Integration Patterns
 All HR-related handlers now leverage the centralized QA service for intelligent content delivery:
 
-**Updated** All HR-related handlers (hire, fire, pay, vacation, sections) now use the centralized utilities module for consistent QA service access and state dispenser management, providing improved error handling and resource management across all handlers. The enhanced fire handler integrates with both QA service and document attachment systems for comprehensive HR support. The integration with SharedErrors ensures consistent error messaging across all QA service operations.
+**Updated** All HR-related handlers (hire, fire, pay, vacation, sections) now use the centralized utilities module for consistent QA service access and state dispenser management, providing improved error handling and resource management across all handlers. The enhanced fire handler integrates with both QA service and document attachment systems for comprehensive HR support. The integration with SharedErrors ensures consistent error messaging across all QA service operations. The implementation of character limits (4000 characters) ensures optimal user experience and prevents API errors.
 
 **Section sources**
 - [handlers/__init__.py:22-29](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L29)
@@ -1235,8 +1253,10 @@ EntitySelectionKeyboard --> PayloadConstants : uses
 - **Entity Validation**: Proper validation of entity selection with error handling
 - **Company-Specific Content**: Templates tailored to individual legal entities
 - **Shared Error Integration**: Uses centralized error constants for consistent error messaging
+- **Bold Formatting**: Utilizes vkbottle's bold formatting for improved visual hierarchy in resignation templates
+- **Structured Presentation**: Systematic formatting rules ensure consistent resignation template presentation
 
-**Updated** The fire handler now provides a comprehensive entity-based resignation flow with document template delivery, representing a significant enhancement to the HR workflow capabilities. The system maintains backward compatibility while adding sophisticated company-specific template support. The integration with SharedErrors ensures consistent error messaging across all fire workflow operations. The enhanced HTTP client reliability through httpx>=0.28.1 ensures dependable document upload operations.
+**Updated** The fire handler now provides a comprehensive entity-based resignation flow with document template delivery, representing a significant enhancement to the HR workflow capabilities. The system maintains backward compatibility while adding sophisticated company-specific template support. The integration with SharedErrors ensures consistent error messaging across all fire workflow operations. The enhanced HTTP client reliability through httpx>=0.28.1 ensures dependable document upload operations. The enhanced formatting system utilizes vkbottle's bold formatting capabilities for improved visual presentation of resignation templates.
 
 **Section sources**
 - [fire.py:1-76](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L1-L76)
@@ -1300,7 +1320,7 @@ ErrorHandlerPattern --> SharedErrors : uses
 ### Error Handling Patterns in Handlers
 The new error handling system provides consistent patterns across all HR-related handlers:
 
-**Updated** The fire handler now uses `@catch_entity_error` decorator combined with `require_entity` function for improved error handling. The hire handler also uses the same pattern for entity validation. The vacation handler maintains backward compatibility with the `get_entity_or_error` pattern for continued support. All error handling now integrates with SharedErrors for consistent error messaging across the system.
+**Updated** The fire handler now uses `@catch_entity_error` decorator combined with `require_entity` function for improved error handling. The hire handler also uses the same pattern for entity validation. The vacation handler maintains backward compatibility with the `get_entity_or_error` pattern for continued support. All error handling now integrates with SharedErrors for consistent error messaging across the system. The enhanced formatting system ensures consistent error message presentation using vkbottle's bold formatting capabilities.
 
 **Section sources**
 - [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
@@ -1381,7 +1401,7 @@ Resources-->>App : Cleanup complete
 - **Collection Management**: Automatically creates collections with proper vector configurations
 - **Error Handling**: Provides comprehensive error handling for async operations
 
-**Updated** The async Qdrant client integration represents a significant architectural improvement, eliminating sync client overhead and enabling fully asynchronous operations throughout the RAG pipeline. The new AsyncQdrantRetriever provides direct async access to Qdrant without LangChain's QdrantVectorStore overhead. The integration with SharedErrors ensures consistent error messaging across all async operations.
+**Updated** The async Qdrant client integration represents a significant architectural improvement, eliminating sync client overhead and enabling fully asynchronous operations throughout the RAG pipeline. The new AsyncQdrantRetriever provides direct async access to Qdrant without LangChain's QdrantVectorStore overhead. The integration with SharedErrors ensures consistent error messaging across all async operations. The enhanced formatting system is fully compatible with async operations for improved content delivery.
 
 **Section sources**
 - [retriever.py:20-53](file://packages/core/src/cafetera_core/rag/retriever.py#L20-L53)
@@ -1434,7 +1454,7 @@ ResourceManager --> GracefulDegradation : implements
 ### Async Resource Initialization Patterns
 The new async resource management system provides robust initialization with proper error handling:
 
-**Updated** The resource management system now uses async patterns throughout, with proper error handling and graceful degradation. Each major resource block (S3, Qdrant+embeddings, QA) is wrapped in try/except blocks with comprehensive logging. The system gracefully degrades by setting None values when resources are unavailable, allowing the application to continue functioning with reduced capabilities. The integration with SharedErrors ensures consistent error messaging across all resource operations.
+**Updated** The resource management system now uses async patterns throughout, with proper error handling and graceful degradation. Each major resource block (S3, Qdrant+embeddings, QA) is wrapped in try/except blocks with comprehensive logging. The system gracefully degrades by setting None values when resources are unavailable, allowing the application to continue functioning with reduced capabilities. The integration with SharedErrors ensures consistent error messaging across all resource operations. The enhanced formatting system is fully compatible with async resource initialization patterns.
 
 **Section sources**
 - [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
@@ -1479,7 +1499,7 @@ HybridSearch --> SparseRetriever : uses for sparse search
 ### Hybrid Search Configuration
 The hybrid search system provides flexible configuration for different retrieval modes:
 
-**Updated** The hybrid search system supports both dense and sparse embedding retrieval modes. When retrieval_mode is set to "hybrid", the system initializes sparse embeddings using FastEmbedSparse and configures Qdrant collections with sparse vector parameters. The AsyncQdrantRetriever can handle both dense and sparse embeddings, providing enhanced document retrieval capabilities. The integration with SharedErrors ensures consistent error messaging across all hybrid search operations.
+**Updated** The hybrid search system supports both dense and sparse embedding retrieval modes. When retrieval_mode is set to "hybrid", the system initializes sparse embeddings using FastEmbedSparse and configures Qdrant collections with sparse vector parameters. The AsyncQdrantRetriever can handle both dense and sparse embeddings, providing enhanced document retrieval capabilities. The integration with SharedErrors ensures consistent error messaging across all hybrid search operations. The enhanced formatting system is fully compatible with hybrid search operations for improved content presentation.
 
 **Section sources**
 - [retriever.py:135-151](file://packages/core/src/cafetera_core/rag/retriever.py#L135-L151)
@@ -1495,18 +1515,20 @@ The hybrid search system provides flexible configuration for different retrieval
 - The order is crucial because vkbottle evaluates handlers top-to-bottom; fallback must be last to avoid intercepting intended matches
 - The QA service is initialized during bot creation and registered with the centralized utilities module for consistent access patterns
 - Enhanced fire handler is now included in the handler registration process with improved error handling patterns
-- **New** Package-specific SYSTEM_PROMPT is used for QA service initialization, providing HR-focused context
+- **New** Package-specific SYSTEM_PROMPT is used for QA service initialization, providing HR-focused context with enhanced formatting guidelines
 - **New** Enhanced resource management uses build_qa_service() method for package-specific QA initialization
 - **New** Package structure with `cafetera_vk_bot` namespace provides better separation of concerns
 - **New** Integration with shared `cafetera_core` package for domain services and resource management
 - **New** Async resource management ensures proper initialization of Qdrant clients and embeddings before handler registration
 - **New** Category-aware RAG processing is integrated into the QA service initialization for scenario-based content delivery
 - **New** Shared error constants are integrated into the centralized utilities for consistent error messaging
-- **New** Static content management system is integrated for centralized content delivery
+- **New** Static content management system is integrated for centralized content delivery with enhanced formatting
 - **New** Legal entity definitions are integrated for accurate company-specific content generation
 - **New** HTTP client integration with httpx>=0.28.1 ensures reliable document upload operations
+- **New** Enhanced formatting system utilizes vkbottle's bold formatting and Formatter classes for structured content presentation
+- **New** Character limits implementation ensures optimal user experience with 4000 character response limits
 
-**Updated** The factory now registers 25 total handlers across all VK integration modules, with the enhanced fire handler providing comprehensive entity-based resignation flow and improved error handling using decorators. The handler registration order ensures proper routing precedence with fallback as the last handler. The new async resource management ensures Qdrant clients and embeddings are properly initialized before any handlers attempt to use them. The integration with SharedErrors, StaticContentManager, and LegalEntity definitions provides comprehensive error messaging, content management, and entity information. The httpx>=0.28.1 dependency ensures reliable HTTP client operations for document attachment functionality.
+**Updated** The factory now registers 25 total handlers across all VK integration modules, with the enhanced fire handler providing comprehensive entity-based resignation flow and improved error handling using decorators. The handler registration order ensures proper routing precedence with fallback as the last handler. The new async resource management ensures Qdrant clients and embeddings are properly initialized before any handlers attempt to use them. The integration with SharedErrors, StaticContentManager, and LegalEntity definitions provides comprehensive error messaging, content management, and entity information. The httpx>=0.28.1 dependency ensures reliable HTTP client operations for document attachment functionality. The enhanced formatting system provides systematic content presentation using vkbottle's bold formatting capabilities.
 
 ```mermaid
 flowchart TD
@@ -1541,17 +1563,19 @@ Log --> ReturnBot(["Return Bot"])
 - Enhanced fire workflow provides two-step entity selection process for resignation flow
 - Document attachment system delivers company-specific templates based on entity selection using httpx>=0.28.1
 - QA service integration provides fallback content when templates are unavailable
-- **New** Package-specific SYSTEM_PROMPT provides HR-focused context for all QA responses
+- **New** Package-specific SYSTEM_PROMPT provides HR-focused context for all QA responses with enhanced formatting guidelines
 - **New** Category-aware RAG processing enables scenario-specific content delivery through category parameter passing
 - **New** Scenario ID detection automatically identifies user intent and provides navigation shortcuts
 - **New** Category hint injection enhances RAG responses with scenario-specific context
 - **New** Async Qdrant client integration enables fully asynchronous RAG operations
 - **New** Enhanced error handling system provides consistent entity validation across all handlers using require_entity functions and @catch_entity_error decorators
 - **New** Hybrid search capabilities support both dense and sparse embedding retrieval for enhanced document search
-- **New** Static content management system provides centralized long-form content delivery
+- **New** Static content management system provides centralized long-form content delivery with bold text styling
 - **New** Legal entity definitions provide comprehensive company information for accurate content generation
 - **New** Shared error constants ensure consistent error messaging across the system
 - **New** HTTP client integration with httpx>=0.28.1 ensures reliable document upload operations
+- **New** Enhanced formatting system utilizes vkbottle's bold formatting and Formatter classes for structured content presentation
+- **New** Character limits implementation ensures optimal user experience with 4000 character response limits
 
 ```mermaid
 sequenceDiagram
@@ -1630,8 +1654,9 @@ Fallback-->>User : Prompt to use menu
 - Document attachment system enables dynamic template loading based on entity selection using httpx>=0.28.1
 - **New** Scenario ID detection integrates with keyboard builders for intelligent navigation
 - **New** Category hint system enhances keyboard buttons with scenario-specific context
-- **New** Static content management integrates with keyboard builders for content delivery
+- **New** Static content management integrates with keyboard builders for content delivery with enhanced formatting
 - **New** Legal entity definitions integrate with keyboard builders for entity selection
+- **New** Enhanced formatting system utilizes vkbottle's bold formatting for improved visual hierarchy in keyboard presentations
 
 ```mermaid
 classDiagram
@@ -1687,6 +1712,7 @@ Payloads <.. KeyboardBuilders : "used by"
 - All state operations now use the centralized BuiltinStateDispenser for consistency
 - **New** State management integrates with centralized utilities for consistent state handling
 - **New** State management supports entity-based workflows with proper validation
+- **New** Enhanced formatting system ensures consistent state presentation using vkbottle's bold formatting
 
 ```mermaid
 classDiagram
@@ -1725,16 +1751,18 @@ BotStates --> BuiltinStateDispenser : uses
 - The factory initializes the QA service during bot creation and registers it with centralized utilities for immediate RAG capabilities
 - Resource management handles graceful initialization and cleanup of RAG components
 - Logging is configured for development visibility with RAG processing metrics
-- **New** Package-specific SYSTEM_PROMPT is used for QA service initialization, providing HR-focused context
+- **New** Package-specific SYSTEM_PROMPT is used for QA service initialization, providing HR-focused context with enhanced formatting guidelines
 - **New** Enhanced resource management uses build_qa_service() method for package-specific QA initialization
 - **New** Package structure with `cafetera_vk_bot` namespace provides better separation of concerns
 - **New** Integration with shared `cafetera_core` package for domain services and resource management
 - **New** Async resource management ensures proper initialization of Qdrant clients and embeddings before bot creation
 - **New** Category-aware RAG processing is integrated into the QA service initialization for scenario-based content delivery
 - **New** Shared error constants are integrated for consistent error messaging across all components
-- **New** Static content management system is integrated for centralized content delivery
+- **New** Static content management system is integrated for centralized content delivery with enhanced formatting
 - **New** Legal entity definitions are integrated for accurate company-specific content generation
 - **New** HTTP client integration with httpx>=0.28.1 ensures reliable document upload operations
+- **New** Enhanced formatting system utilizes vkbottle's bold formatting and Formatter classes for structured content presentation
+- **New** Character limits implementation ensures optimal user experience with 4000 character response limits
 
 ```mermaid
 sequenceDiagram
@@ -1837,7 +1865,7 @@ SendText --> End
 **Diagram sources**
 - [vacation.py:50-116](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L50-L116)
 
-**Updated** The vacation workflow now features a two-step selection process: first selecting the vacation type (paid/unpaid), then selecting the legal entity for template generation. The system attempts to send document attachments first, falling back to text templates if no template is available. This provides better user experience and ensures accurate template generation based on company-specific policies. The integration with StaticContentManager and LegalEntity definitions ensures accurate content generation and entity-specific messaging. The enhanced HTTP client reliability through httpx>=0.28.1 ensures dependable document upload operations.
+**Updated** The vacation workflow now features a two-step selection process: first selecting the vacation type (paid/unpaid), then selecting the legal entity for template generation. The system attempts to send document attachments first, falling back to text templates if no template is available. This provides better user experience and ensures accurate template generation based on company-specific policies. The integration with StaticContentManager and LegalEntity definitions ensures accurate content generation and entity-specific messaging. The enhanced HTTP client reliability through httpx>=0.28.1 ensures dependable document upload operations. The enhanced formatting system utilizes vkbottle's bold formatting capabilities for improved visual hierarchy in vacation template presentations.
 
 **Section sources**
 - [vacation.py:1-134](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L1-L134)
@@ -1851,7 +1879,7 @@ The legal entity definitions have been updated with new company names:
 - "Аврора" (Ooo "Аврора РусКо")
 - "СМАРТ" (Ooo "СМАРТ ПИТАНИЕ")
 
-These entities are used across hiring, vacation, and HR request workflows for accurate policy generation. The integration with StaticContentManager ensures that all entity-specific content is generated correctly.
+These entities are used across hiring, vacation, and HR request workflows for accurate policy generation. The integration with StaticContentManager ensures that all entity-specific content is generated correctly. The enhanced formatting system is fully compatible with these legal entity definitions for improved content presentation.
 
 **Section sources**
 - [entities.py:1-24](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L24)
@@ -1859,7 +1887,7 @@ These entities are used across hiring, vacation, and HR request workflows for ac
 ### Sections Handler Using New Helper Function
 The sections handler now uses the new `send_rag_answer()` helper function for consistent RAG response handling:
 
-**Updated** The sections handler has been simplified to use the centralized `send_rag_answer()` function, which automatically handles typing indicators, timeout detection, question context prepending, and keyboard generation. This ensures consistent user experience across all RAG-enabled handlers. The integration with SharedErrors ensures consistent error messaging when RAG operations fail.
+**Updated** The sections handler has been simplified to use the centralized `send_rag_answer()` function, which automatically handles typing indicators, timeout detection, question context prepending, and keyboard generation. This ensures consistent user experience across all RAG-enabled handlers. The integration with SharedErrors ensures consistent error messaging when RAG operations fail. The enhanced formatting system ensures systematic content presentation using vkbottle's bold formatting capabilities.
 
 **Section sources**
 - [sections.py:1-35](file://packages/vk_bot/src/cafetera_vk_bot/handlers/sections.py#L1-L35)
@@ -1867,7 +1895,7 @@ The sections handler now uses the new `send_rag_answer()` helper function for co
 ### Enhanced Error Handling Implementation
 The new error handling system provides consistent patterns across all handlers:
 
-**Updated** The enhanced error handling system replaces the previous get_entity_or_error pattern with require_entity functions and @catch_entity_error decorators. The fire handler now uses `@catch_entity_error` decorator combined with `require_entity` function for improved error handling. The hire handler also uses the same pattern. The vacation handler maintains backward compatibility with the `get_entity_or_error` pattern for continued support. All error handling now integrates with SharedErrors for consistent error messaging across the system.
+**Updated** The enhanced error handling system replaces the previous get_entity_or_error pattern with require_entity functions and @catch_entity_error decorators. The fire handler now uses `@catch_entity_error` decorator combined with `require_entity` function for improved error handling. The hire handler also uses the same pattern. The vacation handler maintains backward compatibility with the `get_entity_or_error` pattern for continued support. All error handling now integrates with SharedErrors for consistent error messaging across the system. The enhanced formatting system ensures consistent error message presentation using vkbottle's bold formatting capabilities.
 
 **Section sources**
 - [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
@@ -1884,17 +1912,19 @@ External dependencies relevant to VK integration:
 - **New** langchain-qdrant provides integration with Qdrant vector database
 - **New** fastembed provides sparse embedding support for hybrid search
 - **New** httpx>=0.28.1 provides enhanced async HTTP client capabilities for document attachment operations
-- **New** package-specific SYSTEM_PROMPT provides HR-focused context for QA responses
+- **New** package-specific SYSTEM_PROMPT provides HR-focused context for QA responses with enhanced formatting guidelines
 - **New** category-aware RAG processing with scenario ID detection and category hint injection
 - **New** topic hints system for automatic scenario identification
 - **New** category hint system for scenario-specific RAG context
 - aiobotocore provides async S3/MinIO client for cloud storage
 - aiosqlite provides async SQLite access for metadata storage
 - **New** Package structure with `cafetera_vk_bot` namespace and `cafetera_core` shared package
-- **New** Static content management system with centralized content storage
+- **New** Static content management system with bold text styling for improved visual hierarchy
 - **New** Legal entity definitions with comprehensive company information
 - **New** Shared error constants for consistent error messaging
 - **New** Administrative API integration with updated parser location
+- **New** Enhanced formatting system utilizing vkbottle's bold formatting and Formatter classes
+- **New** Character limits implementation ensuring optimal user experience with 4000 character response limits
 
 ```mermaid
 graph LR
@@ -1987,7 +2017,7 @@ RAG --> VKBot
 - Centralized utilities provide consistent error handling and fallback responses for QA service failures
 - Shared state dispenser reduces memory overhead across handlers
 - Resource management handles graceful initialization and cleanup of RAG components
-- **New** Package-specific SYSTEM_PROMPT provides HR-focused context for QA responses, improving response quality and relevance
+- **New** Package-specific SYSTEM_PROMPT provides HR-focused context for QA responses with enhanced formatting guidelines, improving response quality and relevance
 - **New** Enhanced resource management with build_qa_service() method enables efficient package-specific QA initialization using shared resources
 - **New** Package structure with `cafetera_vk_bot` namespace provides better separation of concerns and modularity
 - **New** Integration with shared `cafetera_core` package reduces code duplication and improves maintainability
@@ -2009,10 +2039,12 @@ RAG --> VKBot
 - **New** Enhanced error handling system provides consistent patterns across all handlers using require_entity functions and @catch_entity_error decorators
 - **New** EntityNotFoundError class provides clear error semantics for entity validation failures
 - **New** Graceful degradation ensures application continues functioning even when resources are unavailable
-- **New** Static content management system provides centralized content delivery with fallback mechanisms
+- **New** Static content management system provides centralized content delivery with bold text styling for improved visual hierarchy
 - **New** Shared error constants ensure consistent error messaging across the entire system
 - **New** Administrative API integration reflects updated parser location for document processing
 - **New** HTTP client integration with httpx>=0.28.1 ensures reliable document upload operations with proper timeout configuration
+- **New** Enhanced formatting system utilizing vkbottle's bold formatting and Formatter classes provides systematic content presentation
+- **New** Character limits implementation ensures optimal user experience with 4000 character response limits for all QA responses
 
 ## Troubleshooting Guide
 Common issues and resolutions:
@@ -2031,8 +2063,8 @@ Common issues and resolutions:
   - Verify settings for qdrant_url, qdrant_api_key, qdrant_collection
   - Monitor for RAG chain initialization warnings
   - Ensure centralized QA service is properly initialized before handlers are loaded
-  - **New** Verify SYSTEM_PROMPT is properly loaded and contains HR-focused context
-  - **New** Check that build_qa_service() method is called with correct parameters
+  - **New** Verify SYSTEM_PROMPT is properly loaded and contains HR-focused context with enhanced formatting guidelines
+  - **New** Check that build_qa_service() method is called with correct parameters including formatting rules
 - Document attachment failures:
   - Check S3 connectivity and bucket permissions
   - Verify settings for s3_endpoint_url, s3_access_key, s3_secret_key, s3_bucket
@@ -2048,6 +2080,8 @@ Common issues and resolutions:
 - RAG response issues:
   - Check for VK message length truncation
   - Verify topic detection and scenario linking
+  - **New** Verify character limits are properly enforced (4000 characters)
+  - **New** Check that formatting guidelines are properly applied to QA responses
 - Centralized access errors:
   - Ensure set_qa_service() and set_state_dispenser() are called before handler registration
   - Verify get_qa_service() and get_state_dispenser() are imported correctly in handler modules
@@ -2059,16 +2093,17 @@ Common issues and resolutions:
   - Verify `cafetera_vk_bot` namespace is properly installed and importable
   - Check that `cafetera_core` package is available and properly configured
   - Ensure proper import paths for all modules under the new namespace
-  - **New** Verify SYSTEM_PROMPT is accessible from polling.py and properly formatted
+  - **New** Verify SYSTEM_PROMPT is accessible from polling.py and properly formatted with enhanced guidelines
 - **New** Category-aware RAG processing issues:
   - Verify category parameter is properly passed from topic detection
   - Check that CATEGORY_HINTS contains the expected scenario IDs
   - Ensure category_hint injection is working correctly in RAG chain building
   - Verify scenario ID detection is returning expected values
 - **New** SYSTEM_PROMPT issues:
-  - Verify SYSTEM_PROMPT is properly defined in prompts.py
+  - Verify SYSTEM_PROMPT is properly defined in prompts.py with enhanced formatting guidelines
   - Check that SYSTEM_PROMPT is being passed to build_qa_service() correctly
   - Ensure HR-focused context is properly formatted and includes all required sections
+  - **New** Verify character limits (4000 characters) are properly implemented in SYSTEM_PROMPT
 - **New** Enhanced resource management issues:
   - Verify build_qa_service() method is properly implemented in AppResources
   - Check that SYSTEM_PROMPT is correctly passed to QAService constructor
@@ -2125,18 +2160,22 @@ Common issues and resolutions:
   - Check that require_entity function is used instead of get_entity_or_error
   - Ensure EntityNotFoundError is properly handled by decorators
   - Verify error handling consistency across all handlers
+  - **New** Verify error messages are properly formatted using vkbottle's bold formatting
 - **New** Static content management issues:
   - Verify static content imports are working correctly
   - Check that entity-specific content generation is functioning
   - Ensure fallback mechanisms are working when templates are unavailable
+  - **New** Verify bold text styling is properly applied to static content
 - **New** Legal entity definition issues:
   - Verify legal entity imports are working correctly
   - Check that entity lookup functions are properly implemented
   - Ensure entity validation is working across all workflows
+  - **New** Verify legal entity definitions are compatible with enhanced formatting system
 - **New** Shared error constants issues:
   - Verify shared error imports are working correctly
   - Check that error messages are consistent across all handlers
   - Ensure error handling patterns are properly implemented
+  - **New** Verify error messages are properly formatted using vkbottle's bold formatting
 - **New** Administrative API integration issues:
   - Verify parser location is correct in admin package
   - Check that admin server wrapper is properly configured
@@ -2146,6 +2185,16 @@ Common issues and resolutions:
   - Check AsyncClient timeout configuration (60.0 seconds) for reliable operations
   - Ensure proper error handling for HTTP client failures
   - Verify document upload operations are working correctly
+- **New** Enhanced formatting system issues:
+  - Verify vkbottle's bold formatting is properly imported and used
+  - Check that Formatter classes are properly utilized for structured content
+  - Ensure formatting consistency across all handlers and content modules
+  - **New** Verify character limits (4000 characters) are properly enforced in all formatted content
+- **New** Character limits issues:
+  - Verify character limits are properly implemented in SYSTEM_PROMPT
+  - Check that formatting guidelines include character limit enforcement
+  - Ensure all QA responses respect the 4000 character limit
+  - **New** Verify truncation logic properly handles character limits without losing content meaning
 
 Validation references:
 - Handler order and counts: [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -2171,11 +2220,13 @@ Validation references:
 - **New** Resource lifecycle management: [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
 - **New** Intelligent timeout handling: [handlers/__init__.py:58-88](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L58-88)
 - **New** Automatic question context prepending: [handlers/__init__.py:90-99](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L90-99)
-- **New** Static content management: [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
+- **New** Static content management with bold formatting: [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
 - **New** Legal entity definitions: [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
 - **New** Shared error constants: [errors.py:1-20](file://packages/core/src/cafetera_core/domain/errors.py#L1-L20)
 - **New** Administrative API integration: [parser.py:1-649](file://packages/admin/src/cafetera_admin/parser.py#L1-L649), [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
 - **New** HTTP client integration with httpx>=0.28.1: [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
+- **New** Enhanced formatting system: [hire.py:92](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L92), [vacation.py:40](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L40), [vacation.py:51](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L51)
+- **New** Character limits implementation: [prompts.py:22](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L22)
 
 **Section sources**
 - [test_bot_factory.py:18-86](file://tests/test_bot_factory.py#L18-L86)
@@ -2210,21 +2261,23 @@ Validation references:
 ## Conclusion
 The VK integration leverages a clean factory pattern with centralized state dispenser sharing, deterministic handler ordering, payload-driven navigation, and comprehensive RAG integration with centralized service management to deliver a sophisticated, extensible bot. The system now includes significant user experience improvements through intelligent timeout handling for RAG responses, automatic question context prepending, enhanced fire workflow with entity-based resignation flow, document template attachment capabilities using httpx>=0.28.1, and updated legal entity definitions with new company names.
 
-**Updated** The system now features a new architecture where the VK bot creates its own QA service using shared resources with package-specific prompts, eliminating the separate vk_qa_service initialization from core resources. This represents a major architectural improvement that enhances modularity and allows for package-specific customization while maintaining shared resource efficiency. The VK bot now uses a dedicated SYSTEM_PROMPT from the prompts.py module, providing HR-focused context and guidelines for employee interactions.
+**Updated** The system now features enhanced content formatting with bold text styling and improved prompt engineering with clearer response formatting guidelines and character limits. The VK bot improvements include structured presentation of document checklists and vacation applications using vkbottle's bold formatting capabilities and Formatter classes. The enhanced prompt engineering provides clearer guidelines for response formatting, including character limits and structured content presentation for better user experience.
+
+The system now includes comprehensive formatting enhancements that improve visual hierarchy and readability of HR-related content. The static content management system now utilizes bold text styling for better emphasis on important information, while the handler implementations leverage vkbottle's bold formatting and Formatter classes for consistent content presentation. The implementation of character limits (4000 characters) ensures optimal user experience and prevents API errors.
 
 The VK integration now resides under the `packages/vk_bot/src/cafetera_vk_bot/` namespace, providing better separation of concerns and integration with the shared `cafetera_core` package that manages domain services, RAG processing, and resource management. The system has been restructured to move shared domain functionality from the core package to the VK bot package, creating a more modular and maintainable architecture.
 
-The new package-specific SYSTEM_PROMPT provides HR-focused context for QA responses, improving response quality and relevance. The enhanced resource management with build_qa_service() method enables efficient package-specific QA initialization using shared resources. The enhanced fire handler with entity-based resignation flow represents a significant advancement in HR workflow automation, providing company-specific templates and seamless document delivery using httpx>=0.28.1 for reliable HTTP client operations. The document attachment system ensures accurate, company-specific HR documentation while maintaining backward compatibility with RAG-based fallback responses.
+The new package-specific SYSTEM_PROMPT provides HR-focused context for QA responses with enhanced formatting guidelines, improving response quality and relevance. The enhanced resource management with build_qa_service() method enables efficient package-specific QA initialization using shared resources. The enhanced fire handler with entity-based resignation flow represents a significant advancement in HR workflow automation, providing company-specific templates and seamless document delivery using httpx>=0.28.1 for reliable HTTP client operations. The document attachment system ensures accurate, company-specific HR documentation while maintaining backward compatibility with RAG-based fallback responses.
 
 The new async Qdrant client integration eliminates sync client overhead and enables fully asynchronous operations throughout the RAG pipeline, while the comprehensive resource management system provides proper initialization and cleanup with graceful degradation. The hybrid search capabilities support both dense and sparse embedding retrieval for enhanced document search performance.
 
-The new static content management system provides centralized management of long-form HR content with fallback mechanisms, while the legal entity definitions module provides comprehensive company information for accurate content generation. The shared error constants ensure consistent error messaging across the entire system, and the administrative API integration reflects the updated parser location for document processing.
+The new static content management system provides centralized management of long-form HR content with bold text styling for improved visual hierarchy, while the legal entity definitions module provides comprehensive company information for accurate content generation. The shared error constants ensure consistent error messaging across the entire system, and the administrative API integration reflects the updated parser location for document processing.
 
 The new enhanced error handling system provides consistent patterns across all handlers using require_entity functions and @catch_entity_error decorators, with EntityNotFoundError class providing clear error semantics for entity validation failures. The system maintains backward compatibility with the vacation handler's use of get_entity_or_error pattern while adopting the new patterns in fire and hire handlers.
 
-The addition of httpx>=0.28.1 dependency ensures consistent HTTP client capabilities across packages and reliable document upload operations for the document attachment system. This dependency is critical for maintaining VK bot functionality and aligns with core package standards for HTTP client operations.
+The addition of httpx>=0.28.1 dependency ensures consistent HTTP client capabilities across packages and reliable document upload operations for the document attachment system. This dependency is critical for maintaining VK bot functionality and aligns with core package standards for HTTP client operations. The enhanced formatting system utilizing vkbottle's bold formatting and Formatter classes provides systematic content presentation, while the implementation of character limits (4000 characters) ensures optimal user experience across all QA responses.
 
-By following the established patterns—registering labelers in order, using shared keyboard builders, implementing centralized state management, integrating the centralized QA service access layer, following the centralized initialization process with package-specific SYSTEM_PROMPT, and implementing consistent error handling patterns—the system supports easy extension and maintenance. For production, consider migrating to VK webhooks, adding structured error handling and logging, and implementing proper QA service lifecycle management.
+By following the established patterns—registering labelers in order, using shared keyboard builders, implementing centralized state management, integrating the centralized QA service access layer, following the centralized initialization process with package-specific SYSTEM_PROMPT and enhanced formatting guidelines, and implementing consistent error handling patterns—the system supports easy extension and maintenance. For production, consider migrating to VK webhooks, adding structured error handling and logging, and implementing proper QA service lifecycle management.
 
 ## Appendices
 
@@ -2248,13 +2301,15 @@ Steps to add a new section:
 - **New** Ensure async resource initialization order if using Qdrant or other async resources
 - **New** Consider implementing category-aware RAG processing for scenario-specific content delivery
 - **New** Integrate scenario ID detection for intelligent navigation capabilities
-- **New** Use static content management for long-form content delivery
+- **New** Use static content management for long-form content delivery with enhanced formatting
 - **New** Use legal entity definitions for company-specific content generation
 - **New** Use shared error constants for consistent error messaging
 - **New** Verify SYSTEM_PROMPT is properly loaded and accessible for package-specific QA initialization
 - **New** Ensure httpx>=0.28.1 is available for document attachment operations if needed
+- **New** Implement enhanced formatting system using vkbottle's bold formatting and Formatter classes
+- **New** Enforce character limits (4000 characters) for all QA responses and content delivery
 
-**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `cafetera_vk_bot.handlers` and using the provided utility functions for consistent error handling and resource management. Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. For multi-step workflows with template attachment, consider implementing document attachment system integration using the provided helper functions with httpx>=0.28.1 for reliable HTTP client operations. Implement proper error handling using require_entity and @catch_entity_error patterns for consistent error handling across all handlers. Ensure proper async resource initialization order if using Qdrant or other async resources. Use static content management for long-form content delivery and legal entity definitions for company-specific content generation. Use shared error constants for consistent error messaging across all handlers. Verify that SYSTEM_PROMPT is properly loaded and accessible for package-specific QA initialization. Ensure httpx>=0.28.1 is properly installed and available for document upload operations.
+**Updated** When adding new handlers, integrate with the centralized state dispenser and QA service by importing from `cafetera_vk_bot.handlers` and using the provided utility functions for consistent error handling and resource management. Consider using `query_rag_with_wait()` for any handler that processes user questions to provide better user experience during slow RAG responses, and use `send_rag_answer()` for standardized RAG response handling across all handlers. For multi-step workflows with template attachment, consider implementing document attachment system integration using the provided helper functions with httpx>=0.28.1 for reliable HTTP client operations. Implement proper error handling using require_entity and @catch_entity_error patterns for consistent error handling across all handlers. Ensure proper async resource initialization order if using Qdrant or other async resources. Use static content management for long-form content delivery with enhanced bold text styling, and legal entity definitions for company-specific content generation. Use shared error constants for consistent error messaging across all handlers. Verify that SYSTEM_PROMPT is properly loaded and accessible for package-specific QA initialization. Ensure httpx>=0.28.1 is properly installed and available for document upload operations. Implement the enhanced formatting system using vkbottle's bold formatting and Formatter classes for systematic content presentation. Enforce character limits (4000 characters) for all QA responses and content delivery to ensure optimal user experience.
 
 References:
 - Payload constants: [keyboards.py:13-24](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L13-L24)
@@ -2264,7 +2319,7 @@ References:
 - Keyboard service row: [keyboards.py:29-50](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L29-L50)
 - Enhanced fire handler integration: [fire.py:40-67](file://packages/vk_bot/src/cafetera_vk_bot/handlers/fire.py#L40-L67)
 - Document attachment system: [attachments.py:19-121](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L19-L121)
-- Static content management: [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
+- Static content management with bold formatting: [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
 - Legal entity definitions: [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
 - Shared error constants: [errors.py:1-20](file://packages/core/src/cafetera_core/domain/errors.py#L1-L20)
 - **New** Package structure validation: [pyproject.toml:1-17](file://packages/vk_bot/pyproject.toml#L1-L17)
@@ -2280,6 +2335,8 @@ References:
 - **New** Vacation handler with backward compatibility: [vacation.py:79-86](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L79-L86)
 - **New** Administrative API integration: [parser.py:1-649](file://packages/admin/src/cafetera_admin/parser.py#L1-L649), [admin_server.py:1-12](file://scripts/admin_server.py#L1-L12)
 - **New** HTTP client integration with httpx>=0.28.1: [attachments.py:78-82](file://packages/vk_bot/src/cafetera_vk_bot/attachments.py#L78-L82)
+- **New** Enhanced formatting system: [hire.py:92](file://packages/vk_bot/src/cafetera_vk_bot/handlers/hire.py#L92), [vacation.py:40](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L40), [vacation.py:51](file://packages/vk_bot/src/cafetera_vk_bot/handlers/vacation.py#L51)
+- **New** Character limits implementation: [prompts.py:22](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L22)
 
 **Section sources**
 - [keyboards.py:13-50](file://packages/vk_bot/src/cafetera_vk_bot/keyboards.py#L13-L50)
@@ -2319,11 +2376,13 @@ Guidance:
 - **New** Ensure async resource initialization order for Qdrant clients and embeddings in webhook mode
 - **New** Consider implementing category-aware RAG processing for webhook-based scenario detection
 - **New** Ensure scenario ID detection and category hint injection work correctly in webhook mode
-- **New** Use static content management for webhook-based content delivery
+- **New** Use static content management for webhook-based content delivery with enhanced formatting
 - **New** Use legal entity definitions for webhook-based company-specific content
 - **New** Use shared error constants for webhook-based error messaging
 - **New** Verify SYSTEM_PROMPT is properly loaded and accessible for webhook-based QA initialization
 - **New** Ensure httpx>=0.28.1 is available for document attachment operations in webhook mode
+- **New** Implement enhanced formatting system using vkbottle's bold formatting and Formatter classes for webhook-based content presentation
+- **New** Enforce character limits (4000 characters) for all webhook-based QA responses and content delivery
 
 References:
 - Bot initialization and token forwarding: [bot.py:45-58](file://packages/vk_bot/src/cafetera_vk_bot/bot.py#L45-L58), [test_bot_factory.py:75-81](file://tests/test_bot_factory.py#L75-L81)
@@ -2334,7 +2393,7 @@ References:
 - **New** Enhanced error handling patterns: [handlers/__init__.py:98-141](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L98-L141)
 - **New** Async resource management: [resources.py:127-303](file://packages/core/src/cafetera_core/resources.py#L127-L303)
 - **New** Category-aware RAG processing: [qa_service.py:120-153](file://packages/core/src/cafetera_core/domain/qa_service.py#L120-L153)
-- **New** Static content management: [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
+- **New** Static content management with bold formatting: [content.py:1-102](file://packages/vk_bot/src/cafetera_vk_bot/domain/content.py#L1-L102)
 - **New** Legal entity definitions: [entities.py:1-23](file://packages/vk_bot/src/cafetera_vk_bot/domain/entities.py#L1-L23)
 - **New** Shared error constants: [errors.py:1-20](file://packages/core/src/cafetera_core/domain/errors.py#L1-L20)
 - **New** SYSTEM_PROMPT validation: [prompts.py:5-28](file://packages/vk_bot/src/cafetera_vk_bot/prompts.py#L5-L28)
@@ -2367,15 +2426,14 @@ References:
 - Use centralized utilities for consistent state management, error handling, and service access patterns
 - Ensure state dispenser is properly shared between bot and handlers for consistent state persistence
 - Implement proper resource management for graceful initialization and cleanup of RAG components
-- **New** Use package-specific SYSTEM_PROMPT for HR-focused QA responses with proper formatting and context
+- **New** Use package-specific SYSTEM_PROMPT for HR-focused QA responses with enhanced formatting guidelines and character limits
 - **New** Use enhanced resource management with build_qa_service() method for package-specific QA initialization
 - **New** Use intelligent timeout handling for any handler that processes user questions to improve user experience
-- **New** Always use automatic question context prepending to maintain conversation clarity and traceability
-- **New** Standardize RAG response handling across all handlers using the `send_rag_answer()` helper function
-- **New** Use `query_rag_with_wait()` for any handler that processes user questions to provide intelligent timeout handling
-- **New** Implement state management for multi-step workflows using the centralized BuiltinStateDispenser
-- **New** Leverage the enhanced fire workflow patterns for improved user experience with entity-based resignation
-- **New** Access updated legal entity definitions through the centralized utilities module for accurate content generation
+- **New** Always use `send_rag_answer()` instead of direct QA service calls to ensure consistent user experience and question context preservation
+- **New** Leverage the centralized utilities module for consistent error handling and resource management patterns across all handlers
+- **New** Implement state management patterns for multi-step workflows using the centralized BuiltinStateDispenser
+- **New** Utilize the enhanced fire workflow patterns for improved user experience with entity-based resignation
+- **New** Access legal entity definitions through the centralized utilities module for accurate content generation
 - **New** Use document attachment system for all template operations with proper validation and error handling using httpx>=0.28.1
 - **New** Implement comprehensive error handling for document upload failures and template availability
 - **New** Provide administrative UI for template management with proper validation and security measures
@@ -2389,11 +2447,13 @@ References:
 - **New** Implement category-aware RAG processing for scenario-specific content delivery
 - **New** Use scenario ID detection for intelligent navigation and user experience enhancement
 - **New** Integrate category hint system for enhanced RAG response focus and accuracy
-- **New** Use static content management for centralized long-form content delivery
+- **New** Use static content management for centralized long-form content delivery with bold text styling
 - **New** Use legal entity definitions for comprehensive company information
 - **New** Use shared error constants for consistent error messaging across the system
 - **New** Integrate administrative API for document processing and chunking
 - **New** Ensure httpx>=0.28.1 is properly installed and available for reliable HTTP client operations
+- **New** Implement enhanced formatting system using vkbottle's bold formatting and Formatter classes for systematic content presentation
+- **New** Enforce character limits (4000 characters) for all QA responses and content delivery to ensure optimal user experience
 
 ### Centralized State and Service Integration Patterns
 - Initialize state dispenser during bot creation and register with centralized utilities for immediate state management capabilities
@@ -2411,7 +2471,7 @@ References:
 - Monitor service health and implement graceful degradation strategies through centralized access layer
 - Ensure centralized state dispenser is initialized before handler registration to prevent runtime errors
 - Ensure centralized QA service is initialized before handler registration to prevent runtime errors
-- **New** Use package-specific SYSTEM_PROMPT for HR-focused QA responses with proper formatting and context
+- **New** Use package-specific SYSTEM_PROMPT for HR-focused QA responses with enhanced formatting guidelines and character limits
 - **New** Use enhanced resource management with build_qa_service() method for package-specific QA initialization
 - **New** Use intelligent timeout handling for any handler that processes user questions to provide better user experience
 - **New** Always use `send_rag_answer()` instead of direct QA service calls to ensure consistent user experience and question context preservation
@@ -2432,11 +2492,13 @@ References:
 - **New** Implement category-aware RAG processing for scenario-specific content delivery
 - **New** Use scenario ID detection for intelligent navigation and user experience enhancement
 - **New** Integrate category hint system for enhanced RAG response focus and accuracy
-- **New** Use static content management for centralized long-form content delivery
+- **New** Use static content management for centralized long-form content delivery with bold text styling
 - **New** Use legal entity definitions for comprehensive company information
 - **New** Use shared error constants for consistent error messaging across the system
 - **New** Integrate administrative API for document processing and chunking
 - **New** Ensure httpx>=0.28.1 is properly installed and available for reliable HTTP client operations
+- **New** Implement enhanced formatting system using vkbottle's bold formatting and Formatter classes for systematic content presentation
+- **New** Enforce character limits (4000 characters) for all QA responses and content delivery to ensure optimal user experience
 
 **Section sources**
 - [handlers/__init__.py:22-39](file://packages/vk_bot/src/cafetera_vk_bot/handlers/__init__.py#L22-L39)

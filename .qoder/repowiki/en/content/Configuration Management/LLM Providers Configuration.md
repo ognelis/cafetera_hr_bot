@@ -6,6 +6,8 @@
 - [llamacpp.md](file://docs/llamacpp.md)
 - [config.py](file://packages/rag_service/src/cafetera_rag_service/config.py)
 - [chain.py](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py)
+- [retriever.py](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py)
+- [instructed_embeddings.py](file://packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py)
 - [run_all.sh](file://scripts/run_all.sh)
 - [run_admin.sh](file://scripts/run_admin.sh)
 - [run_llama_llm.sh](file://scripts/run_llama_llm.sh)
@@ -13,23 +15,34 @@
 - [test_rag_block6.py](file://tests/test_rag_block6.py)
 </cite>
 
+## Update Summary
+**Changes Made**
+- Added comprehensive documentation for instructed embeddings configuration
+- Enhanced provider setup documentation with asymmetric query-side instruction requirements
+- Updated configuration architecture to include instructed embeddings support
+- Added new environment variables for embedding instruction configuration
+- Enhanced troubleshooting guide with instructed embeddings specific issues
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Provider Types and Selection](#provider-types-and-selection)
 3. [Configuration Architecture](#configuration-architecture)
 4. [Environment Variables Reference](#environment-variables-reference)
 5. [Provider-Specific Configuration](#provider-specific-configuration)
-6. [Deployment Scripts Integration](#deployment-scripts-integration)
-7. [Testing and Validation](#testing-and-validation)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Best Practices](#best-practices)
-10. [Conclusion](#conclusion)
+6. [Instructed Embeddings Configuration](#instructed-embeddings-configuration)
+7. [Deployment Scripts Integration](#deployment-scripts-integration)
+8. [Testing and Validation](#testing-and-validation)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Best Practices](#best-practices)
+11. [Conclusion](#conclusion)
 
 ## Introduction
 
 The LLM Providers Configuration system in this project enables flexible deployment of AI models through three distinct providers: Ollama, OpenAI, and llama.cpp. This configuration framework supports both local development and production deployments, allowing teams to choose the most appropriate AI infrastructure based on their requirements for cost, performance, and control.
 
 The system is designed to be modular and extensible, supporting mixed-provider configurations where LLM and embedding models can be served by different providers simultaneously. This flexibility enables organizations to optimize for specific use cases, such as using high-quality cloud models for LLM inference while maintaining cost-effective local embeddings.
+
+**Updated** Enhanced with instructed embeddings configuration for Qwen3/E5-instruct families, providing asymmetric query-side instruction requirements for improved retrieval performance.
 
 ## Provider Types and Selection
 
@@ -99,6 +112,8 @@ class RagServiceSettings {
 +string embedding_model
 +string embedding_base_url
 +string embedding_api_key
++bool embedding_use_query_instruction
++string embedding_query_instruction
 +bool reranking_enabled
 +string reranker_url
 }
@@ -165,6 +180,15 @@ The LLM providers configuration relies on a comprehensive set of environment var
 | `LLM_N_GPU_LAYERS` | GPU acceleration layers | Auto-detected | llama.cpp only |
 | `EMBED_N_GPU_LAYERS` | Embedding GPU layers | Auto-detected | llama.cpp only |
 
+### Instructed Embeddings Configuration Variables
+
+**Updated** New section for instructed embeddings configuration supporting asymmetric query-side instruction requirements.
+
+| Variable | Purpose | Default Value | Provider Compatibility |
+|----------|---------|---------------|----------------------|
+| `EMBEDDING_USE_QUERY_INSTRUCTION` | Enable instructed embeddings | `True` | All providers |
+| `EMBEDDING_QUERY_INSTRUCTION` | Instruction template for queries | "Given a web search query, retrieve relevant passages that answer the query" | All providers |
+
 ### Service Integration Variables
 
 | Variable | Purpose | Default Value | Service |
@@ -177,6 +201,7 @@ The LLM providers configuration relies on a comprehensive set of environment var
 
 **Section sources**
 - [config.py:29](file://packages/rag_service/src/cafetera_rag_service/config.py#L29-L84)
+- [config.py:56](file://packages/rag_service/src/cafetera_rag_service/config.py#L56-L62)
 - [run_all.sh:171](file://scripts/run_all.sh#L171-L201)
 
 ## Provider-Specific Configuration
@@ -253,6 +278,65 @@ I --> J["Service Ready"]
 - [run_all.sh:218](file://scripts/run_all.sh#L218-L300)
 - [run_llama_llm.sh:1](file://scripts/run_llama_llm.sh#L1-L125)
 - [run_llama_embeddings.sh:1](file://scripts/run_llama_embeddings.sh#L1-L121)
+
+## Instructed Embeddings Configuration
+
+**New Section** The system now supports instructed embeddings for Qwen3/E5-instruct families, providing asymmetric query-side instruction requirements for improved retrieval performance.
+
+### Asymmetric Query-Side Instructions
+
+Instructed embeddings apply different formatting to queries versus documents:
+- **Queries**: Formatted with instruction prefix "Instruct: {task}\nQuery: {text}"
+- **Documents**: Embedded as-is without instruction prefix
+
+This asymmetric approach is essential for models like Qwen3-Embedding and E5-instruct that require specific instruction formatting on the query side while preserving document content unchanged.
+
+### Configuration Parameters
+
+The instructed embeddings feature is controlled by two key parameters:
+
+| Parameter | Description | Default Value | Usage |
+|-----------|-------------|---------------|-------|
+| `EMBEDDING_USE_QUERY_INSTRUCTION` | Enables/disables instructed embeddings | `True` | Toggle feature on/off |
+| `EMBEDDING_QUERY_INSTRUCTION` | Instruction template for query formatting | "Given a web search query, retrieve relevant passages that answer the query" | Customize instruction task |
+
+### Implementation Details
+
+The `InstructedQueryEmbeddings` wrapper class provides transparent integration:
+
+```mermaid
+classDiagram
+class InstructedQueryEmbeddings {
++Embeddings _inner
++string _instruction
++__init__(Embeddings, string)
++_format_query(string) string
++embed_documents(list) list
++aembed_documents(list) list
++embed_query(string) list
++aembed_query(string) list
+}
+class Embeddings {
+<<interface>>
+}
+InstructedQueryEmbeddings ..|> Embeddings
+```
+
+**Diagram sources**
+- [instructed_embeddings.py:13](file://packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py#L13-L37)
+
+### Automatic Integration
+
+The instructed embeddings are automatically applied when both conditions are met:
+1. `EMBEDDING_USE_QUERY_INSTRUCTION` is `True`
+2. `EMBEDDING_QUERY_INSTRUCTION` contains a non-empty instruction
+
+The integration occurs in the `build_embeddings` function, which wraps the base embedding instance with `InstructedQueryEmbeddings` when instructed embeddings are enabled.
+
+**Section sources**
+- [config.py:56](file://packages/rag_service/src/cafetera_rag_service/config.py#L56-L62)
+- [instructed_embeddings.py:1](file://packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py#L1-L37)
+- [retriever.py:226](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py#L226-L236)
 
 ## Deployment Scripts Integration
 
@@ -337,6 +421,7 @@ The testing framework includes provider-specific validation for different config
 | Llama.cpp Specific | llama.cpp | OpenAI-compatible interface |
 | OpenAI Integration | OpenAI | API key validation and service health |
 | Mixed Provider Setup | Both | Separate provider configurations |
+| Instructed Embeddings | All providers | Query instruction formatting |
 
 **Section sources**
 - [test_rag_block6.py:40](file://tests/test_rag_block6.py#L40-L62)
@@ -370,6 +455,23 @@ Common issues and solutions for LLM providers configuration:
 - **Check**: Verify port assignments don't overlap
 - **Debug**: Test each provider independently first
 
+### Instructed Embeddings Issues
+
+**Problem**: Query instruction not applied correctly
+- **Solution**: Verify `EMBEDDING_USE_QUERY_INSTRUCTION` is `True`
+- **Check**: Ensure `EMBEDDING_QUERY_INSTRUCTION` contains a non-empty value
+- **Debug**: Review instruction formatting in `InstructedQueryEmbeddings`
+
+**Problem**: Retrieval quality degradation with instructed embeddings
+- **Solution**: Adjust instruction template for specific use cases
+- **Check**: Compare embedding vectors with and without instruction formatting
+- **Debug**: Test with different instruction templates
+
+**Problem**: Performance issues with instructed embeddings
+- **Solution**: Monitor embedding latency and adjust batch processing
+- **Check**: Verify instruction formatting doesn't add excessive overhead
+- **Debug**: Profile embedding performance with and without instruction wrapper
+
 ### Performance Issues
 
 **Problem**: Slow inference or memory usage
@@ -380,6 +482,7 @@ Common issues and solutions for LLM providers configuration:
 **Section sources**
 - [run_all.sh:311](file://scripts/run_all.sh#L311-L338)
 - [run_llama_llm.sh:74](file://scripts/run_llama_llm.sh#L74-L78)
+- [instructed_embeddings.py:22](file://packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py#L22-L23)
 
 ## Best Practices
 
@@ -389,6 +492,15 @@ Common issues and solutions for LLM providers configuration:
 2. **Production Deployment**: Consider OpenAI for highest quality with proper SLA
 3. **Resource-Constrained**: Use llama.cpp with appropriate GPU acceleration
 4. **Mixed Strategy**: Use different providers for LLM and embeddings based on requirements
+
+### Instructed Embeddings Best Practices
+
+**Updated** New best practices for instructed embeddings configuration:
+
+1. **Enable for Qwen3/E5-instruct Models**: Always enable instructed embeddings for Qwen3-Embedding and E5-instruct families
+2. **Customize Instruction Templates**: Tailor instruction templates to specific use cases and domains
+3. **Monitor Performance Impact**: Track embedding latency and vector quality when enabling instructed embeddings
+4. **Test Different Instructions**: Experiment with various instruction templates to optimize retrieval quality
 
 ### Configuration Management
 
@@ -415,12 +527,15 @@ Common issues and solutions for LLM providers configuration:
 
 The LLM Providers Configuration system provides a robust, flexible framework for deploying AI models across different providers and environments. The system's modular design allows teams to optimize for their specific requirements while maintaining consistency and reliability.
 
+**Updated** Recent enhancements include comprehensive instructed embeddings support for Qwen3/E5-instruct families, providing asymmetric query-side instruction requirements that significantly improve retrieval performance for modern embedding models.
+
 Key strengths of the configuration system include:
 
 - **Multi-provider Support**: Seamless switching between Ollama, OpenAI, and llama.cpp
 - **Flexible Deployment**: Support for local development and production environments
+- **Advanced Embeddings**: Asymmetric query-side instruction support for modern models
 - **Comprehensive Testing**: Thorough validation of configuration scenarios
 - **Automated Management**: Scripts handle service lifecycle and dependency management
 - **Extensible Architecture**: Foundation for adding new providers and configurations
 
-The system's design enables organizations to start with the simplest configuration (Ollama) and scale to production-grade deployments with OpenAI or custom llama.cpp setups as requirements evolve.
+The system's design enables organizations to start with the simplest configuration (Ollama) and scale to production-grade deployments with OpenAI or custom llama.cpp setups as requirements evolve. The addition of instructed embeddings configuration ensures optimal performance for modern embedding models while maintaining backward compatibility with traditional embedding approaches.

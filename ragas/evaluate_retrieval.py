@@ -165,34 +165,51 @@ def _to_list(value: object) -> list:
 async def _index_contexts(
     unique_contexts: list[str],
     qdrant_url: str,
-    embeddings: object,
-    sparse_embedding: object,
+    embeddings: object | None,
+    sparse_embedding: object | None,
+    *,
+    use_dense: bool = True,
+    use_bm25: bool = True,
 ) -> None:
     """Embed and upsert unique contexts into the temp Qdrant collection."""
     client = AsyncQdrantClient(url=qdrant_url, timeout=120.0)
 
     try:
-        # Determine dense vector size from a test embed
-        test_vec = await embeddings.aembed_documents(["test"])  # type: ignore[union-attr]
-        vector_size = len(test_vec[0])
-        logger.info("Dense vector size: %d", vector_size)
+        # Build collection config based on mode
+        vectors_config: dict | None = None
+        sparse_vectors_config: dict | None = None
 
-        # Create collection with named vectors
-        await client.create_collection(
-            collection_name=COLLECTION_NAME,
-            vectors_config={
+        if use_dense:
+            test_vec = await embeddings.aembed_documents(["test"])  # type: ignore[union-attr]
+            vector_size = len(test_vec[0])
+            logger.info("Dense vector size: %d", vector_size)
+            vectors_config = {
                 "dense": models.VectorParams(
                     size=vector_size,
                     distance=models.Distance.COSINE,
                 ),
-            },
-            sparse_vectors_config={
+            }
+
+        if use_bm25:
+            sparse_vectors_config = {
                 "bm25": models.SparseVectorParams(
                     modifier=models.Modifier.IDF,
                     index=models.SparseIndexParams(on_disk=False),
                 ),
-            },
-        )
+            }
+
+        # Create collection
+        create_kwargs: dict[str, object] = {"collection_name": COLLECTION_NAME}
+        if vectors_config:
+            create_kwargs["vectors_config"] = vectors_config
+        if sparse_vectors_config:
+            create_kwargs["sparse_vectors_config"] = sparse_vectors_config
+        # Qdrant requires at least vectors_config; for BM25-only use a dummy
+        if not vectors_config:
+            create_kwargs["vectors_config"] = models.VectorParams(
+                size=1, distance=models.Distance.COSINE,
+            )
+        await client.create_collection(**create_kwargs)  # type: ignore[arg-type]
         logger.info("Created collection '%s'", COLLECTION_NAME)
 
         # Embed and upsert in batches
@@ -201,26 +218,39 @@ async def _index_contexts(
             batch_end = min(batch_start + BATCH_SIZE, total)
             batch_texts = unique_contexts[batch_start:batch_end]
 
-            # Dense + sparse embeddings concurrently
-            dense_vecs, sparse_results = await asyncio.gather(
-                embeddings.aembed_documents(batch_texts),  # type: ignore[union-attr]
-                asyncio.get_running_loop().run_in_executor(
+            # Compute embeddings based on mode
+            dense_vecs = None
+            sparse_results = None
+
+            if use_dense and use_bm25:
+                dense_vecs, sparse_results = await asyncio.gather(
+                    embeddings.aembed_documents(batch_texts),  # type: ignore[union-attr]
+                    asyncio.get_running_loop().run_in_executor(
+                        None, sparse_embedding.embed_documents, batch_texts,  # type: ignore[union-attr]
+                    ),
+                )
+            elif use_dense:
+                dense_vecs = await embeddings.aembed_documents(batch_texts)  # type: ignore[union-attr]
+            else:
+                sparse_results = await asyncio.get_running_loop().run_in_executor(
                     None, sparse_embedding.embed_documents, batch_texts,  # type: ignore[union-attr]
-                ),
-            )
+                )
 
             points: list[models.PointStruct] = []
             for i, text in enumerate(batch_texts):
-                dense_vec = _to_list(dense_vecs[i])
-                sr = sparse_results[i]
-                sparse_vec = models.SparseVector(
-                    indices=_to_list(sr.indices),
-                    values=_to_list(sr.values),
-                )
+                vector: dict[str, object] = {}
+                if dense_vecs is not None:
+                    vector["dense"] = _to_list(dense_vecs[i])
+                if sparse_results is not None:
+                    sr = sparse_results[i]
+                    vector["bm25"] = models.SparseVector(
+                        indices=_to_list(sr.indices),
+                        values=_to_list(sr.values),
+                    )
                 points.append(
                     models.PointStruct(
                         id=batch_start + i,
-                        vector={"dense": dense_vec, "bm25": sparse_vec},
+                        vector=vector,
                         payload={
                             "page_content": text,
                             "metadata": {"doc_id": batch_start + i},
@@ -400,10 +430,11 @@ def _save_csv(
     all_results: list[list[Document]],
     settings: RagServiceSettings,
     k: int,
+    mode: str = "hybrid",
 ) -> pd.DataFrame:
     """Compute metrics per query and save to CSV. Returns the DataFrame."""
-    embedding_model = settings.embedding_model
-    sparse_model = settings.sparse_embedding_model
+    embedding_model = settings.embedding_model if mode != "bm25-only" else ""
+    sparse_model = settings.sparse_embedding_model if mode != "dense-only" else ""
     reranker_model = settings.reranker_model if settings.reranking_enabled else ""
 
     mrr_col = f"mrr@{k}"
@@ -419,6 +450,7 @@ def _save_csv(
         flags = [_is_relevant(doc, gold_id) for doc in docs]
 
         rows.append({
+            "mode": mode,
             "embedding_model": embedding_model,
             "sparse_model": sparse_model,
             "reranker_model": reranker_model,
@@ -436,6 +468,7 @@ def _save_csv(
 
     # Add AVERAGE row
     avg_row = {
+        "mode": mode,
         "embedding_model": embedding_model,
         "sparse_model": sparse_model,
         "reranker_model": reranker_model,
@@ -467,6 +500,7 @@ def _print_summary(df: pd.DataFrame, n_questions: int, k: int) -> None:
     print("\n" + "=" * 64)
     print("  Retrieval Evaluation Summary (SberQuAD)")
     print("=" * 64)
+    print(f"  Retrieval mode  : {avg.get('mode', 'hybrid')}")
     print(f"  Embedding model : {avg['embedding_model']}")
     print(f"  Sparse model    : {avg['sparse_model']}")
     reranker_model = avg["reranker_model"]
@@ -514,7 +548,18 @@ def _parse_args() -> argparse.Namespace:
         "--rerank-concurrency", type=int, default=2,
         help="Max concurrent reranking requests (default: 2)",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--use-dense", action=argparse.BooleanOptionalAction, default=True,
+        help="Enable dense retrieval (default: True)",
+    )
+    parser.add_argument(
+        "--use-bm25", action=argparse.BooleanOptionalAction, default=True,
+        help="Enable BM25 sparse retrieval (default: True)",
+    )
+    args = parser.parse_args()
+    if not args.use_dense and not args.use_bm25:
+        parser.error("At least one of --use-dense or --use-bm25 must be enabled")
+    return args
 
 
 # ---------------------------------------------------------------------------
@@ -526,9 +571,22 @@ async def evaluate_retrieval(
     size: int,
     retrieval_concurrency: int = 20,
     rerank_concurrency: int = 10,
+    *,
+    use_dense: bool = True,
+    use_bm25: bool = True,
 ) -> None:
     """End-to-end retrieval evaluation pipeline."""
     settings = RagServiceSettings()
+
+    # Determine retrieval mode label
+    if use_dense and use_bm25:
+        mode_label = "hybrid"
+    elif use_dense:
+        mode_label = "dense-only"
+    else:
+        mode_label = "bm25-only"
+    logger.info("Retrieval mode: %s", mode_label)
+    print(f"\n  Retrieval mode: {mode_label}")
 
     # 1. Start temp Qdrant
     container_id, qdrant_url = _start_qdrant_container()
@@ -552,19 +610,20 @@ async def evaluate_retrieval(
         for s in samples:
             s["gold_id"] = context_set[s["context"]]
 
-        # Build embeddings (shared across indexing and retrieval)
-        embeddings = build_embeddings(settings)
-        sparse_embedding = build_sparse_embeddings(settings)
+        # Build embeddings conditionally based on mode flags
+        embeddings = build_embeddings(settings) if use_dense else None
+        sparse_embedding = build_sparse_embeddings(settings) if use_bm25 else None
 
         # 3. Index contexts
         logger.info("Indexing contexts into temp Qdrant...")
         await _index_contexts(
             unique_contexts, qdrant_url, embeddings, sparse_embedding,
+            use_dense=use_dense, use_bm25=use_bm25,
         )
 
         logger.info(
-            "Retrieving for %d questions (k=%d, reranking=%s)...",
-            len(samples), k, settings.reranking_enabled,
+            "Retrieving for %d questions (k=%d, reranking=%s, mode=%s)...",
+            len(samples), k, settings.reranking_enabled, mode_label,
         )
         all_results = await _retrieve_all(
             samples, qdrant_url, settings, embeddings, sparse_embedding, k,
@@ -577,7 +636,7 @@ async def evaluate_retrieval(
         )
 
         # 5-7. Compute metrics and save CSV
-        df = _save_csv(samples, all_results, settings, k)
+        df = _save_csv(samples, all_results, settings, k, mode=mode_label)
 
         # 8. Print summary
         _print_summary(df, len(samples), k)
@@ -593,4 +652,6 @@ if __name__ == "__main__":
         size=args.size,
         retrieval_concurrency=args.retrieval_concurrency,
         rerank_concurrency=args.rerank_concurrency,
+        use_dense=args.use_dense,
+        use_bm25=args.use_bm25,
     ))

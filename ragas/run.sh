@@ -15,6 +15,9 @@
 #     ./ragas/run.sh all
 #     ./ragas/run.sh retrieval
 #     ./ragas/run.sh retrieval --k 5 --size 200
+#     ./ragas/run.sh retrieval --k 5 --size 200 --mode dense
+#
+#   Retrieval modes (--mode): hybrid (default), dense, bm25
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -87,6 +90,7 @@ check_prerequisites_no_uv
 
 RETRIEVAL_K=""
 RETRIEVAL_SIZE=""
+RETRIEVAL_MODE=""
 
 if [ $# -eq 0 ]; then
   echo
@@ -118,8 +122,12 @@ else
         RETRIEVAL_SIZE="$2"
         shift 2
         ;;
+      --mode)
+        RETRIEVAL_MODE="$2"
+        shift 2
+        ;;
       *)
-        log "ERROR: Unknown option '$1'. Use: --k <number> --size <number>"
+        log "ERROR: Unknown option '$1'. Use: --k <number> --size <number> --mode <dense|bm25|hybrid>"
         exit 1
         ;;
     esac
@@ -141,6 +149,31 @@ fi
 if [[ "$ACTION" == "retrieval" && -z "$RETRIEVAL_SIZE" ]]; then
   read -r -p "[ragas] SberQuAD sample size [default=0=all]: " input_size
   RETRIEVAL_SIZE="${input_size:-0}"
+fi
+
+if [[ "$ACTION" == "retrieval" && -z "$RETRIEVAL_MODE" ]]; then
+  echo
+  log "Retrieval mode:"
+  echo "  1) hybrid  — dense + BM25 with RRF fusion (default)"
+  echo "  2) dense   — dense vectors only"
+  echo "  3) bm25    — BM25 sparse vectors only"
+  read -r -p "[ragas] Enter choice [1-3, Enter=1]: " mode_input
+
+  case "${mode_input:-1}" in
+    1|hybrid|"")  RETRIEVAL_MODE="hybrid" ;;
+    2|dense)      RETRIEVAL_MODE="dense" ;;
+    3|bm25)       RETRIEVAL_MODE="bm25" ;;
+    *) log "ERROR: Invalid mode choice '$mode_input'. Use 1, 2, or 3."; exit 1 ;;
+  esac
+fi
+
+# Default retrieval mode to hybrid if still empty (CLI provided no --mode)
+RETRIEVAL_MODE="${RETRIEVAL_MODE:-hybrid}"
+
+# Validate retrieval mode value
+if [[ "$ACTION" == "retrieval" && "$RETRIEVAL_MODE" != "hybrid" && "$RETRIEVAL_MODE" != "dense" && "$RETRIEVAL_MODE" != "bm25" ]]; then
+  log "ERROR: Invalid --mode '$RETRIEVAL_MODE'. Use: dense | bm25 | hybrid"
+  exit 1
 fi
 
 # ─── Interactive provider selection ──────────────────────────────────────────
@@ -231,6 +264,7 @@ if [ "$ACTION" = "retrieval" ]; then
   echo "=== Running offline retrieval metrics (SberQuAD) ==="
   log "Retrieval top-k: ${RETRIEVAL_K:-10}"
   log "SberQuAD sample size: ${RETRIEVAL_SIZE:-0}"
+  log "Retrieval mode: ${RETRIEVAL_MODE}"
   echo
   
   RETRIEVAL_CMD="uv run python ragas/evaluate_retrieval.py"
@@ -244,6 +278,13 @@ if [ "$ACTION" = "retrieval" ]; then
   if [[ -n "$RETRIEVAL_SIZE" ]]; then
     RETRIEVAL_CMD="$RETRIEVAL_CMD --size $RETRIEVAL_SIZE"
   fi
+  
+  # Append retrieval mode flags
+  case "$RETRIEVAL_MODE" in
+    dense)  RETRIEVAL_CMD="$RETRIEVAL_CMD --no-use-bm25" ;;
+    bm25)   RETRIEVAL_CMD="$RETRIEVAL_CMD --no-use-dense" ;;
+    hybrid) ;;  # both enabled by default, no extra flags needed
+  esac
   
   eval "$RETRIEVAL_CMD"
 fi

@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from langchain_core.callbacks import (
     AsyncCallbackManagerForRetrieverRun,
     CallbackManagerForRetrieverRun,
 )
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_core.retrievers import BaseRetriever
+from langchain_qdrant import SparseEmbeddings
 from pydantic import ConfigDict
 from qdrant_client import AsyncQdrantClient, models
 
@@ -39,8 +41,8 @@ class AsyncQdrantRetriever(BaseRetriever):
 
     client: AsyncQdrantClient
     collection_name: str
-    embeddings: Any
-    sparse_embedding: Any = None
+    embeddings: Embeddings | None
+    sparse_embedding: SparseEmbeddings | None = None
     lemmatize: bool = False
     k: int = 5
     prefetch_limit: int = 20
@@ -53,9 +55,45 @@ class AsyncQdrantRetriever(BaseRetriever):
         self, query: str, *, run_manager: AsyncCallbackManagerForRetrieverRun
     ) -> list[Document]:
         """Retrieve relevant documents asynchronously."""
-        query_vector = await self.embeddings.aembed_query(query)
+        if self.embeddings is None and self.sparse_embedding is None:
+            raise ValueError(
+                "At least one of 'embeddings' or 'sparse_embedding' must be provided"
+            )
 
         sparse_query = preprocess_russian(query) if self.lemmatize else query
+
+        # BM25-only path: no dense embeddings available
+        if self.embeddings is None:
+            if not sparse_query.strip():
+                return []
+            from qdrant_client.models import SparseVector
+
+            sparse_result = self.sparse_embedding.embed_query(sparse_query)
+            sparse_vec = SparseVector(
+                indices=_to_list(sparse_result.indices),
+                values=_to_list(sparse_result.values),
+            )
+            results = await self.client.query_points(
+                collection_name=self.collection_name,
+                query=sparse_vec,
+                using="bm25",
+                limit=self.k,
+                with_payload=True,
+                query_filter=self.filter,
+            )
+            points = results.points
+            docs: list[Document] = []
+            for r in points:
+                if r.payload is not None:
+                    docs.append(
+                        Document(
+                            page_content=r.payload.get("page_content", ""),
+                            metadata=r.payload.get("metadata", {}) or {},
+                        )
+                    )
+            return docs
+
+        query_vector = await self.embeddings.aembed_query(query)
 
         if self.sparse_embedding is not None and sparse_query.strip():
             # Hybrid search: dense + BM25 prefetch, fused by RRF
@@ -160,8 +198,6 @@ def estimate_k(question: str, *, max_k: int = 10) -> int:
     return max_k
 
 if TYPE_CHECKING:
-    from langchain_core.embeddings import Embeddings
-
     from cafetera_rag_service.config import RagServiceSettings
 
 logger = logging.getLogger(__name__)
