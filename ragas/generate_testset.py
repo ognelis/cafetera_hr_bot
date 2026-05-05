@@ -124,13 +124,24 @@ def _build_ragas_llm(settings: RagServiceSettings):
         api_key = "ollama"
 
     client = OpenAI(base_url=base_url, api_key=api_key)
-    return llm_factory(
+    llm = llm_factory(
         model=settings.llm_model,
         provider="openai",
         client=client,
         max_tokens=_LLM_MAX_TOKENS,
         temperature=_LLM_TEMPERATURE,
     )
+
+    # For llamacpp provider, also set n_predict in extra_body
+    # (llama.cpp default is often 2048-4096, independent of max_tokens)
+    if provider == "llamacpp":
+        extra_body = {}
+        if settings.llm_num_ctx:
+            extra_body["n_ctx"] = settings.llm_num_ctx
+        extra_body["n_predict"] = settings.llm_max_tokens
+        llm.client.kwargs["extra_body"] = extra_body
+
+    return llm
 
 
 def _build_ragas_embeddings(settings: RagServiceSettings):

@@ -130,6 +130,9 @@ def build_llm(settings: RagServiceSettings) -> BaseChatModel:
         kwargs = _openai_sampling_kwargs(settings)
         extra_body = kwargs.setdefault("extra_body", {})
         extra_body["n_ctx"] = settings.llm_num_ctx
+        # n_predict: max generation tokens (llama.cpp default is often 2048-4096).
+        # Override to allow long outputs for structured responses.
+        extra_body["n_predict"] = settings.llm_max_tokens
         if settings.llm_disable_thinking:
             extra_body["chat_template_kwargs"] = {"enable_thinking": False}
         return ChatOpenAI(

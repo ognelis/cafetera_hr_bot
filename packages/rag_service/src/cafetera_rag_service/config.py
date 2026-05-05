@@ -40,6 +40,7 @@ class RagServiceSettings(BaseSettings):
     # LLM_PRESENCE_PENALTY=1.0
     llm_temperature: float = 0.3
     llm_num_ctx: int = 8192
+    llm_max_tokens: int = 8192
     llm_top_p: float | None = None
     llm_top_k: int | None = None
     llm_presence_penalty: float | None = None

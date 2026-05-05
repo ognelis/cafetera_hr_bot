@@ -59,25 +59,30 @@ async def build_ragas_resources(settings: RagServiceSettings) -> RagResources:
 
     Initializes only what the QAService needs (Qdrant, embeddings, LLM,
     sparse embeddings, reranker).  Skips S3 — RAGAS doesn't ingest documents.
+
+    On any failure, already-initialized resources are closed before re-raising
+    so we do not leak sockets or file descriptors.
     """
     res = RagResources(settings=settings)
+    try:
+        # 1. Qdrant + embeddings
+        res.qdrant_client = build_qdrant_client(settings)
+        res.embeddings = build_embeddings(settings)
 
-    # 1. Qdrant + embeddings
-    qdrant_client = build_qdrant_client(settings)
-    embeddings = build_embeddings(settings)
-    res.qdrant_client = qdrant_client
-    res.embeddings = embeddings
+        # 2. Sparse embeddings (optional)
+        res.sparse_embeddings = build_sparse_embeddings(settings)
 
-    # 2. Sparse embeddings (optional)
-    res.sparse_embeddings = build_sparse_embeddings(settings)
+        # 3. Reranker (optional) — returns (None, None) when disabled.
+        reranker, reranker_http = build_reranker(settings)
+        res.reranker = reranker
+        res.reranker_http_client = reranker_http
 
-    # 3. Reranker (optional)
-    reranker, reranker_http = build_reranker(settings)
-    res.reranker = reranker
-    res.reranker_http_client = reranker_http
-
-    # 4. LLM
-    res.llm = build_llm(settings)
+        # 4. LLM
+        res.llm = build_llm(settings)
+    except Exception:
+        logger.exception("Failed to initialize RAGAS resources; cleaning up")
+        await close_rag_resources(res)
+        raise
 
     return res
 
@@ -120,24 +125,71 @@ def _load_testset(path: Path) -> list[dict[str, Any]]:
 # -- LLM tuning for local models -------------------------------------------------
 # Small local models (e.g. Qwen3.5-4B q4) are prone to repetition loops during
 # NER extraction in Faithfulness scoring — the model gets stuck repeating tokens
-# until max_tokens is exhausted, producing invalid JSON.
-_LLM_MAX_TOKENS = 65536
+# until max_tokens is exhausted, producing invalid JSON.  Faithfulness therefore
+# needs a generous ceiling; the other metrics only emit short JSON verdicts.
+#
+# Per-metric ceilings matter for servers that pre-allocate KV-cache per request
+# (llama.cpp with `n_predict`, Ollama with `num_predict`).  A lower ceiling for
+# short-output metrics frees VRAM/RAM during their runs.
+_FAITHFULNESS_MAX_TOKENS = 65536  # NER extraction: keep original headroom
+_SHORT_OUTPUT_MAX_TOKENS = 4096   # verdicts / question variants / binary class
 
 
-def _build_ragas_llm(settings: RagServiceSettings):
-    """Build a RAGAS evaluator LLM from configured provider."""
+def _resolve_llm_endpoint(
+    settings: RagServiceSettings,
+) -> tuple[str, str, str]:
+    """Return (base_url, api_key, provider) for the LLM endpoint."""
     provider = settings.llm_provider.lower()
     if provider == "openai":
-        base_url = settings.llm_base_url  # already includes /v1
-        api_key = settings.llm_api_key
-    elif provider == "llamacpp":
-        base_url = f"{settings.llm_base_url}/v1"
-        api_key = "no-key"
-    else:  # ollama (default)
-        base_url = f"{settings.llm_base_url}/v1"
-        api_key = "ollama"
+        return settings.llm_base_url, settings.llm_api_key, provider
+    if provider == "llamacpp":
+        return f"{settings.llm_base_url}/v1", "no-key", provider
+    return f"{settings.llm_base_url}/v1", "ollama", provider  # ollama default
 
-    async_client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+
+def _resolve_embedding_endpoint(
+    settings: RagServiceSettings,
+) -> tuple[str, str]:
+    """Return (base_url, api_key) for the embedding endpoint."""
+    provider = settings.embedding_provider.lower()
+    if provider == "openai":
+        return settings.embedding_base_url, settings.embedding_api_key
+    if provider == "llamacpp":
+        return settings.embedding_base_url, "no-key"
+    return f"{settings.embedding_base_url}/v1", "ollama"  # ollama default
+
+
+def _get_async_client(
+    base_url: str,
+    api_key: str,
+    cache: dict[tuple[str, str], AsyncOpenAI],
+) -> AsyncOpenAI:
+    """Return a cached AsyncOpenAI client keyed by (base_url, api_key).
+
+    Shares a single connection pool across LLM + embeddings when they target
+    the same endpoint (common for local Ollama/llama.cpp deployments).
+    """
+    key = (base_url, api_key)
+    if key not in cache:
+        cache[key] = AsyncOpenAI(base_url=base_url, api_key=api_key)
+    return cache[key]
+
+
+def _build_ragas_llm(
+    settings: RagServiceSettings,
+    client_cache: dict[tuple[str, str], AsyncOpenAI],
+    *,
+    max_tokens: int,
+):
+    """Build a RAGAS evaluator LLM from configured provider.
+
+    The ``max_tokens`` budget drives both the OpenAI-compat ``max_tokens`` field
+    and the backend-specific generation cap (Ollama ``num_predict`` /
+    llama.cpp ``n_predict``) so that servers which pre-allocate KV-cache per
+    request size their slots to the metric's actual needs.
+    """
+    base_url, api_key, provider = _resolve_llm_endpoint(settings)
+    async_client = _get_async_client(base_url, api_key, client_cache)
 
     ragas_llm = llm_factory(
         model=settings.llm_model,
@@ -147,40 +199,38 @@ def _build_ragas_llm(settings: RagServiceSettings):
 
     # Inject extra_body into the instructor client's default kwargs so that
     # every chat.completions.create() call includes the context window hint
-    # and repetition penalty controls.
+    # and generation cap.
     # RAGAS's InstructorLLM stores extra_body in model_args but the instructor
     # layer may not forward it reliably; setting it on client.kwargs uses
     # instructor's own handle_kwargs() merge which is guaranteed to apply.
     extra_body: dict[str, Any] = {}
     if provider == "ollama":
-        extra_body = {"options": {}}
+        options: dict[str, Any] = {}
         if settings.llm_num_ctx:
-            extra_body["options"]["num_ctx"] = settings.llm_num_ctx
+            options["num_ctx"] = settings.llm_num_ctx
+        # num_predict: Ollama's per-request generation cap.
+        options["num_predict"] = max_tokens
+        extra_body = {"options": options}
     elif provider == "llamacpp":
         if settings.llm_num_ctx:
             extra_body["n_ctx"] = settings.llm_num_ctx
+        # n_predict: llama.cpp's per-request generation cap (default 2048-4096).
+        extra_body["n_predict"] = max_tokens
 
-    ragas_llm.client.kwargs["max_tokens"] = _LLM_MAX_TOKENS
+    ragas_llm.client.kwargs["max_tokens"] = max_tokens
     if extra_body:
         ragas_llm.client.kwargs["extra_body"] = extra_body
 
     return ragas_llm
 
 
-def _build_ragas_embeddings(settings: RagServiceSettings):
+def _build_ragas_embeddings(
+    settings: RagServiceSettings,
+    client_cache: dict[tuple[str, str], AsyncOpenAI],
+):
     """Build RAGAS embeddings from configured provider."""
-    provider = settings.embedding_provider.lower()
-    if provider == "openai":
-        base_url = settings.embedding_base_url
-        api_key = settings.embedding_api_key
-    elif provider == "llamacpp":
-        base_url = settings.embedding_base_url  # already includes /v1
-        api_key = "no-key"
-    else:  # ollama (default)
-        base_url = f"{settings.embedding_base_url}/v1"
-        api_key = "ollama"
-
-    async_client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+    base_url, api_key = _resolve_embedding_endpoint(settings)
+    async_client = _get_async_client(base_url, api_key, client_cache)
     return embedding_factory(
         provider="openai",
         model=settings.embedding_model,
@@ -189,124 +239,100 @@ def _build_ragas_embeddings(settings: RagServiceSettings):
     )
 
 
-async def _collect_answers(
-    samples: list[dict[str, Any]],
+def _build_scorers(
     settings: RagServiceSettings,
-) -> list[dict[str, Any]]:
-    """Run each testset question through QAService and collect answers + contexts."""
-    res = await build_ragas_resources(settings)
-    try:
-        qa = build_qa_service(res, _EVAL_SYSTEM_PROMPT)
+    client_cache: dict[tuple[str, str], AsyncOpenAI],
+    ragas_embeddings: Any,
+    *,
+    has_reference: bool,
+) -> dict[str, Any]:
+    """Construct RAGAS metric scorers once; reused across all samples.
 
-        results: list[dict[str, Any]] = []
-        for i, sample in enumerate(samples):
-            question = sample.get("user_input", "")
-            if not question:
-                logger.warning("Sample %d has no user_input, skipping", i)
-                continue
-
-            logger.info("[%d/%d] Asking: %s", i + 1, len(samples), question[:80])
-            try:
-                answer, contexts = await qa.ask_with_contexts(question)
-            except Exception:
-                logger.exception("Failed on sample %d", i)
-                answer, contexts = "", []
-
-            results.append({
-                "user_input": question,
-                "response": answer,
-                "retrieved_contexts": contexts,
-                # Preserve reference if present in testset (for ContextRecall)
-                **({"reference": sample["reference"]} if "reference" in sample else {}),
-            })
-
-        return results
-    finally:
-        await close_rag_resources(res)
-
-
-async def _score_metrics(
-    results: list[dict[str, Any]],
-    settings: RagServiceSettings,
-) -> list[dict[str, Any]]:
-    """Score each result with RAGAS metrics (collections API).
-
-    Returns a list of per-sample score dicts.
+    Faithfulness gets a heavy-budget LLM wrapper (long NER JSON output);
+    the other metrics share a light-budget wrapper.  Both wrappers reuse the
+    same underlying AsyncOpenAI connection pool via ``client_cache`` — only
+    the instructor-layer ``max_tokens`` differs.
     """
-    ragas_llm = _build_ragas_llm(settings)
-    ragas_embeddings = _build_ragas_embeddings(settings)
-
-    has_reference = all("reference" in r and r["reference"] for r in results)
-
-    faithfulness = Faithfulness(llm=ragas_llm)
-    context_precision = ContextPrecisionWithoutReference(llm=ragas_llm)
-    answer_relevancy = AnswerRelevancy(
-        llm=ragas_llm, embeddings=ragas_embeddings,
+    llm_heavy = _build_ragas_llm(
+        settings, client_cache, max_tokens=_FAITHFULNESS_MAX_TOKENS,
     )
-    context_recall = ContextRecall(llm=ragas_llm) if has_reference else None
+    llm_light = _build_ragas_llm(
+        settings, client_cache, max_tokens=_SHORT_OUTPUT_MAX_TOKENS,
+    )
 
-    scores: list[dict[str, Any]] = []
+    scorers: dict[str, Any] = {
+        "faithfulness": Faithfulness(llm=llm_heavy),
+        "context_precision": ContextPrecisionWithoutReference(llm=llm_light),
+        "answer_relevancy": AnswerRelevancy(
+            llm=llm_light, embeddings=ragas_embeddings,
+        ),
+    }
+    if has_reference:
+        scorers["context_recall"] = ContextRecall(llm=llm_light)
+    return scorers
 
-    for i, r in enumerate(results):
-        row_scores: dict[str, Any] = {"user_input": r["user_input"]}
 
-        # Faithfulness
-        try:
-            result = await faithfulness.ascore(
-                user_input=r["user_input"],
-                response=r["response"],
-                retrieved_contexts=r["retrieved_contexts"],
-            )
-            row_scores["faithfulness"] = result.value
-        except Exception:
-            logger.exception("Faithfulness failed for sample %d", i)
-            row_scores["faithfulness"] = None
+async def _score_one(
+    scorers: dict[str, Any],
+    *,
+    question: str,
+    answer: str,
+    contexts: list[str],
+    reference: str | None,
+    index: int,
+) -> dict[str, Any]:
+    """Score a single sample with all configured metrics.
 
-        # Context Precision (without reference)
-        try:
-            result = await context_precision.ascore(
-                user_input=r["user_input"],
-                response=r["response"],
-                retrieved_contexts=r["retrieved_contexts"],
-            )
-            row_scores["context_precision"] = result.value
-        except Exception:
-            logger.exception("ContextPrecision failed for sample %d", i)
-            row_scores["context_precision"] = None
+    Runs sequentially to avoid piling up multiple full-context prompts in
+    RAM for the same sample simultaneously.
+    """
+    row: dict[str, Any] = {"user_input": question}
 
-        # Answer Relevancy
-        try:
-            result = await answer_relevancy.ascore(
-                user_input=r["user_input"],
-                response=r["response"],
-            )
-            row_scores["answer_relevancy"] = result.value
-        except Exception:
-            logger.exception("AnswerRelevancy failed for sample %d", i)
-            row_scores["answer_relevancy"] = None
-
-        # Context Recall (only if references exist)
-        if context_recall is not None:
-            try:
-                result = await context_recall.ascore(
-                    user_input=r["user_input"],
-                    retrieved_contexts=r["retrieved_contexts"],
-                    reference=r["reference"],
-                )
-                row_scores["context_recall"] = result.value
-            except Exception:
-                logger.exception("ContextRecall failed for sample %d", i)
-                row_scores["context_recall"] = None
-
-        scores.append(row_scores)
-        logger.info(
-            "[%d/%d] %s",
-            i + 1,
-            len(results),
-            {k: f"{v:.3f}" if isinstance(v, float) else v for k, v in row_scores.items()},
+    try:
+        result = await scorers["faithfulness"].ascore(
+            user_input=question,
+            response=answer,
+            retrieved_contexts=contexts,
         )
+        row["faithfulness"] = result.value
+    except Exception:
+        logger.exception("Faithfulness failed for sample %d", index)
+        row["faithfulness"] = None
 
-    return scores
+    try:
+        result = await scorers["context_precision"].ascore(
+            user_input=question,
+            response=answer,
+            retrieved_contexts=contexts,
+        )
+        row["context_precision"] = result.value
+    except Exception:
+        logger.exception("ContextPrecision failed for sample %d", index)
+        row["context_precision"] = None
+
+    try:
+        result = await scorers["answer_relevancy"].ascore(
+            user_input=question,
+            response=answer,
+        )
+        row["answer_relevancy"] = result.value
+    except Exception:
+        logger.exception("AnswerRelevancy failed for sample %d", index)
+        row["answer_relevancy"] = None
+
+    if "context_recall" in scorers and reference is not None:
+        try:
+            result = await scorers["context_recall"].ascore(
+                user_input=question,
+                retrieved_contexts=contexts,
+                reference=reference,
+            )
+            row["context_recall"] = result.value
+        except Exception:
+            logger.exception("ContextRecall failed for sample %d", index)
+            row["context_recall"] = None
+
+    return row
 
 
 def _print_summary(scores: list[dict[str, Any]]) -> None:
@@ -337,34 +363,91 @@ def _print_summary(scores: list[dict[str, Any]]) -> None:
 
 
 async def evaluate(testset_path: Path) -> None:
-    """Main evaluation pipeline."""
+    """Pipelined evaluation: ask → score → discard, per sample.
+
+    Memory-friendly variant of the prior two-phase flow: we no longer hold
+    every answer + retrieved_contexts in RAM while scoring.  Each sample's
+    large strings go out of scope right after scoring, freeing RAM for the
+    next iteration.  Scores are checkpointed to disk after each sample so a
+    crash mid-run doesn't waste prior work.
+    """
     settings = RagServiceSettings()
 
-    # 1. Load testset
+    # 1. Load testset.
     samples = _load_testset(testset_path)
     logger.info("Loaded %d samples from %s", len(samples), testset_path)
 
-    # 2. Collect answers from RAG pipeline
-    logger.info("Collecting answers from RAG pipeline...")
-    results = await _collect_answers(samples, settings)
+    has_reference = all(
+        "reference" in s and s["reference"] for s in samples
+    )
 
-    if not results:
+    # 2. Build RAGAS scorers once (shared AsyncOpenAI client per endpoint,
+    #    per-metric max_tokens budgets).
+    client_cache: dict[tuple[str, str], AsyncOpenAI] = {}
+    ragas_embeddings = _build_ragas_embeddings(settings, client_cache)
+    scorers = _build_scorers(
+        settings,
+        client_cache,
+        ragas_embeddings,
+        has_reference=has_reference,
+    )
+
+    # 3. Build QA stack and run the pipelined loop.
+    output_path = testset_path.parent / "scores.json"
+    scores: list[dict[str, Any]] = []
+    res = await build_ragas_resources(settings)
+    try:
+        qa = build_qa_service(res, _EVAL_SYSTEM_PROMPT)
+
+        for i, sample in enumerate(samples):
+            question = sample.get("user_input", "")
+            if not question:
+                logger.warning("Sample %d has no user_input, skipping", i)
+                continue
+
+            logger.info(
+                "[%d/%d] Asking: %s", i + 1, len(samples), question[:80],
+            )
+            try:
+                answer, contexts = await qa.ask_with_contexts(question)
+            except Exception:
+                logger.exception("Failed on sample %d", i)
+                answer, contexts = "", []
+
+            row = await _score_one(
+                scorers,
+                question=question,
+                answer=answer,
+                contexts=contexts,
+                reference=sample.get("reference") if has_reference else None,
+                index=i,
+            )
+            scores.append(row)
+            logger.info(
+                "[%d/%d] %s",
+                i + 1,
+                len(samples),
+                {
+                    k: f"{v:.3f}" if isinstance(v, float) else v
+                    for k, v in row.items()
+                },
+            )
+
+            # Checkpoint after every sample so a crash mid-run isn't wasted.
+            output_path.write_text(
+                json.dumps(scores, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            # answer/contexts go out of scope here → GC reclaims their RAM
+            # before the next iteration allocates new context strings.
+    finally:
+        await close_rag_resources(res)
+
+    if not scores:
         logger.error("No results collected. Check RAG service and Qdrant.")
         sys.exit(1)
 
-    # 3. Score with RAGAS metrics
-    logger.info("Scoring with RAGAS metrics...")
-    scores = await _score_metrics(results, settings)
-
-    # 4. Print results
     _print_summary(scores)
-
-    # 5. Save detailed scores
-    output_path = testset_path.parent / "scores.json"
-    output_path.write_text(
-        json.dumps(scores, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
     logger.info("Detailed scores saved to %s", output_path)
 
 

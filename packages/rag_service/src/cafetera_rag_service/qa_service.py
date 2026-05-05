@@ -226,16 +226,25 @@ class QAService:
         if chain is None:
             return ERR_NO_ANSWER, []
 
-        retriever = build_retriever(
-            self._settings,
-            qdrant_client=self._qdrant_client,
-            embeddings=self._embeddings,
-            collection_name=self._settings.qdrant_collection,
-            k=k,
-            sparse_embedding=self._sparse_embedding,
-        )
-
         try:
+            # Build retriever with reranker wrapper for context extraction
+            retriever = build_retriever(
+                self._settings,
+                qdrant_client=self._qdrant_client,
+                embeddings=self._embeddings,
+                collection_name=self._settings.qdrant_collection,
+                k=k,
+                sparse_embedding=self._sparse_embedding,
+            )
+            
+            # Apply reranker if configured (same as in _build_global_chain)
+            if self._reranker is not None:
+                from cafetera_rag_service.rag.reranker import RerankingRetriever
+                retriever = RerankingRetriever(
+                    base_retriever=retriever,
+                    reranker=self._reranker,
+                )
+            
             docs = await retriever.ainvoke(question)
             contexts = [doc.page_content for doc in docs]
         except Exception:
