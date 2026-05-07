@@ -191,6 +191,19 @@ is_local_host() {
 
 # ─── Interactive Provider Selection ─────────────────────────────────────────
 
+# Check if interactive provider menu should be skipped (SKIP_PROVIDER_MENU=true).
+# Default: false (menu is always shown).
+# When enabled, select_*_provider() functions apply defaults from .env without
+# prompting. Requires LLM_PROVIDER / EMBEDDING_PROVIDER set in .env; for openai
+# also requires LLM_API_KEY / EMBEDDING_API_KEY.
+skip_provider_menu_enabled() {
+  load_env_var SKIP_PROVIDER_MENU
+  case "${SKIP_PROVIDER_MENU:-false}" in
+    true|TRUE|True|1|yes|YES|Yes|on|ON) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # Convert provider name to menu number
 provider_to_number() {
   case "$1" in
@@ -217,18 +230,53 @@ infer_provider_from_url() {
 # Select LLM provider interactively
 # Args: $1=log_prefix
 # Always sets localhost URLs. configure_docker_urls() converts them for Docker.
+# When SKIP_PROVIDER_MENU=true, applies defaults from .env without prompting.
 select_llm_provider() {
   local prefix="${1:-run}"
+
+  # Non-interactive path: honour SKIP_PROVIDER_MENU=true and use .env values.
+  if skip_provider_menu_enabled; then
+    local provider="${LLM_PROVIDER:-llamacpp}"
+    case "$provider" in
+      ollama)
+        LLM_MODEL="${LLM_MODEL:-qwen3.5:4b-q4_K_M}"
+        LLM_BASE_URL="http://localhost:11434"
+        LLM_API_KEY=""
+        ;;
+      openai)
+        LLM_MODEL="${LLM_MODEL:-gpt-4o-mini}"
+        LLM_BASE_URL="${LLM_BASE_URL:-https://api.openai.com/v1}"
+        if [[ -z "${LLM_API_KEY:-}" ]]; then
+          log "ERROR: SKIP_PROVIDER_MENU=true and LLM_PROVIDER=openai, but LLM_API_KEY is not set in .env"
+          log "FIX:   Set LLM_API_KEY=sk-... in .env, or unset SKIP_PROVIDER_MENU"
+          exit 1
+        fi
+        ;;
+      llamacpp)
+        LLM_MODEL="${LLM_MODEL:-local-model}"
+        LLM_BASE_URL="http://localhost:8080"
+        LLM_API_KEY=""
+        ;;
+      *)
+        log "ERROR: SKIP_PROVIDER_MENU=true but LLM_PROVIDER='$provider' is not supported (expected: ollama|openai|llamacpp)"
+        log "FIX:   Set LLM_PROVIDER to one of the supported values in .env, or unset SKIP_PROVIDER_MENU"
+        exit 1
+        ;;
+    esac
+    export LLM_PROVIDER="$provider" LLM_MODEL LLM_BASE_URL LLM_API_KEY
+    log "$prefix: SKIP_PROVIDER_MENU=true - LLM provider: $LLM_PROVIDER ($LLM_MODEL) [non-interactive]"
+    return 0
+  fi
 
   echo
   # Determine current provider from .env or infer from URL
   local current_provider="${LLM_PROVIDER:-}"
-  local current_model="${LLM_MODEL:-qwen3.5:4b-q4_K_M}"
+  local current_model="${LLM_MODEL:-Qwen3.5-9B-Q4_K_M}"
 
   if [[ -z "$current_provider" && -n "${LLM_BASE_URL:-}" ]]; then
     current_provider=$(infer_provider_from_url "${LLM_BASE_URL}")
   fi
-  current_provider="${current_provider:-ollama}"
+  current_provider="${current_provider:-llamacpp}"
 
   log "$prefix: LLM Provider Configuration:"
   log "$prefix:   Default: $current_provider ($current_model)"
@@ -280,7 +328,7 @@ select_llm_provider() {
       log "Invalid choice, using: $current_provider"
       LLM_PROVIDER="$current_provider"
       LLM_MODEL="$current_model"
-      LLM_BASE_URL="${LLM_BASE_URL:-http://localhost:11434}"
+      LLM_BASE_URL="${LLM_BASE_URL:-http://localhost:8080}"
       ;;
   esac
 
@@ -291,18 +339,53 @@ select_llm_provider() {
 # Select Embedding provider interactively
 # Args: $1=log_prefix
 # Always sets localhost URLs. configure_docker_urls() converts them for Docker.
+# When SKIP_PROVIDER_MENU=true, applies defaults from .env without prompting.
 select_embedding_provider() {
   local prefix="${1:-run}"
+
+  # Non-interactive path: honour SKIP_PROVIDER_MENU=true and use .env values.
+  if skip_provider_menu_enabled; then
+    local provider="${EMBEDDING_PROVIDER:-llamacpp}"
+    case "$provider" in
+      ollama)
+        EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding:0.6b-fp16}"
+        EMBEDDING_BASE_URL="http://localhost:11434"
+        EMBEDDING_API_KEY=""
+        ;;
+      openai)
+        EMBEDDING_MODEL="${EMBEDDING_MODEL:-text-embedding-3-small}"
+        EMBEDDING_BASE_URL="${EMBEDDING_BASE_URL:-https://api.openai.com/v1}"
+        if [[ -z "${EMBEDDING_API_KEY:-}" ]]; then
+          log "ERROR: SKIP_PROVIDER_MENU=true and EMBEDDING_PROVIDER=openai, but EMBEDDING_API_KEY is not set in .env"
+          log "FIX:   Set EMBEDDING_API_KEY=sk-... in .env, or unset SKIP_PROVIDER_MENU"
+          exit 1
+        fi
+        ;;
+      llamacpp)
+        EMBEDDING_MODEL="${EMBEDDING_MODEL:-qwen3-embedding}"
+        EMBEDDING_BASE_URL="http://localhost:8090/v1"
+        EMBEDDING_API_KEY=""
+        ;;
+      *)
+        log "ERROR: SKIP_PROVIDER_MENU=true but EMBEDDING_PROVIDER='$provider' is not supported (expected: ollama|openai|llamacpp)"
+        log "FIX:   Set EMBEDDING_PROVIDER to one of the supported values in .env, or unset SKIP_PROVIDER_MENU"
+        exit 1
+        ;;
+    esac
+    export EMBEDDING_PROVIDER="$provider" EMBEDDING_MODEL EMBEDDING_BASE_URL EMBEDDING_API_KEY
+    log "$prefix: SKIP_PROVIDER_MENU=true - Embedding provider: $EMBEDDING_PROVIDER ($EMBEDDING_MODEL) [non-interactive]"
+    return 0
+  fi
 
   echo
   # Determine current provider from .env or infer from URL
   local current_provider="${EMBEDDING_PROVIDER:-}"
-  local current_model="${EMBEDDING_MODEL:-qwen3-embedding:0.6b-fp16}"
+  local current_model="${EMBEDDING_MODEL:-Qwen3-Embedding-0.6B-f16}"
 
   if [[ -z "$current_provider" && -n "${EMBEDDING_BASE_URL:-}" ]]; then
     current_provider=$(infer_provider_from_url "${EMBEDDING_BASE_URL}")
   fi
-  current_provider="${current_provider:-ollama}"
+  current_provider="${current_provider:-llamacpp}"
 
   log "$prefix: Embedding Provider Configuration:"
   log "$prefix:   Default: $current_provider ($current_model)"

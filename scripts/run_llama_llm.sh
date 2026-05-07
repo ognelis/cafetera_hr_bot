@@ -42,12 +42,19 @@ case "$DETECTED_GPU" in
   *)          _DEFAULT_GPU_LAYERS=0  ;;
 esac
 
-LLM_MODEL_PATH="${LLM_MODEL_PATH:-./models/Qwen3.5-4B-Q4_K_M.gguf}"
-LLM_MODEL_URL="${LLM_MODEL_URL:-https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf}"
+LLM_MODEL_PATH="${LLM_MODEL_PATH:-./models/Qwen3.5-9B-Q4_K_M.gguf}"
+LLM_MODEL_URL="${LLM_MODEL_URL:-https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf}"
 LLM_HOST="${LLM_HOST:-127.0.0.1}"
 LLM_PORT="${LLM_PORT:-8080}"
+# Optimized for CHUNK_SIZE=512 + DOC_QUERY_K=10: ~6500 tokens needed
 LLM_CTX_SIZE="${LLM_NUM_CTX:-8192}"
 LLM_N_GPU_LAYERS="${LLM_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
+# KV Cache quantization: q8_0 saves 50% VRAM with <1% quality loss
+LLM_CACHE_TYPE_K="${LLM_CACHE_TYPE_K:-q8_0}"
+LLM_CACHE_TYPE_V="${LLM_CACHE_TYPE_V:-q8_0}"
+# Parallel requests: limits concurrent generations to control KV Cache usage
+# Default 5 balances throughput and VRAM (adjust based on your GPU capacity)
+LLM_PARALLEL="${LLM_PARALLEL:-5}"
 
 detect_cpu_count() {
   if command -v nproc >/dev/null 2>&1; then
@@ -120,6 +127,8 @@ echo "CPU_COUNT=$CPU_COUNT"
 echo "THREADS=$THREADS"
 echo "GPU: $DETECTED_GPU → offloading $LLM_N_GPU_LAYERS layers"
 echo "DISABLE_THINKING=$LLM_DISABLE_THINKING"
+echo "KV_CACHE: q8_0 (50% VRAM savings, <1% quality loss)"
+echo "PARALLEL=$LLM_PARALLEL (max concurrent requests)"
 
 exec llama-server \
   --model "$LLM_MODEL_PATH" \
@@ -128,5 +137,8 @@ exec llama-server \
   --ctx-size "$LLM_CTX_SIZE" \
   --threads "$THREADS" \
   --n-gpu-layers "$LLM_N_GPU_LAYERS" \
+  --cache-type-k "$LLM_CACHE_TYPE_K" \
+  --cache-type-v "$LLM_CACHE_TYPE_V" \
+  --parallel "$LLM_PARALLEL" \
   $REASONING_ARGS \
   "${CHAT_TEMPLATE_KWARGS[@]}"
