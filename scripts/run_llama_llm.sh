@@ -104,6 +104,13 @@ if [ "$LLM_DISABLE_THINKING" = "true" ]; then
   REASONING_ARGS="--reasoning-budget 0"
 fi
 
+CHAT_TEMPLATE_KWARGS=""
+if [ "$LLM_DISABLE_THINKING" = "true" ]; then
+  CHAT_TEMPLATE_KWARGS=(--chat-template-kwargs '{"enable_thinking":false}')
+else
+  CHAT_TEMPLATE_KWARGS=(--chat-template-kwargs '{"enable_thinking":true}')
+fi
+
 echo "Starting llama-server (LLM inference)"
 echo "MODEL_PATH=$LLM_MODEL_PATH"
 echo "HOST=$LLM_HOST"
@@ -121,4 +128,5 @@ exec llama-server \
   --ctx-size "$LLM_CTX_SIZE" \
   --threads "$THREADS" \
   --n-gpu-layers "$LLM_N_GPU_LAYERS" \
-  $REASONING_ARGS
+  $REASONING_ARGS \
+  "${CHAT_TEMPLATE_KWARGS[@]}"

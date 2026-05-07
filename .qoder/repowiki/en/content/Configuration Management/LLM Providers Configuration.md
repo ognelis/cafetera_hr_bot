@@ -13,15 +13,16 @@
 - [run_llama_llm.sh](file://scripts/run_llama_llm.sh)
 - [run_llama_embeddings.sh](file://scripts/run_llama_embeddings.sh)
 - [test_rag_block6.py](file://tests/test_rag_block6.py)
+- [troubleshooting.md](file://docs/troubleshooting.md)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive documentation for instructed embeddings configuration
-- Enhanced provider setup documentation with asymmetric query-side instruction requirements
-- Updated configuration architecture to include instructed embeddings support
-- Added new environment variables for embedding instruction configuration
-- Enhanced troubleshooting guide with instructed embeddings specific issues
+- Enhanced llama.cpp embedding configuration documentation with chunk size parameter passing
+- Added documentation for check_embedding_ctx_length=False parameter for historical tokenization compatibility
+- Updated troubleshooting guide with llama.cpp embedding server configuration details
+- Expanded environment variables reference with EMBEDDING_CHUNK_SIZE parameter
+- Added comprehensive llama.cpp embedding server configuration documentation
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -30,11 +31,12 @@
 4. [Environment Variables Reference](#environment-variables-reference)
 5. [Provider-Specific Configuration](#provider-specific-configuration)
 6. [Instructed Embeddings Configuration](#instructed-embeddings-configuration)
-7. [Deployment Scripts Integration](#deployment-scripts-integration)
-8. [Testing and Validation](#testing-and-validation)
-9. [Troubleshooting Guide](#troubleshooting-guide)
-10. [Best Practices](#best-practices)
-11. [Conclusion](#conclusion)
+7. [llama.cpp Embedding Server Configuration](#llamacpp-embedding-server-configuration)
+8. [Deployment Scripts Integration](#deployment-scripts-integration)
+9. [Testing and Validation](#testing-and-validation)
+10. [Troubleshooting Guide](#troubleshooting-guide)
+11. [Best Practices](#best-practices)
+12. [Conclusion](#conclusion)
 
 ## Introduction
 
@@ -42,7 +44,7 @@ The LLM Providers Configuration system in this project enables flexible deployme
 
 The system is designed to be modular and extensible, supporting mixed-provider configurations where LLM and embedding models can be served by different providers simultaneously. This flexibility enables organizations to optimize for specific use cases, such as using high-quality cloud models for LLM inference while maintaining cost-effective local embeddings.
 
-**Updated** Enhanced with instructed embeddings configuration for Qwen3/E5-instruct families, providing asymmetric query-side instruction requirements for improved retrieval performance.
+**Updated** Enhanced with comprehensive llama.cpp embedding server configuration, including proper chunk size parameter passing and historical tokenization compatibility fixes for improved Qwen3-Embedding model performance.
 
 ## Provider Types and Selection
 
@@ -68,19 +70,22 @@ The project supports three primary AI providers, each with distinct characterist
 - **Customization**: Fine-grained control over memory usage and performance
 - **GPU Acceleration**: Automatic detection and utilization of hardware acceleration
 - **Model Formats**: Uses GGUF format for optimized local inference
+- **Embedding Support**: Full embedding server capabilities with configurable chunk sizes
 
 ```mermaid
 flowchart TD
 A["Provider Selection"] --> B{"Choose Provider"}
 B --> C["Ollama<br/>Local, Free, Default"]
 B --> D["OpenAI<br/>Cloud, Paid, High Quality"]
-B --> E["llama.cpp<br/>Local, Customizable, GPU Support"]
+B --> E["llama.cpp<br/>Local, Customizable, GPU Support, Embeddings"]
 C --> F["Automatic Model Management"]
 D --> G["API Key Required"]
 E --> H["Hardware Acceleration"]
-F --> I["Development Ready"]
-G --> J["Production Scale"]
-H --> K["Maximum Control"]
+E --> I["Embedding Server Support"]
+F --> J["Development Ready"]
+G --> K["Production Scale"]
+H --> L["Maximum Control"]
+I --> M["Configurable Chunk Sizes"]
 ```
 
 **Diagram sources**
@@ -112,6 +117,7 @@ class RagServiceSettings {
 +string embedding_model
 +string embedding_base_url
 +string embedding_api_key
++int embedding_chunk_size
 +bool embedding_use_query_instruction
 +string embedding_query_instruction
 +bool reranking_enabled
@@ -133,7 +139,7 @@ CoreSettings --> RagServiceSettings : "extends"
 ```
 
 **Diagram sources**
-- [config.py:8](file://packages/rag_service/src/cafetera_rag_service/config.py#L8-L84)
+- [config.py:8](file://packages/rag_service/src/cafetera_rag_service/config.py#L8-L95)
 - [run_all.sh:218](file://scripts/run_all.sh#L218-L300)
 
 ### Environment Variable Priority
@@ -180,6 +186,17 @@ The LLM providers configuration relies on a comprehensive set of environment var
 | `LLM_N_GPU_LAYERS` | GPU acceleration layers | Auto-detected | llama.cpp only |
 | `EMBED_N_GPU_LAYERS` | Embedding GPU layers | Auto-detected | llama.cpp only |
 
+### Embedding Configuration Variables
+
+**Updated** New section for embedding-specific configuration supporting llama.cpp embedding server optimization.
+
+| Variable | Purpose | Default Value | Provider Specific |
+|----------|---------|---------------|-------------------|
+| `EMBEDDING_CHUNK_SIZE` | Batch size for embedding processing | `16` | llama.cpp only |
+| `EMBED_POOLING` | Embedding pooling strategy | `last` | llama.cpp only |
+| `EMBED_CTX_SIZE` | Embedding server context size | `8192` | llama.cpp only |
+| `EMBED_UBATCH_SIZE` | Embedding micro-batch size | `2048` | llama.cpp only |
+
 ### Instructed Embeddings Configuration Variables
 
 **Updated** New section for instructed embeddings configuration supporting asymmetric query-side instruction requirements.
@@ -200,7 +217,7 @@ The LLM providers configuration relies on a comprehensive set of environment var
 | `RAG_SERVICE_API_KEY` | Service authentication | Empty | RAG Service |
 
 **Section sources**
-- [config.py:29](file://packages/rag_service/src/cafetera_rag_service/config.py#L29-L84)
+- [config.py:29](file://packages/rag_service/src/cafetera_rag_service/config.py#L29-L95)
 - [config.py:56](file://packages/rag_service/src/cafetera_rag_service/config.py#L56-L62)
 - [run_all.sh:171](file://scripts/run_all.sh#L171-L201)
 
@@ -268,6 +285,8 @@ F --> G
 G --> H["Server Initialization"]
 H --> I["Port Configuration"]
 I --> J["Service Ready"]
+J --> K["Embedding Server Support"]
+K --> L["Configurable Chunk Sizes"]
 ```
 
 **Diagram sources**
@@ -337,6 +356,76 @@ The integration occurs in the `build_embeddings` function, which wraps the base 
 - [config.py:56](file://packages/rag_service/src/cafetera_rag_service/config.py#L56-L62)
 - [instructed_embeddings.py:1](file://packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py#L1-L37)
 - [retriever.py:226](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py#L226-L236)
+
+## llama.cpp Embedding Server Configuration
+
+**New Section** Comprehensive documentation for llama.cpp embedding server configuration, including chunk size parameter passing and historical tokenization compatibility fixes.
+
+### Embedding Server Architecture
+
+The llama.cpp embedding server provides dedicated embedding generation capabilities with configurable performance parameters:
+
+```mermaid
+flowchart TD
+A["Embedding Request"] --> B["Chunk Size Validation"]
+B --> C{"Chunk Size <= Context Size?"}
+C --> |Yes| D["Process Embedding Batch"]
+C --> |No| E["Adjust Chunk Size"]
+D --> F["Apply Pooling Strategy"]
+F --> G["Return Embedding Vectors"]
+E --> H["Retry with Reduced Batch"]
+H --> D
+```
+
+**Diagram sources**
+- [run_llama_embeddings.sh:114](file://scripts/run_llama_embeddings.sh#L114-L123)
+- [llamacpp.md:122](file://docs/llamacpp.md#L122-L128)
+
+### Key Configuration Parameters
+
+The llama.cpp embedding server supports several critical configuration parameters:
+
+| Parameter | Purpose | Default Value | Formula |
+|-----------|---------|---------------|---------|
+| `EMBEDDING_CHUNK_SIZE` | Number of texts processed in one batch | `16` | `EMBED_CTX_SIZE >= EMBEDDING_CHUNK_SIZE × max_tokens_per_chunk` |
+| `EMBED_CTX_SIZE` | Server context size (KV cache) | `8192` | Must accommodate batch processing capacity |
+| `EMBED_POOLING` | Embedding pooling strategy | `last` | `last` for Qwen3-Embedding, `mean` for nomic-embed-text, `cls` for BGE/E5 |
+| `EMBED_UBATCH_SIZE` | Micro-batch size for processing | `2048` | Controls memory usage during batch processing |
+
+### Historical Tokenization Compatibility
+
+**Updated** The system now includes a critical compatibility fix for historical tokenization issues:
+
+**Problem**: LangChain's `OpenAIEmbeddings` uses tiktoken tokenizer by default, sending token IDs instead of raw text to embedding servers. This causes compatibility issues with llama.cpp servers that expect raw text input.
+
+**Solution**: The `check_embedding_ctx_length=False` parameter prevents token length validation, allowing raw text to be sent to llama.cpp servers regardless of tokenization differences.
+
+**Implementation**: This parameter is automatically set when building OpenAI-compatible embeddings for llama.cpp providers.
+
+### Pooling Strategies
+
+Different embedding models require different pooling strategies:
+
+| Model Family | Required Pooling | Purpose |
+|--------------|------------------|---------|
+| **Qwen3-Embedding** | `last` | Uses last token for final representation |
+| nomic-embed-text | `mean` | Averages all tokens for representation |
+| BGE / E5 | `cls` | Uses first special token (CLS) for representation |
+
+### Memory Management
+
+The embedding server implements sophisticated memory management for batch processing:
+
+1. **Context Size Calculation**: `EMBED_CTX_SIZE >= EMBEDDING_CHUNK_SIZE × max_tokens_per_chunk`
+2. **KV Cache Management**: Efficient memory allocation for batch processing
+3. **Micro-batch Processing**: `EMBED_UBATCH_SIZE` controls intermediate processing steps
+4. **GPU Acceleration**: Automatic detection and utilization of hardware acceleration
+
+**Section sources**
+- [config.py:56](file://packages/rag_service/src/cafetera_rag_service/config.py#L56-L57)
+- [run_llama_embeddings.sh:114](file://scripts/run_llama_embeddings.sh#L114-L123)
+- [llamacpp.md:110](file://docs/llamacpp.md#L110-L138)
+- [troubleshooting.md:214](file://docs/troubleshooting.md#L214-L216)
 
 ## Deployment Scripts Integration
 
@@ -422,6 +511,7 @@ The testing framework includes provider-specific validation for different config
 | OpenAI Integration | OpenAI | API key validation and service health |
 | Mixed Provider Setup | Both | Separate provider configurations |
 | Instructed Embeddings | All providers | Query instruction formatting |
+| Embedding Server | llama.cpp | Chunk size parameter passing |
 
 **Section sources**
 - [test_rag_block6.py:40](file://tests/test_rag_block6.py#L40-L62)
@@ -455,6 +545,24 @@ Common issues and solutions for LLM providers configuration:
 - **Check**: Verify port assignments don't overlap
 - **Debug**: Test each provider independently first
 
+### llama.cpp Embedding Server Issues
+
+**Problem**: Embedding server crashes with SIGTRAP or "failed to find a memory slot"
+- **Solution**: Increase EMBED_CTX_SIZE or decrease EMBEDDING_CHUNK_SIZE
+- **Formula**: `EMBED_CTX_SIZE >= EMBEDDING_CHUNK_SIZE × max_tokens_per_chunk`
+- **Check**: Monitor memory usage during batch processing
+- **Debug**: Review embedding server logs for memory allocation errors
+
+**Problem**: Embedding vectors differ between providers
+- **Solution**: Verify EMBED_POOLING setting matches model requirements
+- **Check**: Ensure check_embedding_ctx_length=False for llama.cpp compatibility
+- **Debug**: Compare embedding outputs using diagnostic curl commands
+
+**Problem**: Performance issues with llama.cpp embedding server
+- **Solution**: Optimize chunk size and context size parameters
+- **Check**: Monitor GPU utilization and memory usage
+- **Debug**: Profile embedding performance with different batch sizes
+
 ### Instructed Embeddings Issues
 
 **Problem**: Query instruction not applied correctly
@@ -472,17 +580,24 @@ Common issues and solutions for LLM providers configuration:
 - **Check**: Verify instruction formatting doesn't add excessive overhead
 - **Debug**: Profile embedding performance with and without instruction wrapper
 
-### Performance Issues
+### Historical Tokenization Compatibility Issues
 
-**Problem**: Slow inference or memory usage
-- **Solution**: Adjust context window sizes and GPU layer settings
-- **Check**: Monitor system resource usage during inference
-- **Debug**: Profile individual components separately
+**Problem**: Embedding server receives token IDs instead of text
+- **Solution**: Ensure check_embedding_ctx_length=False is set for llama.cpp providers
+- **Check**: Verify OpenAIEmbeddings initialization includes this parameter
+- **Debug**: Compare raw text vs token ID inputs in embedding server logs
+
+**Problem**: Embedding vectors inconsistent across different providers
+- **Solution**: Use llama.cpp embedding server with proper pooling configuration
+- **Check**: Verify EMBED_POOLING matches model requirements (last for Qwen3-Embedding)
+- **Debug**: Test embedding server directly with curl commands
 
 **Section sources**
 - [run_all.sh:311](file://scripts/run_all.sh#L311-L338)
 - [run_llama_llm.sh:74](file://scripts/run_llama_llm.sh#L74-L78)
 - [instructed_embeddings.py:22](file://packages/rag_service/src/cafetera_rag_service/rag/instructed_embeddings.py#L22-L23)
+- [troubleshooting.md:214](file://docs/troubleshooting.md#L214-L216)
+- [troubleshooting.md:243](file://docs/troubleshooting.md#L243-L257)
 
 ## Best Practices
 
@@ -492,6 +607,16 @@ Common issues and solutions for LLM providers configuration:
 2. **Production Deployment**: Consider OpenAI for highest quality with proper SLA
 3. **Resource-Constrained**: Use llama.cpp with appropriate GPU acceleration
 4. **Mixed Strategy**: Use different providers for LLM and embeddings based on requirements
+
+### llama.cpp Embedding Server Best Practices
+
+**Updated** New best practices for llama.cpp embedding server configuration:
+
+1. **Optimize Chunk Size**: Start with EMBEDDING_CHUNK_SIZE=16 and adjust based on memory constraints
+2. **Monitor Context Size**: Ensure EMBED_CTX_SIZE >= EMBEDDING_CHUNK_SIZE × max_tokens_per_chunk
+3. **Select Proper Pooling**: Use EMBED_POOLING=last for Qwen3-Embedding models
+4. **Configure GPU Layers**: Set EMBED_N_GPU_LAYERS appropriately for your hardware
+5. **Enable Historical Compatibility**: Ensure check_embedding_ctx_length=False for llama.cpp embedding servers
 
 ### Instructed Embeddings Best Practices
 
@@ -514,7 +639,8 @@ Common issues and solutions for LLM providers configuration:
 1. **GPU Utilization**: Enable GPU acceleration when available
 2. **Context Window**: Adjust context sizes based on model capabilities
 3. **Batch Processing**: Optimize batch sizes for embedding generation
-4. **Caching**: Implement result caching for repeated queries
+4. **Memory Management**: Monitor and tune memory usage for embedding servers
+5. **Caching**: Implement result caching for repeated queries
 
 ### Monitoring and Maintenance
 
@@ -527,15 +653,17 @@ Common issues and solutions for LLM providers configuration:
 
 The LLM Providers Configuration system provides a robust, flexible framework for deploying AI models across different providers and environments. The system's modular design allows teams to optimize for their specific requirements while maintaining consistency and reliability.
 
-**Updated** Recent enhancements include comprehensive instructed embeddings support for Qwen3/E5-instruct families, providing asymmetric query-side instruction requirements that significantly improve retrieval performance for modern embedding models.
+**Updated** Recent enhancements include comprehensive llama.cpp embedding server configuration with proper chunk size parameter passing, historical tokenization compatibility fixes, and detailed troubleshooting guidance for embedding server optimization.
 
 Key strengths of the configuration system include:
 
 - **Multi-provider Support**: Seamless switching between Ollama, OpenAI, and llama.cpp
 - **Flexible Deployment**: Support for local development and production environments
 - **Advanced Embeddings**: Asymmetric query-side instruction support for modern models
+- **llama.cpp Optimization**: Comprehensive embedding server configuration with chunk size management
+- **Historical Compatibility**: Tokenization compatibility fixes for seamless integration
 - **Comprehensive Testing**: Thorough validation of configuration scenarios
 - **Automated Management**: Scripts handle service lifecycle and dependency management
 - **Extensible Architecture**: Foundation for adding new providers and configurations
 
-The system's design enables organizations to start with the simplest configuration (Ollama) and scale to production-grade deployments with OpenAI or custom llama.cpp setups as requirements evolve. The addition of instructed embeddings configuration ensures optimal performance for modern embedding models while maintaining backward compatibility with traditional embedding approaches.
+The system's design enables organizations to start with the simplest configuration (Ollama) and scale to production-grade deployments with OpenAI or custom llama.cpp setups as requirements evolve. The addition of instructed embeddings configuration and llama.cpp embedding server optimization ensures optimal performance for modern embedding models while maintaining backward compatibility with traditional embedding approaches.

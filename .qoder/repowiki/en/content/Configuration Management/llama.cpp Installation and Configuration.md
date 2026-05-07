@@ -12,7 +12,17 @@
 - [pyproject.toml](file://pyproject.toml)
 - [packages/rag_service/pyproject.toml](file://packages/rag_service/pyproject.toml)
 - [packages/rag_service/src/cafetera_rag_service/rag/chain.py](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py)
+- [.env.example](file://.env.example)
+- [troubleshooting.md](file://docs/troubleshooting.md)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Added comprehensive embedding server configuration documentation
+- Updated pooling modes section with detailed EMBED_POOLING configuration
+- Added mathematical relationships between EMBED_CTX_SIZE, EMBEDDING_CHUNK_SIZE, and maximum tokens per chunk
+- Included practical formulas for different deployment scenarios
+- Enhanced troubleshooting section with specific memory management guidance
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -239,6 +249,71 @@ Each server accepts specific configuration parameters:
 - [run_llama_embeddings.sh:45-51](file://scripts/run_llama_embeddings.sh#L45-L51)
 - [run_llama_reranker.sh:44-49](file://scripts/run_llama_reranker.sh#L44-L49)
 
+## Comprehensive Embedding Server Configuration
+
+### Pooling Modes (EMBED_POOLING)
+
+Embedding models transform text into numerical vectors by processing the entire text and compressing it into a single point through a process called **pooling**. Different models are trained to look at different parts of the text:
+
+| Model Family | Required Mode (`EMBED_POOLING`) | What It Does |
+| --- | --- | --- |
+| **Qwen3-Embedding** | `last` | Uses the last token — this matches how the model was trained |
+| nomic-embed-text | `mean` | Averages all tokens |
+| BGE / E5 | `cls` | Uses the first special token (CLS token) |
+
+**Analogy**: Think of the model as a student reading text and writing a summary. Pooling is "where they place the period". If you tell them to put the period in the wrong place, the summary becomes meaningless.
+
+**Section sources**
+- [llamacpp.md:114-118](file://docs/llamacpp.md#L114-L118)
+- [.env.example:136-140](file://.env.example#L136-L140)
+
+### Mathematical Relationships and Formulas
+
+The second critical configuration is **EMBED_CTX_SIZE** (the server's "working memory"). During document indexing, the server processes multiple texts simultaneously in batches. The mathematical relationship is:
+
+```
+EMBED_CTX_SIZE ≥ EMBEDDING_CHUNK_SIZE × maximální počet tokenů
+```
+
+Where:
+- **EMBED_CTX_SIZE**: KV-cache size for the embedding server
+- **EMBEDDING_CHUNK_SIZE**: Number of texts processed in each batch
+- **maximální počet tokenů**: Maximum tokens per chunk (typically 512)
+
+Default configuration: `8192 ≥ 16 × 512` — sufficient with margin. If memory is insufficient, the server will crash with a SIGTRAP error.
+
+**Practical Formulas for Different Scenarios**:
+
+**Memory-Constrained Systems**:
+```
+EMBED_CTX_SIZE = EMBEDDING_CHUNK_SIZE × maximální počet tokenů
+```
+
+**High-Throughput Systems**:
+```
+EMBEDDING_CHUNK_SIZE = floor(EMBED_CTX_SIZE / maximální počet tokenů)
+```
+
+**Section sources**
+- [llamacpp.md:122-126](file://docs/llamacpp.md#L122-L126)
+- [.env.example:58-61](file://.env.example#L58-L61)
+- [.env.example:130-134](file://.env.example#L130-L134)
+
+### Configuration Variables
+
+Key environment variables for embedding server configuration:
+
+```bash
+EMBED_POOLING=last           # pooling mode (last/mean/cls)
+EMBED_CTX_SIZE=8192          # KV-cache size for embedding server
+EMBEDDING_CHUNK_SIZE=16      # number of texts per batch
+EMBED_UBATCH_SIZE=2048       # micro-batch size
+```
+
+**Section sources**
+- [llamacpp.md:132-138](file://docs/llamacpp.md#L132-L138)
+- [.env.example:130-140](file://.env.example#L130-L140)
+
 ## Reranker Configuration
 
 ### Reranking System Overview
@@ -458,6 +533,23 @@ system_profiler SPDisplaysDataType  # For Apple Silicon
 # Force CPU fallback
 LLM_N_GPU_LAYERS=0 bash scripts/run_llama_llm.sh
 ```
+
+### Embedding Server Memory Issues
+
+#### KV Cache Overflow Error
+**Symptoms**: Embedding server crashes with SIGTRAP error during indexing
+**Cause**: Server lacks sufficient "working memory" (KV-cache) to process all texts in a batch simultaneously. Need: `EMBED_CTX_SIZE ≥ EMBEDDING_CHUNK_SIZE × 512`.
+
+**Solutions (choose one)**:
+
+- **Increase memory**: Set `EMBED_CTX_SIZE=16384` in `.env`
+- **Decrease batch size**: Set `EMBEDDING_CHUNK_SIZE=8` in `.env`
+
+After making changes, restart the embedding server: `bash scripts/run_llama_embeddings.sh`
+
+**Section sources**
+- [troubleshooting.md:247-257](file://docs/troubleshooting.md#L247-L257)
+- [llamacpp.md:128](file://docs/llamacpp.md#L128)
 
 ### Performance Optimization
 

@@ -94,6 +94,10 @@ load_env_var() {
 HEALTH_RETRIES="${HEALTH_RETRIES:-30}"
 HEALTH_INTERVAL="${HEALTH_INTERVAL:-2}"
 
+# Longer timeout for llama.cpp servers (models may need to download first)
+LLAMACPP_HEALTH_RETRIES="${LLAMACPP_HEALTH_RETRIES:-300}"
+LLAMACPP_HEALTH_INTERVAL="${LLAMACPP_HEALTH_INTERVAL:-3}"
+
 wait_for_service() {
   local name="$1"
   local url="$2"
@@ -564,7 +568,8 @@ start_llamacpp_providers() {
         log "Starting llamacpp LLM server in background..."
         "$script_dir/run_llama_llm.sh" >/tmp/llama_llm.log 2>&1 &
         BG_PIDS+=("$!")
-        if ! wait_for_service "llamacpp LLM" "$llamacpp_llm_url" 30 2; then
+        log "Waiting for llamacpp LLM server (model may be downloading)..."
+        if ! wait_for_service "llamacpp LLM" "$llamacpp_llm_url" "$LLAMACPP_HEALTH_RETRIES" "$LLAMACPP_HEALTH_INTERVAL"; then
           log "ERROR: llamacpp LLM server failed to start. Check /tmp/llama_llm.log"
           exit 1
         fi
@@ -593,7 +598,8 @@ start_llamacpp_providers() {
         log "Starting llamacpp embedding server in background..."
         "$script_dir/run_llama_embeddings.sh" >/tmp/llama_embed.log 2>&1 &
         BG_PIDS+=("$!")
-        if ! wait_for_service "llamacpp Embedding" "$llamacpp_embed_url" 30 2; then
+        log "Waiting for llamacpp embedding server (model may be downloading)..."
+        if ! wait_for_service "llamacpp Embedding" "$llamacpp_embed_url" "$LLAMACPP_HEALTH_RETRIES" "$LLAMACPP_HEALTH_INTERVAL"; then
           log "ERROR: llamacpp embedding server failed to start. Check /tmp/llama_embed.log"
           exit 1
         fi
@@ -639,7 +645,8 @@ start_reranker_if_needed() {
       log "Starting reranker server in background..."
       "$project_dir/scripts/run_llama_reranker.sh" >/tmp/llama_reranker.log 2>&1 &
       BG_PIDS+=("$!")
-      if ! wait_for_service "Reranker" "${reranker_url}/health" 60 2; then
+      log "Waiting for reranker server (model may be downloading)..."
+      if ! wait_for_service "Reranker" "${reranker_url}/health" "$LLAMACPP_HEALTH_RETRIES" "$LLAMACPP_HEALTH_INTERVAL"; then
         log "ERROR: Reranker failed to start. Check /tmp/llama_reranker.log"
         exit 1
       fi

@@ -6,22 +6,21 @@
 - [evaluate_retrieval.py](file://ragas/evaluate_retrieval.py)
 - [generate_testset.py](file://ragas/generate_testset.py)
 - [run.sh](file://ragas/run.sh)
-- [ragas.md](file://docs/ragas.md)
-- [pyproject.toml](file://pyproject.toml)
-- [docker-compose.yml](file://docker-compose.yml)
 - [config.py](file://packages/rag_service/src/cafetera_rag_service/config.py)
 - [resources.py](file://packages/rag_service/src/cafetera_rag_service/resources.py)
 - [chain.py](file://packages/rag_service/src/cafetera_rag_service/rag/chain.py)
 - [retriever.py](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py)
+- [pyproject.toml](file://pyproject.toml)
 </cite>
 
 ## Update Summary
 **Changes Made**
-- Added comprehensive documentation for the new standalone retrieval evaluation system
-- Updated architecture diagrams to include the SberQuAD benchmark workflow
-- Enhanced troubleshooting guide with retrieval-specific issues
-- Added new section covering offline retrieval evaluation capabilities
-- Updated dependency analysis to include datasets and pandas libraries
+- Updated to reflect major architectural improvements in RAGAS evaluation system
+- Pipelined processing model replacing two-phase approach for memory efficiency
+- Enhanced LLM endpoint resolution with per-metric token budgeting
+- Improved resource management with automatic cleanup and graceful degradation
+- Enhanced embedding configuration with chunk size support
+- Added comprehensive retrieval evaluation capabilities with SberQuAD benchmark
 
 ## Table of Contents
 1. [Introduction](#introduction)
@@ -38,9 +37,9 @@
 
 The RAGAS Quality Evaluation Framework is a comprehensive automated testing system designed to evaluate the quality of Retrieval-Augmented Generation (RAG) pipelines. This framework provides four key quality metrics: Faithfulness, Context Precision, Answer Relevancy, and Context Recall, enabling teams to quantitatively assess their AI-powered chatbot's performance.
 
-**Enhanced** The framework now supports both full RAG evaluation and isolated retrieval evaluation workflows. The new retrieval evaluation system provides standalone evaluation capabilities using the SberQuAD benchmark, allowing teams to test retrieval quality independently of the generation component.
+**Enhanced** The framework now operates on a pipelined processing model that replaces the previous two-phase approach, providing significant memory efficiency improvements. The new architecture features per-metric token budgeting, enhanced LLM endpoint resolution for different providers, and comprehensive resource management with automatic cleanup capabilities.
 
-The framework operates on a dual-phase approach: first generating synthetic test datasets from existing document collections, then systematically evaluating the RAG pipeline against these test cases using industry-standard metrics. Additionally, it supports offline retrieval evaluation using public benchmarks for comprehensive quality assessment.
+The framework supports both full RAG evaluation and isolated retrieval evaluation workflows. The retrieval evaluation system provides standalone assessment capabilities using the SberQuAD benchmark, allowing teams to test retrieval quality independently of the generation component.
 
 ## Project Structure
 
@@ -88,74 +87,83 @@ RETEVAL --> PANDAS
 ```
 
 **Diagram sources**
-- [run.sh:1-250](file://ragas/run.sh#L1-L250)
-- [evaluate.py:1-387](file://ragas/evaluate.py#L1-L387)
-- [evaluate_retrieval.py:1-597](file://ragas/evaluate_retrieval.py#L1-L597)
-- [generate_testset.py:1-333](file://ragas/generate_testset.py#L1-L333)
+- [run.sh:1-291](file://ragas/run.sh#L1-L291)
+- [evaluate.py:1-470](file://ragas/evaluate.py#L1-L470)
+- [evaluate_retrieval.py:1-658](file://ragas/evaluate_retrieval.py#L1-L658)
+- [generate_testset.py:1-344](file://ragas/generate_testset.py#L1-L344)
 
 The framework consists of four primary modules working in coordination:
 
 - **run.sh**: The main orchestrator script that manages the entire evaluation workflow, handles provider selection, and coordinates between generation, evaluation, and retrieval phases
 - **generate_testset.py**: Creates synthetic test datasets by extracting document chunks from Qdrant and generating question-answer pairs using the configured LLM
-- **evaluate.py**: Executes the complete RAG pipeline against test cases and computes quality metrics using the RAGAS library
+- **evaluate.py**: Executes the complete RAG pipeline against test cases using a pipelined processing model with per-metric token budgeting and memory-efficient evaluation
 - **evaluate_retrieval.py**: Provides standalone retrieval evaluation using the SberQuAD benchmark with temporary Qdrant containers
 
 **Section sources**
-- [run.sh:1-250](file://ragas/run.sh#L1-L250)
-- [evaluate.py:1-387](file://ragas/evaluate.py#L1-L387)
-- [evaluate_retrieval.py:1-597](file://ragas/evaluate_retrieval.py#L1-L597)
-- [generate_testset.py:1-333](file://ragas/generate_testset.py#L1-L333)
+- [run.sh:1-291](file://ragas/run.sh#L1-L291)
+- [evaluate.py:365-452](file://ragas/evaluate.py#L365-L452)
+- [evaluate_retrieval.py:569-646](file://ragas/evaluate_retrieval.py#L569-L646)
+- [generate_testset.py:231-326](file://ragas/generate_testset.py#L231-L326)
 
 ## Core Components
 
-### Testset Generation Engine
+### Pipelined Processing Engine
 
-The testset generation component serves as the foundation for quality evaluation by creating realistic scenarios from existing document collections. It connects to Qdrant, extracts document chunks, and leverages the configured LLM to generate synthetic question-answer pairs.
+**Updated** The evaluation engine now implements a memory-efficient pipelined processing model that processes samples sequentially rather than loading all results into memory simultaneously. This approach provides significant memory savings and crash resilience.
 
 Key capabilities include:
-- **Chunk Extraction**: Scrolling through entire Qdrant collections to gather document fragments
-- **Knowledge Graph Construction**: Building structured representations of document content for intelligent question generation
-- **Synthetic Data Creation**: Generating contextually relevant questions with appropriate answers
-- **Quality Filtering**: Implementing NaN-safe execution to handle local LLM limitations
+- **Sequential Processing**: Each sample is processed, scored, and immediately discarded from memory
+- **Checkpoint Persistence**: Results are saved to disk after each sample to prevent data loss
+- **Memory Optimization**: Large strings and context arrays are released immediately after scoring
+- **Crash Recovery**: Partial results are preserved even if the evaluation is interrupted
 
-### RAG Pipeline Evaluator
+### Enhanced LLM Endpoint Resolution
 
-The evaluation engine executes the complete RAG workflow against generated test cases, measuring performance across four critical dimensions:
+**Updated** The framework now features sophisticated LLM endpoint resolution with per-metric token budgeting:
 
-**Faithfulness Metric**: Verifies factual accuracy by decomposing responses into statements and checking against retrieved context
-**Context Precision**: Measures relevance of retrieved documents using position-weighted precision calculations  
-**Answer Relevancy**: Ensures responses address the specific query using semantic similarity comparisons
-**Context Recall**: Validates completeness of retrieved information against reference answers
+- **Provider Abstraction**: Supports OpenAI, Ollama, and llama.cpp through unified interfaces
+- **Per-Metric Budgeting**: Different token limits for Faithfulness (65536) vs other metrics (4096)
+- **Backend-Specific Tuning**: Automatic adjustment of generation caps for different providers
+- **Connection Pooling**: Shared AsyncOpenAI clients across multiple metrics for efficiency
 
-### Standalone Retrieval Evaluator
+### Comprehensive Retrieval Evaluation System
 
 **New Feature** The retrieval evaluation system provides independent assessment of retrieval quality without requiring the generation component:
 
-**SberQuAD Benchmark Integration**: Loads the SberQuAD dataset from HuggingFace for comprehensive evaluation
-**Temporary Qdrant Containers**: Automatically starts and manages temporary Qdrant instances for isolated testing
-**Offline Evaluation**: Supports evaluation without production data, using public benchmarks
-**Comprehensive Metrics**: Computes MRR, NDCG, Hit Rate, Recall, and Precision metrics
-**Model Comparison**: Enables comparison of different embedding models and retrieval configurations
+- **SberQuAD Benchmark Integration**: Loads the SberQuAD dataset from HuggingFace for comprehensive evaluation
+- **Temporary Qdrant Containers**: Automatically starts and manages temporary Qdrant instances for isolated testing
+- **Offline Evaluation**: Supports evaluation without production data, using public benchmarks
+- **Comprehensive Metrics**: Computes MRR, NDCG, Hit Rate, Recall, and Precision metrics
+- **Model Comparison**: Enables comparison of different embedding models and retrieval configurations
 
-### Resource Management System
+### Enhanced Resource Management
 
-The framework integrates seamlessly with the broader RAG service infrastructure through a sophisticated resource management system that handles:
+**Updated** The framework integrates seamlessly with the broader RAG service infrastructure through a sophisticated resource management system that handles graceful degradation and automatic cleanup:
 
 - **Provider Abstraction**: Supporting OpenAI, Ollama, and llama.cpp through unified interfaces
+- **Graceful Degradation**: Resources are initialized with fallback mechanisms when services are unavailable
+- **Automatic Cleanup**: Comprehensive cleanup of all resources with try/except blocks for error handling
 - **Connection Pooling**: Efficient management of database and API connections
-- **Configuration Management**: Centralized settings for all external service integrations
-- **Lifecycle Management**: Proper initialization and cleanup of all resources
+
+### Advanced Embedding Configuration
+
+**Updated** Enhanced embedding configuration with chunk size support and provider-specific optimizations:
+
+- **Chunk Size Control**: Configurable embedding chunk sizes for memory optimization
+- **Provider-Specific Tuning**: Different embedding configurations for OpenAI, Ollama, and llama.cpp
+- **Query Instruction Support**: Optional query instruction formatting for asymmetric embeddings
+- **FastEmbed Integration**: Optimized sparse embeddings for BM25 retrieval
 
 **Section sources**
-- [generate_testset.py:220-315](file://ragas/generate_testset.py#L220-L315)
-- [evaluate.py:178-295](file://ragas/evaluate.py#L178-L295)
-- [evaluate_retrieval.py:136-153](file://ragas/evaluate_retrieval.py#L136-L153)
-- [evaluate_retrieval.py:524-587](file://ragas/evaluate_retrieval.py#L524-L587)
-- [resources.py:1-200](file://packages/rag_service/src/cafetera_rag_service/resources.py#L1-L200)
+- [evaluate.py:365-452](file://ragas/evaluate.py#L365-L452)
+- [evaluate.py:125-224](file://ragas/evaluate.py#L125-L224)
+- [evaluate_retrieval.py:569-646](file://ragas/evaluate_retrieval.py#L569-L646)
+- [resources.py:202-301](file://packages/rag_service/src/cafetera_rag_service/resources.py#L202-L301)
+- [retriever.py:221-277](file://packages/rag_service/src/cafetera_rag_service/rag/retriever.py#L221-L277)
 
 ## Architecture Overview
 
-The RAGAS evaluation framework employs a modular architecture that separates concerns between data generation, pipeline execution, and quality assessment:
+The RAGAS evaluation framework employs a modern pipelined architecture that separates concerns between data generation, pipeline execution, and quality assessment:
 
 ```mermaid
 sequenceDiagram
@@ -174,10 +182,14 @@ Generator->>Qdrant : Extract document chunks
 Generator->>LLM : Generate question-answer pairs
 Generator-->>Runner : Save testset.json
 Runner->>Evaluator : Evaluate pipeline
-Evaluator->>RAG : Process test cases
+Evaluator->>RAG : Process sample 1
 RAG->>Qdrant : Retrieve relevant context
-RAG->>LLM : Generate responses
-Evaluator->>Evaluator : Calculate metrics
+RAG->>LLM : Generate response
+Evaluator->>Evaluator : Score sample 1
+Evaluator->>Evaluator : Discard sample 1
+Evaluator->>RAG : Process sample 2
+Evaluator->>Evaluator : Score sample 2
+Evaluator->>Evaluator : Discard sample 2
 Evaluator-->>Runner : Output scores.json
 Runner->>RetEvaluator : Evaluate retrieval
 RetEvaluator->>SberQuAD : Load benchmark dataset
@@ -190,24 +202,22 @@ Runner-->>User : Display evaluation results
 ```
 
 **Diagram sources**
-- [run.sh:220-249](file://ragas/run.sh#L220-L249)
-- [generate_testset.py:220-315](file://ragas/generate_testset.py#L220-L315)
-- [evaluate.py:339-387](file://ragas/evaluate.py#L339-L387)
-- [evaluate_retrieval.py:524-587](file://ragas/evaluate_retrieval.py#L524-L587)
+- [run.sh:253-290](file://ragas/run.sh#L253-L290)
+- [evaluate.py:365-452](file://ragas/evaluate.py#L365-L452)
+- [evaluate_retrieval.py:569-646](file://ragas/evaluate_retrieval.py#L569-L646)
 
-The architecture ensures clean separation of responsibilities while maintaining efficient data flow between components. Each module can be executed independently, allowing for flexible testing workflows and targeted debugging. The addition of standalone retrieval evaluation provides comprehensive coverage for both generation and retrieval quality assessment.
+The architecture ensures clean separation of responsibilities while maintaining efficient data flow between components. The pipelined processing model eliminates memory bottlenecks by processing samples sequentially, while the enhanced resource management provides robust error handling and automatic cleanup.
 
 **Section sources**
-- [run.sh:1-250](file://ragas/run.sh#L1-L250)
-- [evaluate.py:339-387](file://ragas/evaluate.py#L339-L387)
-- [evaluate_retrieval.py:524-587](file://ragas/evaluate_retrieval.py#L524-L587)
-- [generate_testset.py:220-315](file://ragas/generate_testset.py#L220-L315)
+- [run.sh:253-290](file://ragas/run.sh#L253-L290)
+- [evaluate.py:365-452](file://ragas/evaluate.py#L365-L452)
+- [evaluate_retrieval.py:569-646](file://ragas/evaluate_retrieval.py#L569-L646)
 
 ## Detailed Component Analysis
 
-### Testset Generation Workflow
+### Pipelined Testset Generation Workflow
 
-The testset generation process follows a sophisticated multi-stage approach designed to create high-quality synthetic evaluation data:
+**Updated** The testset generation process follows an enhanced sequential approach designed to create high-quality synthetic evaluation data with improved error handling:
 
 ```mermaid
 flowchart TD
@@ -226,47 +236,48 @@ SaveResults --> End([Generation Complete])
 ```
 
 **Diagram sources**
-- [generate_testset.py:220-315](file://ragas/generate_testset.py#L220-L315)
+- [generate_testset.py:231-326](file://ragas/generate_testset.py#L231-L326)
 
 The workflow begins with establishing connections to Qdrant and extracting all document chunks. Each chunk is processed through a knowledge graph construction phase where transformations are applied to prepare the content for question generation. The system then generates synthetic question-answer pairs using the configured LLM, implementing safety measures to handle potential NaN values from local LLM execution.
 
 **Section sources**
 - [generate_testset.py:51-88](file://ragas/generate_testset.py#L51-L88)
-- [generate_testset.py:257-285](file://ragas/generate_testset.py#L257-L285)
-- [generate_testset.py:295-309](file://ragas/generate_testset.py#L295-L309)
+- [generate_testset.py:268-290](file://ragas/generate_testset.py#L268-L290)
+- [generate_testset.py:306-326](file://ragas/generate_testset.py#L306-L326)
 
-### Quality Evaluation Pipeline
+### Memory-Efficient Quality Evaluation Pipeline
 
-The evaluation phase systematically processes each test case through the complete RAG pipeline while computing multiple quality metrics:
+**Updated** The evaluation phase implements a pipelined processing model that processes each test case sequentially for optimal memory usage:
 
 ```mermaid
 flowchart TD
 LoadTestset["Load testset.json"] --> InitializeResources["Initialize RAG Resources"]
 InitializeResources --> BuildQAService["Build QA Service"]
-BuildQAService --> ProcessSamples["Process Each Sample"]
+BuildQAService --> ProcessSamples["Process Each Sample Sequentially"]
 ProcessSamples --> AskQuestion["Ask Question Through RAG"]
 AskQuestion --> CollectContexts["Collect Retrieved Contexts"]
 CollectContexts --> ComputeMetrics["Compute RAGAS Metrics"]
-ComputeMetrics --> Faithfulness["Faithfulness Score"]
-ComputeMetrics --> ContextPrecision["Context Precision Score"]
-ComputeMetrics --> AnswerRelevancy["Answer Relevancy Score"]
-ComputeMetrics --> ContextRecall["Context Recall Score"]
-Faithfulness --> AggregateResults["Aggregate Results"]
-ContextPrecision --> AggregateResults
-AnswerRelevancy --> AggregateResults
-ContextRecall --> AggregateResults
-AggregateResults --> SaveScores["Save scores.json"]
-SaveScores --> DisplaySummary["Display Summary"]
+ComputeMetrics --> Faithfulness["Faithfulness Score (Heavy Budget)"]
+ComputeMetrics --> ContextPrecision["Context Precision Score (Light Budget)"]
+ComputeMetrics --> AnswerRelevancy["Answer Relevancy Score (Light Budget)"]
+ComputeMetrics --> ContextRecall["Context Recall Score (Light Budget)"]
+Faithfulness --> SaveCheckpoint["Save Checkpoint to Disk"]
+ContextPrecision --> SaveCheckpoint
+AnswerRelevancy --> SaveCheckpoint
+ContextRecall --> SaveCheckpoint
+SaveCheckpoint --> DiscardMemory["Discard Sample from Memory"]
+DiscardMemory --> NextSample["Process Next Sample"]
+NextSample --> ProcessSamples
 ```
 
 **Diagram sources**
-- [evaluate.py:178-295](file://ragas/evaluate.py#L178-L295)
+- [evaluate.py:365-452](file://ragas/evaluate.py#L365-L452)
 
-Each test case undergoes identical processing, ensuring consistent evaluation conditions. The system captures not only the final response but also the retrieved contexts, enabling comprehensive metric calculation. The evaluation supports both synchronous and asynchronous processing patterns depending on the underlying RAG service implementation.
+Each test case undergoes identical processing, ensuring consistent evaluation conditions. The system captures not only the final response but also the retrieved contexts, enabling comprehensive metric calculation. The pipelined approach processes samples sequentially, saving results to disk after each sample and immediately discarding the data from memory to prevent memory accumulation.
 
 **Section sources**
-- [evaluate.py:178-212](file://ragas/evaluate.py#L178-L212)
-- [evaluate.py:214-295](file://ragas/evaluate.py#L214-L295)
+- [evaluate.py:365-452](file://ragas/evaluate.py#L365-L452)
+- [evaluate.py:275-335](file://ragas/evaluate.py#L275-L335)
 
 ### Standalone Retrieval Evaluation System
 
@@ -287,30 +298,29 @@ StopTempQdrant --> EndRetEval["Evaluation Complete"]
 ```
 
 **Diagram sources**
-- [evaluate_retrieval.py:524-587](file://ragas/evaluate_retrieval.py#L524-L587)
+- [evaluate_retrieval.py:569-646](file://ragas/evaluate_retrieval.py#L569-L646)
 
 The retrieval evaluation system operates independently of the generation component, using the SberQuAD benchmark to provide objective assessment of retrieval quality. It automatically manages temporary Qdrant containers, indexes benchmark contexts, and computes comprehensive retrieval metrics including MRR, NDCG, Hit Rate, Recall, and Precision.
 
 **Section sources**
-- [evaluate_retrieval.py:136-153](file://ragas/evaluate_retrieval.py#L136-L153)
-- [evaluate_retrieval.py:524-587](file://ragas/evaluate_retrieval.py#L524-L587)
+- [evaluate_retrieval.py:569-646](file://ragas/evaluate_retrieval.py#L569-L646)
 
-### Provider Configuration Management
+### Enhanced Provider Configuration Management
 
-The framework supports multiple language model providers through a unified configuration system:
+**Updated** The framework supports multiple language model providers through an enhanced configuration system with per-metric token budgeting:
 
-| Provider | Base URL Pattern | Authentication | Special Considerations |
-|----------|------------------|----------------|----------------------|
-| OpenAI | `{base_url}/v1` | API Key Required | Production-grade reliability |
-| Ollama | `{base_url}/v1` | API Key: "ollama" | Local deployment support |
-| llama.cpp | `{base_url}/v1` | API Key: "no-key" | Custom server deployment |
+| Provider | Base URL Pattern | Authentication | Token Budgeting | Special Considerations |
+|----------|------------------|----------------|-----------------|----------------------|
+| OpenAI | `{base_url}` | API Key Required | Standard Limits | Production-grade reliability |
+| Ollama | `{base_url}` | API Key: "ollama" | Standard Limits | Local deployment support |
+| llama.cpp | `{base_url}/v1` | API Key: "no-key" | Extended Limits | Custom server deployment |
 
-The configuration system automatically adapts LLM parameters based on provider capabilities, including context window sizing and token limits. This abstraction enables seamless switching between different deployment environments without code changes.
+The configuration system automatically adapts LLM parameters based on provider capabilities, including context window sizing and token limits. The per-metric budgeting ensures that Faithfulness scoring receives adequate token allocation for complex NER extraction while other metrics use conservative limits to optimize memory usage.
 
 **Section sources**
-- [evaluate.py:117-153](file://ragas/evaluate.py#L117-L153)
-- [evaluate_retrieval.py:531](file://ragas/evaluate_retrieval.py#L531)
-- [generate_testset.py:113-155](file://ragas/generate_testset.py#L113-L155)
+- [evaluate.py:125-224](file://ragas/evaluate.py#L125-L224)
+- [evaluate_retrieval.py:569-646](file://ragas/evaluate_retrieval.py#L569-L646)
+- [generate_testset.py:113-144](file://ragas/generate_testset.py#L113-L144)
 
 ## Dependency Analysis
 
@@ -349,13 +359,13 @@ VK_BOT --> RAGAS
 ```
 
 **Diagram sources**
-- [pyproject.toml:9-25](file://pyproject.toml#L9-L25)
-- [pyproject.toml:41-46](file://pyproject.toml#L41-L46)
+- [pyproject.toml:9-26](file://pyproject.toml#L9-L26)
+- [pyproject.toml:40-48](file://pyproject.toml#L40-L48)
 
 The dependency structure reflects a clean separation between evaluation-specific requirements and the broader application ecosystem. The framework relies on established libraries for robust functionality while maintaining compatibility with the larger system architecture. The addition of datasets and pandas libraries enables comprehensive retrieval evaluation capabilities.
 
 **Section sources**
-- [pyproject.toml:1-79](file://pyproject.toml#L1-L79)
+- [pyproject.toml:1-80](file://pyproject.toml#L1-L80)
 
 ## Performance Considerations
 
@@ -363,32 +373,32 @@ The RAGAS evaluation framework is designed with performance optimization in mind
 
 ### Memory Management
 
-The framework implements several memory optimization strategies:
-- **Streaming Data Processing**: Uses iterative scrolling for large Qdrant collections
-- **Resource Cleanup**: Automatic cleanup of database connections and API clients
-- **Batch Processing**: Efficient handling of document chunks during testset generation
-- **Temporary Container Management**: Automatic cleanup of temporary Qdrant containers in retrieval evaluation
+**Updated** The framework implements several memory optimization strategies through its pipelined processing model:
+- **Sequential Processing**: Each sample is processed and immediately discarded from memory
+- **Checkpoint Persistence**: Results are saved to disk after each sample to prevent data loss
+- **Automatic Cleanup**: Comprehensive cleanup of database connections and API clients
+- **Resource Pooling**: Shared AsyncOpenAI clients across multiple metrics reduce memory overhead
 
-### Execution Optimization
+### Enhanced Execution Optimization
 
-Performance improvements include:
-- **Parallel Processing**: Asynchronous execution for concurrent test case evaluation
-- **Caching Strategies**: Intelligent reuse of embeddings and model responses
-- **Timeout Management**: Configurable timeouts for external service calls
-- **Concurrent Retrieval**: Parallel processing of retrieval queries in standalone evaluation
+**Updated** Performance improvements include:
+- **Per-Metric Token Budgeting**: Different token limits for Faithfulness (65536) vs other metrics (4096)
+- **Connection Pooling**: Shared AsyncOpenAI clients across LLM and embeddings
+- **Graceful Degradation**: Resources are initialized with fallback mechanisms when services are unavailable
+- **Efficient Batch Processing**: Optimized handling of document chunks during testset generation
 
 ### Scalability Features
 
-The framework scales effectively across different deployment scenarios:
+**Updated** The framework scales effectively across different deployment scenarios:
 - **Containerized Deployment**: Full Docker Compose support for consistent environments
-- **Environment Abstraction**: Unified configuration system supporting multiple providers
-- **Modular Design**: Independent execution of generation, evaluation, and retrieval phases
-- **Benchmark Independence**: Standalone evaluation capability reduces production data dependencies
+- **Enhanced Environment Abstraction**: Unified configuration system supporting multiple providers
+- **Pipelined Design**: Sequential processing eliminates memory bottlenecks
+- **Robust Error Handling**: Automatic cleanup and resource management prevent resource leaks
 
 **Section sources**
-- [generate_testset.py:51-88](file://ragas/generate_testset.py#L51-L88)
-- [evaluate.py:178-212](file://ragas/evaluate.py#L178-L212)
-- [evaluate_retrieval.py:569-572](file://ragas/evaluate_retrieval.py#L569-L572)
+- [evaluate.py:365-452](file://ragas/evaluate.py#L365-L452)
+- [evaluate.py:125-224](file://ragas/evaluate.py#L125-L224)
+- [resources.py:304-339](file://packages/rag_service/src/cafetera_rag_service/resources.py#L304-L339)
 
 ## Troubleshooting Guide
 
@@ -397,10 +407,10 @@ Common issues and their solutions when working with the RAGAS evaluation framewo
 ### Provider Configuration Issues
 
 **Problem**: LLM provider connection failures
-**Solution**: Verify provider URLs, API keys, and network connectivity. Check that the selected provider is properly initialized in the configuration system.
+**Solution**: Verify provider URLs, API keys, and network connectivity. Check that the selected provider is properly initialized in the configuration system. The enhanced endpoint resolution automatically handles provider-specific URL patterns and authentication.
 
 **Problem**: Embedding model loading errors  
-**Solution**: Ensure embedding models are available on the target provider. For local deployments, verify model files exist and are properly loaded.
+**Solution**: Ensure embedding models are available on the target provider. For local deployments, verify model files exist and are properly loaded. Check that the embedding chunk size configuration is appropriate for your model.
 
 ### Data Generation Problems
 
@@ -408,20 +418,20 @@ Common issues and their solutions when working with the RAGAS evaluation framewo
 **Solution**: Confirm that Qdrant contains indexed document chunks. Verify collection names and connection parameters. Check that the LLM has sufficient context for question generation.
 
 **Problem**: NaN values in testset generation
-**Solution**: The framework includes automatic NaN filtering. Increase testset size requests and verify LLM stability for local deployments.
+**Solution**: The framework includes automatic NaN filtering. The enhanced LLM configuration provides increased token budgets (65536) and reduced temperature (0.2) to minimize repetition loops that cause NaN values.
 
 ### Evaluation Pipeline Issues
 
-**Problem**: Timeout errors during evaluation
-**Solution**: Adjust timeout configurations for external services. Consider reducing testset size or optimizing LLM response times.
+**Problem**: Memory exhaustion during evaluation
+**Solution**: The pipelined processing model should prevent memory issues. If problems persist, verify that the evaluation is using the latest version with sequential processing. Check that checkpoint files are being written to disk.
 
 **Problem**: Inconsistent metric values across runs
-**Solution**: Ensure consistent embedding models are used. Verify deterministic LLM settings and stable provider configurations.
+**Solution**: Ensure consistent embedding models are used. Verify deterministic LLM settings and stable provider configurations. Check that the per-metric token budgeting is functioning correctly.
 
 ### Standalone Retrieval Evaluation Issues
 
 **Problem**: Temporary Qdrant container startup failures
-**Solution**: Verify Docker installation and permissions. Check that port 6333 is available and Docker daemon is running.
+**Solution**: Verify Docker installation and permissions. Check that port 6333 is available and Docker daemon is running. The enhanced cleanup mechanism ensures containers are properly terminated.
 
 **Problem**: SberQuAD dataset download errors
 **Solution**: Ensure internet connectivity and HuggingFace access. Check dataset availability and network restrictions.
@@ -432,19 +442,23 @@ Common issues and their solutions when working with the RAGAS evaluation framewo
 ### Resource Management
 
 **Problem**: Memory leaks or connection exhaustion
-**Solution**: Verify proper resource cleanup in all execution paths. Monitor resource usage during long-running evaluations.
+**Solution**: Verify proper resource cleanup in all execution paths. The enhanced cleanup mechanism automatically closes all resources including Qdrant clients, HTTP clients, and S3 storage. Monitor resource usage during long-running evaluations.
 
 **Section sources**
-- [generate_testset.py:168-188](file://ragas/generate_testset.py#L168-L188)
-- [evaluate.py:195-200](file://ragas/evaluate.py#L195-L200)
-- [evaluate_retrieval.py:534-101](file://ragas/evaluate_retrieval.py#L534-L101)
+- [evaluate.py:365-452](file://ragas/evaluate.py#L365-L452)
+- [resources.py:304-339](file://packages/rag_service/src/cafetera_rag_service/resources.py#L304-L339)
+- [evaluate_retrieval.py:569-646](file://ragas/evaluate_retrieval.py#L569-L646)
 
 ## Conclusion
 
-The RAGAS Quality Evaluation Framework provides a comprehensive solution for automated RAG pipeline assessment. By combining synthetic test generation with standardized quality metrics, it enables teams to quantitatively measure and improve their AI-powered chatbot performance.
+The RAGAS Quality Evaluation Framework provides a comprehensive solution for automated RAG pipeline assessment. By combining synthetic test generation with standardized quality metrics and implementing a memory-efficient pipelined processing model, it enables teams to quantitatively measure and improve their AI-powered chatbot performance.
 
-**Enhanced** The framework's addition of standalone retrieval evaluation capabilities using the SberQuAD benchmark significantly strengthens its utility by providing independent assessment of retrieval quality without requiring generation components. This dual approach enables comprehensive evaluation of both retrieval and generation aspects of RAG systems.
+**Enhanced** The framework's major architectural improvements include the transition to a pipelined processing model that eliminates memory bottlenecks, enhanced LLM endpoint resolution with per-metric token budgeting for optimal resource utilization, comprehensive resource management with automatic cleanup and graceful degradation, and enhanced embedding configuration with chunk size support for memory optimization.
+
+The framework's addition of standalone retrieval evaluation capabilities using the SberQuAD benchmark significantly strengthens its utility by providing independent assessment of retrieval quality without requiring generation components. This dual approach enables comprehensive evaluation of both retrieval and generation aspects of RAG systems.
 
 The framework's modular design, robust provider abstraction, and comprehensive error handling make it suitable for various deployment scenarios while maintaining high standards for evaluation accuracy. Its integration with the broader cafetera ecosystem demonstrates practical applicability in real-world applications.
 
 Through systematic evaluation and continuous monitoring, organizations can maintain high-quality AI assistants that consistently meet user expectations while adapting to evolving content and requirements. The inclusion of offline retrieval evaluation capabilities ensures that teams can thoroughly assess their retrieval systems even without access to production data.
+
+The enhanced memory efficiency, automatic resource management, and comprehensive error handling make this framework particularly suitable for production environments where reliability and resource optimization are critical concerns.

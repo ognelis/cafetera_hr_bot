@@ -3,6 +3,7 @@
 <cite>
 **Referenced Files in This Document**
 - [docs/troubleshooting.md](file://docs/troubleshooting.md)
+- [docs/llamacpp.md](file://docs/llamacpp.md)
 - [docker-compose.yml](file://docker-compose.yml)
 - [pyproject.toml](file://pyproject.toml)
 - [scripts/run_admin.sh](file://scripts/run_admin.sh)
@@ -10,6 +11,7 @@
 - [scripts/run_llama_embeddings.sh](file://scripts/run_llama_embeddings.sh)
 - [scripts/run_llama_llm.sh](file://scripts/run_llama_llm.sh)
 - [scripts/run_ollama_llm.sh](file://scripts/run_ollama_llm.sh)
+- [scripts/common.sh](file://scripts/common.sh)
 - [packages/rag_service/src/cafetera_rag_service/main.py](file://packages/rag_service/src/cafetera_rag_service/main.py)
 - [packages/admin/src/cafetera_admin/main.py](file://packages/admin/src/cafetera_admin/main.py)
 - [packages/vk_bot/src/cafetera_vk_bot/polling.py](file://packages/vk_bot/src/cafetera_vk_bot/polling.py)
@@ -210,6 +212,69 @@ ls -lh models/  # Model files check
 **Section sources**
 - [docs/troubleshooting.md:103-117](file://docs/troubleshooting.md#L103-L117)
 
+### Retrieval Evaluation MRR Near-Zero Results Diagnosis
+
+**Problem**: Retrieval evaluation produces MRR values close to zero (0.03-0.05) with llama.cpp embeddings.
+
+**Symptoms**: 
+- MRR@10 around 0.03-0.05 when EMBEDDING_PROVIDER=llamacpp
+- Same model through Ollama produces MRR around 0.82
+
+**Root Cause 1 - Incorrect EMBED_POOLING Configuration**:
+Each embedding model is trained to "look" at specific parts of text when compressing to vectors. If the pooling mode doesn't match what the model was trained on, results are meaningless.
+
+- Qwen3-Embedding requires EMBED_POOLING=last
+- Check value in .env and logs from scripts/run_llama_embeddings.sh
+
+**Root Cause 2 - Historical LangChain Tokenization Compatibility**:
+LangChain OpenAIEmbeddings historically split text using GPT-4 tokenizer (tiktoken) and sent token IDs instead of text. However, llama-server uses Qwen3 tokenizer - mismatched token IDs cause garbage input. This is fixed in the project code (check_embedding_ctx_length=False). Ensure you have the latest code version.
+
+**Quick Diagnostic - Direct Vector Comparison**:
+```bash
+# llama.cpp (port 8090)
+curl -s http://localhost:8090/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{"input": "Test text", "model": "qwen3-embedding"}' | python -c "
+import json, sys; d = json.load(sys.stdin)
+v = d['data'][0]['embedding'][:5]
+print(f'llama.cpp: {v}')
+"
+
+# ollama (port 11434)
+curl -s http://localhost:11434/api/embed \
+  -d '{"model": "qwen3-embedding", "input": "Test text"}' | python -c "
+import json, sys; d = json.load(sys.stdin)
+v = d['embeddings'][0][:5]
+print(f'ollama:   {v}')
+"
+```
+
+If numbers differ significantly - issue is with llama.cpp server configuration (see EMBED_POOLING above).
+
+**Section sources**
+- [docs/troubleshooting.md:202-240](file://docs/troubleshooting.md#L202-L240)
+- [docs/llamacpp.md:110-138](file://docs/llamacpp.md#L110-L138)
+
+### Memory-Related Crashes During Batch Embedding Operations
+
+**Problem**: Embedding server crashes during document indexing with SIGTRAP or "failed to find a KV cache slot" errors.
+
+**Symptoms**: Server failure when processing document batches.
+
+**Root Cause**: Server lacks sufficient "working memory" (KV cache) to handle all texts in a batch simultaneously.
+
+**Solution (Choose one)**:
+- Increase memory: EMBED_CTX_SIZE=16384 in .env
+- Decrease batch size: EMBEDDING_CHUNK_SIZE=8 in .env
+
+After changing, restart the embedding server: `bash scripts/run_llama_embeddings.sh`
+
+Formula and defaults reference: [docs/llamacpp.md, section 3.6](llamacpp.md#36-settings-for-the-embedding-server)
+
+**Section sources**
+- [docs/troubleshooting.md:243-256](file://docs/troubleshooting.md#L243-L256)
+- [docs/llamacpp.md:122-128](file://docs/llamacpp.md#L122-L128)
+
 ## VK Bot Integration Problems
 
 **Problem**: VK bot not responding in community groups despite proper configuration.
@@ -318,6 +383,27 @@ The project uses uv workspace management with specific Python version requiremen
 - [packages/rag_service/src/cafetera_rag_service/config.py](file://packages/rag_service/src/cafetera_rag_service/config.py)
 - [packages/admin/src/cafetera_admin/config.py](file://packages/admin/src/cafetera_admin/config.py)
 - [packages/vk_bot/src/cafetera_vk_bot/config.py](file://packages/vk_bot/src/cafetera_vk_bot/config.py)
+
+### Automatic llama.cpp Server Management
+
+**Problem**: Local llama.cpp embedding server not starting or not responding.
+
+**Diagnosis Steps**:
+1. Check if embedding provider is set to llamacpp
+2. Verify embedding base URL points to localhost
+3. Monitor background process startup
+4. Check service health endpoint
+
+**Automatic Management Features**:
+The system automatically starts llama.cpp embedding servers when:
+- EMBEDDING_PROVIDER=llamacpp
+- Embedding base URL is localhost
+- Server is not responding on port 8090
+
+Logs are written to /tmp/llama_embed.log and monitored for startup completion.
+
+**Section sources**
+- [scripts/common.sh:588-616](file://scripts/common.sh#L588-L616)
 
 ## Preventive Measures
 
