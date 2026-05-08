@@ -316,7 +316,7 @@ class TestLoadWithDocling:
         assert result.chunks[0].metadata["content_type"] == "table"
 
     def test_document_title_in_metadata_and_content(self, tmp_path: Path):
-        """Chunks include document_title in metadata and prepend title to content."""
+        """Chunks include document_title in metadata but NOT in page_content."""
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"%PDF-1.4 minimal")
         settings = _make_settings()
@@ -344,10 +344,10 @@ class TestLoadWithDocling:
 
         assert len(result.chunks) == 1
         doc = result.chunks[0]
-        # document_title in metadata
+        # document_title in metadata only
         assert doc.metadata["document_title"] == "TestDoc"
-        # Content is prepended with title
-        assert doc.page_content.startswith("[Документ: TestDoc]\n")
+        # Title is NOT prepended to page_content
+        assert "[Документ:" not in doc.page_content
         assert "Some meaningful content here" in doc.page_content
 
     def test_no_title_prepend_when_extracted_title_is_none(self, tmp_path: Path):
@@ -383,7 +383,7 @@ class TestLoadWithDocling:
         assert not doc.page_content.startswith("[Документ:")
 
     def test_headings_prefix_with_single_heading(self, tmp_path: Path):
-        """Chunks with headings get [Разделы: ...] prefix after document title."""
+        """Chunks with headings get [Разделы: ...] prefix as the first line."""
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"%PDF-1.4 minimal")
         settings = _make_settings()
@@ -412,8 +412,7 @@ class TestLoadWithDocling:
         assert len(result.chunks) == 1
         doc = result.chunks[0]
         lines = doc.page_content.split("\n")
-        assert lines[0] == "[Документ: TestDoc]"
-        assert lines[1] == "[Разделы: Introduction]"
+        assert lines[0] == "[Разделы: Introduction]"
         assert "Content under a heading" in doc.page_content
 
     def test_headings_prefix_with_multiple_headings(self, tmp_path: Path):
@@ -446,8 +445,7 @@ class TestLoadWithDocling:
         assert len(result.chunks) == 1
         doc = result.chunks[0]
         lines = doc.page_content.split("\n")
-        assert lines[0] == "[Документ: Manual]"
-        assert lines[1] == "[Разделы: Chapter 1 > Section 1.1 > Subsection A]"
+        assert lines[0] == "[Разделы: Chapter 1 > Section 1.1 > Subsection A]"
         assert "Deep nested content" in doc.page_content
 
     def test_no_headings_prefix_when_headings_empty(self, tmp_path: Path):
@@ -480,7 +478,8 @@ class TestLoadWithDocling:
         assert len(result.chunks) == 1
         doc = result.chunks[0]
         assert "[Разделы:" not in doc.page_content
-        assert doc.page_content.startswith("[Документ: TestDoc]\n")
+        assert "[Документ:" not in doc.page_content
+        assert doc.page_content == "Content with no heading context and long enough text"
 
     def test_table_chunk_with_headings(self, tmp_path: Path):
         """Table chunks also receive heading context when headings exist."""
@@ -512,15 +511,14 @@ class TestLoadWithDocling:
         assert len(result.chunks) == 1
         doc = result.chunks[0]
         lines = doc.page_content.split("\n")
-        assert lines[0] == "[Документ: Report]"
-        assert lines[1] == "[Разделы: Data Tables > Quarterly Results]"
+        assert lines[0] == "[Разделы: Data Tables > Quarterly Results]"
         assert "| Col1 | Col2 |" in doc.page_content
         assert doc.metadata["content_type"] == "table"
         # contextualize should NOT be called for table chunks
         chunker_instance.contextualize.assert_not_called()
 
-    def test_heading_ordering_title_then_headings_then_content(self, tmp_path: Path):
-        """Verify ordering: [Документ:] first, [Разделы:] second, content last."""
+    def test_heading_ordering_headings_then_content(self, tmp_path: Path):
+        """Verify ordering: [Разделы:] first, content after."""
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"%PDF-1.4 minimal")
         settings = _make_settings()
@@ -548,12 +546,11 @@ class TestLoadWithDocling:
 
         doc = result.chunks[0]
         lines = doc.page_content.split("\n")
-        assert lines[0] == "[Документ: DocTitle]"
-        assert lines[1] == "[Разделы: Part A > Chapter B]"
-        assert "Actual body text of the chunk is long enough for filter" in doc.page_content
+        assert lines[0] == "[Разделы: Part A > Chapter B]"
+        assert lines[1] == "Actual body text of the chunk is long enough for filter"
 
     def test_page_numbers_single_page(self, tmp_path: Path):
-        """Chunk with a single page number gets [Страница: N] prefix."""
+        """Chunk with page numbers stores them in metadata, not page_content."""
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"%PDF-1.4 minimal")
         settings = _make_settings()
@@ -582,13 +579,13 @@ class TestLoadWithDocling:
 
         doc = result.chunks[0]
         lines = doc.page_content.split("\n")
-        assert lines[0] == "[Документ: ПВТР]"
-        assert lines[1] == "[Разделы: Chapter 1]"
-        assert lines[2] == "[Страница: 12]"
+        assert lines[0] == "[Разделы: Chapter 1]"
+        assert "[Страница:" not in doc.page_content
+        assert doc.metadata["page_numbers"] == [12]
         assert "Content on page twelve" in doc.page_content
 
     def test_page_numbers_consecutive_range(self, tmp_path: Path):
-        """Consecutive page numbers are formatted as range (e.g. 5-7)."""
+        """Consecutive page numbers are stored in metadata, not page_content."""
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"%PDF-1.4 minimal")
         settings = _make_settings()
@@ -616,10 +613,11 @@ class TestLoadWithDocling:
             result = _load_with_docling(test_file, settings)
 
         doc = result.chunks[0]
-        assert "[Страница: 5-7]" in doc.page_content
+        assert "[Страница:" not in doc.page_content
+        assert doc.metadata["page_numbers"] == [5, 6, 7]
 
     def test_page_numbers_non_consecutive(self, tmp_path: Path):
-        """Non-consecutive page numbers are comma-separated."""
+        """Non-consecutive page numbers are stored in metadata, not page_content."""
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"%PDF-1.4 minimal")
         settings = _make_settings()
@@ -647,7 +645,8 @@ class TestLoadWithDocling:
             result = _load_with_docling(test_file, settings)
 
         doc = result.chunks[0]
-        assert "[Страница: 3, 5, 9]" in doc.page_content
+        assert "[Страница:" not in doc.page_content
+        assert doc.metadata["page_numbers"] == [3, 5, 9]
 
     def test_no_page_prefix_when_empty(self, tmp_path: Path):
         """Chunks without page numbers don't get [Страница:] prefix."""
@@ -681,7 +680,7 @@ class TestLoadWithDocling:
         assert "[Страница:" not in doc.page_content
 
     def test_captions_single(self, tmp_path: Path):
-        """Chunk with a single caption gets [Подпись: ...] prefix."""
+        """Chunk with captions stores them in metadata, not page_content."""
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"%PDF-1.4 minimal")
         settings = _make_settings()
@@ -711,13 +710,14 @@ class TestLoadWithDocling:
 
         doc = result.chunks[0]
         lines = doc.page_content.split("\n")
-        assert lines[0] == "[Документ: ПВТР]"
-        assert lines[1] == "[Разделы: Section A]"
-        assert lines[2] == "[Страница: 3]"
-        assert lines[3] == "[Подпись: Таблица 3. График рабочего времени]"
+        assert lines[0] == "[Разделы: Section A]"
+        assert "[Подпись:" not in doc.page_content
+        assert "[Страница:" not in doc.page_content
+        assert doc.metadata["captions"] == ["Таблица 3. График рабочего времени"]
+        assert doc.metadata["page_numbers"] == [3]
 
     def test_captions_multiple_joined(self, tmp_path: Path):
-        """Multiple captions are joined with '; '."""
+        """Multiple captions are stored in metadata, not page_content."""
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"%PDF-1.4 minimal")
         settings = _make_settings()
@@ -745,7 +745,8 @@ class TestLoadWithDocling:
             result = _load_with_docling(test_file, settings)
 
         doc = result.chunks[0]
-        assert "[Подпись: Caption A; Caption B]" in doc.page_content
+        assert "[Подпись:" not in doc.page_content
+        assert doc.metadata["captions"] == ["Caption A", "Caption B"]
 
     def test_no_caption_prefix_when_empty(self, tmp_path: Path):
         """Chunks without captions don't get [Подпись:] prefix."""
@@ -779,7 +780,7 @@ class TestLoadWithDocling:
         assert "[Подпись:" not in doc.page_content
 
     def test_full_prefix_ordering(self, tmp_path: Path):
-        """Verify full ordering: [Документ] > [Разделы] > [Страница] > [Подпись] > content."""
+        """Only [Разделы] remains in page_content; other metadata is in metadata dict."""
         test_file = tmp_path / "test.pdf"
         test_file.write_bytes(b"%PDF-1.4 minimal")
         settings = _make_settings()
@@ -809,11 +810,14 @@ class TestLoadWithDocling:
 
         doc = result.chunks[0]
         lines = doc.page_content.split("\n")
-        assert lines[0] == "[Документ: ПВТР]"
-        assert lines[1] == "[Разделы: Глава 7 > 7.1 Общие положения]"
-        assert lines[2] == "[Страница: 12]"
-        assert lines[3] == "[Подпись: Таблица 3]"
-        assert lines[4] == "Body text of the chunk with all metadata present"
+        assert lines[0] == "[Разделы: Глава 7 > 7.1 Общие положения]"
+        assert lines[1] == "Body text of the chunk with all metadata present"
+        assert "[Документ:" not in doc.page_content
+        assert "[Страница:" not in doc.page_content
+        assert "[Подпись:" not in doc.page_content
+        assert doc.metadata["document_title"] == "ПВТР"
+        assert doc.metadata["page_numbers"] == [12]
+        assert doc.metadata["captions"] == ["Таблица 3"]
 
 
 class TestFormatPageNumbers:

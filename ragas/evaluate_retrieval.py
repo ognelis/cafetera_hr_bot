@@ -414,11 +414,18 @@ def recall_at_k(relevant_flags: list[bool], n_total_relevant: int) -> float:
     return float(np.sum(relevant_flags)) / n_total_relevant
 
 
-def precision_at_k(relevant_flags: list[bool]) -> float:
-    """Fraction of top-k results that are relevant."""
-    if not relevant_flags:
+def precision_at_k(relevant_flags: list[bool], k: int) -> float:
+    """Standard IR Precision@k: (# relevant in top-k) / k.
+
+    The denominator is the fixed cutoff ``k``, not ``len(relevant_flags)``.
+    This is consistent with the textbook definition and ensures comparability
+    across retrieval configurations that may return fewer than ``k`` docs
+    (e.g., when ``DENSE_SCORE_THRESHOLD`` filters the dense branch).
+    """
+    if k <= 0:
         return 0.0
-    return float(np.mean(relevant_flags))
+    arr = np.asarray(relevant_flags[:k], dtype=np.float64)
+    return float(np.sum(arr)) / k
 
 
 # ---------------------------------------------------------------------------
@@ -461,7 +468,7 @@ def _save_csv(
             ndcg_col: ndcg_at_k(flags),
             hit_col: hit_rate(flags),
             recall_col: recall_at_k(flags, 1),  # SberQuAD has 1 gold context per question
-            precision_col: precision_at_k(flags),
+            precision_col: precision_at_k(flags, k),
         })
 
     df = pd.DataFrame(rows)

@@ -93,7 +93,7 @@ async def stream_ask(request: Request, body: AskRequest):
 async def ask_document(request: Request, body: AskDocumentRequest) -> AskResponse:
     """Ask a question about a specific document."""
     # Use a default system prompt for document-scoped questions
-    qa = _get_or_create_qa_service(request, "", include_metadata=False)
+    qa = _get_or_create_qa_service(request, "", include_metadata=True)
     answer = await qa.ask_about_document(body.question, body.document_id)
     return AskResponse(answer=answer)
 
@@ -101,7 +101,7 @@ async def ask_document(request: Request, body: AskDocumentRequest) -> AskRespons
 @router.post("/stream-document")
 async def stream_document(request: Request, body: AskDocumentRequest):
     """Stream tokens about a specific document as SSE events."""
-    qa = _get_or_create_qa_service(request, "", include_metadata=False)
+    qa = _get_or_create_qa_service(request, "", include_metadata=True)
 
     async def event_generator():
         try:

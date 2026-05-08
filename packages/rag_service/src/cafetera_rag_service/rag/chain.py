@@ -30,7 +30,7 @@ def _format_docs_with_metadata(docs: list[Document]) -> str:
     """Join retrieved documents with metadata headers.
 
     Format:
-        [Документ: filename.docx | стр. 5, 6]
+        [Документ: title.docx | стр. 5, 6 | Подпись: caption text]
         chunk text here
 
         ---
@@ -38,7 +38,7 @@ def _format_docs_with_metadata(docs: list[Document]) -> str:
         [Документ: another.docx]
         another chunk text
 
-    Includes filename and page numbers when available.
+    Includes document title, page numbers, and captions when available.
     Section headings are omitted from the header because
     ``page_content`` already contains them — the parser prepends
     the heading hierarchy from chunk metadata.
@@ -46,14 +46,17 @@ def _format_docs_with_metadata(docs: list[Document]) -> str:
     """
     formatted_chunks: list[str] = []
     for doc in docs:
-        filename = doc.metadata.get("filename", "")
+        document_title = doc.metadata.get("document_title", "")
         page_numbers = doc.metadata.get("page_numbers", [])
+        captions = doc.metadata.get("captions", [])
 
         header_parts: list[str] = []
-        if filename:
-            header_parts.append(f"Документ: {filename}")
+        if document_title:
+            header_parts.append(f"Документ: {document_title}")
         if page_numbers:
             header_parts.append(f"стр. {', '.join(str(p) for p in page_numbers)}")
+        if captions:
+            header_parts.append(f"Подпись: {'; '.join(captions)}")
 
         header = f"[{' | '.join(header_parts)}]\n" if header_parts else ""
         formatted_chunks.append(f"{header}{doc.page_content}")

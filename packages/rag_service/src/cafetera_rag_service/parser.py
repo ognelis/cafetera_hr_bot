@@ -212,19 +212,9 @@ def _load_with_docling(
         page_numbers = _extract_page_numbers(chunk)
         captions = _extract_captions(chunk)
 
-        if captions:
-            captions_str = "; ".join(captions)
-            page_content = f"[Подпись: {captions_str}]\n{page_content}"
-
-        if page_numbers:
-            page_content = f"[Страница: {_format_page_numbers(page_numbers)}]\n{page_content}"
-
         if chunk.meta.headings:
             headings_prefix = " > ".join(chunk.meta.headings)
             page_content = f"[Разделы: {headings_prefix}]\n{page_content}"
-
-        if extracted_title:
-            page_content = f"[Документ: {extracted_title}]\n{page_content}"
 
         if not page_content or len(page_content.strip()) < 30:
             continue

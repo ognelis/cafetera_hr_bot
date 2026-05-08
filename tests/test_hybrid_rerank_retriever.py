@@ -6,6 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
+from langchain_qdrant import SparseEmbeddings
 
 from cafetera_rag_service.config import RagServiceSettings
 from cafetera_rag_service.rag.reranker import (
@@ -145,8 +147,8 @@ def test_build_retriever_uses_prefetch_limit_when_reranking_enabled():
         _env_file=None,
     )
     mock_client = _make_qdrant_client_mock()
-    mock_embeddings = MagicMock()
-    mock_sparse = MagicMock()
+    mock_embeddings = MagicMock(spec=Embeddings)
+    mock_sparse = MagicMock(spec=SparseEmbeddings)
 
     result = build_retriever(
         settings,
@@ -159,6 +161,7 @@ def test_build_retriever_uses_prefetch_limit_when_reranking_enabled():
     assert isinstance(result, AsyncQdrantRetriever)
     # When reranking enabled, k should be reranker_prefetch_limit (25)
     assert result.k == 25
+    assert result.prefetch_limit == 25
 
 
 def test_build_retriever_uses_normal_k_when_reranking_disabled():
@@ -168,8 +171,8 @@ def test_build_retriever_uses_normal_k_when_reranking_disabled():
         _env_file=None,
     )
     mock_client = _make_qdrant_client_mock()
-    mock_embeddings = MagicMock()
-    mock_sparse = MagicMock()
+    mock_embeddings = MagicMock(spec=Embeddings)
+    mock_sparse = MagicMock(spec=SparseEmbeddings)
 
     result = build_retriever(
         settings,
@@ -181,6 +184,7 @@ def test_build_retriever_uses_normal_k_when_reranking_disabled():
 
     assert isinstance(result, AsyncQdrantRetriever)
     assert result.k == 4
+    assert result.prefetch_limit == 20
 
 
 def test_build_retriever_for_document_uses_prefetch_limit_when_enabled():
@@ -193,8 +197,8 @@ def test_build_retriever_for_document_uses_prefetch_limit_when_enabled():
         _env_file=None,
     )
     mock_client = _make_qdrant_client_mock()
-    mock_embeddings = MagicMock()
-    mock_sparse = MagicMock()
+    mock_embeddings = MagicMock(spec=Embeddings)
+    mock_sparse = MagicMock(spec=SparseEmbeddings)
 
     result = build_retriever_for_document(
         settings,
@@ -208,6 +212,7 @@ def test_build_retriever_for_document_uses_prefetch_limit_when_enabled():
     assert isinstance(result, AsyncQdrantRetriever)
     # When reranking enabled, k should be reranker_prefetch_limit (30)
     assert result.k == 30
+    assert result.prefetch_limit == 30
     assert result.filter is not None
     assert result.filter.must[0].key == "metadata.document_id"
     assert result.filter.must[0].match.value == "doc-123"
@@ -220,8 +225,8 @@ def test_build_retriever_for_document_uses_normal_k_when_disabled():
         _env_file=None,
     )
     mock_client = _make_qdrant_client_mock()
-    mock_embeddings = MagicMock()
-    mock_sparse = MagicMock()
+    mock_embeddings = MagicMock(spec=Embeddings)
+    mock_sparse = MagicMock(spec=SparseEmbeddings)
 
     result = build_retriever_for_document(
         settings,
@@ -234,3 +239,4 @@ def test_build_retriever_for_document_uses_normal_k_when_disabled():
 
     assert isinstance(result, AsyncQdrantRetriever)
     assert result.k == 4
+    assert result.prefetch_limit == 20

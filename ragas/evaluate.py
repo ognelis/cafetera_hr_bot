@@ -131,7 +131,13 @@ def _load_testset(path: Path) -> list[dict[str, Any]]:
 # Per-metric ceilings matter for servers that pre-allocate KV-cache per request
 # (llama.cpp with `n_predict`, Ollama with `num_predict`).  A lower ceiling for
 # short-output metrics frees VRAM/RAM during their runs.
-_FAITHFULNESS_MAX_TOKENS = 65536  # NER extraction: keep original headroom
+#
+# NOTE: The per-request output budget must not exceed the per-slot context
+# capacity.  For llama.cpp with `--parallel N` and `--ctx-size C`, each slot
+# holds C/N tokens (prompt + output combined).  `ragas/run.sh` forces
+# LLM_PARALLEL=1 so the full LLM_NUM_CTX is available per request; the values
+# below leave generous headroom (prompt ~4–8k + output).
+_FAITHFULNESS_MAX_TOKENS = 16384  # NER extraction: long JSON output
 _SHORT_OUTPUT_MAX_TOKENS = 4096   # verdicts / question variants / binary class
 
 
@@ -397,7 +403,7 @@ async def evaluate(testset_path: Path) -> None:
     scores: list[dict[str, Any]] = []
     res = await build_ragas_resources(settings)
     try:
-        qa = build_qa_service(res, _EVAL_SYSTEM_PROMPT)
+        qa = build_qa_service(res, _EVAL_SYSTEM_PROMPT, include_metadata=True)
 
         for i, sample in enumerate(samples):
             question = sample.get("user_input", "")

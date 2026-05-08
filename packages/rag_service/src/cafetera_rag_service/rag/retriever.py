@@ -331,6 +331,11 @@ def build_retriever(
         else k
     )
 
+    # Keep the per-source pool (dense / BM25) at least as large as the RRF
+    # output so that larger reranker_prefetch_limit actually widens the
+    # candidate funnel instead of being capped at the hardcoded default.
+    effective_prefetch = max(effective_k, 20)
+
     return AsyncQdrantRetriever(
         client=qdrant_client,
         collection_name=collection_name,
@@ -338,6 +343,7 @@ def build_retriever(
         sparse_embedding=sparse_embedding,
         lemmatize=settings.bm25_lemmatize,
         k=effective_k,
+        prefetch_limit=effective_prefetch,
         filter=search_filter,
         score_threshold=settings.dense_score_threshold,
     )
@@ -380,6 +386,11 @@ def build_retriever_for_document(
         else k
     )
 
+    # Keep the per-source pool (dense / BM25) at least as large as the RRF
+    # output so that larger reranker_prefetch_limit actually widens the
+    # candidate funnel instead of being capped at the hardcoded default.
+    effective_prefetch = max(effective_k, 20)
+
     return AsyncQdrantRetriever(
         client=qdrant_client,
         collection_name=collection_name,
@@ -387,6 +398,7 @@ def build_retriever_for_document(
         sparse_embedding=sparse_embedding,
         lemmatize=settings.bm25_lemmatize,
         k=effective_k,
+        prefetch_limit=effective_prefetch,
         filter=search_filter,
         score_threshold=settings.dense_score_threshold,
     )

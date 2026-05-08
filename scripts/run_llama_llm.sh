@@ -46,8 +46,11 @@ LLM_MODEL_PATH="${LLM_MODEL_PATH:-./models/Qwen3.5-9B-Q4_K_M.gguf}"
 LLM_MODEL_URL="${LLM_MODEL_URL:-https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf}"
 LLM_HOST="${LLM_HOST:-127.0.0.1}"
 LLM_PORT="${LLM_PORT:-8080}"
-# Optimized for CHUNK_SIZE=512 + DOC_QUERY_K=10: ~6500 tokens needed
-LLM_CTX_SIZE="${LLM_NUM_CTX:-8192}"
+# Full context window shared across all parallel slots.
+# With --parallel N, each request slot holds LLM_CTX_SIZE/N tokens.
+# Default 32768 keeps ≥6500 tokens per slot at LLM_PARALLEL=5 (production)
+# and the full window available at LLM_PARALLEL=1 (RAGAS / single-user).
+LLM_CTX_SIZE="${LLM_NUM_CTX:-32768}"
 LLM_N_GPU_LAYERS="${LLM_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
 # KV Cache quantization: q8_0 saves 50% VRAM with <1% quality loss
 LLM_CACHE_TYPE_K="${LLM_CACHE_TYPE_K:-q8_0}"
@@ -140,5 +143,6 @@ exec llama-server \
   --cache-type-k "$LLM_CACHE_TYPE_K" \
   --cache-type-v "$LLM_CACHE_TYPE_V" \
   --parallel "$LLM_PARALLEL" \
+  --n-predict -1 \
   $REASONING_ARGS \
   "${CHAT_TEMPLATE_KWARGS[@]}"

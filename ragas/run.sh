@@ -210,6 +210,11 @@ fi
 
 # llama.cpp — only if needed and URL is local
 if [[ "${LLM_PROVIDER:-}" == "llamacpp" || "${EMBEDDING_PROVIDER}" == "llamacpp" ]]; then
+  # RAGAS evaluates samples sequentially; force single-slot mode so each
+  # request gets the full LLM_NUM_CTX. Otherwise llama-server partitions the
+  # KV cache into LLM_PARALLEL slots (default 5) and Faithfulness NER output
+  # runs out of room → instructor.IncompleteOutputException.
+  export LLM_PARALLEL=1
   start_llamacpp_providers "$SCRIPT_DIR/../scripts" "${LLM_PROVIDER:-}" "${LLM_BASE_URL:-}" "$EMBEDDING_PROVIDER" "$EMBEDDING_BASE_URL"
 fi
 
