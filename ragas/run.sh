@@ -66,10 +66,8 @@ load_env_var EMBEDDING_API_KEY
 load_env_var QDRANT_URL
 load_env_var OLLAMA_URL
 load_env_var LLM_NUM_CTX
-load_env_var LLM_N_GPU_LAYERS
 load_env_var LLM_DISABLE_THINKING
 load_env_var EMBED_CTX_SIZE
-load_env_var EMBED_N_GPU_LAYERS
 load_env_var EMBED_UBATCH_SIZE
 load_env_var RERANKING_ENABLED
 load_env_var RERANKER_URL

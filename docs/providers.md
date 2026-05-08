@@ -271,12 +271,11 @@ bash ragas/run.sh retrieval
 | `LLM_CACHE_TYPE_K`, `LLM_CACHE_TYPE_V` | ❌ | ❌ | ✅ только здесь |
 | `LLM_PARALLEL` | ❌ | ❌ | ✅ только здесь |
 | `EMBED_POOLING`, `EMBED_CTX_SIZE`, `EMBED_UBATCH_SIZE` | ❌ | ❌ | ✅ только здесь |
-| `EMBED_N_GPU_LAYERS`, `LLM_N_GPU_LAYERS` | ❌ | ❌ | ✅ только здесь |
 | `EMBEDDING_QUERY_INSTRUCTION` + `EMBEDDING_USE_QUERY_INSTRUCTION` | ✅ (для Qwen3 / E5-instruct) | ✅ | ✅ |
 | `EMBEDDING_CHUNK_SIZE` | ✅ | ✅ | ✅ (критично для VRAM) |
 | `RERANKING_ENABLED`, `RERANKER_TOP_N`, `RERANKER_PREFETCH_LIMIT`, `RERANKER_TIMEOUT` | провайдер-агностично (нужен запущенный llama-server реранкер) |
 | `LLM_MODEL_PATH`, `LLM_MODEL_URL`, `EMBED_MODEL_PATH`, `EMBED_MODEL_URL` | ❌ | ❌ | ✅ только здесь (выбор `.gguf`-файла и URL для скачивания) |
-| `RERANKER_MODEL_PATH`, `RERANKER_MODEL_URL`, `RERANKER_CTX_SIZE`, `RERANKER_N_GPU_LAYERS`, `RERANKER_BATCH_SIZE` | ❌ | ❌ | ✅ только здесь |
+| `RERANKER_MODEL_PATH`, `RERANKER_MODEL_URL`, `RERANKER_CTX_SIZE`, `RERANKER_BATCH_SIZE` | ❌ | ❌ | ✅ только здесь |
 | `CHUNK_SIZE`, `DOC_QUERY_K`, `GLOBAL_MAX_K`, `DENSE_SCORE_THRESHOLD`, `BM25_LEMMATIZE` | провайдер-агностично — работают везде |
 
 > **Легенда:** ✅ = применяется. ⚠️ = применяется, но нестандартно. ❌ = значение читается, но **молча игнорируется** — задавать его бессмысленно.
@@ -295,7 +294,7 @@ bash ragas/run.sh retrieval
 
 **Не задавать (игнорируется):**
 - `LLM_PRESENCE_PENALTY` — Ollama использует `repeat_penalty`, эта переменная не прокидывается.
-- Любые `EMBED_POOLING`, `EMBED_CTX_SIZE`, `*_N_GPU_LAYERS`, `LLM_CACHE_TYPE_*`, `LLM_PARALLEL` — это настройки `llama-server`, к Ollama отношения не имеют.
+- Любые `EMBED_POOLING`, `EMBED_CTX_SIZE`, `LLM_CACHE_TYPE_*`, `LLM_PARALLEL` — это настройки `llama-server`, к Ollama отношения не имеют.
 - `LLM_BASE_URL`, `EMBEDDING_BASE_URL` — подставляются скриптами автоматически.
 
 ### OpenAI
@@ -312,7 +311,7 @@ bash ragas/run.sh retrieval
 **Не задавать (игнорируется):**
 - `LLM_NUM_CTX` — у OpenAI контекст фиксируется моделью.
 - `LLM_DISABLE_THINKING` — релевантно только Qwen3 в Ollama/llamacpp.
-- Все `LLM_CACHE_TYPE_*`, `LLM_PARALLEL`, `EMBED_POOLING`, `EMBED_CTX_SIZE`, `*_N_GPU_LAYERS` — специфика локального `llama-server`.
+- Все `LLM_CACHE_TYPE_*`, `LLM_PARALLEL`, `EMBED_POOLING`, `EMBED_CTX_SIZE` — специфика локального `llama-server`.
 
 ### llama.cpp
 
@@ -324,9 +323,9 @@ bash ragas/run.sh retrieval
 - Выбор модели: `LLM_MODEL_PATH` / `LLM_MODEL_URL` для LLM, `EMBED_MODEL_PATH` / `EMBED_MODEL_URL` для embedding. Именно эти переменные решают, какой `.gguf` загрузится (строка `LLM_MODEL` для llamacpp — это только API-метка, `llama-server` её не использует).
 - Сэмплинг LLM: `LLM_TEMPERATURE`, `LLM_TOP_P`, `LLM_TOP_K`, `LLM_PRESENCE_PENALTY`, `LLM_MAX_TOKENS`.
 - Контекст: `LLM_NUM_CTX` (передаётся как `-c`), `LLM_DISABLE_THINKING` (для Qwen3).
-- VRAM/скорость LLM: `LLM_CACHE_TYPE_K=q8_0`, `LLM_CACHE_TYPE_V=q8_0` (экономят 50% VRAM), `LLM_PARALLEL` (лимит параллельных запросов), `LLM_N_GPU_LAYERS` (99 = всё на GPU, 0 = CPU).
-- Embedding-сервер: `EMBED_POOLING` (для Qwen3 — `last`, для BGE — `cls`, для nomic — `mean`), `EMBED_CTX_SIZE` (формула: `≥ EMBEDDING_CHUNK_SIZE × CHUNK_SIZE`), `EMBED_UBATCH_SIZE`, `EMBED_N_GPU_LAYERS`.
-- Реранкер (если `RERANKING_ENABLED=true`): `RERANKER_MODEL_PATH`, `RERANKER_MODEL_URL`, `RERANKER_CTX_SIZE`, `RERANKER_BATCH_SIZE`, `RERANKER_N_GPU_LAYERS`, `RERANKER_TOP_N`, `RERANKER_PREFETCH_LIMIT`.
+- VRAM/скорость LLM: `LLM_CACHE_TYPE_K=q8_0`, `LLM_CACHE_TYPE_V=q8_0` (экономят 50% VRAM), `LLM_PARALLEL` (лимит параллельных запросов). GPU-слои распределяются автоматически через `--fit` (включён по умолчанию в llama.cpp ≥ build 7413).
+- Embedding-сервер: `EMBED_POOLING` (для Qwen3 — `last`, для BGE — `cls`, для nomic — `mean`), `EMBED_CTX_SIZE` (формула: `≥ EMBEDDING_CHUNK_SIZE × CHUNK_SIZE`), `EMBED_UBATCH_SIZE`.
+- Реранкер (если `RERANKING_ENABLED=true`): `RERANKER_MODEL_PATH`, `RERANKER_MODEL_URL`, `RERANKER_CTX_SIZE`, `RERANKER_BATCH_SIZE`, `RERANKER_TOP_N`, `RERANKER_PREFETCH_LIMIT`.
 
 > **Критично:** неверный `EMBED_POOLING` приводит к полностью неработающему поиску. См. [docs/llamacpp.md, раздел 3.6](llamacpp.md#36-настройки-embedding-сервера-важно).
 

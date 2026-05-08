@@ -54,8 +54,6 @@ load_env_var EMBEDDING_MODEL
 load_env_var EMBEDDING_BASE_URL
 load_env_var EMBEDDING_API_KEY
 load_env_var OLLAMA_URL
-load_env_var LLM_N_GPU_LAYERS
-load_env_var EMBED_N_GPU_LAYERS
 load_env_var OLLAMA_NUM_GPU
 load_env_var RAG_SERVICE_API_KEY
 load_env_var RERANKING_ENABLED

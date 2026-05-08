@@ -14,33 +14,11 @@ _load_env_var() {
 }
 
 _load_env_var LLM_NUM_CTX
-_load_env_var LLM_N_GPU_LAYERS
 _load_env_var LLM_DISABLE_THINKING
 _load_env_var LLM_MODEL_PATH
 _load_env_var LLM_MODEL_URL
 
-# ── GPU detection ─────────────────────────────────────────────────────────
-detect_gpu() {
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    # macOS — Apple Silicon uses Metal automatically
-    if [[ "$(uname -m)" == "arm64" ]]; then
-      echo "metal"
-    else
-      echo "cpu"
-    fi
-  elif command -v nvidia-smi &>/dev/null; then
-    echo "cuda"
-  else
-    echo "cpu"
-  fi
-}
-
-DETECTED_GPU=$(detect_gpu)
-
-case "$DETECTED_GPU" in
-  metal|cuda) _DEFAULT_GPU_LAYERS=99 ;;
-  *)          _DEFAULT_GPU_LAYERS=0  ;;
-esac
+# GPU layer allocation is handled automatically by llama.cpp's --fit (on by default).
 
 LLM_MODEL_PATH="${LLM_MODEL_PATH:-./models/Qwen3.5-9B-Q4_K_M.gguf}"
 LLM_MODEL_URL="${LLM_MODEL_URL:-https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf}"
@@ -51,7 +29,6 @@ LLM_PORT="${LLM_PORT:-8080}"
 # Default 32768 keeps ≥6500 tokens per slot at LLM_PARALLEL=5 (production)
 # and the full window available at LLM_PARALLEL=1 (RAGAS / single-user).
 LLM_CTX_SIZE="${LLM_NUM_CTX:-32768}"
-LLM_N_GPU_LAYERS="${LLM_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
 # KV Cache quantization: q8_0 saves 50% VRAM with <1% quality loss
 LLM_CACHE_TYPE_K="${LLM_CACHE_TYPE_K:-q8_0}"
 LLM_CACHE_TYPE_V="${LLM_CACHE_TYPE_V:-q8_0}"
@@ -128,7 +105,7 @@ echo "PORT=$LLM_PORT"
 echo "CTX_SIZE=$LLM_CTX_SIZE"
 echo "CPU_COUNT=$CPU_COUNT"
 echo "THREADS=$THREADS"
-echo "GPU: $DETECTED_GPU → offloading $LLM_N_GPU_LAYERS layers"
+echo "GPU layers: auto (llama.cpp --fit)"
 echo "DISABLE_THINKING=$LLM_DISABLE_THINKING"
 echo "KV_CACHE: q8_0 (50% VRAM savings, <1% quality loss)"
 echo "PARALLEL=$LLM_PARALLEL (max concurrent requests)"
@@ -139,7 +116,6 @@ exec llama-server \
   --port "$LLM_PORT" \
   --ctx-size "$LLM_CTX_SIZE" \
   --threads "$THREADS" \
-  --n-gpu-layers "$LLM_N_GPU_LAYERS" \
   --cache-type-k "$LLM_CACHE_TYPE_K" \
   --cache-type-v "$LLM_CACHE_TYPE_V" \
   --parallel "$LLM_PARALLEL" \

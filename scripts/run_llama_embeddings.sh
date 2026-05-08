@@ -16,32 +16,10 @@ _load_env_var() {
 _load_env_var EMBED_MODEL_PATH
 _load_env_var EMBED_MODEL_URL
 _load_env_var EMBED_CTX_SIZE
-_load_env_var EMBED_N_GPU_LAYERS
 _load_env_var EMBED_UBATCH_SIZE
 _load_env_var EMBED_POOLING
 
-# ── GPU detection ─────────────────────────────────────────────────────────
-detect_gpu() {
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    # macOS — Apple Silicon uses Metal automatically
-    if [[ "$(uname -m)" == "arm64" ]]; then
-      echo "metal"
-    else
-      echo "cpu"
-    fi
-  elif command -v nvidia-smi &>/dev/null; then
-    echo "cuda"
-  else
-    echo "cpu"
-  fi
-}
-
-DETECTED_GPU=$(detect_gpu)
-
-case "$DETECTED_GPU" in
-  metal|cuda) _DEFAULT_GPU_LAYERS=99 ;;
-  *)          _DEFAULT_GPU_LAYERS=0  ;;
-esac
+# GPU layer allocation is handled automatically by llama.cpp's --fit (on by default).
 
 EMBED_MODEL_PATH="${EMBED_MODEL_PATH:-./models/Qwen3-Embedding-0.6B-f16.gguf}"
 EMBED_MODEL_URL="${EMBED_MODEL_URL:-https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-f16.gguf}"
@@ -49,7 +27,6 @@ EMBED_HOST="${EMBED_HOST:-127.0.0.1}"
 EMBED_PORT="${EMBED_PORT:-8090}"
 # Optimized for EMBEDDING_CHUNK_SIZE=8 × CHUNK_SIZE=512 = 4096 tokens
 EMBED_CTX_SIZE="${EMBED_CTX_SIZE:-4096}"
-EMBED_N_GPU_LAYERS="${EMBED_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
 EMBED_UBATCH_SIZE="${EMBED_UBATCH_SIZE:-1024}"
 EMBED_POOLING="${EMBED_POOLING:-last}"
 
@@ -110,7 +87,7 @@ echo "UBATCH_SIZE=$EMBED_UBATCH_SIZE"
 echo "CPU_COUNT=$CPU_COUNT"
 echo "THREADS=$THREADS"
 echo "POOLING=$EMBED_POOLING"
-echo "GPU: $DETECTED_GPU → offloading $EMBED_N_GPU_LAYERS layers"
+echo "GPU layers: auto (llama.cpp --fit)"
 
 exec llama-server \
   --model "$EMBED_MODEL_PATH" \
@@ -119,6 +96,5 @@ exec llama-server \
   --ctx-size "$EMBED_CTX_SIZE" \
   --ubatch-size "$EMBED_UBATCH_SIZE" \
   --threads "$THREADS" \
-  --n-gpu-layers "$EMBED_N_GPU_LAYERS" \
   --embedding \
   --pooling "$EMBED_POOLING"

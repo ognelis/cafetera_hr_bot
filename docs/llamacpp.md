@@ -69,20 +69,15 @@ URL можно переопределить переменными `LLM_MODEL_UR
 
 ## 3. Ускорение через GPU (определяется автоматически)
 
-Скрипты сами определяют тип GPU и включают ускорение:
+`llama-server` сам распределяет слои модели по доступной VRAM через флаг `--fit` (включён по умолчанию в llama.cpp ≥ build 7413).
 
 | Железо                          | Что используется                     |
 | ------------------------------- | ------------------------------------ |
-| Mac на Apple Silicon (M1–M4)    | Metal — все слои модели на GPU       |
-| NVIDIA (Linux)                  | CUDA — все слои модели на GPU        |
+| Mac на Apple Silicon (M1–M4)    | Metal — максимум слоев на GPU  |
+| NVIDIA (Linux)                  | CUDA — максимум слоев на GPU   |
 | Всё остальное                   | CPU (без GPU-ускорения)              |
 
-Если нужно переопределить вручную — задайте переменные в `.env`:
-
-```
-LLM_N_GPU_LAYERS=99    # 99 = все слои на GPU, 0 = только CPU
-EMBED_N_GPU_LAYERS=99
-```
+Если модель не влезает в VRAM целиком, `--fit` автоматически сократит контекст и вынесет часть слоёв в RAM. Ручные переопределения `LLM_N_GPU_LAYERS` / `EMBED_N_GPU_LAYERS` / `RERANKER_N_GPU_LAYERS` больше не используются.
 
 ---
 
@@ -102,7 +97,6 @@ bash ragas/run.sh retrieval
 
 ```bash
 EMBED_MODEL_PATH=./models/my-embed.gguf bash scripts/run_llama_embeddings.sh
-EMBED_N_GPU_LAYERS=0 bash scripts/run_llama_embeddings.sh  # принудительно CPU
 ```
 
 ---
@@ -163,7 +157,7 @@ bash scripts/run_llama_reranker.sh
 
 Все три скрипта автоматически:
 
-- Определяют тип GPU (Metal / CUDA / CPU) и включают ускорение.
+- Распределяют слои по GPU/CPU через `--fit` (Metal / CUDA — по доступной VRAM).
 - Скачивают файл модели с HuggingFace, если его нет в `models/`.
 
 ### Переменные окружения
@@ -184,11 +178,6 @@ EMBED_MODEL_URL=https://example.com/my-embed.gguf bash scripts/run_llama_embeddi
 # Использовать другой файл Reranker-модели / URL:
 RERANKER_MODEL_PATH=./models/my-reranker.gguf bash scripts/run_llama_reranker.sh
 RERANKER_MODEL_URL=https://example.com/my-reranker.gguf bash scripts/run_llama_reranker.sh
-
-# Принудительно только CPU (без GPU):
-LLM_N_GPU_LAYERS=0 bash scripts/run_llama_llm.sh
-EMBED_N_GPU_LAYERS=0 bash scripts/run_llama_embeddings.sh
-RERANKER_N_GPU_LAYERS=0 bash scripts/run_llama_reranker.sh
 ```
 
 ---
@@ -218,7 +207,6 @@ RERANKER_TIMEOUT=30.0
 # Настройки для scripts/run_llama_reranker.sh
 RERANKER_MODEL_PATH=./models/Qwen3-Reranker-0.6B-Q4_K_M.gguf
 RERANKER_CTX_SIZE=8192
-RERANKER_N_GPU_LAYERS=     # пусто = автоопределение (Metal/CUDA/CPU)
 ```
 
 После включения скрипты `run_admin.sh` и `run_all.sh` сами поднимут реранкер в фоне (порт 8082) и подождут, пока он станет готов. Для ручного запуска в отдельном окне:

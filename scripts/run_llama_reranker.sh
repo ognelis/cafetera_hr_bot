@@ -14,41 +14,18 @@ _load_env_var() {
 }
 
 _load_env_var RERANKER_CTX_SIZE
-_load_env_var RERANKER_N_GPU_LAYERS
 _load_env_var RERANKER_MODEL_PATH
 _load_env_var RERANKER_MODEL_URL
 _load_env_var RERANKER_BATCH_SIZE
 _load_env_var RERANKER_UBATCH_SIZE
 
-# ── GPU detection ─────────────────────────────────────────────────────────
-detect_gpu() {
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    # macOS — Apple Silicon uses Metal automatically
-    if [[ "$(uname -m)" == "arm64" ]]; then
-      echo "metal"
-    else
-      echo "cpu"
-    fi
-  elif command -v nvidia-smi &>/dev/null; then
-    echo "cuda"
-  else
-    echo "cpu"
-  fi
-}
-
-DETECTED_GPU=$(detect_gpu)
-
-case "$DETECTED_GPU" in
-  metal|cuda) _DEFAULT_GPU_LAYERS=99 ;;
-  *)          _DEFAULT_GPU_LAYERS=0  ;;
-esac
+# GPU layer allocation is handled automatically by llama.cpp's --fit (on by default).
 
 RERANKER_MODEL_PATH="${RERANKER_MODEL_PATH:-./models/Qwen3-Reranker-0.6B-Q4_K_M.gguf}"
 RERANKER_MODEL_URL="${RERANKER_MODEL_URL:-https://huggingface.co/Voodisss/Qwen3-Reranker-0.6B-GGUF-llama_cpp/resolve/main/Qwen3-Reranker-0.6B-Q4_K_M.gguf}"
 RERANKER_HOST="${RERANKER_HOST:-127.0.0.1}"
 RERANKER_PORT="${RERANKER_PORT:-8082}"
 RERANKER_CTX_SIZE="${RERANKER_CTX_SIZE:-4096}"
-RERANKER_N_GPU_LAYERS="${RERANKER_N_GPU_LAYERS:-$_DEFAULT_GPU_LAYERS}"
 RERANKER_BATCH_SIZE="${RERANKER_BATCH_SIZE:-1024}"
 RERANKER_UBATCH_SIZE="${RERANKER_UBATCH_SIZE:-1024}"
 
@@ -109,7 +86,7 @@ echo "CPU_COUNT=$CPU_COUNT"
 echo "THREADS=$THREADS"
 echo "BATCH_SIZE=$RERANKER_BATCH_SIZE"
 echo "UBATCH_SIZE=$RERANKER_UBATCH_SIZE"
-echo "GPU: $DETECTED_GPU → offloading $RERANKER_N_GPU_LAYERS layers"
+echo "GPU layers: auto (llama.cpp --fit)"
 
 exec llama-server \
   --model "$RERANKER_MODEL_PATH" \
@@ -119,7 +96,6 @@ exec llama-server \
   --batch-size "$RERANKER_BATCH_SIZE" \
   --ubatch-size "$RERANKER_UBATCH_SIZE" \
   --threads "$THREADS" \
-  --n-gpu-layers "$RERANKER_N_GPU_LAYERS" \
   --reranking \
   --embedding \
   --pooling rank
