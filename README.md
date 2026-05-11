@@ -562,34 +562,41 @@ docker compose up -d --build qdrant minio postgres rag-service vk_bot
 
 ## 10. Оценка качества ответов (RAGAS)
 
-В проекте есть автоматическая оценка качества на базе [RAGAS](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/). Доступно 4 режима:
+В проекте есть автоматическая оценка качества на базе [RAGAS](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/). Все режимы запускаются одним скриптом `bash ragas/run.sh` — скрипт покажет интерактивное меню:
 
-| Режим | Что делает |
-|---|---|
-| `generate` | Генерирует тестовые вопросы из загруженных документов |
-| `evaluate` | Прогоняет готовый тестсет через RAG и считает метрики |
-| `all` (по умолчанию) | Генерация + оценка одной командой |
-| `retrieval` | Оценка качества поиска на публичном бенчмарке SberQuAD |
+| № | Режим | Что делает |
+|---|---|---|
+| 1 | `generate` | Генерирует тестовые вопросы из загруженных документов. |
+| 2 | `evaluate` | Прогоняет готовый тестсет через RAG и считает метрики RAGAS. |
+| 3 | `all` *(по умолчанию)* | Генерация + оценка одной командой. |
+| 4 | `retrieval` | Независимая оценка качества **поиска** на публичном бенчмарке [SberQuAD](https://huggingface.co/datasets/kuznetsoffandrey/sberquad) — LLM не требуется. |
+| 5 | `optimize` | **Автоматический подбор системного промпта:** LLM пишет варианты, RAGAS их оценивает, лучший сохраняется в `ragas/best_prompt.txt`. |
 
-### Стандартная оценка (generate + evaluate)
+### Примеры
 
 ```bash
+# Стандартный цикл: генерация тестсета + оценка RAG-конвейера
 bash ragas/run.sh
+
+# Быстрая оценка поиска (без LLM) на 200 вопросах в режиме dense
+bash ragas/run.sh retrieval --k 10 --size 200 --mode dense
+
+# Подбор лучшего системного промпта: 15 вариантов на выборке из 10 вопросов
+bash ragas/run.sh optimize --variants 15 --sample-size 10
 ```
 
-Скрипт спросит провайдера LLM/Embedding, сгенерирует тестовые вопросы по уже загруженным документам и прогонит их через RAG-конвейер. Результаты сохраняются в `ragas/scores.json`.
+### Считаемые метрики
 
-### Оценка качества поиска (retrieval)
+- **Faithfulness** — не выдумал ли бот факты, которых нет в документах.
+- **Context Precision** — доля полезных кусков среди найденных.
+- **Answer Relevancy** — ответил ли бот на тот вопрос.
+- **NonLLM Context Recall** *(если в тестсете есть `reference_contexts`)* — нашёл ли поиск все нужные эталонные куски. Без вызовов LLM — стабильно на слабых локальных моделях.
+- **Semantic Similarity** *(если в тестсете есть `reference`)* — смысловая близость ответа бота к эталону (только эмбеддинги, без LLM).
+- **Retrieval-режим** добавляет: MRR@k, NDCG@k, Hit Rate@k, Recall@k, Precision@k.
 
-Оценивает поисковую подсистему **независимо от LLM** на публичном бенчмарке [SberQuAD](https://huggingface.co/datasets/kuznetsoffandrey/sberquad). Не требует предварительной загрузки документов — использует готовый набор вопросов и контекстов.
+Результаты: `ragas/scores.json` (стандартная оценка), `ragas/retrieval_scores.csv` (retrieval), `ragas/best_prompt.txt` + `ragas/optimization_results.json` (optimize).
 
-```bash
-bash ragas/run.sh retrieval
-```
-
-Метрики: MRR@10, NDCG@10, Hit Rate@10, Recall@10, Precision@10. Результаты — `ragas/retrieval_scores.csv`.
-
-Подробное описание всех метрик простым языком — см. **[docs/ragas.md](docs/ragas.md)**.
+Подробное описание всех режимов и метрик простым языком — см. **[docs/ragas.md](docs/ragas.md)**.
 
 ---
 

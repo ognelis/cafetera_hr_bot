@@ -296,7 +296,7 @@ def generate_testset(size: int = 20) -> None:
     )
     # Request extra samples to compensate for expected NaN failures from the
     # local LLM.  We ask for 2x the desired size and trim later.
-    request_size = size * 2
+    request_size = size
     logger.info(
         "Generating %d synthetic test samples (requesting %d to account for LLM failures)...",
         size,
@@ -332,7 +332,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--size",
         type=int,
-        default=20,
+        default=40,
         help="Number of test samples to generate (default: 20)",
     )
     return parser.parse_args()

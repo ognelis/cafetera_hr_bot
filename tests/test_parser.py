@@ -13,6 +13,7 @@ from cafetera_rag_service.parser import (
     ParseResult,
     _build_heading_map,
     _format_page_numbers,
+    _generate_toc_chunk,
     _get_chunker,
     _load_with_docling,
     _resolve_chunk_headings,
@@ -1003,3 +1004,104 @@ class TestResolveChunkHeadings:
         heading_map = {}
         result = _resolve_chunk_headings(chunk, heading_map)
         assert result == []
+
+
+class TestGenerateTocChunk:
+    """Tests for _generate_toc_chunk()."""
+
+    def test_generates_toc_with_multiple_headings(self):
+        heading_map = {
+            "#/texts/0": ["Chapter 1"],
+            "#/texts/1": ["Chapter 1", "Section 1.1"],
+            "#/texts/2": ["Chapter 1", "Section 1.2"],
+            "#/texts/3": ["Chapter 2"],
+            "#/texts/4": ["Chapter 2", "Section 2.1"],
+        }
+        result = _generate_toc_chunk(
+            heading_map, extracted_title="Test Doc", source="test.pdf"
+        )
+        assert result is not None
+        assert result.metadata["content_type"] == "toc"
+        assert "Оглавление документа «Test Doc»:" in result.page_content
+        assert "Chapter 1" in result.page_content
+        assert "  Section 1.1" in result.page_content
+        assert "  Section 1.2" in result.page_content
+        assert "Chapter 2" in result.page_content
+        assert "  Section 2.1" in result.page_content
+
+    def test_returns_none_with_fewer_than_2_headings(self):
+        heading_map = {"#/texts/0": ["Only One"]}
+        result = _generate_toc_chunk(
+            heading_map, extracted_title="Doc", source="test.pdf"
+        )
+        assert result is None
+
+    def test_returns_none_with_empty_map(self):
+        result = _generate_toc_chunk({}, extracted_title="Doc", source="test.pdf")
+        assert result is None
+
+    def test_no_headings_prefix_in_toc_chunk(self):
+        """TOC chunk must NOT have [Разделы: ...] prefix."""
+        heading_map = {
+            "#/texts/0": ["A"],
+            "#/texts/1": ["B"],
+        }
+        result = _generate_toc_chunk(
+            heading_map, extracted_title="Doc", source="test.pdf"
+        )
+        assert result is not None
+        assert not result.page_content.startswith("[Разделы:")
+
+    def test_metadata_structure(self):
+        heading_map = {
+            "#/texts/0": ["H1"],
+            "#/texts/1": ["H1", "H1.1"],
+            "#/texts/2": ["H2"],
+        }
+        result = _generate_toc_chunk(
+            heading_map, extracted_title="My Doc", source="/path/doc.pdf"
+        )
+        assert result is not None
+        assert result.metadata == {
+            "source": "/path/doc.pdf",
+            "headings": [],
+            "captions": [],
+            "page_numbers": [],
+            "content_type": "toc",
+            "document_title": "My Doc",
+            "section_path": "",
+        }
+
+    def test_preserves_document_order(self):
+        """Headings should appear in document iteration order, not sorted."""
+        heading_map = {
+            "#/texts/0": ["Введение"],
+            "#/texts/1": ["Введение", "Общие положения"],
+            "#/texts/2": ["Ответственность"],
+            "#/texts/3": ["Заключение"],
+        }
+        result = _generate_toc_chunk(
+            heading_map, extracted_title="ПВТР", source="pvtr.pdf"
+        )
+        assert result is not None
+        lines = result.page_content.split("\n")
+        # Find positions of headings (skip title line and empty line)
+        content_lines = [line for line in lines if line.strip() and "Оглавление" not in line]
+        assert content_lines[0] == "Введение"
+        assert content_lines[1] == "  Общие положения"
+        assert content_lines[2] == "Ответственность"
+        assert content_lines[3] == "Заключение"
+
+    def test_deduplicates_heading_paths(self):
+        """Same heading path from multiple chunks should appear only once."""
+        heading_map = {
+            "#/texts/0": ["Chapter 1", "Section A"],
+            "#/texts/1": ["Chapter 1", "Section A"],  # duplicate
+            "#/texts/2": ["Chapter 1", "Section B"],
+        }
+        result = _generate_toc_chunk(
+            heading_map, extracted_title="Doc", source="test.pdf"
+        )
+        assert result is not None
+        # "Section A" should appear only once
+        assert result.page_content.count("Section A") == 1

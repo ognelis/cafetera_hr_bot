@@ -136,3 +136,8 @@ docker-compose.override.yml
 ragas/testset.json
 ragas/scores.json
 ragas/retrieval_scores.csv
+
+# =========================
+# RAGAS experiment results
+# =========================
+experiments/

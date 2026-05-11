@@ -16,6 +16,8 @@
 #     ./ragas/run.sh retrieval
 #     ./ragas/run.sh retrieval --k 5 --size 200
 #     ./ragas/run.sh retrieval --k 5 --size 200 --mode dense
+#     ./ragas/run.sh optimize
+#     ./ragas/run.sh optimize --variants 15 --sample-size 10
 #
 #   Retrieval modes (--mode): hybrid (default), dense, bm25
 # ─────────────────────────────────────────────────────────────────────────────
@@ -89,6 +91,8 @@ check_prerequisites_no_uv
 RETRIEVAL_K=""
 RETRIEVAL_SIZE=""
 RETRIEVAL_MODE=""
+OPTIMIZE_VARIANTS=""
+OPTIMIZE_SAMPLE_SIZE=""
 
 if [ $# -eq 0 ]; then
   echo
@@ -97,14 +101,16 @@ if [ $# -eq 0 ]; then
   echo "  2) evaluate  — run RAGAS evaluation only"
   echo "  3) all       — generate + evaluate (default)"
   echo "  4) retrieval — offline retrieval metrics (SberQuAD, temp Qdrant)"
-  read -r -p "[ragas] Enter choice [1-4, Enter=3]: " mode_choice
+  echo "  5) optimize  — optimize system prompt via LLM-generated variants"
+  read -r -p "[ragas] Enter choice [1-5, Enter=3]: " mode_choice
 
   case "${mode_choice:-3}" in
     1|generate)   ACTION="generate" ;;
     2|evaluate)   ACTION="evaluate" ;;
     3|all|"")     ACTION="all" ;;
     4|retrieval)  ACTION="retrieval" ;;
-    *) log "ERROR: Invalid choice '$mode_choice'. Use 1, 2, 3, or 4."; exit 1 ;;
+    5|optimize)   ACTION="optimize" ;;
+    *) log "ERROR: Invalid choice '$mode_choice'. Use 1, 2, 3, 4, or 5."; exit 1 ;;
   esac
 else
   ACTION="$1"
@@ -124,16 +130,24 @@ else
         RETRIEVAL_MODE="$2"
         shift 2
         ;;
+      --variants)
+        OPTIMIZE_VARIANTS="$2"
+        shift 2
+        ;;
+      --sample-size)
+        OPTIMIZE_SAMPLE_SIZE="$2"
+        shift 2
+        ;;
       *)
-        log "ERROR: Unknown option '$1'. Use: --k <number> --size <number> --mode <dense|bm25|hybrid>"
+        log "ERROR: Unknown option '$1'. Use: --k <number> --size <number> --mode <dense|bm25|hybrid> --variants <number> --sample-size <number>"
         exit 1
         ;;
     esac
   done
 fi
 
-if [[ "$ACTION" != "generate" && "$ACTION" != "evaluate" && "$ACTION" != "all" && "$ACTION" != "retrieval" ]]; then
-  log "ERROR: Unknown action '$ACTION'. Use: generate | evaluate | all | retrieval"
+if [[ "$ACTION" != "generate" && "$ACTION" != "evaluate" && "$ACTION" != "all" && "$ACTION" != "retrieval" && "$ACTION" != "optimize" ]]; then
+  log "ERROR: Unknown action '$ACTION'. Use: generate | evaluate | all | retrieval | optimize"
   exit 1
 fi
 
@@ -290,4 +304,25 @@ if [ "$ACTION" = "retrieval" ]; then
   esac
   
   eval "$RETRIEVAL_CMD"
+fi
+
+if [ "$ACTION" = "optimize" ]; then
+  echo "=== Optimizing system prompt ==="
+  log "Variants: ${OPTIMIZE_VARIANTS:-10} (default 10)"
+  log "Sample size: ${OPTIMIZE_SAMPLE_SIZE:-0} (0 = all)"
+  echo
+
+  OPTIMIZE_CMD="uv run python ragas/optimize_prompt.py"
+
+  # Append --variants if specified
+  if [[ -n "$OPTIMIZE_VARIANTS" ]]; then
+    OPTIMIZE_CMD="$OPTIMIZE_CMD --variants $OPTIMIZE_VARIANTS"
+  fi
+
+  # Append --sample-size if specified
+  if [[ -n "$OPTIMIZE_SAMPLE_SIZE" ]]; then
+    OPTIMIZE_CMD="$OPTIMIZE_CMD --sample-size $OPTIMIZE_SAMPLE_SIZE"
+  fi
+
+  eval "$OPTIMIZE_CMD"
 fi

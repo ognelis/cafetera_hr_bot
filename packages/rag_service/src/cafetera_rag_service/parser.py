@@ -204,6 +204,72 @@ def _resolve_chunk_headings(chunk, heading_map: dict[str, list[str]]) -> list[st
     return list(chunk.meta.headings) if chunk.meta.headings else []
 
 
+def _generate_toc_chunk(
+    heading_map: dict[str, list[str]],
+    *,
+    extracted_title: str | None,
+    source: str,
+) -> Document | None:
+    """Generate a synthetic TOC chunk from the heading map.
+
+    Collects unique heading paths, deduplicates, and formats as an indented
+    hierarchical outline. Returns None if fewer than 2 unique headings exist.
+    """
+    # Collect all unique full paths (the values in heading_map that end with a leaf heading)
+    # We want unique heading entries — each distinct heading text at its level
+    # Build a set of (depth, heading_text) tuples to reconstruct the tree
+    seen_paths: set[tuple[str, ...]] = set()
+    for heading_path in heading_map.values():
+        if heading_path:
+            seen_paths.add(tuple(heading_path))
+
+    if len(seen_paths) < 2:
+        return None
+
+    # Build ordered outline: sort paths lexicographically to maintain document order
+    # Actually, we need to maintain document order — collect paths in iteration order
+    ordered_paths: list[tuple[str, ...]] = []
+    seen_for_order: set[tuple[str, ...]] = set()
+    for heading_path in heading_map.values():
+        if heading_path:
+            key = tuple(heading_path)
+            if key not in seen_for_order:
+                seen_for_order.add(key)
+                ordered_paths.append(key)
+
+    # Format as indented outline
+    lines: list[str] = []
+    title = extracted_title or "документ"
+    lines.append(f"Оглавление документа «{title}»:")
+    lines.append("")
+
+    # Track which headings we've already emitted to avoid duplicates at each level
+    emitted: set[tuple[str, ...]] = set()
+    for path in ordered_paths:
+        # Emit each prefix of the path if not yet emitted
+        for depth in range(len(path)):
+            prefix = tuple(path[: depth + 1])
+            if prefix not in emitted:
+                emitted.add(prefix)
+                indent = "  " * depth
+                lines.append(f"{indent}{path[depth]}")
+
+    toc_text = "\n".join(lines)
+
+    return Document(
+        page_content=toc_text,
+        metadata={
+            "source": source,
+            "headings": [],
+            "captions": [],
+            "page_numbers": [],
+            "content_type": "toc",
+            "document_title": extracted_title or "",
+            "section_path": "",
+        },
+    )
+
+
 def _load_with_docling(
     path: Path,
     settings: RagServiceSettings,
@@ -276,6 +342,15 @@ def _load_with_docling(
             "section_path": chunk.meta.doc_items[0].self_ref if chunk.meta.doc_items else "",
         }
         docs.append(Document(page_content=page_content, metadata=metadata))
+
+    # Generate synthetic TOC chunk for structural queries
+    toc_chunk = _generate_toc_chunk(
+        heading_map,
+        extracted_title=extracted_title,
+        source=str(path),
+    )
+    if toc_chunk:
+        docs.append(toc_chunk)
 
     logger.info("Docling loaded %d chunks from %s", len(docs), path.name)
     return ParseResult(
