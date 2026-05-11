@@ -11,9 +11,11 @@ from langchain_core.documents import Document as LCDocument
 from cafetera_rag_service.config import RagServiceSettings
 from cafetera_rag_service.parser import (
     ParseResult,
+    _build_heading_map,
     _format_page_numbers,
     _get_chunker,
     _load_with_docling,
+    _resolve_chunk_headings,
     load_document,
 )
 
@@ -840,3 +842,164 @@ class TestFormatPageNumbers:
 
     def test_mixed_gaps(self):
         assert _format_page_numbers([1, 2, 5]) == "1, 2, 5"
+
+
+class TestBuildHeadingMap:
+    """Tests for _build_heading_map — heading ancestry from document tree."""
+
+    def test_heading_map_from_tree_nesting(self):
+        """Heading paths are built from tree nesting, not SectionHeaderItem.level."""
+        from docling_core.types.doc.document import SectionHeaderItem, TextItem
+
+        h1 = MagicMock(spec=SectionHeaderItem)
+        h1.self_ref = "#/body/sections/0"
+        h1.text = "Chapter 1"
+
+        h2 = MagicMock(spec=SectionHeaderItem)
+        h2.self_ref = "#/body/sections/0/sections/0"
+        h2.text = "Section 1.1"
+
+        h3 = MagicMock(spec=SectionHeaderItem)
+        h3.self_ref = "#/body/sections/0/sections/1"
+        h3.text = "Section 1.2"
+
+        h4 = MagicMock(spec=SectionHeaderItem)
+        h4.self_ref = "#/body/sections/0/sections/1/sections/0"
+        h4.text = "Subsection 1.2.1"
+
+        p1 = MagicMock(spec=TextItem)
+        p1.self_ref = "#/body/sections/0/sections/1/sections/0/paragraphs/0"
+
+        doc = MagicMock()
+        doc.iterate_items.return_value = [
+            (h1, 1),
+            (h2, 2),
+            (h3, 2),
+            (h4, 3),
+            (p1, 4),
+        ]
+
+        heading_map = _build_heading_map(doc)
+
+        assert heading_map[h1.self_ref] == ["Chapter 1"]
+        assert heading_map[h2.self_ref] == ["Chapter 1", "Section 1.1"]
+        assert heading_map[h3.self_ref] == ["Chapter 1", "Section 1.2"]
+        assert heading_map[h4.self_ref] == [
+            "Chapter 1",
+            "Section 1.2",
+            "Subsection 1.2.1",
+        ]
+        assert heading_map[p1.self_ref] == [
+            "Chapter 1",
+            "Section 1.2",
+            "Subsection 1.2.1",
+        ]
+
+    def test_heading_map_includes_title_items(self):
+        """TitleItem nodes are also tracked as headings."""
+        from docling_core.types.doc.document import TextItem, TitleItem
+
+        t1 = MagicMock(spec=TitleItem)
+        t1.self_ref = "#/body/title/0"
+        t1.text = "Document Title"
+
+        p1 = MagicMock(spec=TextItem)
+        p1.self_ref = "#/body/paragraphs/0"
+
+        doc = MagicMock()
+        doc.iterate_items.return_value = [
+            (t1, 1),
+            (p1, 2),
+        ]
+
+        heading_map = _build_heading_map(doc)
+
+        assert heading_map[t1.self_ref] == ["Document Title"]
+        assert heading_map[p1.self_ref] == ["Document Title"]
+
+    def test_heading_map_graceful_with_malformed_doc(self):
+        """Returns empty dict when iterate_items is missing or raises."""
+        doc = MagicMock()
+        doc.iterate_items.side_effect = AttributeError("no iterate_items")
+
+        heading_map = _build_heading_map(doc)
+        assert heading_map == {}
+
+    def test_heading_map_clears_stale_siblings(self):
+        """When a new heading appears at same tree level, deeper entries are cleared."""
+        from docling_core.types.doc.document import SectionHeaderItem, TextItem
+
+        h1 = MagicMock(spec=SectionHeaderItem)
+        h1.self_ref = "#/s/0"
+        h1.text = "A"
+
+        h2 = MagicMock(spec=SectionHeaderItem)
+        h2.self_ref = "#/s/0/s/0"
+        h2.text = "A.1"
+
+        h3 = MagicMock(spec=SectionHeaderItem)
+        h3.self_ref = "#/s/0/s/1"
+        h3.text = "A.2"
+
+        p1 = MagicMock(spec=TextItem)
+        p1.self_ref = "#/s/0/s/1/p/0"
+
+        doc = MagicMock()
+        doc.iterate_items.return_value = [
+            (h1, 1),
+            (h2, 2),
+            (h3, 2),
+            (p1, 3),
+        ]
+
+        heading_map = _build_heading_map(doc)
+
+        # h3 at level 2 should have cleared h2 from the stack
+        assert heading_map[p1.self_ref] == ["A", "A.2"]
+
+
+class TestResolveChunkHeadings:
+    """Tests for _resolve_chunk_headings — map lookup with fallback."""
+
+    def test_returns_map_entry_when_found(self):
+        """When doc_item self_ref exists in heading_map, return mapped path."""
+        chunk = MagicMock()
+        chunk.meta.doc_items = [MagicMock()]
+        chunk.meta.doc_items[0].self_ref = "ref1"
+        chunk.meta.headings = ["Fallback"]
+
+        heading_map = {"ref1": ["H1", "H2"]}
+        result = _resolve_chunk_headings(chunk, heading_map)
+        assert result == ["H1", "H2"]
+
+    def test_fallback_when_ref_not_in_map(self):
+        """When self_ref is not in heading_map, fall back to chunk.meta.headings."""
+        chunk = MagicMock()
+        chunk.meta.doc_items = [MagicMock()]
+        chunk.meta.doc_items[0].self_ref = "ref2"
+        chunk.meta.headings = ["Fallback Heading"]
+
+        heading_map = {"ref1": ["H1"]}
+        result = _resolve_chunk_headings(chunk, heading_map)
+        assert result == ["Fallback Heading"]
+
+    def test_fallback_when_doc_items_empty(self):
+        """When doc_items is empty, fall back to chunk.meta.headings."""
+        chunk = MagicMock()
+        chunk.meta.doc_items = []
+        chunk.meta.headings = ["Only Heading"]
+
+        heading_map = {}
+        result = _resolve_chunk_headings(chunk, heading_map)
+        assert result == ["Only Heading"]
+
+    def test_empty_when_no_headings_and_no_map(self):
+        """Returns empty list when neither map nor fallback has headings."""
+        chunk = MagicMock()
+        chunk.meta.doc_items = [MagicMock()]
+        chunk.meta.doc_items[0].self_ref = "ref1"
+        chunk.meta.headings = []
+
+        heading_map = {}
+        result = _resolve_chunk_headings(chunk, heading_map)
+        assert result == []

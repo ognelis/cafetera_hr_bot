@@ -159,6 +159,51 @@ def _detect_content_type(chunk) -> str:
     return "text"
 
 
+def _build_heading_map(dl_doc) -> dict[str, list[str]]:
+    """Build a mapping from item self_ref to its full heading ancestry path.
+
+    Uses the actual tree nesting depth from iterate_items (not SectionHeaderItem.level)
+    to correctly reconstruct heading hierarchy even when level field is wrong.
+    """
+    from docling_core.types.doc.document import SectionHeaderItem, TitleItem
+
+    heading_map: dict[str, list[str]] = {}
+    heading_stack: dict[int, str] = {}
+
+    try:
+        for idx, (item, level) in enumerate(dl_doc.iterate_items(with_groups=True)):
+            if idx > 100_000:
+                break
+            if isinstance(item, (SectionHeaderItem, TitleItem)):
+                heading_stack[level] = item.text
+                keys_to_remove = [k for k in heading_stack if k > level]
+                for k in keys_to_remove:
+                    del heading_stack[k]
+                sorted_keys = sorted(k for k in heading_stack if k <= level)
+                heading_map[item.self_ref] = [heading_stack[k] for k in sorted_keys]
+            else:
+                sorted_keys = sorted(k for k in heading_stack if k < level)
+                if sorted_keys:
+                    heading_map[item.self_ref] = [heading_stack[k] for k in sorted_keys]
+    except Exception:
+        pass
+
+    return heading_map
+
+
+def _resolve_chunk_headings(chunk, heading_map: dict[str, list[str]]) -> list[str]:
+    """Resolve the full heading path for a chunk using the pre-built heading map.
+
+    Looks up the first doc_item's self_ref in the heading map.
+    Falls back to chunk.meta.headings if not found in the map.
+    """
+    if chunk.meta.doc_items:
+        ref = chunk.meta.doc_items[0].self_ref
+        if ref in heading_map:
+            return heading_map[ref]
+    return list(chunk.meta.headings) if chunk.meta.headings else []
+
+
 def _load_with_docling(
     path: Path,
     settings: RagServiceSettings,
@@ -199,6 +244,7 @@ def _load_with_docling(
     )
 
     chunker = _get_chunker(settings.chunker_tokenizer_model, settings.chunk_size)
+    heading_map = _build_heading_map(dl_doc)
     docs: list[Document] = []
     for chunk in chunker.chunk(dl_doc=dl_doc):
         content_type = _detect_content_type(chunk)
@@ -211,9 +257,10 @@ def _load_with_docling(
 
         page_numbers = _extract_page_numbers(chunk)
         captions = _extract_captions(chunk)
+        headings = _resolve_chunk_headings(chunk, heading_map)
 
-        if chunk.meta.headings:
-            headings_prefix = " > ".join(chunk.meta.headings)
+        if headings:
+            headings_prefix = " > ".join(headings)
             page_content = f"[Разделы: {headings_prefix}]\n{page_content}"
 
         if not page_content or len(page_content.strip()) < 30:
@@ -221,7 +268,7 @@ def _load_with_docling(
 
         metadata = {
             "source": str(path),
-            "headings": list(chunk.meta.headings) if chunk.meta.headings else [],
+            "headings": headings,
             "captions": captions,
             "page_numbers": page_numbers,
             "content_type": content_type,
