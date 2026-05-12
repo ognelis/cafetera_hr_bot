@@ -57,18 +57,35 @@ _BEST_PROMPT_PATH = Path(__file__).parent / "best_prompt.txt"
 # ---------------------------------------------------------------------------
 
 _VARIATION_THEMES = [
+    # Стиль и тон
     "Make it more concise and direct",
-    "Emphasize document citation and source attribution",
-    "Add explicit handling of ambiguous questions",
-    "Focus on structured output formatting (lists, sections)",
     "Prioritize user-friendliness and empathy",
-    "Make rules more explicit and numbered",
-    "Add examples of expected behavior",
-    "Emphasize accuracy over completeness",
-    "Focus on handling contradictions in sources",
     "Make it more formal and professional",
+    "Use supportive professional tone without rigid or prohibitive language",
+
+    # Цитирование и источники
+    "Emphasize document citation and source attribution",
+    "Use explicit source citation format for every factual claim",
+
+    # Структура ответа
+    "Focus on structured output formatting (lists, sections)",
+    "Separate behavioral rules from formatting rules into two distinct blocks",
+    "Start every response with a one-sentence direct answer before details",
+
+    # Обработка edge-cases
+    "Add explicit handling of ambiguous questions",
+    "Focus on handling contradictions in sources",
     "Add explicit instructions for different question types",
+
+    # Правила и точность
+    "Make rules more explicit and numbered",
+    "Emphasize accuracy over completeness",
     "Emphasize brevity in responses",
+    "Place security and refusal rules at the end of the prompt",
+
+    # Расширенные возможности
+    "Add examples of expected behavior",
+    "Add multilingual support: respond in the language of the user's question",
 ]
 
 # ---------------------------------------------------------------------------
@@ -85,6 +102,13 @@ Here is the current system prompt used as a reference:
 ---
 {base_prompt}
 ---
+
+IMPORTANT: Previous experiments showed these patterns improve quality metrics:
+- Starting response with a direct answer first improves context precision
+- Explicit citation format «Согласно документу "[Название]"...» improves semantic similarity
+- Separating formatting rules into a dedicated «Структура ответа» block improves all metrics
+- Avoiding words like «строго», «запрещено» in the role definition improves answer relevancy
+- Overly long meta-instructions (>600 chars of rules) reduce semantic similarity
 
 Generate a CREATIVE VARIATION of this prompt. The variation MUST obey these \
 CORE rules:
