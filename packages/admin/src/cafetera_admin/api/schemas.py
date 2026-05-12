@@ -33,7 +33,7 @@ class DocumentResponse(BaseModel):
 class DocumentTableContext(TypedDict):
     """Template context for the document table partial."""
 
-    documents: list[Any]
+    documents: list[DocumentResponse]
     human_size: Callable[[int], str]
     page: int
     per_page: int

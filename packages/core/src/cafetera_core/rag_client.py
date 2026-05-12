@@ -5,11 +5,21 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, TypedDict
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+
+class IngestResult(TypedDict):
+    """Result of a document ingestion operation."""
+
+    chunks_indexed: int
+    page_count: int | None
+    binary_hash: str | None
+    extracted_title: str | None
+    status: str | None
 
 
 class RAGClient:
@@ -137,7 +147,7 @@ class RAGClient:
         s3_key: str,
         *,
         is_search_enabled: bool = True,
-    ) -> dict[str, Any]:
+    ) -> IngestResult:
         """Send a document for full ingestion (parse + embed + index).
 
         The RAG service handles: S3 download -> Docling parse -> chunk ->

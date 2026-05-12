@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from langchain_core.embeddings import Embeddings
     from langchain_core.language_models import BaseChatModel
+    from langchain_core.retrievers import BaseRetriever
     from langchain_core.runnables import Runnable
     from qdrant_client import AsyncQdrantClient
 
@@ -228,7 +229,7 @@ class QAService:
 
         try:
             # Build retriever with reranker wrapper for context extraction
-            retriever = build_retriever(
+            retriever: BaseRetriever = build_retriever(
                 self._settings,
                 qdrant_client=self._qdrant_client,
                 embeddings=self._embeddings,

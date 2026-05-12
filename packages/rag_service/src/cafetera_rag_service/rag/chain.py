@@ -63,7 +63,9 @@ def _format_docs_with_metadata(docs: list[Document]) -> str:
     return "\n\n---\n\n".join(formatted_chunks)
 
 
-def _openai_sampling_kwargs(settings: RagServiceSettings) -> dict[str, Any]:
+def _openai_sampling_kwargs(
+    settings: RagServiceSettings,
+) -> dict[str, Any]:
     """Collect optional OpenAI-compatible sampling kwargs.
 
     ``top_p`` and ``presence_penalty`` are native Chat Completions parameters.

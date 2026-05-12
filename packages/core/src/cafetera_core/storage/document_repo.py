@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 from databases import Database
+from databases.interfaces import Record
 
 from cafetera_core.storage.models import DocumentRecord, DocumentStatus
 
@@ -32,7 +32,7 @@ _COLUMNS = (
 )
 
 
-def _row_to_record(row: Any) -> DocumentRecord:
+def _row_to_record(row: Record) -> DocumentRecord:
     """Convert a database row to a ``DocumentRecord``."""
     raw_config = row["indexing_config"]
     indexing_config = json.loads(raw_config) if raw_config else None

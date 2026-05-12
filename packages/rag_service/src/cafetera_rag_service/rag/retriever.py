@@ -68,6 +68,7 @@ class AsyncQdrantRetriever(BaseRetriever):
                 return []
             from qdrant_client.models import SparseVector
 
+            assert self.sparse_embedding is not None
             sparse_result = self.sparse_embedding.embed_query(sparse_query)
             sparse_vec = SparseVector(
                 indices=_to_list(sparse_result.indices),
@@ -164,7 +165,7 @@ class AsyncQdrantRetriever(BaseRetriever):
                     )
                     points = [results.points[0]]
 
-        docs: list[Document] = []
+        docs = []
         for r in points:
             if r.payload is not None:
                 docs.append(

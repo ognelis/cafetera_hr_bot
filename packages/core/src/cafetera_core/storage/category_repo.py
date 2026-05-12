@@ -5,9 +5,9 @@ from __future__ import annotations
 import dataclasses
 import logging
 from datetime import UTC, datetime
-from typing import Any
 
 from databases import Database
+from databases.interfaces import Record
 
 from cafetera_core.storage.category_models import CategoryFileRecord
 
@@ -28,7 +28,7 @@ _COLUMNS = (
 )
 
 
-def _row_to_record(row: Any) -> CategoryFileRecord:
+def _row_to_record(row: Record) -> CategoryFileRecord:
     """Convert a database row to a ``CategoryFileRecord``."""
     return CategoryFileRecord(
         id=row["id"],
