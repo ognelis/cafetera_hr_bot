@@ -71,7 +71,7 @@ DEFAULT_TESTSET = Path(__file__).parent / "testset.json"
 MAX_CONCURRENT_QA = 2
 
 # Max workers for aevaluate() scoring phase.
-MAX_SCORING_WORKERS = 3
+MAX_SCORING_WORKERS = 2
 
 # Faithfulness needs a generous max_tokens ceiling (NER extraction produces
 # long JSON).  All other metrics emit short verdicts.  Since aevaluate()
@@ -378,7 +378,20 @@ async def score_with_metrics(
     kwargs: dict[str, Any] = {
         "dataset": eval_dataset,
         "metrics": metrics,
-        "run_config": RunConfig(max_workers=MAX_SCORING_WORKERS),
+        "run_config": RunConfig(
+            max_workers=MAX_SCORING_WORKERS,
+            # Local small models on Metal can take several minutes per
+            # Faithfulness row (NER extraction over long contexts).  The
+            # ragas default of 180s aborts these mid-generation and surfaces
+            # as ``APIConnectionError: Connection error.`` from the httpx
+            # pool when the async LLM call is cancelled.
+            timeout=1800,
+            # Auto-retry transient connection/timeouts so one blip does not
+            # NaN a whole row.  Keeps tenacity's default exception scope
+            # (any ``Exception``).
+            max_retries=1,
+            max_wait=60,
+        ),
         "raise_exceptions": False,
     }
     if experiment_name:

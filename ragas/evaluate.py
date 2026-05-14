@@ -25,6 +25,7 @@ import argparse
 import asyncio
 import json
 import logging
+import math
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -219,14 +220,30 @@ async def run_evaluation(
     print_summary(result)
 
     output_path = testset_path.parent / "scores.json"
+    # Replace NaN/Infinity with None so the output is strict-JSON compliant
+    # (default json.dumps emits non-standard NaN tokens rejected by JSON.parse/jq).
+    sanitized_scores = _sanitize_for_json(result.scores)
     output_path.write_text(
-        json.dumps(result.scores, ensure_ascii=False, indent=2),
+        json.dumps(sanitized_scores, ensure_ascii=False, indent=2, allow_nan=False),
         encoding="utf-8",
     )
     logger.info("Scores saved to %s", output_path)
     logger.info(
         "Experiment '%s' saved to %s/experiments/", exp_name, _EXPERIMENTS_DIR,
     )
+
+
+def _sanitize_for_json(value: Any) -> Any:
+    """Recursively replace NaN/Infinity floats with None for strict JSON output."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {k: _sanitize_for_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_for_json(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_sanitize_for_json(v) for v in value)
+    return value
 
 
 # ---------------------------------------------------------------------------
