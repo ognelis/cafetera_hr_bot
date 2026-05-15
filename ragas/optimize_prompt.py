@@ -58,10 +58,10 @@ _BEST_PROMPT_PATH = Path(__file__).parent / "best_prompt.txt"
 
 _VARIATION_THEMES = [
     # Стиль и тон
-    # "Make it more concise and direct",
-    # "Prioritize user-friendliness and empathy",
-    # "Make it more formal and professional",
-    # "Use supportive professional tone without rigid or prohibitive language",
+    "Make it more concise and direct",
+    "Prioritize user-friendliness and empathy",
+    "Make it more formal and professional",
+    "Use supportive professional tone without rigid or prohibitive language",
 
     # Цитирование и источники
     "Emphasize document citation and source attribution",

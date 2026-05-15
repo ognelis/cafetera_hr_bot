@@ -26,9 +26,18 @@ from qdrant_client import QdrantClient
 from ragas.embeddings.base import embedding_factory
 from ragas.executor import Executor
 from ragas.llms import llm_factory
+from ragas.llms.base import BaseRagasLLM
 from ragas.run_config import RunConfig
-from ragas.testset import TestsetGenerator
+from ragas.testset import Testset, TestsetGenerator
 from ragas.testset.graph import KnowledgeGraph, Node, NodeType
+from ragas.testset.persona import Persona
+from ragas.testset.synthesizers import QueryDistribution, default_query_distribution
+from ragas.testset.synthesizers.multi_hop.prompts import (
+    QueryAnswerGenerationPrompt as MultiHopQAGenPrompt,
+)
+from ragas.testset.synthesizers.single_hop.prompts import (
+    QueryAnswerGenerationPrompt as SingleHopQAGenPrompt,
+)
 from ragas.testset.transforms.default import default_transforms_for_prechunked
 from ragas.testset.transforms.engine import apply_transforms
 
@@ -41,6 +50,119 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 TESTSET_PATH = Path(__file__).parent / "testset.json"
+
+# Reference (golden) answer instruction shared by single-hop and multi-hop
+# synthesizers. Overrides the default RAGAS prompts to bias toward longer,
+# fully-grounded HR-style answers in Russian.
+_DETAILED_RU_QA_INSTRUCTION = (
+    "Сгенерируй пару (вопрос, ответ) строго на основе переданного контекста.\n\n"
+    "Требования к ВОПРОСУ:\n"
+    "1. Вопрос должен быть конкретным — контекст даёт на него однозначный ответ.\n"
+    "2. Формулируй естественно, как реальный сотрудник: без канцеляризмов.\n"
+    "3. Не упоминай названия документов в вопросе.\n\n"
+    "Требования к ОТВЕТУ (reference):\n"
+    "1. Длина соответствует сложности вопроса: простой факт — 1–2 предложения, "
+    "сложная процедура — 3–5 предложений. Не растягивай ответ искусственно.\n"
+    "2. Ответ обязан быть полностью обоснован переданным контекстом — "
+    "не выдумывай фактов.\n"
+    "3. Включай все релевантные детали: условия, сроки, ответственных, "
+    "исключения — но только если они есть в контексте.\n"
+    "4. Стиль — деловой, как ответ опытного HR-сотрудника коллеге.\n"
+    "5. Не используй метафразы: 'согласно контексту', 'в документе сказано', "
+    "'на основании предоставленной информации', 'исходя из текста'.\n"
+    "6. Пиши обычным текстом — без жирного выделения, без маркированных "
+    "списков, если вопрос не требует перечисления шагов.\n"
+)
+
+_DETAILED_EN_QA_INSTRUCTION = (
+    "Generate a question-answer pair in English based strictly on the provided "
+    "context.\n\n"
+    "Question requirements:\n"
+    "1. The question must be specific — the context provides a clear answer.\n"
+    "2. Phrase it naturally, as a real employee would ask.\n"
+    "3. Do not mention document names in the question.\n\n"
+    "Answer requirements:\n"
+    "1. Length matches complexity: simple fact — 1–2 sentences, "
+    "complex procedure — 3–5 sentences. Do not pad unnecessarily.\n"
+    "2. Ground every statement in the provided context — no invented facts.\n"
+    "3. Include all relevant details: conditions, deadlines, responsible "
+    "parties, exceptions — only if present in the context.\n"
+    "4. Style: professional, supportive, no bureaucratic language.\n"
+    "5. Avoid meta-phrases: 'according to the context', 'the document states', "
+    "'based on the provided information'.\n"
+    "6. Plain text only — no bold, no bullet lists unless listing steps.\n"
+)
+
+
+class DetailedSingleHopQAPrompt(SingleHopQAGenPrompt):
+    instruction = _DETAILED_RU_QA_INSTRUCTION
+
+    def __init__(self) -> None:
+        # ``BasePrompt.__init__`` derives ``name`` from the class name, which
+        # would change the key used by ``set_prompts`` / ``get_prompts``.
+        # Pin it back to the canonical name after super init.
+        super().__init__()
+        self.name = "query_answer_generation_prompt"
+
+
+class DetailedMultiHopQAPrompt(MultiHopQAGenPrompt):
+    # Multi-hop требует явного указания на синтез нескольких фактов
+    instruction = (
+        _DETAILED_RU_QA_INSTRUCTION
+        + "\n7. Вопрос должен требовать объединения информации из нескольких "
+        "частей контекста — не задавай вопрос, ответ на который содержится "
+        "в одном предложении.\n"
+        "8. Ответ явно связывает факты из разных частей контекста.\n"
+    )
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.name = "query_answer_generation_prompt"
+
+
+# Explicit HR-bot personas steer both question phrasing and answer style.
+# Without ``persona_list`` RAGAS auto-generates generic personas from the KG via
+# ``PersonasGenerationPrompt`` — replacing them with role-specific HR askers
+# typically lengthens answers and surfaces realistic phrasing patterns.
+HR_PERSONAS: list[Persona] = [
+    Persona(
+        name="Новый сотрудник кофейни",
+        role_description=(
+            "Бариста на испытательном сроке (первые 3 месяца). Задаёт "
+            "развёрнутые вопросы про оформление, график, обучение, оплату. "
+            "Пишет разговорно, иногда с опечатками или без знаков препинания. "
+            "Ожидает пошаговые ответы с конкретными условиями и сроками."
+        ),
+    ),
+    Persona(
+        name="Опытный сотрудник",
+        role_description=(
+            "Работает более года, знает базовые правила. Задаёт точечные "
+            "уточняющие вопросы про отпуска, переводы, материальную "
+            "ответственность, увольнение. Пишет грамотно и формально. "
+            "Ожидает краткие точные ответы с указанием конкретных норм."
+        ),
+    ),
+    Persona(
+        name="Менеджер смены",
+        role_description=(
+            "Руководит командой из 3–8 человек. Задаёт вопросы про "
+            "дисциплинарные процедуры, оформление нарушений, права при "
+            "конфликтах, документооборот. Пишет чётко и структурированно. "
+            "Ожидает ответы со ссылкой на конкретный регламент или пункт."
+        ),
+    ),
+    Persona(
+        name="Иностранный сотрудник",
+        role_description=(
+            "Expat or foreign national working at the coffee shop. Asks "
+            "questions in English about working conditions, leave policy, "
+            "labor rights, and HR procedures. Uses simple, direct phrasing. "
+            "Expects clear answers in English with key Russian terms in "
+            "parentheses where relevant."
+        ),
+    ),
+]
 
 
 def _load_settings() -> RagServiceSettings:
@@ -199,11 +321,33 @@ def _nan_filtering_results(original_results):
     return patched_results
 
 
+def _build_query_distribution(
+    llm: BaseRagasLLM, kg: KnowledgeGraph
+) -> QueryDistribution:
+    """Build the default query distribution with HR-tuned reference prompts.
+
+    Reuses ``default_query_distribution`` so we keep RAGAS' default
+    synthesizer set and weights, then patches the
+    ``query_answer_generation_prompt`` on each synthesizer with our detailed
+    Russian HR instruction.  Dispatch is by ``isinstance`` of the existing
+    prompt so this stays correct if RAGAS adds more synthesizers later.
+    """
+    distribution = default_query_distribution(llm, kg)
+    for synth, _weight in distribution:
+        existing = synth.get_prompts().get("query_answer_generation_prompt")
+        if isinstance(existing, MultiHopQAGenPrompt):
+            synth.set_prompts(query_answer_generation_prompt=DetailedMultiHopQAPrompt())
+        elif isinstance(existing, SingleHopQAGenPrompt):
+            synth.set_prompts(query_answer_generation_prompt=DetailedSingleHopQAPrompt())
+    return distribution
+
+
 def _generate_with_nan_filter(
     generator: TestsetGenerator,
     *,
     testset_size: int,
-) -> Any:
+    query_distribution: QueryDistribution | None = None,
+) -> Testset:
     """Run ``generator.generate()`` with NaN-safe sample filtering.
 
     Monkey-patches ``Executor.results`` for the duration of the call so
@@ -223,6 +367,7 @@ def _generate_with_nan_filter(
         testset = generator.generate(
             testset_size=testset_size,
             raise_exceptions=False,
+            query_distribution=query_distribution,
         )
 
     return testset
@@ -288,11 +433,14 @@ def generate_testset(size: int = 20) -> None:
     logger.info("Applying transforms to %d CHUNK nodes...", len(nodes))
     apply_transforms(kg, transforms, run_config=RunConfig())
 
-    # 4. Generate testset from the populated knowledge graph
+    # 4. Generate testset from the populated knowledge graph.
+    # ``persona_list`` overrides RAGAS's auto-generated personas with explicit
+    # HR-bot askers so question phrasing and answer style match real users.
     generator = TestsetGenerator(
         llm=ragas_llm,
         embedding_model=ragas_embeddings,
         knowledge_graph=kg,
+        persona_list=HR_PERSONAS,
     )
     # Request extra samples to compensate for expected NaN failures from the
     # local LLM.  We ask for 2x the desired size and trim later.
@@ -303,10 +451,15 @@ def generate_testset(size: int = 20) -> None:
         request_size,
     )
 
+    # Override per-synthesizer reference-answer prompts to produce longer,
+    # HR-style Russian golden answers.
+    query_distribution = _build_query_distribution(ragas_llm, kg)
+
     try:
         testset = _generate_with_nan_filter(
             generator,
             testset_size=request_size,
+            query_distribution=query_distribution,
         )
     except Exception:
         logger.exception("Testset generation failed")

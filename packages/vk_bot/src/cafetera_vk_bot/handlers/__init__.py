@@ -14,6 +14,7 @@ from vkbottle.tools import Format
 
 from cafetera_core.domain.category_file_service import CategoryFileService
 from cafetera_core.rag_client import RAGClient
+from cafetera_vk_bot.formatting import markdown_to_format
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ async def query_rag_with_wait(
     *,
     timeout: float = 3.0,
     category: str | None = None,
-) -> str:
+) -> str | Format:
     """Query RAG chain; send a 'please wait' message if it takes longer than *timeout* seconds."""
     rag_task = asyncio.create_task(
         get_rag_client().ask(
@@ -90,11 +91,11 @@ async def query_rag_with_wait(
 
         if rag_task in done:
             logger.debug("RAG answered within timeout for peer %s", message.peer_id)
-            return rag_task.result()
+            return markdown_to_format(rag_task.result())
 
         logger.info("RAG slow for peer %s, sending wait message", message.peer_id)
         await message.answer("⏳ Ваш вопрос обрабатывается, подождите до 1 минуты…")
-        return await rag_task
+        return markdown_to_format(await rag_task)
     except Exception:
         logger.exception("RAG query failed for peer %s", message.peer_id)
         raise
